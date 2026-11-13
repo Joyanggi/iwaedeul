@@ -99,6 +99,8 @@ describe("v120 RR0 — 검사 도구가 화면 클래스에 안 묶인다", () =
     const fn = lib.slice(lib.indexOf("export const inPageSetNumber"), lib.indexOf("export const inPageLastVisible"))
     expect(fn).toContain("var(--text-heading-2-size)")
     expect(fn).toContain("inputs.length === 0")
+    // 토큰이 없으면 var()가 무효라 물려받은 16px로 풀려 거짓 통과한다 — 토큰이 비면 실패로 낸다
+    expect(fn).toContain("getPropertyValue('--text-heading-2-size').trim() === ''")
   })
 
   it("v120 RR0: 새 칸은 before(와 판정을 안 켠 칸)에서는 기록만 하고 실패로 세지 않는다", () => {

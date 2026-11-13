@@ -250,6 +250,10 @@ export const inPageTabHit = () => {
 export const inPageSetNumber = () => {
   const inputs = [...document.querySelectorAll('.set-row input')].filter((el) => window.__vis(el))
   if (inputs.length === 0) return { ok: false, detail: '.set-row 안 보이는 input이 0개 — 아무것도 안 쟀다' }
+  // 토큰이 없으면 var()가 무효라 font-size가 물려받은 16px로 풀려 거짓 통과한다 — 먼저 토큰이 있는지 본다
+  if (getComputedStyle(document.documentElement).getPropertyValue('--text-heading-2-size').trim() === '') {
+    return { ok: false, detail: '--text-heading-2-size가 비었다(테마 토큰이 안 걸린 장면)' }
+  }
   const probe = document.createElement('span')
   probe.style.fontSize = 'var(--text-heading-2-size)'
   document.documentElement.appendChild(probe)
