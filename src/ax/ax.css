@@ -177,9 +177,9 @@
     padding: calc(env(safe-area-inset-top) + 12px) var(--inset-screen) calc(env(safe-area-inset-bottom) + 24px);
   }
 
-  /* 홈 화면 앱의 상태바 글자는 항상 흰색이라, 라이트에서만 상태바 자리를 어둡게 받친다 */
+  /* 홈 화면 앱의 상태바 글자는 항상 흰색이라, 라이트에서만 상태바 자리를 어둡게 받친다 (전 화면 — v1.20 RR2) */
   @media (prefers-color-scheme: light) {
-    .ax-screen::before {
+    body::before {
       content: '';
       position: fixed;
       top: 0;

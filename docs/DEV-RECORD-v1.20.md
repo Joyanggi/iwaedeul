@@ -324,3 +324,23 @@ PLAN "확인한 것" 3의 923ms·271ms보다 작다(제약 33). RR1의 3배 선�
 
 - "PLAN과 다르게 한 것" 2: legacy 시트의 면을 PLAN의 예상(테마색으로 바뀜)과 달리 그대로 뒀다. RR2가 `--glass-*`를 어떻게 이을지에 따라 `.astryx-bottom-sheet`로 좁힌 이 선택이 RR2 쪽에서 되돌려질 수 있다.
 - 같은 3: 눌림 검사의 `안 돌아옴` 무작위 실패의 원인을 "기다림이 짧아졌다"로 정했는데, 하한을 둔 뒤 전체 실행 한 번에서 0건이었다(여러 번 돌려 본 것은 아니다).
+
+---
+
+## RR2. 안 옮긴 화면의 색을 테마에 잇기
+
+| 항목 | 내용 |
+|---|---|
+| 바뀐 것 | `global.css` `:root` 색 토큰 13개(PLAN 12 + `--text-placeholder`)를 `var(--color-…)`로, 리터럴 약 50곳을 `color-mix`·테마 토큰으로, `color-scheme: dark` 삭제. `glass.css`: `html[data-astryx-theme]`에 `--glass-bar`, 루트의 `--glass-sheet/solid/edge`를 테마 토큰으로, 라이트에서 legacy 띠 흐림의 `brightness()` 뺌. `ax.css`: 상태바 받침 `.ax-screen::before` → `body::before`. README Limitations 문구. `ui-check`: 차트 색·라이트 배경이 다크보다 밝은지 판정 추가 |
+| 테스트 | `scripts/legacy-scope.test.mjs`의 `v120 RR2 — 색 다리` 6개(CSS는 `?raw`가 빈 문자열이라 fs로 읽는 이 파일에 둠). 전체 70파일/1661개 통과, `npm run check` 통과 |
+| 세 숫자 | 44→44 · 97→97 · 520→520 · 선택자 2→2 (늘지 않음 — 화면 파일 안 고침) |
+| 옮긴 스캔 | `legacy-scope.test.mjs` "테마에서 만든 시트 면·테두리 토큰은…": 전 `html[data-astryx-theme] {` 블록 금지 → 그 블록에 `--glass-sheet|solid|edge` 금지. 같은 뜻(목적이 시트 토큰) — RR1 리뷰 경미 1 |
+| 결함 복원 | ④ `:root`의 `--bg`를 `#0b0b0d`로 → `v120 RR2` 2건 실패, 원상복구 확인(`git diff --stat` 동일) |
+| 차트 | `getPropertyValue`로 읽은 `light-dark(…)` 글자가 SVG에 그대로 먹어 계산된 값이 `rgb(`: 선 `241→27`, 축 `158→71`(다크→라이트). `chartColor` 안 고침. 전환을 저절로 따라간다 |
+| 라이트 배경 | `rgb(241,241,241)` > 다크 `rgb(27,27,27)` 전 장면 통과 |
+| 접근성 | 심각 위반 칸은 RR1과 같다(`session`·`sheet-food` 기존 실패만) |
+| 변이 | 대상 없음(`src/lib` 안 고침) |
+
+**실패로 남은 것 — `유리` 칸 `글자 대비` (전 장면 다크·라이트, RR1에선 통과)**: 검사가 띠 뒤에 accent·ok 면이 있다고 가정하고 글자를 잰다. Neutral 테마의 accent는 다크에서 `#f1f1f1`, 라이트에서 `#1b1b1b`라 `--text-dim`(secondary)이 2.5~4.3:1이 된다(예: `"식단" 2.52:1 (accent 위)`). 옛 주황 accent 가정에서 맞춘 검사다. 이 대비는 어떤 띠 색으로도 못 올린다(다크: 뒤 비침 0.30만으로 이미 모자람). 고칠 자리는 테마(RRT)나 검사의 가정이다 — RR2에서 검사를 끄거나 고치지 않았다. 지휘자 판단 필요. `after --check` 종료 코드는 1.
+
+**하지 않은 것:** `bodyLuminance`를 `inPageLayout`에 더하지 않고 기존 `테마 토큰` 칸의 배경색으로 견줬다. 라이트 `유리` 값 재조정은 RRM 몫. 화면 검증(스크린샷 육안)은 안 했다. 실기기 ① 사람 확인 필요.

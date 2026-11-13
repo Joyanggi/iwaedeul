@@ -77,7 +77,8 @@ describe('v120 RR1 — legacy 규칙의 범위', () => {
 
   it('v120 RR1: 테마에서 만든 시트 면·테두리 토큰은 html이 아니라 Astryx 시트에만 건다 (html에 걸면 안 옮긴 legacy 시트의 면이 바뀐다)', () => {
     const glassCss = read('src/styles/glass.css')
-    expect(glassCss).not.toMatch(/html\[data-astryx-theme\]\s*\{/)
+    // RR2: html 블록이 --glass-bar를 갖게 됐다 — 금지 대상은 블록이 아니라 시트 토큰(같은 뜻: 안 옮긴 legacy 시트의 면을 html이 바꾸지 않는다)
+    expect(glassCss).not.toMatch(/html\[data-astryx-theme\]\s*\{[^}]*--glass-(sheet|solid|edge)/)
     expect(axCss).not.toMatch(/html\[data-astryx-theme\]\s*\{[^}]*--glass-/)
     expect(glassCss).toMatch(/html\[data-astryx-theme\] \.astryx-bottom-sheet \{\s*--glass-solid/)
   })
@@ -89,5 +90,41 @@ describe('v120 RR1 — legacy 규칙의 범위', () => {
     expect(m[1]).toMatch(/font-family:\s*var\(--font-sans\)/)
     expect(m[1]).toMatch(/color:\s*var\(--text\)/)
     expect(globalCss).toMatch(/--font-sans:\s*-apple-system/)
+  })
+})
+
+// PLAN v1.20 RR2 — 안 옮긴 화면의 색을 테마에 잇기 (CSS라 이 파일에서 fs로 읽는다)
+describe('v120 RR2 — 색 다리', () => {
+  const rootStart = globalCss.indexOf(':root {')
+  const root = globalCss.slice(rootStart, globalCss.indexOf('\n}', rootStart))
+  const outside = globalCss.replace(root, '')
+  const glassCss = read('src/styles/glass.css')
+
+  it('v120 RR2: global.css의 :root 색 토큰 12개(+placeholder)의 값이 전부 var(--color-로 시작한다', () => {
+    const names = ['bg', 'surface', 'surface-2', 'line', 'text', 'text-dim', 'text-faint', 'text-placeholder', 'accent', 'accent-soft', 'ok', 'warn', 'danger']
+    for (const n of names) expect(root, `--${n}`).toMatch(new RegExp(`--${n}: var\\(--color-[a-z-]+\\);`))
+  })
+
+  it('v120 RR2: global.css에 # 색 리터럴과 rgba(·rgb(가 0건이다 (color-mix 안의 transparent는 허용)', () => {
+    expect(globalCss).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+    expect(outside).not.toMatch(/rgba?\(/)
+  })
+
+  it('v120 RR2: global.css에 color-scheme: dark가 없다', () => {
+    expect(globalCss).not.toMatch(/color-scheme:\s*dark/)
+  })
+
+  it('v120 RR2: 상태바 받침은 .ax-screen이 아니라 body::before에 걸려 전 화면이 받는다', () => {
+    expect(axCss).toMatch(/prefers-color-scheme: light\) \{\s*body::before \{/)
+    expect(axCss).not.toContain('.ax-screen::before')
+  })
+
+  it('v120 RR2: html[data-astryx-theme] 블록이 --glass-bar를 테마 표면에서 만들고 시트 토큰은 html 블록에 없다', () => {
+    expect(glassCss).toMatch(/html\[data-astryx-theme\] \{\s*--glass-bar: color-mix\(in srgb, var\(--color-background-surface\) 50%, transparent\);/)
+    expect(glassCss).not.toMatch(/--glass-(sheet|solid|edge): (rgba|#)/)
+  })
+
+  it('v120 RR2: 라이트에서 legacy 띠 넷의 흐림에 brightness()가 없다', () => {
+    expect(glassCss).toMatch(/prefers-color-scheme: light\) \{\s*\.tabbar,[\s\S]*?backdrop-filter: saturate\(180%\) blur\(20px\);/)
   })
 })

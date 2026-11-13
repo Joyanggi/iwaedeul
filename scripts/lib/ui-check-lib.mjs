@@ -336,3 +336,30 @@ export function compareRects(base, now) {
   }
   return { ok: true, detail: `${base.length}개 요소 같다` }
 }
+
+/** 차트 색 (RR2): 선(`.recharts-line-curve`·막대 등 stroke가 있는 path 하나)의 stroke와 축 글자 하나의 fill을 **계산된** 값으로 돌려준다 */
+export const inPageChartColors = () => {
+  // 시드 기록이 적으면 추이 선은 안 그려진다 — 그때는 막대의 fill을 선 자리에 잰다
+  const line = document.querySelector('.recharts-line-curve')
+  const bar = document.querySelector('.recharts-bar-rectangle path, .recharts-bar-rectangle rect')
+  const tick = document.querySelector('.recharts-cartesian-axis-tick-value')
+  const cs = (el, prop) => (el ? getComputedStyle(el)[prop] : '')
+  return { line: line ? cs(line, 'stroke') : cs(bar, 'fill'), tick: cs(tick, 'fill') }
+}
+
+/** `rgb(r, g, b)` 글자의 밝기(0~255, 단순 평균 가중) — 실패하면 NaN (Node) */
+export function rgbLuminance(rgb) {
+  const m = /^rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(rgb || '')
+  return m ? 0.2126 * +m[1] + 0.7152 * +m[2] + 0.0722 * +m[3] : NaN
+}
+
+/** 차트 색 판정 (Node): 둘 다 rgb( 로 시작하고 투명·검정 기본값이 아니며 라이트와 다크에서 다르다 */
+export function chartColorVerdict(c) {
+  if (!c || c.dark === undefined || c.light === undefined) return { ok: false, detail: '다크·라이트 한 쪽을 못 쟀다' }
+  const bad = (v) => !/^rgb/.test(v) || /^rgba\(.*,\s*0\)$/.test(v) || v === 'rgb(0, 0, 0)'
+  for (const k of ['line', 'tick']) {
+    if (bad(c.dark[k]) || bad(c.light[k])) return { ok: false, detail: `${k}: 다크 ${c.dark[k] || '없음'} · 라이트 ${c.light[k] || '없음'}` }
+    if (c.dark[k] === c.light[k]) return { ok: false, detail: `${k}가 라이트·다크에서 같다: ${c.dark[k]}` }
+  }
+  return { ok: true, detail: `선 ${c.dark.line} → ${c.light.line} · 축 ${c.dark.tick} → ${c.light.tick}` }
+}

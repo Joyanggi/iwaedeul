@@ -54,6 +54,9 @@ import {
   inPageSpacing,
   inPageTabHit,
   inPageThemeTokens,
+  inPageChartColors,
+  rgbLuminance,
+  chartColorVerdict,
   measurePress,
   motionStaticChecks,
   pressVerdict,
@@ -126,6 +129,7 @@ const EXPECTED_BARS = {
 }
 const SET_SCENES = new Set(['session', 'session-375', 'history-detail-edit'])
 const LAST_SCENES = new Set(['home', 'home-end', 'home-resume', 'home-resume-end', 'diet', 'history', 'analyze', 'settings-end'])
+const chartColors = {} // 장면 -> { dark, light } 차트 선·축의 계산된 색 (RR2)
 const themeBg = {} // 장면 -> { dark, light } 문서 배경 (테마 토큰 칸의 라이트·다크 견줌)
 const rects = {} // 장면 -> inPageRects() (배치 기록)
 const rows = []
@@ -203,6 +207,7 @@ async function newColumns(page, scene, cells, light) {
     themeBg[scene] = { ...themeBg[scene], [light ? 'light' : 'dark']: t.bg }
     cells['테마 토큰'] = softVerdict('테마 토큰', t, phase === 'before' ? THEME_SCENES_BEFORE.has(scene) : JUDGED['테마 토큰'])
   }
+  if (scene === 'analyze') chartColors[scene] = { ...chartColors[scene], [light ? 'light' : 'dark']: await page.evaluate(inPageChartColors) }
   if (light) return name
   cells['탭 누름'] = softVerdict('탭 누름', await page.evaluate(inPageTabHit))
   cells['마지막 요소'] = LAST_SCENES.has(scene) ? softVerdict('마지막 요소', await page.evaluate(inPageLastVisible)) : { status: '건너뜀', detail: '이 장면은 재지 않는다' }
@@ -656,11 +661,18 @@ function printResults() {
   if (bgPairs.length) {
     console.log('\n테마 토큰 · 라이트와 다크의 문서 배경:')
     for (const [scene, v] of bgPairs) {
-      const differ = v.dark !== v.light
+      // RR2: 라이트 장면의 문서 배경이 다크보다 밝아야 한다(배경이 달라지기만 해서는 라이트가 어두운 채일 수 있다)
+      const differ = v.dark !== v.light && rgbLuminance(v.light) > rgbLuminance(v.dark)
       const judged = themeJudged(scene)
       if (judged && !differ) failed++
       console.log(`- ${judged ? (differ ? '통과' : '실패') : '기록'} ${scene}: 다크 ${v.dark} · 라이트 ${v.light}`)
     }
+  }
+  if (chartColors.analyze) {
+    const c = chartColorVerdict(chartColors.analyze)
+    if (!c.ok) failed++
+    console.log(`
+차트 색 (analyze, 계산된 stroke·fill): ${c.ok ? '통과' : '실패'} — ${c.detail}`)
   }
   if (rows.length && ONLY) {
     // 장면 사이 비교는 견줄 장면이 다 있어야 한다. --only로 일부만 찍으면 '잰 장면 없음'으로 실패가 나서 건너뛴다
