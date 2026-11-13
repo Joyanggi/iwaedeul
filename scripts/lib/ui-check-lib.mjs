@@ -14,6 +14,9 @@ export const inPagePressTargets = () => {
   document.querySelectorAll('[data-uic]').forEach((el) => el.removeAttribute('data-uic'))
   document.querySelectorAll('button, [role="button"], a[href]').forEach((el) => {
     if (el.disabled || el.getAttribute('aria-disabled') === 'true') return
+    // v1.20 RR0: Astryx가 그리는 요소는 뺀다(요소 단위). 이 Chromium은 mouse.down으로 Astryx의 눌림을 못 칠한다(DEV-RECORD 제약).
+    // 조건은 motion.css:26-30 기본 규칙이 빼는 것과 같다. 옮긴 화면의 눌림은 --press-shot과 실기기 확인이 본다
+    if (el.closest("[class*='astryx-'], .ax-screen, .ax-bar, .ax-scope")) return
     if (!window.__vis(el)) return
     const r = el.getBoundingClientRect()
     const x = r.left + r.width / 2
@@ -219,4 +222,112 @@ export function motionStaticChecks(allCss) {
   const wc = Object.entries(allCss).filter(([, css]) => /will-change\s*:/.test(strip(css))).map(([f]) => f)
   add('src/**/*.css에 will-change 0건', wc.length === 0, wc.length ? wc.join(' · ') : `${Object.keys(allCss).length}개 파일 0건`)
   return out
+}
+
+// ───────────────────────── v1.20 RR0: 새 검사 ─────────────────────────
+// 아래 `inPage*`도 page.evaluate로 도는 함수다(바깥 변수 못 봄). 판정 모양은 { ok, detail } 또는 { skip, detail }.
+
+/** `탭 누름` (RR3부터 판정): 아래 Astryx 탭마다 글자 중심의 x에서, 띠의 위·아래 끝 2px 안쪽 점에 elementFromPoint를 쏴서 그 탭(또는 자손)이 나오는가 */
+export const inPageTabHit = () => {
+  const bar = [...document.querySelectorAll('.ax-bar')].find((b) => window.__vis(b) && b.querySelector('nav'))
+  if (!bar) return { skip: true, detail: 'Astryx 탭 띠(.ax-bar > nav)가 없다' }
+  const tabs = [...bar.querySelectorAll("nav button, nav a, [role='tab']")].filter((t) => window.__vis(t))
+  if (tabs.length === 0) return { ok: false, detail: '띠 안에 탭이 0개 — 아무것도 안 쟀다' }
+  const r = bar.getBoundingClientRect()
+  const bad = []
+  for (const t of tabs) {
+    const tr = t.getBoundingClientRect()
+    const x = tr.left + tr.width / 2
+    for (const [label, y] of [['위', r.top + 2], ['아래', r.bottom - 2]]) {
+      const hit = document.elementFromPoint(x, y)
+      if (!hit || !(t === hit || t.contains(hit))) bad.push(`${(t.textContent ?? '').trim().slice(0, 8)} ${label} 끝`)
+    }
+  }
+  return { ok: bad.length === 0, detail: bad.length ? bad.slice(0, 4).join(' · ') : `${tabs.length}개 탭 × 위·아래 끝 통과` }
+}
+
+/** `세트 숫자` (RR7부터 판정): `.set-row` 안 input의 글자 크기가 `--text-heading-2-size`를 임시 요소의 font-size로 푼 값 이상인가. 0개면 실패 */
+export const inPageSetNumber = () => {
+  const inputs = [...document.querySelectorAll('.set-row input')].filter((el) => window.__vis(el))
+  if (inputs.length === 0) return { ok: false, detail: '.set-row 안 보이는 input이 0개 — 아무것도 안 쟀다' }
+  const probe = document.createElement('span')
+  probe.style.fontSize = 'var(--text-heading-2-size)'
+  document.documentElement.appendChild(probe)
+  const floor = Number.parseFloat(getComputedStyle(probe).fontSize)
+  probe.remove()
+  if (!(floor > 0)) return { ok: false, detail: '--text-heading-2-size를 못 풀었다(테마 토큰이 비었다)' }
+  const bad = inputs.map((el) => Number.parseFloat(getComputedStyle(el).fontSize)).filter((v) => v < floor - 0.01)
+  return { ok: bad.length === 0, detail: bad.length ? `${bad.length}/${inputs.length}개가 ${floor}px 미만(${bad.slice(0, 3).join(',')}px)` : `${inputs.length}개 ≥ ${floor}px` }
+}
+
+/** `마지막 요소` (RR3부터 판정): 끝까지 스크롤했을 때 본문(`.ax-screen`·`.screen`)의 마지막 보이는 자식의 아래 끝이 화면 아래에 붙은 띠의 위 끝보다 위인가. 끝나면 스크롤을 원래 자리로 돌려놓는다(뒤 검사 — 탭바 자리의 가림 — 가 그 자리에서 잰다) */
+export const inPageLastVisible = () => {
+  const root = document.querySelector('.ax-screen, .screen')
+  if (!root) return { skip: true, detail: '본문(.ax-screen·.screen)이 없다' }
+  const y0 = window.scrollY
+  window.scrollTo(0, document.documentElement.scrollHeight)
+  const kids = [...root.children].filter((el) => window.__vis(el) && !el.matches('.ax-bar, .tabbar, .resume-strip'))
+  const bars = [...document.querySelectorAll(window.__glass.BARS)].filter((b) => window.__vis(b) && b.getBoundingClientRect().bottom >= innerHeight - 1)
+  let out
+  if (kids.length === 0) out = { ok: false, detail: '본문에 보이는 자식이 0개 — 아무것도 안 쟀다' }
+  else if (bars.length === 0) out = { skip: true, detail: '화면 아래에 붙은 띠가 없다' }
+  else {
+    const top = Math.min(...bars.map((b) => b.getBoundingClientRect().top))
+    const bottom = Math.max(...kids.map((el) => el.getBoundingClientRect().bottom))
+    out = { ok: bottom <= top + 0.5, detail: `마지막 요소 아래 ${Math.round(bottom)} · 띠 위 ${Math.round(top)}${bottom > top + 0.5 ? ` (${Math.round(bottom - top)}px 가림)` : ''}` }
+  }
+  window.scrollTo(0, y0)
+  return out
+}
+
+/** `섬 버튼` (RR7부터 판정): `.ax-scope` 안 Astryx 버튼의 min-height가 legacy 값(44px)이 아닌가. 섬이 있는 장면에서만, 버튼 0개면 실패 */
+export const inPageIslandButtons = () => {
+  const islands = [...document.querySelectorAll('.ax-scope')].filter((el) => window.__vis(el))
+  if (islands.length === 0) return { skip: true, detail: '.ax-scope 섬이 없다' }
+  const btns = islands.flatMap((i) => [...i.querySelectorAll("button[class*='astryx-']")]).filter((b) => window.__vis(b))
+  if (btns.length === 0) return { ok: false, detail: '섬 안 Astryx 버튼이 0개 — 아무것도 안 쟀다' }
+  const bad = btns.filter((b) => Number.parseFloat(getComputedStyle(b).minHeight) === 44)
+  return { ok: bad.length === 0, detail: bad.length ? `${bad.length}/${btns.length}개가 min-height 44px(legacy 값이 샜다)` : `${btns.length}개 legacy 값 아님` }
+}
+
+/** `테마 토큰` 목록 — PLAN v1.20 RR2 표의 Astryx 토큰 전부 */
+export const THEME_TOKENS = [
+  '--color-background-body', '--color-background-card', '--color-background-muted', '--color-background-surface', '--color-border',
+  '--color-text-primary', '--color-text-secondary', '--color-text-accent', '--color-accent', '--color-accent-muted',
+  '--color-text-success', '--color-text-warning', '--color-text-error', '--color-success', '--color-warning', '--color-error',
+  '--color-on-accent', '--color-on-success', '--color-on-warning',
+]
+
+/** `테마 토큰` (RR1부터 판정): 목록의 토큰이 <html>에서 전부 비어 있지 않은가. 문서 배경(`--color-background-body`)을 임시 요소로 풀어 bg로 돌려준다(라이트·다크 장면이 다른지는 Node에서 견준다) */
+export const inPageThemeTokens = (tokens) => {
+  const cs = getComputedStyle(document.documentElement)
+  const empty = tokens.filter((t) => cs.getPropertyValue(t).trim() === '')
+  const probe = document.createElement('span')
+  probe.style.backgroundColor = 'var(--color-background-body)'
+  document.documentElement.appendChild(probe)
+  const bg = getComputedStyle(probe).backgroundColor
+  probe.remove()
+  return { ok: empty.length === 0, bg, detail: empty.length ? `빈 토큰 ${empty.length}개: ${empty.slice(0, 3).join(', ')}` : `${tokens.length}개 토큰 있음` }
+}
+
+/** 배치 기록 (RR0): 장면의 보이는 버튼·입력칸·제목(h1~h3)·문단·카드의 사각형을 문서 순서대로 [태그, x, y, 폭, 높이](0.5px 반올림)로 모은다 */
+export const inPageRects = () => {
+  const half = (v) => Math.round(v * 2) / 2
+  const sel = "button, input, textarea, select, h1, h2, h3, p, .card, [class*='card']"
+  return [...document.querySelectorAll(sel)]
+    .filter((el) => window.__vis(el))
+    .map((el) => {
+      const r = el.getBoundingClientRect()
+      return [el.tagName.toLowerCase(), half(r.x), half(r.y + window.scrollY), half(r.width), half(r.height)]
+    })
+}
+
+/** 두 배치 기록(한 장면의 사각형 목록)을 견준다. 개수가 다르거나 하나라도 다르면 실패, 처음 다른 요소를 찍는다 (Node) */
+export function compareRects(base, now) {
+  if (!base) return { ok: false, detail: '견줄 기록이 없다' }
+  if (base.length !== now.length) return { ok: false, detail: `요소 수 ${base.length} → ${now.length}` }
+  for (let i = 0; i < base.length; i++) {
+    if (base[i].some((v, k) => v !== now[i][k])) return { ok: false, detail: `${i}번째 ${base[i][0]}: [${base[i].slice(1)}] → [${now[i].slice(1)}]` }
+  }
+  return { ok: true, detail: `${base.length}개 요소 같다` }
 }

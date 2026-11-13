@@ -8,8 +8,8 @@
  */
 import { createServer } from 'node:net'
 
-/** 유리 층 선택자. 시트는 따로 */
-export const BAR_SELECTOR = '.tabbar, .resume-strip, .session-header, .rest-bar'
+/** 유리 층(띠) 선택자 — 이 한 줄이 유일한 출처다. 페이지에는 window.__glass.BARS로 한 번 깔린다 (v1.20 RR0). 시트는 따로 */
+export const BAR_SELECTOR = '.tabbar, .resume-strip, .session-header, .rest-bar, .ax-bar'
 export const SHEET_SELECTOR = '.sheet, .astryx-bottom-sheet'
 
 /** 보이는 요소만 (크기 1px 이하·display none·visibility hidden은 뺀다). 판정은 여기 한 곳. 페이지에는 window.__vis로 깔린다 */
@@ -20,7 +20,7 @@ export const inPageVisibleDef = (el) => {
 }
 
 /** addInitScript에 넘길 글: window.__vis와 window.__glass를 함께 깐다 */
-export const installScript = () => `window.__vis = ${inPageVisibleDef}; (${inPageInstall})()`
+export const installScript = () => `window.__vis = ${inPageVisibleDef}; window.__BARS = ${JSON.stringify(BAR_SELECTOR)}; (${inPageInstall})()`
 
 /** 빈 포트 하나 (Node) */
 export function freePort() {
@@ -84,7 +84,15 @@ export const inPageInstall = () => {
   }
   const visible = (el) => window.__vis(el)
   const fmt = (c) => `rgba(${Math.round(c.r)},${Math.round(c.g)},${Math.round(c.b)},${(+c.a.toFixed(3))})`
-  const cssVar = (name) => parse(getComputedStyle(document.documentElement).getPropertyValue(name))
+  // 토큰 값을 글자로 읽으면 light-dark(…)가 그대로 온다(RR2 뒤 legacy 토큰이 그렇다) — 임시 요소의 color에 넣어 풀린 rgb()를 읽는다
+  const cssVar = (name) => {
+    const probe = document.createElement('span')
+    probe.style.color = `var(${name})`
+    document.documentElement.appendChild(probe)
+    const c = getComputedStyle(probe).color
+    probe.remove()
+    return parse(c)
+  }
   const sheetOf = () => [...document.querySelectorAll('.sheet, .astryx-bottom-sheet')].find(visible) ?? null
   /** 시트 막: legacy는 .sheet-backdrop의 배경, Astryx는 dialog의 ::backdrop 배경 */
   const backdropOf = (sheet) => {
@@ -98,7 +106,7 @@ export const inPageInstall = () => {
   /** 지금 화면의 유리 층 요소들. all이 거짓이고 시트가 떠 있으면 시트만(아래 띠는 한 겹 규칙으로 꺼진다) */
   const layersOf = (all) => {
     const sheet = sheetOf()
-    const bars = [...document.querySelectorAll('.tabbar, .resume-strip, .session-header, .rest-bar')].filter(visible)
+    const bars = [...document.querySelectorAll(window.__BARS)].filter(visible)
     return all ? [...bars, ...(sheet ? [sheet] : [])] : sheet ? [sheet] : bars
   }
   /** 흐림 값의 brightness(b). 없으면 1 (v1.19 QQ1: 뒤 밝기를 낮춰 비치는 양을 늘린다 — 비침·대비 계산에 곱한다) */
@@ -107,7 +115,7 @@ export const inPageInstall = () => {
     return m ? Number.parseFloat(m[1]) / (m[2] ? 100 : 1) : 1
   }
   const scale = (c, k) => ({ r: c.r * k, g: c.g * k, b: c.b * k, a: c.a })
-  window.__glass = { parse, over, ratio, bg, filterOf, visible, fmt, cssVar, sheetOf, backdropOf, layersOf, brightnessOf, scale }
+  window.__glass = { parse, over, ratio, bg, filterOf, visible, fmt, cssVar, sheetOf, backdropOf, layersOf, brightnessOf, scale, BARS: window.__BARS }
 }
 
 /** 유리 켜짐 */
@@ -196,7 +204,7 @@ export const inPageTextContrast = () => {
   const sheet = g.sheetOf()
   const accent = g.cssVar('--accent')
   const okC = g.cssVar('--ok')
-  const roots = sheet ? [sheet] : [...document.querySelectorAll('.tabbar, .resume-strip, .session-header, .rest-bar')].filter(g.visible)
+  const roots = sheet ? [sheet] : [...document.querySelectorAll(g.BARS)].filter(g.visible)
   if (roots.length === 0) return { skip: true, detail: '재볼 면이 없다' }
   const bad = []
   let n = 0
@@ -252,7 +260,7 @@ export const inPageTextContrast = () => {
 export const inPageBarShow = () => {
   const g = window.__glass
   // 시트가 떠 있으면 한 겹 규칙이 아래 띠를 불투명으로 바꾼다 — 그때는 시트 비침이 잰다
-  const bars = g.sheetOf() ? [] : [...document.querySelectorAll('.tabbar, .resume-strip, .session-header, .rest-bar')].filter(g.visible)
+  const bars = g.sheetOf() ? [] : [...document.querySelectorAll(g.BARS)].filter(g.visible)
   if (bars.length === 0) return { skip: true, detail: '띠가 없다(또는 시트가 떠 있다)' }
   const bad = []
   const seen = []

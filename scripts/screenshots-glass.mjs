@@ -11,7 +11,7 @@
  *                  docs/screenshots/v1.18/compare/<장면>-a<값 두 자리>.png로 찍는다(검사 없음, CSS 파일은 안 건드린다)
  *
  * 브라우저: `npx playwright install chromium` (WebKit은 `webkit`). 레포에 넣지 않는다, CI는 받지 않는다.
- * 요소는 글자와 aria-label로 고른다(예외: 시작 버튼은 문구가 Day 이름에 따라 달라 `.btn-start`).
+ * 요소는 글자·역할·aria-label로 고른다(ui-check.mjs와 같은 선택자 — 시작 버튼은 `/시작$|이어서 하기/`, 재개 줄은 `/진행 중/`, 휴식 바는 timer 역할. v1.20 RR0).
  * 검사 함수는 scripts/lib/glass-check.mjs에 있다.
  */
 import { execSync } from 'node:child_process'
@@ -196,7 +196,7 @@ async function runScenes(browser, port) {
   await closeSheet('Day 선택')
 
   // 세션 시작
-  await page.locator('.btn-start').click()
+  await page.getByRole('button', { name: /시작$|이어서 하기/ }).first().click()
   await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor()
   await settle(page, 800)
   await snap('session')
@@ -206,19 +206,19 @@ async function runScenes(browser, port) {
 
   // 최소화 → 재개 스트립
   await page.getByRole('button', { name: '세션 최소화', exact: true }).click()
-  await page.locator('.resume-strip').waitFor()
+  await page.getByRole('button', { name: /진행 중/ }).waitFor()
   await settle(page, 600)
   await snap('home-resume')
   await toEnd()
   await snap('home-resume-end')
   await toTop()
-  await page.locator('.resume-strip').click()
+  await page.getByRole('button', { name: /진행 중/ }).click()
   await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor()
   await settle(page, 600)
 
   // 휴식 바
   await page.getByRole('button', { name: '1세트 완료', exact: true }).first().click()
-  await page.locator('.rest-bar').waitFor({ timeout: 5000 })
+  await page.getByRole('timer').waitFor({ timeout: 5000 })
   await settle(page, 600)
   await snap('session-rest')
 
