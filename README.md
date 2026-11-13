@@ -239,14 +239,14 @@
   분석 탭 청크가 메인 번들과 비슷한 크기입니다 (recharts). 정확한 값은
   `npm run build` 출력이 말해줍니다 — 여기 적어두면 코드가 커질 때마다 낡습니다.
 
-- **Astryx는 화면 단위로 들이고, 안 바꾼 화면과 CSS 레이어로 나눈다**
-  Astryx CSS는 캐스케이드 레이어 안에 있어서 레이어 밖 CSS에 항상 집니다. 기존 `global.css`를
-  `legacy` 레이어에 넣어(`src/styles/index.css`) Astryx 부품이 이기게 하고, Astryx의 전역
-  리셋은 쓰지 않고 `[data-astryx-theme]` 안에만 거는 사본을 둡니다(`src/ax/ax.css`).
-  레이어는 같은 속성끼리만 승부가 나서, Astryx가 정하지 않는 속성(`button`의 `min-height`)은
-  같은 파일이 `legacy` 레이어 안에서 따로 끕니다.
-  화면은 `src/ax/`의 부품만 가져다 쓰고, Astryx 버전은 정확한 값으로 고정합니다(베타).
-  Astryx 화면은 지연 로딩해서 헬스장 경로(홈 → 세션)가 Astryx 코드를 읽지 않습니다.
+- **Astryx 테마는 앱 뿌리에 한 번 걸고, 안 옮긴 화면의 CSS는 범위를 가둔다**
+  테마(`src/ax/theme.ts`)와 기본 크기는 `AppRoot`가 앱 전체에 한 번 겁니다. 화면은 `src/ax/`의 부품만 가져다 쓰고,
+  Astryx 버전은 정확한 값으로 고정합니다(베타). 아직 안 옮긴 화면의 CSS(`global.css`)는 `legacy` 레이어에 있어
+  Astryx 부품에 지고, 맨 요소 규칙(`button`의 최소 높이 등)은 `@scope`로 legacy 화면 안에만 걸립니다.
+  Astryx의 리셋은 반대로 legacy 화면 밖에만 걸립니다. 화면을 옮기면 그 화면이 쓰던 `global.css` 규칙을 지웁니다.
+  테마가 앱 전체에 걸리면서 번지는 글꼴·글자색·제목/문단 규칙은 legacy 화면 안에서 예전 값으로 되돌립니다(`global.css`의 같은 `@scope` 블록).
+  헬스장 경로(홈 → 세션)도 Astryx를 읽습니다. 서비스워커가 전부 precache하므로 오프라인에서 그대로 열리고,
+  처음 여는 순간 읽는 코드는 늘었습니다(`npm run build` 출력과 `node scripts/first-screen.mjs`).
 - **유리는 떠 있는 층에만 쓰고, 재료는 토큰 한 벌이다**
   탭바·재개 스트립·세션 상단 바·휴식 바·바텀시트만 반투명 + 흐림(`backdrop-filter`)으로 그립니다.
   카드·입력칸·세트 행은 불투명하게 둡니다 — 읽어야 하는 것이 배경에 묻히면 안 됩니다.
@@ -263,7 +263,7 @@
   legacy 화면의 버튼은 눌린 순간 바로 덮개가 얹히고(기본 규칙 하나가 모든 버튼에 걸립니다), 버튼·알약은
   작아지기도 하며, 뗄 때 돌아옵니다. 스테퍼 `−`·`+`는 원래의 누름 표시를 씁니다.
   시트는 화면 아래에서 올라옵니다. 길이·곡선·눌림 크기는 `src/styles/motion.css`가 정하고,
-  값은 Astryx 테마에서 옮겨 적었습니다 — legacy 화면은 헬스장 경로라 Astryx CSS를 읽지 않습니다.
+  값은 Astryx 테마에서 옮겨 적었습니다 — legacy 화면은 Astryx 부품을 안 쓰므로 같은 값을 따로 둡니다.
   iOS Safari는 `touchstart` 처리기가 없으면 눌림(`:active`)을 그리지 않아서 `main.tsx`가 빈 처리기를 답니다.
   폰의 "동작 줄이기"가 켜지면 크기 변화와 올라오는 움직임을 끄고, 눌림 덮개와 휴식 타이머의 진행 표시는 남깁니다.
   움직이는 것은 `transform`·`opacity`·`background-color`뿐이고, 시트 뒤 막은 `opacity`로 움직이지 않습니다

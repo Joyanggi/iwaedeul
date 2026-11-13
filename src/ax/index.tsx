@@ -1,6 +1,6 @@
 /**
  * 앱이 Astryx를 쓰는 한 곳. 화면은 `@astryxdesign/…`를 직접 import하지 않고 여기서만 가져다 쓴다.
- * 버전을 올릴 때 고칠 자리가 이 폴더뿐이다. 루틴 편집 화면과 함께 지연 청크로 읽힌다.
+ * 버전을 올릴 때 고칠 자리가 이 폴더뿐이다. `App`이 정적으로 읽고, 테마는 `AppRoot`가 앱 뿌리에 한 번 건다.
  */
 import '@astryxdesign/core/astryx.css'
 import '@astryxdesign/theme-neutral/theme.css'
@@ -14,8 +14,8 @@ import { HStack } from '@astryxdesign/core/HStack'
 import { NumberInput } from '@astryxdesign/core/NumberInput'
 import { TextInput, type TextInputProps } from '@astryxdesign/core/TextInput'
 import { BottomSheet, type BottomSheetProps } from '@astryxdesign/core/BottomSheet'
-import { neutralTheme } from '@astryxdesign/theme-neutral/built'
 import { AX_NO_AUTOFILL } from '../lib/inputProps'
+import { appTheme } from './theme'
 import { clampStep } from './clampStep'
 
 /** 입력칸 글자 16px 이상 (iOS가 포커스 시 확대하지 않게) */
@@ -24,15 +24,18 @@ const CONTROL_STYLE = { fontSize: 'max(16px, 1em)' } as const
 /** `NumberInput`은 autoComplete만 받는다. 값은 `NO_AUTOFILL`에서 온다(필드별로 속성을 직접 적지 않는다 — inputProps.test X5·Y2). */
 const NUMBER_AUTOFILL = { autoComplete: AX_NO_AUTOFILL.autoComplete } as const
 
-/** 테마·모드·기본 크기·화면 틀. 폰의 라이트/다크 설정을 따른다. */
-export function AxRoot({ children }: { children: ReactNode }) {
+/** 테마·모드·기본 크기. 앱 전체에 한 번 건다. 폰의 라이트/다크 설정을 따른다. */
+export function AppRoot({ children }: { children: ReactNode }) {
   return (
-    <Theme theme={neutralTheme} mode="system">
-      <SizeProvider value="lg">
-        <div className="ax-screen">{children}</div>
-      </SizeProvider>
+    <Theme theme={appTheme} mode="system">
+      <SizeProvider value="lg">{children}</SizeProvider>
     </Theme>
   )
+}
+
+/** 화면 틀. 테마는 `AppRoot`가 이미 걸었다. */
+export function AxRoot({ children }: { children: ReactNode }) {
+  return <div className="ax-screen">{children}</div>
 }
 
 /** 텍스트 입력. 자동완성 억제(G5)와 16px 하한을 빠뜨릴 수 없게 한다. */

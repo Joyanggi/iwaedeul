@@ -1,10 +1,10 @@
 # Astryx 적용 현황
 
-> 2026-11-13, 커밋 e67f9ff. `node scripts/astryx-inventory.mjs --write`가 만든다. `--check`가 맨 아래 합계 줄을 기준으로 뒷걸음을 막는다.
+> 2026-11-13, 커밋 2a925a4. `node scripts/astryx-inventory.mjs --write`가 만든다. `--check`가 맨 아래 합계 줄을 기준으로 뒷걸음을 막는다.
 
 | 파일 | Astryx | 인라인 | 인라인 여백 | legacy 클래스 |
 |---|---|---|---|---|
-| src/App.tsx | — | 0 | 0 | 7 |
+| src/App.tsx | 예 | 0 | 0 | 7 |
 | src/ax/index.tsx | 예 | 0 | 0 | 0 |
 | src/components/AddExerciseSheet.tsx | — | 1 | 0 | 9 |
 | src/components/CompensationSheet.tsx | — | 1 | 0 | 9 |
@@ -54,4 +54,4 @@
 | src/screens/SettingsScreen.tsx | — | 7 | 0 | 20 |
 | src/screens/SummaryScreen.tsx | — | 4 | 0 | 18 |
 
-합계: `.tsx` 49개 가운데 Astryx를 읽는 것 4개, 인라인 스타일 97곳(여백 0), legacy 클래스 쓰임 520곳, 안 쓰는 legacy 선택자 2개.
+합계: `.tsx` 49개 가운데 Astryx를 읽는 것 5개, 인라인 스타일 97곳(여백 0), legacy 클래스 쓰임 520곳, 안 쓰는 legacy 선택자 2개.

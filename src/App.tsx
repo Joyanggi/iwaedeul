@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
+import { AppRoot } from './ax'
 import TabBar, { type TabId } from './components/TabBar'
 import SessionResumeStrip from './components/SessionResumeStrip'
 import UpdatePrompt from './components/UpdatePrompt'
@@ -31,7 +32,7 @@ const RoutineEditorScreen = lazy(() => import('./screens/RoutineEditorScreen'))
 
 type View = 'tabs' | 'session' | 'summary' | 'routineEdit'
 
-export default function App() {
+function AppBody() {
   // 최상위에서 호출해야 온보딩 전에도 서비스워커가 등록된다 (usePwaUpdate 주석 참조)
   const pwa = usePwaUpdate()
   const [seed, setSeed] = useState<SeedResult | null>(null)
@@ -196,5 +197,14 @@ export default function App() {
       )}
       <TabBar active={tab} onChange={setTab} />
     </div>
+  )
+}
+
+/** 테마(`AppRoot`)는 모든 화면 갈래의 바깥에 한 번 건다. */
+export default function App() {
+  return (
+    <AppRoot>
+      <AppBody />
+    </AppRoot>
   )
 }

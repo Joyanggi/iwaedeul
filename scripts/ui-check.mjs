@@ -108,7 +108,7 @@ const COLUMNS = ['접근성', '눌림 반응', '움직임 줄이기', '여백 �
  * 탭 누름·마지막 요소 = RR3, 세트 숫자·섬 버튼 = RR7, 테마 토큰 = RR1(그 전 `before`에서는 테마가 있는 editor 장면만).
  * 작업이 끝날 때 해당 값을 true로 바꾼다.
  */
-const JUDGED = { '탭 누름': false, '마지막 요소': false, '세트 숫자': false, '섬 버튼': false, '테마 토큰': false }
+const JUDGED = { '탭 누름': false, '마지막 요소': false, '세트 숫자': false, '섬 버튼': false, '테마 토큰': true }
 const THEME_SCENES_BEFORE = new Set(['editor', 'line-sheet'])
 /** 장면마다 기대하는 유리 층(띠·시트) 수의 최소값. 모자라면 `유리` 칸을 실패로 낸다 — 아무것도 안 재고 지나가지 않게 (RR0) */
 const EXPECTED_BARS = {
@@ -175,6 +175,7 @@ async function glassVerdict(page, scene) {
     await settle(page, 150)
   }
   await cdp.detach()
+  await page.emulateMedia({ colorScheme: SCHEME }) // detach가 색 체계를 라이트로 풀어 뒤 측정(시트 비침)이 어긋난다 — DEV-RECORD 제약 31
   if (await page.evaluate(() => window.__glass.sheetOf() !== null)) await run('시트 비침', inPageSheetShow)
   if (TAB_SCENES.has(scene)) await run('탭바 자리', inPageTabbarSpot, COVER_SCENES.has(scene))
   const bad = parts.filter(([, r]) => !r.skip && !r.ok).map(([n, r]) => `${n}: ${r.detail}`)
@@ -413,7 +414,7 @@ async function runScenes(browser, port, scheme) {
     })
 
     await btn(page, '세션 최소화').click()
-    await page.getByRole('button', { name: /진행 중/ }).waitFor()
+    await page.getByRole('button', { name: /진행 중/ }).last().waitFor()
     await settle(page, 600)
     await snap('home-resume')
     // QQ6: 세션이 열려 있을 때 설정 (`편집` 비활성 + 안내 문구)
@@ -422,9 +423,9 @@ async function runScenes(browser, port, scheme) {
       await settle(page, 600)
       await snap('settings-open')
       await page.getByRole('button', { name: '홈', exact: true }).click()
-      await page.getByRole('button', { name: /진행 중/ }).waitFor({ timeout: 3000 })
+      await page.getByRole('button', { name: /진행 중/ }).last().waitFor({ timeout: 3000 })
     })
-    await page.getByRole('button', { name: /진행 중/ }).click()
+    await page.getByRole('button', { name: /진행 중/ }).last().click()
     await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor()
     await settle(page, 600)
 
@@ -578,6 +579,34 @@ async function runScenes(browser, port, scheme) {
   await ctx.close()
 }
 
+/**
+ * 오프라인 (PLAN v1.20 RR1): 서비스워커가 precache를 끝낸 뒤 네트워크를 끊고 `reload` → 홈이 뜨고 시작 → 세트 체크가 된다.
+ * 헬스장 경로가 Astryx를 정적으로 읽게 됐으므로(README 결정 2) 그 코드가 precache에 들어 있는지 본다. 다른 장면은 SW를 막지만 여기는 허용한다.
+ */
+async function runOffline(browser, port) {
+  const ctx = await browser.newContext({ ...DEVICE, locale: 'ko-KR', colorScheme: 'dark' })
+  try {
+    const page = await ctx.newPage()
+    await page.goto(`http://localhost:${port}${BASE}`)
+    await page.getByRole('button', { name: /^(시작하기|확인했어요, 그래도 계속)$/ }).click()
+    await page.getByRole('button', { name: '설정', exact: true }).waitFor()
+    await page.evaluate(() => navigator.serviceWorker.ready.then(() => true))
+    await settle(page, 2500) // precache 끝난 뒤 한 박자
+    await ctx.setOffline(true)
+    await page.reload()
+    await page.getByRole('button', { name: '설정', exact: true }).waitFor({ timeout: 15000 })
+    await page.getByRole('button', { name: /시작$|이어서 하기/ }).first().click()
+    await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor({ timeout: 15000 })
+    await page.getByRole('button', { name: '1세트 완료', exact: true }).first().click()
+    await page.getByRole('timer').waitFor({ timeout: 5000 })
+    flows.push(['오프라인', { ok: true, detail: '새로고침 → 홈 → 시작 → 세트 ✓ → 휴식 바' }])
+  } catch (e) {
+    flows.push(['오프라인', { ok: false, detail: String(e.message).split('\n')[0] }])
+  } finally {
+    await ctx.close()
+  }
+}
+
 /** src/**\/*.css를 전부 읽는다 (정적 검사용) */
 function readAllCss() {
   const out = {}
@@ -678,6 +707,7 @@ const browser = await chromium.launch()
 let exitCode = 0
 try {
   await runScenes(browser, port, 'dark')
+  if (CHECK && phase === 'after' && !GLASS && !ONLY) await runOffline(browser, port)
   if (!ONLY || [...ONLY].some((s) => s.endsWith('-light'))) await runScenes(browser, port, 'light')
   mkdirSync(OUT, { recursive: true })
   // compare는 값 조합마다 파일 이름이 달라야 한다: <장면>-b<띠>-s<시트>-m<막>.png

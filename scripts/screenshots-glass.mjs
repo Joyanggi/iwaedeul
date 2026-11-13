@@ -206,13 +206,13 @@ async function runScenes(browser, port) {
 
   // 최소화 → 재개 스트립
   await page.getByRole('button', { name: '세션 최소화', exact: true }).click()
-  await page.getByRole('button', { name: /진행 중/ }).waitFor()
+  await page.getByRole('button', { name: /진행 중/ }).last().waitFor()
   await settle(page, 600)
   await snap('home-resume')
   await toEnd()
   await snap('home-resume-end')
   await toTop()
-  await page.getByRole('button', { name: /진행 중/ }).click()
+  await page.getByRole('button', { name: /진행 중/ }).last().click()
   await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor()
   await settle(page, 600)
 

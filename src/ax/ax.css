@@ -1,172 +1,164 @@
 /*
- * Astryx 화면이 떠 있는 동안만 걸리는 CSS. 루틴 편집 화면을 처음 열 때 지연 청크로 읽힌다.
+ * Astryx가 앱 뿌리에 걸려 있으므로 늘 읽히는 CSS.
  * 레이어 순서는 `src/styles/index.css`가 정한다.
  */
 
 /*
  * 범위 한정 리셋 — `@astryxdesign/core@0.7.13` `src/reset.css`에서 옮김. 버전을 올리면 다시 대조한다.
- * 전역 reset.css는 안 바꾼 화면을 흔들어서 쓰지 않고, `[data-astryx-theme]` 안에만 건다.
- * 선택자·속성·값은 원본 그대로이고 `:where([data-astryx-theme])` 범위만 앞에 붙였다. 명시도는 원본처럼 0이다.
+ * 전역 reset.css는 안 바꾼 화면을 흔들어서 쓰지 않고, `@scope`로 legacy 화면 밖에만 건다(`html` 아래 전부 + legacy 안의 Astryx 섬 `.ax-scope`).
+ * 선택자·속성·값은 원본 그대로이고 `:where([data-astryx-theme])` 앞머리만 `@scope`로 바꿨다. 명시도는 원본처럼 0이다.
+ * legacy 뿌리 목록은 `global.css`의 `@scope`와 글자 그대로 같아야 한다(v120 스캔). 화면을 옮겨 뿌리가 없어지면 두 곳을 같이 줄인다.
  * 옮기지 않은 것: `html`·`body` 규칙, `html[data-theme=…]`, 탭 하이라이트, `[data-astryx-media]`의 color-scheme
  * (문서 단위는 `global.css`와 아래 "문서 바탕"이 맡는다. 이유는 DEV-RECORD OO2 "PLAN과 다르게 한 것").
  */
 @layer reset {
-  :where([data-astryx-theme]) :where(*),
-  :where([data-astryx-theme]) :where(*)::before,
-  :where([data-astryx-theme]) :where(*)::after {
-    box-sizing: border-box;
-  }
+  @scope (html, .ax-scope) to (.app, .screen, .session, .onboarding, .sheet-backdrop, .center-note, .banner) {
+    :where(*),
+    :where(*)::before,
+    :where(*)::after {
+      box-sizing: border-box;
+    }
 
-  :where([data-astryx-theme]) :where(*),
-  :where([data-astryx-theme]) :where(*)::before,
-  :where([data-astryx-theme]) :where(*)::after {
-    border-width: 0;
-    border-style: solid;
-    border-color: currentColor;
-  }
+    :where(*),
+    :where(*)::before,
+    :where(*)::after {
+      border-width: 0;
+      border-style: solid;
+      border-color: currentColor;
+    }
 
-  :where([data-astryx-theme]) :where(h1, h2, h3, h4, h5, h6) {
-    font-size: inherit;
-    font-weight: inherit;
-  }
+    :where(h1, h2, h3, h4, h5, h6) {
+      font-size: inherit;
+      font-weight: inherit;
+    }
 
-  :where([data-astryx-theme]) :where(h1, h2, h3, h4, h5, h6, p, blockquote, figure, pre, dl, dd) {
-    margin: 0;
-  }
+    :where(h1, h2, h3, h4, h5, h6, p, blockquote, figure, pre, dl, dd) {
+      margin: 0;
+    }
 
-  :where([data-astryx-theme]) :where(a) {
-    color: inherit;
-    text-decoration: inherit;
-  }
+    :where(a) {
+      color: inherit;
+      text-decoration: inherit;
+    }
 
-  :where([data-astryx-theme]) :where(b, strong) {
-    font-weight: bolder;
-  }
+    :where(b, strong) {
+      font-weight: bolder;
+    }
 
-  :where([data-astryx-theme]) :where(code, kbd, samp, pre) {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-      'Liberation Mono', 'Courier New', monospace;
-    font-size: 1em;
-  }
+    :where(code, kbd, samp, pre) {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        'Liberation Mono', 'Courier New', monospace;
+      font-size: 1em;
+    }
 
-  :where([data-astryx-theme]) :where(small) {
-    font-size: 80%;
-  }
+    :where(small) {
+      font-size: 80%;
+    }
 
-  :where([data-astryx-theme]) :where(sub, sup) {
-    font-size: 75%;
-    line-height: 0;
-    position: relative;
-    vertical-align: baseline;
-  }
+    :where(sub, sup) {
+      font-size: 75%;
+      line-height: 0;
+      position: relative;
+      vertical-align: baseline;
+    }
 
-  :where([data-astryx-theme]) :where(sub) {
-    bottom: -0.25em;
-  }
+    :where(sub) {
+      bottom: -0.25em;
+    }
 
-  :where([data-astryx-theme]) :where(sup) {
-    top: -0.5em;
-  }
+    :where(sup) {
+      top: -0.5em;
+    }
 
-  :where([data-astryx-theme]) :where(ol, ul, menu) {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
+    :where(ol, ul, menu) {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
 
-  :where([data-astryx-theme]) :where(img, svg, video, canvas, audio, iframe, embed, object) {
-    display: block;
-    vertical-align: middle;
-  }
+    :where(img, svg, video, canvas, audio, iframe, embed, object) {
+      display: block;
+      vertical-align: middle;
+    }
 
-  :where([data-astryx-theme]) :where(img, video) {
-    max-width: 100%;
-    height: auto;
-  }
+    :where(img, video) {
+      max-width: 100%;
+      height: auto;
+    }
 
-  :where([data-astryx-theme]) :where(button, input, optgroup, select, textarea) {
-    font: inherit;
-    color: inherit;
-    margin: 0;
-    padding: 0;
-  }
+    :where(button, input, optgroup, select, textarea) {
+      font: inherit;
+      color: inherit;
+      margin: 0;
+      padding: 0;
+    }
 
-  :where([data-astryx-theme]) :where(button, [type='button'], [type='reset'], [type='submit']) {
-    -webkit-appearance: button;
-    appearance: button;
-    background-color: transparent;
-    background-image: none;
-  }
+    :where(button, [type='button'], [type='reset'], [type='submit']) {
+      -webkit-appearance: button;
+      appearance: button;
+      background-color: transparent;
+      background-image: none;
+    }
 
-  :where([data-astryx-theme]) :where(button, [role='button']) {
-    cursor: pointer;
-  }
+    :where(button, [role='button']) {
+      cursor: pointer;
+    }
 
-  :where([data-astryx-theme]) :where(:disabled, [aria-disabled='true']) {
-    cursor: default;
-  }
+    :where(:disabled, [aria-disabled='true']) {
+      cursor: default;
+    }
 
-  :where([data-astryx-theme]) :where(textarea) {
-    resize: vertical;
-  }
+    :where(textarea) {
+      resize: vertical;
+    }
 
-  :where([data-astryx-theme]) :where(input, textarea)::placeholder {
-    opacity: 1;
-    color: var(--color-text-secondary, light-dark(#4E606F, #AAAFB5));
-  }
+    :where(input, textarea)::placeholder {
+      opacity: 1;
+      color: var(--color-text-secondary, light-dark(#4E606F, #AAAFB5));
+    }
 
-  :where([data-astryx-theme]) :where([list])::-webkit-calendar-picker-indicator {
-    line-height: 1;
-  }
+    :where([list])::-webkit-calendar-picker-indicator {
+      line-height: 1;
+    }
 
-  :where([data-astryx-theme]) :where([type='search'])::-webkit-search-decoration,
-  :where([data-astryx-theme]) :where([type='search'])::-webkit-search-cancel-button {
-    -webkit-appearance: none;
-  }
+    :where([type='search'])::-webkit-search-decoration,
+    :where([type='search'])::-webkit-search-cancel-button {
+      -webkit-appearance: none;
+    }
 
-  :where([data-astryx-theme]) :where(fieldset) {
-    margin: 0;
-    padding: 0;
-  }
+    :where(fieldset) {
+      margin: 0;
+      padding: 0;
+    }
 
-  :where([data-astryx-theme]) :where(legend) {
-    padding: 0;
-  }
+    :where(legend) {
+      padding: 0;
+    }
 
-  :where([data-astryx-theme]) :where(table) {
-    text-indent: 0;
-    border-color: inherit;
-    border-collapse: collapse;
-  }
+    :where(table) {
+      text-indent: 0;
+      border-color: inherit;
+      border-collapse: collapse;
+    }
 
-  :where([data-astryx-theme]) :where(hr) {
-    height: 0;
-    color: inherit;
-    border-top-width: 1px;
-  }
+    :where(hr) {
+      height: 0;
+      color: inherit;
+      border-top-width: 1px;
+    }
 
-  :where([data-astryx-theme]) :where(summary) {
-    display: list-item;
-  }
+    :where(summary) {
+      display: list-item;
+    }
 
-  :where([data-astryx-theme]) :where(dialog) {
-    padding: 0;
-    outline: none;
-  }
+    :where(dialog) {
+      padding: 0;
+      outline: none;
+    }
 
-  :where([data-astryx-theme]) :where([hidden]:not([hidden='until-found' i])) {
-    display: none;
-  }
-}
-
-/*
- * legacy 누수 막기 — `global.css`의 `button { min-height: 44px }`가 Astryx 버튼에 새서
- * 보이는 높이가 44px가 되는 것을 막는다. `legacy` 레이어 안에 둬야 Astryx가 터치에서 스스로 거는
- * `min-height: 44px`(목록 줄 등)는 지우지 않는다. 명시도 (0,1,1)이 (0,0,1)을 이긴다.
- */
-@layer legacy {
-  [data-astryx-theme] button {
-    min-height: 0;
+    :where([hidden]:not([hidden='until-found' i])) {
+      display: none;
+    }
   }
 }
 
@@ -224,7 +216,7 @@
    * 뒤 밝기를 안 낮추는 대신 면을 더 두껍게(70%) 둬 글자 4.5:1을 지킨다. 비침 (1 − 0.70) × (1 − 막 0.40) = 0.18 ≥ 0.15
    */
   @media (prefers-color-scheme: light) {
-    html[data-astryx-theme] {
+    html[data-astryx-theme] .astryx-bottom-sheet {
       --glass-sheet: color-mix(in srgb, var(--color-background-surface) 70%, transparent);
     }
     html[data-astryx-theme] .astryx-bottom-sheet {
@@ -245,7 +237,7 @@
 
   /* 유리 끄기 (glass.css와 같은 조건·같은 선언 — 정적 검사가 본다). 라이트 시트의 면(70%)이 legacy 끄기보다 위 레이어라 여기서 한 번 더 불투명으로 돌린다 */
   @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-    html[data-astryx-theme] {
+    html[data-astryx-theme] .astryx-bottom-sheet {
       --glass-sheet: var(--glass-solid);
     }
     html[data-astryx-theme] .astryx-bottom-sheet {
@@ -257,7 +249,7 @@
     }
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    html[data-astryx-theme] {
+    html[data-astryx-theme] .astryx-bottom-sheet {
       --glass-sheet: var(--glass-solid);
     }
     html[data-astryx-theme] .astryx-bottom-sheet {

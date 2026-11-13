@@ -111,7 +111,7 @@ describe("v120 RR0 — 검사 도구가 화면 클래스에 안 묶인다", () =
 
   it("v120 RR0: 새 칸은 before(와 판정을 안 켠 칸)에서는 기록만 하고 실패로 세지 않는다", () => {
     const t = text(SCRIPTS, "/scripts/ui-check.mjs")
-    expect(t).toMatch(/const JUDGED = \{ '탭 누름': false, '마지막 요소': false, '세트 숫자': false, '섬 버튼': false, '테마 토큰': false \}/)
+    expect(t).toMatch(/const JUDGED = \{ '탭 누름': false, '마지막 요소': false, '세트 숫자': false, '섬 버튼': false, '테마 토큰': true \}/) // RR1이 '테마 토큰'만 켰다(PLAN: 작업이 끝날 때 해당 값을 true로)
     expect(t).toContain("status: '기록'")
   })
 
@@ -157,5 +157,64 @@ describe("v120 RR0 — 안 쓰는 legacy 선택자 세기", () => {
     const entries = block.split("\n").filter((l) => /^\s+'[\w-]+-':/.test(l))
     expect(entries.length).toBeGreaterThan(0)
     for (const l of entries) expect(l).toMatch(/:\s*'.{6,}'/)
+  })
+})
+
+// ─── RR1 — 테마를 앱 뿌리에 ─────────────────────────────────────
+// `.css`는 vitest에서 `?raw`가 빈 문자열이라(제약 3) CSS 쪽 스캔은 `scripts/legacy-scope.test.mjs`가 fs로 읽는다.
+const SRC = import.meta.glob("/src/**/*.{ts,tsx}", { query: "?raw", import: "default", eager: true }) as Record<string, string>
+const code = (path: string): string => {
+  const t = SRC[path]
+  expect(t, `${path}를 못 읽었다`).toBeTruthy()
+  return t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+}
+
+describe("v120 RR1 — 테마를 앱 뿌리에", () => {
+  it("v120 RR1: App.tsx가 ./ax에서 AppRoot를 정적으로 import하고, <AppRoot 밖에서 화면을 반환하는 갈래가 없다", () => {
+    const app = code("/src/App.tsx")
+    expect(app).toMatch(/import \{ AppRoot \} from '\.\/ax'/)
+    // 화면 반환은 AppBody 한 곳이고, 그 함수를 <AppRoot> 안에서만 쓴다
+    const exported = app.slice(app.indexOf("export default function App()"))
+    expect(exported).toMatch(/<AppRoot>\s*<AppBody \/>\s*<\/AppRoot>/)
+    expect(app.match(/export default function/g)).toHaveLength(1)
+    expect(app).not.toMatch(/export default function AppBody/)
+  })
+
+  it("v120 RR1: ax/index.tsx에서 <Theme은 AppRoot 안에 한 번, mode=system이고 AxRoot 본문에 Theme·SizeProvider가 없다", () => {
+    const s = code("/src/ax/index.tsx")
+    expect(s.match(/<Theme\b/g)).toHaveLength(1)
+    const appRoot = s.slice(s.indexOf("export function AppRoot"), s.indexOf("export function AxRoot"))
+    expect(appRoot).toContain("<Theme theme={appTheme}")
+    expect(appRoot).toContain('mode="system"')
+    const axRoot = s.slice(s.indexOf("export function AxRoot"), s.indexOf("export function TextField"))
+    expect(axRoot).not.toMatch(/Theme|SizeProvider/)
+  })
+
+  it("v120 RR1: /built와 defineTheme을 import하는 파일은 theme.ts 하나이고 defineTheme은 0건이다", () => {
+    const hits = Object.keys(SRC).filter((p) => !p.endsWith(".test.ts") && /\/built['"]|defineTheme/.test(SRC[p].replace(/\/\*[\s\S]*?\*\//g, "")))
+    expect(hits).toEqual(["/src/ax/theme.ts"])
+    expect(code("/src/ax/theme.ts")).not.toMatch(/defineTheme/)
+  })
+
+  it("v120 RR1: theme.ts가 내보내는 테마의 이름과 index.tsx가 읽는 theme-<이름>/theme.css의 이름이 같다 (어긋나면 정적 CSS가 조용히 안 걸린다)", () => {
+    const theme = code("/src/ax/theme.ts")
+    const built = theme.match(/import \{ (\w+) \} from '@astryxdesign\/theme-([\w-]+)\/built'/)
+    expect(built, "theme.ts가 빌드된 테마를 import한다").toBeTruthy()
+    expect(theme).toContain(`export const appTheme = ${built![1]}`)
+    const index = SRC["/src/ax/index.tsx"]
+    const css = [...index.matchAll(/import '@astryxdesign\/theme-([\w-]+)\/theme\.css'/g)].map((m) => m[1])
+    expect(css).toEqual([built![2]])
+  })
+
+  it("v120 RR1: main.tsx는 Astryx를 직접 읽지 않고 styles/index.css를 App보다 먼저 읽는다 (레이어 순서가 먼저 굳는다)", () => {
+    const main = SRC["/src/main.tsx"]
+    expect(main).not.toContain("@astryxdesign")
+    expect(main.indexOf("./styles/index.css")).toBeGreaterThan(-1)
+    expect(main.indexOf("./styles/index.css")).toBeLessThan(main.indexOf("./App"))
+  })
+
+  it("v120 RR1: index.html의 color-scheme 메타가 light dark다", () => {
+    const html = import.meta.glob("/index.html", { query: "?raw", import: "default", eager: true }) as Record<string, string>
+    expect(html["/index.html"]).toContain('<meta name="color-scheme" content="light dark" />')
   })
 })
