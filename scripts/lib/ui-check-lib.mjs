@@ -139,7 +139,8 @@ export async function measurePress(page, holdMs) {
       const n = parseFloat(v)
       return Number.isFinite(n) ? (v.endsWith('ms') ? n : n * 1000) : 175
     })
-    holdMs = Math.ceil(fastMs) + 20
+    // RR1: 테마가 앱 뿌리에 걸려 토큰이 읽히기 시작했다(125ms). 전엔 못 읽어 175ms로 기다렸으므로 그 아래로 줄이지 않는다 — 20ms 여유로는 뗄 때의 전이가 안 끝나 "안 돌아옴"이 무작위로 났다
+    holdMs = Math.max(Math.ceil(fastMs) + 20, 195)
   }
   const targets = await page.evaluate(inPagePressTargets)
   const same = []

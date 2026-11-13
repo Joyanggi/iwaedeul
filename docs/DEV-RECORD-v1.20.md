@@ -59,6 +59,10 @@
 31. **새로 확인 (RR0):** 유리 검사(`glassVerdict`)가 CDP `Emulation.setEmulatedMedia`로 `prefers-color-scheme`을 흉내 낸 뒤 `detach`하면, **그 장면의 그 뒤 측정에서 색 체계가 라이트로 풀린다.** `테마 토큰` 칸을 유리 칸 뒤에서 재자 `line-sheet`(다크)의 문서 배경이 라이트 값(241)으로 읽혔다(`editor`는 유리 칸이 비어 CDP를 안 써서 멀쩡했다). 그래서 새 칸 다섯은 **유리 칸보다 먼저** 잰다(`v120` 스캔이 순서를 잠근다). 스크린샷은 검사 전에 찍으므로 영향이 없다.
 32. **새로 확인 (RR0):** `ui-check before --check`는 장면 28 × 다크·라이트 56장을 5분 30초에 끝낸다(Bash 포그라운드 한도 10분 안). 일부 접근성 실패는 RR0 전부터 있던 것이다(`session`·`sheet-food`의 `label-content-name-mismatch` — 아래 표). 종료 코드 1은 RR0 전에도 1이었다.
 33. **새로 확인 (RR0):** `first-screen.mjs`의 값은 PLAN "확인한 것" 3(923ms·271ms)보다 작다 — 끝 조건(`#root` 글자 20자 초과 + "불러오는 중" 없음)과 기계가 다르다. **RR1은 이 기록의 값과 견준다**(PLAN의 값이 아니다).
+34. **새로 확인 (RR1):** `<Theme>`은 `<html>`에 `data-astryx-theme`만 다는 게 아니라 앱을 감싸는 `<div class="xjp7ctv …">`(`display: contents`)를 만들고, 거기에 `font-family: Figtree`·`color: #fff`를 건다. 안 옮긴 화면이 이것을 상속해 글자 폭이 달라졌다(`--same-layout`이 잡았다). 정적 `theme-neutral/theme.css`는 `@layer reset`에 `h1`~`h6`·`p`·`small`·`code`·`pre`·`hr` 요소 규칙도 문서 전체에 건다. 둘 다 `global.css`의 legacy `@scope` 안에서 되돌렸다.
+35. **새로 확인 (RR1):** CSS `@scope (…) to (…)`는 이 Chromium과 vite 빌드에서 그대로 살아남는다(`dist`의 `index-*.css`에서 글자 그대로 확인). `:where(:scope) { … }`로 뿌리에 명시도 0 규칙을 걸 수 있다. 다만 `ax.css` 리셋의 `to (…)` 한계를 빼도 `--same-layout=settings`는 통과한다 — 이 검사는 그 구멍을 못 잡고 `scripts/legacy-scope.test.mjs`가 잡는다.
+36. **새로 확인 (RR1):** `.css`를 읽는 스캔은 `src/`의 테스트에서 못 한다(제약 3·13). `scripts/*.test.mjs`는 `node:fs`를 쓸 수 있고 `npm test`가 같이 돌린다(`scripts/check.test.mjs`가 그 예). CSS 스캔은 거기에 둔다.
+37. **새로 확인 (RR1):** 테마를 앱 뿌리에 올리면 `--duration-fast`가 `<html>`에서 읽혀(125ms) `measurePress`의 기다림이 짧아진다 → 눌림 검사가 무작위로 `안 돌아옴`. 기다림에 하한(195ms)을 뒀다. `ui-check`를 `--only`로 한 장면씩 돌리면 같은 요소가 통과하므로 무작위 실패는 하네스 쪽이다.
 
 ---
 
@@ -199,3 +203,124 @@ PLAN "확인한 것" 3의 923ms·271ms보다 작다(제약 33). RR1의 3배 선�
 ### 리뷰어에게 묻는 것
 
 - `ui-check`가 라이트까지 전 장면을 찍어 `before`가 5분 30초로 늘었다. 이대로 두어도 되는가(`--only`로 줄일 수 있다).
+
+---
+
+## RR1. 테마를 앱 뿌리에
+
+### 범위
+
+| 커밋 | 바뀐 파일 | 내용 |
+|---|---|---|
+| `171d509` | 72개: `src/ax/theme.ts`(새)·`src/ax/index.tsx`(`AppRoot` 신설, `AxRoot`는 틀만)·`src/App.tsx`(`AppBody` + `<AppRoot>` 한 곳)·`src/main.tsx`(`index.css`를 App보다 먼저)·`index.html`·`src/ax/ax.css`·`src/styles/{global,glass}.css`·`scripts/ui-check.mjs`·`scripts/legacy-scope.test.mjs`(새)·`src/lib/{v117,v120}.test.ts`·`README.md`·`docs/ASTRYX-INVENTORY.md`·`docs/screenshots/v1.20/after/`(57개) | 테마를 앱 뿌리에, legacy CSS 가두기, 번짐 되돌리기, 검사 |
+| 이 기록과 같은 커밋 | `scripts/lib/ui-check-lib.mjs`(눌림 기다림 하한)·`docs/screenshots/v1.20/after/`(다시 찍음)·이 문서 | 아래 "PLAN과 다르게 한 것" 3 |
+
+테스트: 파일 69 → 70(`scripts/legacy-scope.test.mjs`), 테스트 1640 → 1655(`v120.test.ts` +6, `legacy-scope.test.mjs` +8, `v117.test.ts`는 두 테스트를 같은 뜻으로 바꿔 개수가 그대로).
+
+### PLAN 검증 항목 ↔ 테스트·확인
+
+| PLAN 검증 | 어디서 |
+|---|---|
+| `AppRoot`를 정적으로 import, 반환 갈래가 `<AppRoot>` 밖에 없다 | `v120.test.ts` "v120 RR1: App.tsx가 ./ax에서 AppRoot를 정적으로 import하고 …" |
+| `<Theme`은 `AppRoot` 안에 한 번 `mode="system"`, `AxRoot` 본문에 `Theme`·`SizeProvider` 없음 | "v120 RR1: ax/index.tsx에서 <Theme은 AppRoot 안에 한 번 …" |
+| `/built`·`defineTheme`을 import하는 파일은 `theme.ts` 하나, 이름과 정적 CSS의 짝 | "…theme.ts 하나이고 defineTheme은 0건이다", "…이름과 …theme-<이름>/theme.css의 이름이 같다" |
+| `main.tsx`는 Astryx를 직접 안 읽고 `styles/index.css`를 읽는다 | "v120 RR1: main.tsx는 … index.css를 App보다 먼저 읽는다", `v117`의 옮긴 테스트 |
+| `index.html` color-scheme `light dark` | "v120 RR1: index.html의 color-scheme 메타가 light dark다" |
+| `global.css`에 `@scope` 밖 맨 `button`·`input` 규칙 없음, `ax.css`에 `[data-astryx-theme] button` 없음, 두 뿌리 목록이 같다 | `scripts/legacy-scope.test.mjs` 앞 다섯 (`.css`는 vitest에서 `?raw`가 비어(제약 3) `node:fs`를 쓰는 `.mjs` 테스트로 읽는다 — `src/`의 테스트는 `node:fs`를 못 쓴다, 제약 13) |
+| `v117.test.ts:93`·`:105`를 옮기고 `:147`은 그대로 통과 | `v117.test.ts` "main.tsx는 … App.tsx는 ./ax만 읽는다", "AppRoot는 mode=system만 …"; `:147`("OO3 화면 맨 바깥이 AxRoot이고 App은 lazy로만")은 안 고치고 통과 |
+| `ui-check after --check`의 `테마 토큰` 전 장면 × 다크·라이트 통과 | 아래 "ui-check 결과" (56/56). `JUDGED['테마 토큰']`을 `true`로 켰다 |
+| `--same-layout`: 다크 28장면 요소 사각형이 `before`와 같다 | 28/28 "요소 같다" |
+| 기존 검사(`줄 안 버튼`·`여백 한 벌`·`눌림 반응`)가 그대로 통과 | 아래 "ui-check 결과" |
+| 첫 화면, 오프라인 | 아래 |
+
+### ui-check 결과 (`node scripts/ui-check.mjs after --check --ver=v1.20 --same-layout=all`)
+
+- 56장 (28장면 × 다크·라이트). `--same-layout`: **28/28 통과** (editor 163, line-sheet 201 포함).
+- `테마 토큰` 칸: **56/56 통과** (다크 `rgb(27, 27, 27)` · 라이트 `rgb(241, 241, 241)`).
+- 실패는 RR0 전부터 있던 `label-content-name-mismatch` 네 곳뿐: `session`·`session-375`·`session-open-b`(`자리 없음 — 대체운동 고르기`), `sheet-food`(`… 추가` 10건). 종료 코드 1은 RR0와 같다.
+- `유리` 칸: 다크·라이트 전부 통과(라이트 실패 0). `눌림 반응`: 전부 통과. `여백 한 벌`·`줄 안 버튼`·`가로 넘침`·`여백 격자` 통과.
+- 흐름: 막 눌러 닫기·막 두 번 누르기·움직임 줄이기에서 닫기 통과, **오프라인 통과** (새 흐름 — precache가 끝난 뒤 `setOffline(true)` → `reload` → 홈 → 시작 → 세트 ✓ → 휴식 바).
+
+### 첫 화면·번들·precache (`npm run build && node scripts/first-screen.mjs`)
+
+| | RR0 (앱을 안 바꾼 값) | RR1 | 배수 | 멈춤 선(3배) |
+|---|---|---|---|---|
+| 캐시 없는 첫 방문 | 415ms | 542ms (579, 538, 542, 539, 542) | 1.31 | 1245ms |
+| 서비스워커 캐시로 다시 열기 | 146ms | 233ms (262, 234, 217, 233, 232) | 1.60 | 438ms |
+
+- 선 아래다. 판단은 실기기 확인 ⑨가 한다.
+- `index.js` gzip 342.57KB + `index.css` gzip 54.90KB ≈ 397KB (PLAN 위쪽 한계 449KB 안; 전은 약 190KB).
+- `precache  27 entries (2573.44 KiB)` (PLAN 확인 때: 28개, 2,569.51KiB).
+
+### 세 숫자 + 넷째 (`node scripts/astryx-inventory.mjs --check`)
+
+```
+✓ Astryx를 안 읽는 화면 파일: 45 → 44
+✓ 인라인 스타일: 97 → 97
+✓ legacy 클래스 쓰임: 520 → 520
+✓ 안 쓰는 legacy 선택자: 2 → 2
+```
+
+머리 표의 예상값(45→44 / 97 / 520)과 같다. `App.tsx`가 Astryx를 읽게 되어 한 칸 줄었다.
+
+### legacy 뿌리 목록
+
+`.app, .screen, .session, .onboarding, .sheet-backdrop, .center-note, .banner` — `grep`으로 확인했다. PLAN의 목록에서 **`.banner`를 더했다**: `UpdatePrompt`의 `.banner.update-prompt`가 시작 실패·불러오는 중·온보딩 갈래에서는 `.app`·`.screen` 밖에 놓여, 그 안의 버튼(`업데이트`·`나중에`)이 legacy 규칙을 잃는다. `.update-prompt`를 새로 적으면 legacy 클래스 쓰임이 520 → 521로 늘어 "늘지 않는다"를 어기므로 이미 `global.css`에 있는 `.banner`를 뿌리로 썼다(화면 안의 배너는 이미 `.screen` 안이라 겹쳐도 해가 없다).
+
+### PLAN과 다르게 한 것
+
+1. **테마가 앱 전체에 걸리면서 번지는 것이 PLAN("확인한 것" 4)보다 많았다.** `--same-layout`이 잡았다(전 장면의 제목 높이 40.5 → 39, 버튼 폭 1~1.5px, 카드 한 줄 높이). 원인 둘을 같은 `@scope` 블록(`global.css`, legacy 뿌리 → `.ax-scope`까지)에서 되돌렸다:
+   - `Theme`이 앱 전체를 감싸는 `<div display: contents>`에 `font-family: Figtree`·`color: #fff`를 건다 → 뿌리에 `:where(:scope) { font-family: var(--font-sans); color: var(--text) }`. `--font-sans`는 `:root`에 새로 둔 토큰이고 `body`도 같은 토큰을 쓴다(글꼴 목록이 한 곳).
+   - 정적 `theme-neutral/theme.css`의 `@layer reset`이 `h1`~`h6`·`p`·`small`·`code`·`pre`·`hr`에 글꼴·크기·줄 높이·색·테두리를 건다(범위가 문서 전체) → `:where(h1, …) { font-family·font-size·font-weight·line-height·color: revert }`, `:where(hr) { border: revert }`. 명시도 0이라 legacy 클래스 규칙이 이긴다.
+2. **`glass.css`·`ax.css`의 `html[data-astryx-theme] { --glass-solid·--glass-sheet·--glass-edge }`를 `html[data-astryx-theme] .astryx-bottom-sheet`로 좁혔다.** PLAN은 "legacy 시트의 면·테두리가 저절로 달라진다"를 예상 변화로 적었지만, 그러면 다크의 `유리` 칸(`sheet-home`·`sheet-finish`·`sheet-timer`·`sheet-food`)이 글자 대비 4.34:1(기준 4.5)로 실패했다. legacy 시트는 RR2가 이을 때까지 예전 색 그대로다. 문서 배경은 PLAN대로 바뀐다(다크 `#0b0b0d` → `rgb(27,27,27)`).
+3. **`ui-check` 하네스 두 곳.** (a) 유리 칸이 CDP로 미디어를 흉내 내고 `detach`하면 색 체계가 라이트로 풀린다(제약 31). legacy 시트가 `html[data-astryx-theme]`의 라이트 규칙을 받던 때에는 `시트 비침`이 라이트 값(α0.7)으로 나와 다크 장면이 실패했다 — `detach` 뒤 `page.emulateMedia({ colorScheme })`로 복원. (b) `measurePress`의 기다림이 `--duration-fast`(테마 토큰)를 읽는데, 테마가 앱 뿌리에 오자 토큰이 읽혀 기다림이 195 → 145ms로 줄었고(전엔 못 읽어 175+20) legacy의 뗄 때 전이(125ms)가 안 끝나 `안 돌아옴`이 전체 실행마다 무작위 1건씩 났다 → 하한을 195ms로(`Math.max(…, 195)`). 하한을 둔 뒤 전체 실행에서 눌림 실패 0건.
+4. `ui-check`의 재개 줄 선택자(`/진행 중/`)를 `.last()`로: 홈 카드(`today-card-btn`, "… 진행 중 · 0분")와 재개 줄이 둘 다 `진행 중`을 담아 strict mode로 걸렸다(RR0 `before` 때는 한쪽만 맞았다 — 이유는 확인 못 했다). 재개 줄이 DOM에서 뒤라 `.last()`가 그것이다. `screenshots-glass.mjs`도 같게.
+5. 오프라인 흐름은 PLAN대로 `ui-check`에 더했다(다른 장면은 서비스워커를 막으므로 서비스워커를 허용하는 새 문맥에서 따로).
+
+### 결함 복원 (`cp` 백업 → 결함 → 테스트 → 복구 → `cmp`)
+
+| # | 되살린 결함 | 실패한 검사 | 원상복구 |
+|---|---|---|---|
+| ① | `App.tsx`에서 `<AppRoot>` 감싸기를 뺌 | `v120` "App.tsx가 ./ax에서 AppRoot를 … 갈래가 없다" | `cmp` 같음 |
+| ② | `global.css` 끝에 `@scope` 밖 `button { min-height: 44px }` | `legacy-scope.test.mjs` "@scope 밖의 맨 button·input 규칙이 없다" + `ui-check --same-layout=editor`: `editor` 0번째 button `[16,12,65.5,36] → [16,12,65.5,44]` (Astryx 버튼이 44로 부푼다) | 같음 |
+| ③ | `ax.css` 리셋에서 `to (…)` 한계를 뺌 | **`--same-layout=settings`는 못 잡는다**(통과 — 이 검사의 구멍). `legacy-scope.test.mjs` "리셋은 … to (legacy 뿌리)로 감싸여 있다"·"두 파일의 뿌리 목록이 …" 2건이 잡는다(PLAN이 시킨 선택자 스캔) | 같음 |
+| ⑳ | `theme.ts`를 `defineTheme({ name: 'workout', extends: neutralTheme })`로 | `v120` "…defineTheme은 0건이다", "…theme-<이름>/theme.css의 이름이 같다" | 같음 |
+| 새① | `global.css`의 `font-family: revert`를 `inherit`로 | `legacy-scope.test.mjs` "테마의 h1·p 규칙이 번지지 않게 …되돌린다" | 같음 |
+| 새② | `glass.css`의 `.astryx-bottom-sheet`를 `html`로 | "테마에서 만든 시트 면·테두리 토큰은 html이 아니라 …" | 같음 |
+| 새③ | `:where(:scope)` 규칙을 없앰 | "Theme 감싸개가 거는 글꼴·글자색을 … 되돌린다" | 같음 |
+
+④(RR2)·⑤~⑲·㉑·㉒(RR3~)는 이번 작업의 범위가 아니다.
+
+### 과거 판정 불변 확인
+
+- `git diff --stat main..HEAD -- src/db src/store`: 출력 없음.
+- `git diff --stat main..HEAD -- src/lib`: `src/lib/v117.test.ts`(스캔 옮김)·`src/lib/v120.test.ts`뿐 — 판정 파일 없음.
+- 골든 테스트 수정 없음. 달라지는 것: 문서 배경(다크 `#0b0b0d` → 테마 본문 배경), 앱 전체가 `color-scheme: light dark`.
+
+### 변이 테스트
+
+대상 없음 — `src/lib`의 판정·계산 코드를 안 바꿨다(위 `git diff --stat`: 테스트 파일 둘뿐).
+
+### 수정표 밖 테스트
+
+- `src/lib/v120.test.ts`: "v120 RR0: 새 칸은 before(와 판정을 안 켠 칸)에서는 기록만 하고 …" — `JUDGED`의 `'테마 토큰'`을 `false` → `true`로. PLAN("작업이 끝날 때 해당 값을 true로")의 기계적 결과다.
+
+### 실행 결과
+
+- `npm run check` 통과(흔적·Astryx 뒷걸음·린트·knip·테스트·빌드).
+- `Test Files  70 passed (70)` · `Tests  1655 passed (1655)`
+- 빌드 성공. `git rev-list --count main..HEAD` = 5 (RR0 + RR1 작업·기록 커밋 + 계획 병합분 포함).
+
+### 하지 않은 것
+
+- `theme-color` 메타·매니페스트·스플래시·상태바(범위 제외). 폰이 라이트일 때 안 옮긴 화면은 색이 아직 어둡다 — RR2.
+- `README.md` "Limitations"의 "나머지 화면은 아직 다크 고정"은 RR2·RR9가 고친다.
+
+### 실기기 확인
+
+사람 확인 필요 — 이 작업은 RR2와 떼어 배포하지 않는다(PLAN). 폰이 라이트일 때 안 옮긴 화면의 글자가 읽히는지는 RR2 뒤 ①로 본다. 지금 다크 폰에서는 ⑨(첫 화면이 "색 없이 잠깐 뜨는가", 위 값 542·233ms)와 ②~⑤ 중 헬스장 경로(✓ 1탭, `+`·`−`)가 전과 같은지만 본다.
+
+### 리뷰어에게 묻는 것
+
+- "PLAN과 다르게 한 것" 2: legacy 시트의 면을 PLAN의 예상(테마색으로 바뀜)과 달리 그대로 뒀다. RR2가 `--glass-*`를 어떻게 이을지에 따라 `.astryx-bottom-sheet`로 좁힌 이 선택이 RR2 쪽에서 되돌려질 수 있다.
+- 같은 3: 눌림 검사의 `안 돌아옴` 무작위 실패의 원인을 "기다림이 짧아졌다"로 정했는데, 하한을 둔 뒤 전체 실행 한 번에서 0건이었다(여러 번 돌려 본 것은 아니다).
