@@ -25,6 +25,12 @@ describe("v120 RR0 — 검사 도구가 화면 클래스에 안 묶인다", () =
     }
   })
 
+  it("v120 RR0: ui-check.mjs에 ex-head 글자가 없다 (RR7이 button.ex-head를 Collapsible로 바꿔도 장면이 빈 통과하지 않게 aria-expanded로 고른다)", () => {
+    const t = text(SCRIPTS, "/scripts/ui-check.mjs")
+    expect(t).not.toContain("ex-head")
+    expect(t).toContain("button[aria-expanded]")
+  })
+
   it("v120 RR0: 시작 버튼·재개 줄·휴식 바를 글자·역할로 고른다 (ui-check와 screenshots-glass가 같은 선택자)", () => {
     for (const f of ["/scripts/ui-check.mjs", "/scripts/screenshots-glass.mjs"]) {
       const t = text(SCRIPTS, f)

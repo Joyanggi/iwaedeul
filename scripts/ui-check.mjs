@@ -397,7 +397,7 @@ async function runScenes(browser, port, scheme) {
     })
     // B그룹 카드를 펼친 상태 — 감각 점수가 보인다. 찍고 다시 접는다(뒤 장면의 첫 "1세트 완료"를 그대로 두려고)
     await optional('session-open-b', async () => {
-      const heads = page.locator('button.ex-head')
+      const heads = page.locator('button[aria-expanded]')
       const n = await heads.count()
       for (let i = 0; i < n; i++) {
         const head = heads.nth(i)
@@ -475,7 +475,7 @@ async function runScenes(browser, port, scheme) {
       await snap('history-detail')
       // 기록 편집에서 카드를 펼친 상태 (RR7의 세트 숫자·섬 버튼을 볼 장면)
       await optional('history-detail-edit', async () => {
-        await page.locator('button.ex-head').first().click({ timeout: 3000 })
+        await page.locator('button[aria-expanded]').first().click({ timeout: 3000 })
         await settle(page, 500)
         await snap('history-detail-edit')
       })
