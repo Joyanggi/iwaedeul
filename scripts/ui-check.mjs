@@ -11,6 +11,8 @@
  *   --only=a,b    이 장면만 찍고 잰다(흐름은 앞에서부터 그대로 거친다)
  *   --press-shot=<장면>:<버튼 이름>  그 장면에서 그 버튼 가운데에 touchStart를 보내고 뗀 적 없는 상태로 <장면>-press.png를 찍는다(판정 없음, 화면 검증자가 보는 사진)
  *   --same-layout=<장면,…|all>  after: 그 장면들의 요소 사각형이 <기준>/layout.json과 같은지 본다(다크). 다르면 실패
+ *   --safe-area   after: 위 47·아래 34 안전 영역을 흉내 낸 장면 home-safe·session-safe·sheet-finish-safe(다크·라이트)를 찍고 `상태바 받침`을 잰다 (Chromium만 — CDP)
+ *   --webkit      after --check: `색 체계 전환` 흐름을 Playwright WebKit에서 한 번 더 돌고 장면마다 다크·라이트를 after/webkit/에 찍는다 (RR11)
  *   --layout-base=<파일>  --same-layout이 견줄 기준 파일(기본 docs/screenshots/<버전>/before/layout.json)
  *
  * 브라우저: `npx playwright install chromium`. 레포에 넣지 않는다, CI는 받지 않는다.
@@ -22,7 +24,7 @@ import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { chromium, devices } from 'playwright'
+import { chromium, devices, webkit } from 'playwright'
 import { preview } from 'vite'
 import { inPageLayout, spaceSetVerdicts, spaceStaticChecks } from './lib/ui-space.mjs'
 import {
@@ -78,6 +80,8 @@ const pressFlag = flags.find((f) => f.startsWith('--press-shot='))
 const PRESS_SHOT = pressFlag ? pressFlag.slice(13).split(/:(.+)/).filter(Boolean) : null // [장면, 버튼 이름]
 const sameFlag = flags.find((f) => f.startsWith('--same-layout='))
 const SAME_LAYOUT = sameFlag ? sameFlag.slice(14).split(',').filter(Boolean) : null
+const SAFE_AREA = flags.includes('--safe-area')
+const WEBKIT = flags.includes('--webkit')
 const baseFlag = flags.find((f) => f.startsWith('--layout-base='))
 const OUT = join(ROOT, 'docs', 'screenshots', VER, phase)
 const LAYOUT_BASE = baseFlag ? baseFlag.slice(14) : join(ROOT, 'docs', 'screenshots', VER, 'before', 'layout.json')
@@ -538,6 +542,154 @@ async function runScenes(browser, port, scheme) {
 }
 
 /**
+ * 색 체계 전환 (PLAN v1.20 RR11): 같은 걸음으로 여덟 장면을 지나며 onScene(page, scene)을 부른다.
+ * 홈 → 세션(1세트 완료) → 요약 → 기록 → 분석 → 식단 → 설정 → 루틴 편집.
+ */
+async function walkSchemeScenes(page, onScene) {
+  const go = async (name) => {
+    await settle(page, 700)
+    await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
+    await onScene(page, name)
+  }
+  await page.getByRole('button', { name: /^(시작하기|확인했어요, 그래도 계속)$/ }).click()
+  await page.getByRole('button', { name: '설정', exact: true }).waitFor()
+  await go('home')
+  await page.getByRole('button', { name: /시작$|이어서 하기/ }).first().click()
+  await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor()
+  await go('session')
+  await page.getByRole('button', { name: '1세트 완료', exact: true }).first().click()
+  await page.getByRole('timer').waitFor({ timeout: 5000 })
+  await btn(page, '종료').click()
+  await page.getByRole('dialog', { name: '세션 종료' }).waitFor()
+  await btn(page, '기록 마치기').click()
+  await btn(page, '홈으로').waitFor({ timeout: 8000 })
+  await go('summary')
+  await btn(page, '홈으로').click()
+  await page.getByRole('button', { name: '기록', exact: true }).waitFor()
+  await page.getByRole('button', { name: '기록', exact: true }).click()
+  await go('history')
+  await page.getByRole('button', { name: '분석', exact: true }).click()
+  await page.locator('svg.recharts-surface, .recharts-wrapper, .center-note').first().waitFor({ timeout: 8000 }).catch(() => {})
+  await settle(page, 1000)
+  await go('analyze')
+  await page.getByRole('button', { name: '식단', exact: true }).click()
+  await go('diet')
+  await page.getByRole('button', { name: '설정', exact: true }).click()
+  await go('settings')
+  await btn(page, '편집').click()
+  await page.getByText('루틴 이름', { exact: true }).first().waitFor()
+  await go('editor')
+}
+
+/** 지금 화면의 색 한 벌: 문서 배경, 제목 글자색, axe 대비 위반 수, 분석 차트의 선 색 */
+async function schemeProbe(page, scene) {
+  const m = await page.evaluate(() => {
+    const bg = getComputedStyle(document.body).backgroundColor
+    const h = document.querySelector('h1')
+    return { bg, h1: h ? getComputedStyle(h).color : null }
+  })
+  const res = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+  const contrast = res.violations.filter((v) => v.id === 'color-contrast').reduce((a, v) => a + v.nodes.length, 0)
+  const chart = scene === 'analyze' ? JSON.stringify(await page.evaluate(inPageChartColors)) : null
+  return { ...m, contrast, chart }
+}
+
+/** 색 체계 전환: 라이트로 처음부터 연 기준 → 다크로 열어 새로 고침 없이 라이트 → 다시 다크. type: chromium|webkit */
+async function runSchemeFlow(type, port, shotDir) {
+  const browser = await type.launch()
+  const label = type === webkit ? 'WebKit' : 'Chromium'
+  const open = async (scheme) => {
+    const ctx = await browser.newContext({ ...DEVICE, locale: 'ko-KR', colorScheme: scheme, serviceWorkers: 'block' })
+    const page = await ctx.newPage()
+    await page.addInitScript(installScript())
+    await page.goto(`http://localhost:${port}${BASE}`)
+    return { ctx, page }
+  }
+  const base = {}
+  try {
+    {
+      const { ctx, page } = await open('light')
+      await walkSchemeScenes(page, async (pg, scene) => {
+        base[scene] = await schemeProbe(pg, scene)
+        if (shotDir) shots.push({ name: `${scene}-light`, buf: await pg.screenshot(), dir: shotDir })
+      })
+      await ctx.close()
+    }
+    const { ctx, page } = await open('dark')
+    await walkSchemeScenes(page, async (pg, scene) => {
+      const dark = await schemeProbe(pg, scene)
+      if (shotDir) shots.push({ name: scene, buf: await pg.screenshot(), dir: shotDir })
+      await pg.emulateMedia({ colorScheme: 'light' })
+      await settle(pg, 400)
+      const lit = await schemeProbe(pg, scene)
+      await pg.emulateMedia({ colorScheme: 'dark' })
+      await settle(pg, 400)
+      const back = await schemeProbe(pg, scene)
+      const b = base[scene]
+      const bad = []
+      if (!(rgbLuminance(lit.bg) > rgbLuminance(dark.bg))) bad.push(`배경이 밝아지지 않았다 ${dark.bg}→${lit.bg}`)
+      if (back.bg !== dark.bg) bad.push(`다크로 돌아오지 않았다 ${back.bg}`)
+      if (dark.h1 !== null && (dark.h1 === lit.h1 || back.h1 !== dark.h1)) bad.push(`제목 글자색이 안 뒤집혔다 ${dark.h1}→${lit.h1}→${back.h1}`)
+      if (lit.bg !== b.bg) bad.push(`라이트 배경이 처음부터 라이트와 다르다 ${lit.bg} ≠ ${b.bg}`)
+      if (lit.contrast > b.contrast) bad.push(`라이트 대비 위반 ${lit.contrast}건 > 처음부터 라이트 ${b.contrast}건`)
+      if (scene === 'analyze' && (lit.chart === dark.chart || back.chart !== dark.chart)) bad.push('차트 선 색이 전환을 따르지 않는다')
+      flows.push([`색 체계 전환 ${label} ${scene}`, { ok: bad.length === 0, detail: bad.join(' / ') || `배경 ${dark.bg}→${lit.bg}→${back.bg} · 제목 ${dark.h1 ?? '없음'}→${lit.h1 ?? '없음'} · 대비 위반 ${lit.contrast}건(기준 ${b.contrast})${scene === 'analyze' ? ' · 차트 선 색 바뀜' : ''}` }])
+    })
+    await ctx.close()
+  } finally {
+    await browser.close()
+  }
+}
+
+/** 안전 영역 장면 (RR11): CDP로 위 47·아래 34를 주고 상태바 받침을 잰다. Chromium 전용 */
+async function runSafeArea(browser, port) {
+  for (const scheme of ['dark', 'light']) {
+    const light = scheme === 'light'
+    const ctx = await browser.newContext({ ...DEVICE, locale: 'ko-KR', colorScheme: scheme, serviceWorkers: 'block' })
+    const page = await ctx.newPage()
+    await page.addInitScript(installScript())
+    await page.goto(`http://localhost:${port}${BASE}`)
+    const cdp = await ctx.newCDPSession(page)
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 47, bottom: 34, left: 0, right: 0 } })
+    const scene = async (name, bottomSel) => {
+      await settle(page, 700)
+      await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
+      shots.push({ name: light ? `${name}-light` : name, buf: await page.screenshot() })
+      const r = await page.evaluate(
+        (sel) => {
+          const before = getComputedStyle(document.body, '::before')
+          const bodyBg = getComputedStyle(document.body).backgroundColor
+          const els = sel ? [...document.querySelectorAll(sel)] : []
+          const bottom = els.length ? Math.max(...els.map((e) => e.getBoundingClientRect().bottom)) : null
+          return { content: before.content, height: before.height, bg: before.backgroundColor, bodyBg, bottom, h: window.innerHeight }
+        },
+        bottomSel,
+      )
+      const bad = []
+      if (light) {
+        if (r.height !== '47px') bad.push(`받침 높이 ${r.height} ≠ 47px`)
+        if (!(rgbLuminance(r.bg) < rgbLuminance(r.bodyBg))) bad.push(`받침 ${r.bg}이 문서 배경 ${r.bodyBg}보다 어둡지 않다`)
+      } else if (r.content !== 'none') bad.push(`다크인데 받침이 있다 content=${r.content}`)
+      if (bottomSel) {
+        if (r.bottom === null) bad.push(`${bottomSel}를 못 찾았다`)
+        else if (r.bottom > r.h - 34 + 0.5) bad.push(`아래 끝 ${r.bottom} > ${r.h - 34} (홈 바 자리를 침범)`)
+      }
+      flows.push([`상태바 받침 ${name}${light ? '-light' : ''}`, { ok: bad.length === 0, detail: bad.join(' / ') || (light ? `받침 ${r.height} ${r.bg}` : '받침 없음') + (r.bottom !== null ? ` · 아래 끝 ${r.bottom}/${r.h - 34}` : '') }])
+    }
+    await page.getByRole('button', { name: /^(시작하기|확인했어요, 그래도 계속)$/ }).click()
+    await page.getByRole('button', { name: '설정', exact: true }).waitFor()
+    await scene('home-safe', '.tabbar')
+    await page.getByRole('button', { name: /시작$|이어서 하기/ }).first().click()
+    await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor()
+    await scene('session-safe', null)
+    await btn(page, '종료').click()
+    await page.getByRole('dialog', { name: '세션 종료' }).waitFor()
+    await scene('sheet-finish-safe', '[role=dialog] button')
+    await ctx.close()
+  }
+}
+
+/**
  * 오프라인 (PLAN v1.20 RR1): 서비스워커가 precache를 끝낸 뒤 네트워크를 끊고 `reload` → 홈이 뜨고 시작 → 세트 체크가 된다.
  * 헬스장 경로가 Astryx를 정적으로 읽게 됐으므로(README 결정 2) 그 코드가 precache에 들어 있는지 본다. 다른 장면은 SW를 막지만 여기는 허용한다.
  */
@@ -681,8 +833,15 @@ try {
   await runScenes(browser, port, 'dark')
   if (CHECK && phase === 'after' && !ONLY) await runOffline(browser, port)
   if (!ONLY || [...ONLY].some((s) => s.endsWith('-light'))) await runScenes(browser, port, 'light')
+  if (CHECK && phase === 'after' && !ONLY) await runSchemeFlow(chromium, port, null)
+  if (SAFE_AREA) await runSafeArea(browser, port)
+  if (WEBKIT) await runSchemeFlow(webkit, port, 'webkit')
   mkdirSync(OUT, { recursive: true })
-  for (const s of shots) writeFileSync(join(OUT, `${s.name}.png`), s.buf)
+  for (const s of shots) {
+    const dir = s.dir ? join(OUT, s.dir) : OUT
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, `${s.name}.png`), s.buf)
+  }
   if (Object.keys(rects).length) {
     // 배치 기록. --only로 일부만 쟀으면 이미 있는 파일에 합친다
     const file = join(OUT, 'layout.json')

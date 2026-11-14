@@ -186,7 +186,7 @@
       left: 0;
       right: 0;
       height: env(safe-area-inset-top);
-      background: #0b0b0d;
+      background: var(--color-on-light);
       pointer-events: none;
       z-index: 1;
     }

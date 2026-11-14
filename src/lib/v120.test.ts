@@ -234,3 +234,45 @@ describe("v120 RRM 보완 — 접근성 이름 둘과 종료 코드", () => {
     expect(t).not.toContain(".exclude(")
   })
 })
+
+describe("v120 RR11 — 라이트/다크가 폰 설정을 따른다", () => {
+  const HTML = import.meta.glob("/index.html", { query: "?raw", import: "default", eager: true }) as Record<string, string>
+  const ALL = Object.fromEntries(Object.entries(import.meta.glob("/src/**/*.{ts,tsx,css}", { query: "?raw", import: "default", eager: true }) as Record<string, string>).filter(([p]) => !/\.test\.tsx?$/.test(p)))
+
+  it("v120 RR11: index.html에 theme-color 메타가 정확히 둘이고 media가 각각 light·dark다", () => {
+    const metas = HTML["/index.html"].match(/<meta\s+name="theme-color"[^>]*>/g) ?? []
+    expect(metas).toHaveLength(2)
+    expect(metas.filter((m) => m.includes('media="(prefers-color-scheme: light)"'))).toHaveLength(1)
+    expect(metas.filter((m) => m.includes('media="(prefers-color-scheme: dark)"'))).toHaveLength(1)
+  })
+
+  it("v120 RR11: 두 theme-color 값이 테마의 --color-background-body light-dark(A, B)의 A·B와 글자 그대로 같다 (테스트가 패키지를 읽어 견준다)", async () => {
+    const { neutralTheme } = await import("@astryxdesign/theme-neutral/built")
+    const token = (neutralTheme.tokens as Record<string, string>)["--color-background-body"]
+    const m = /^light-dark\(\s*(#[0-9a-fA-F]+)\s*,\s*(#[0-9a-fA-F]+)\s*\)$/.exec(token)
+    expect(m, `토큰이 light-dark(A, B) 꼴이 아니다: ${token}`).toBeTruthy()
+    const html = HTML["/index.html"]
+    const metas = html.match(/<meta\s+name="theme-color"[^>]*>/g) ?? []
+    const colorOf = (scheme: string) => /content="([^"]+)"/.exec(metas.find((x) => x.includes(`(prefers-color-scheme: ${scheme})`)) ?? "")?.[1]
+    expect(colorOf("light")).toBe(m![1])
+    expect(colorOf("dark")).toBe(m![2])
+  })
+
+  it("v120 RR11: index.html·src(테스트 제외)에 content=\"dark\"·color-scheme: dark·mode=\"dark\"·mode=\"light\"·data-theme=가 0건이다", () => {
+    const files = { "/index.html": HTML["/index.html"], ...ALL }
+    for (const [path, src] of Object.entries(files)) {
+      for (const bad of ['content="dark"', /(?<!prefers-)color-scheme:\s*dark/, 'mode="dark"', 'mode="light"', "data-theme="]) {
+        expect(typeof bad === "string" ? src.includes(bad) : bad.test(src), `${path}에 ${bad}`).toBe(false)
+      }
+    }
+  })
+
+  it("v120 RR11: ui-check.mjs에 색 체계 전환 흐름(emulateMedia colorScheme), --webkit, --safe-area(setSafeAreaInsetsOverride)가 있다", () => {
+    const t = text(SCRIPTS, "/scripts/ui-check.mjs")
+    expect(t).toContain("runSchemeFlow")
+    expect(t).toContain("emulateMedia({ colorScheme: 'light' })")
+    expect(t).toContain("--webkit")
+    expect(t).toContain("Emulation.setSafeAreaInsetsOverride")
+    expect(t).toContain("상태바 받침")
+  })
+})

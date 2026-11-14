@@ -441,3 +441,102 @@ PLAN의 뜻("다크에서만 버튼이 면에 묻히는 일을 잡는다")은 �
 `1e5cb01`은 그대로 두고 둘째 커밋으로 더했다. `ExerciseCard` `대체` 버튼 이름 → `대체 — 자리 없음, 대체운동 고르기`, `FoodLogSheet` `.diet-item` 버튼의 `aria-label` 삭제, `ui-check.mjs` sheet-food의 찾는 이름 → `/(kcal|g|영양 미입력)$/`, `uiConsistency` X8 81줄을 새 이름으로. `v120.test.ts`에 보완 스캔 셋 추가. 판정 명령(`--layout-base`·`--same-layout` 21장면): **종료 코드 0**, 출력 `.reports/rrm-fix-uicheck.txt`. 접근성 네 칸 없어짐, 심각 위반 0건. 변이: 대상 없음.
 
 리뷰 반영: `.diet-item` 스캔이 `onClick={() => …}`의 `>`에서 멈춰 결함을 못 잡던 것을 className부터 첫 `</button>` 앞까지 자르는 방식으로 고쳤다. 결함 복원: `onClick={() => add(f)}` 다음 줄에 `aria-label`을 넣으면 이 테스트가 실패하고, 되돌리면 통과(`cmp` 동일). `SettingsScreen.tsx`의 지운 `glass` 상태 고아 주석도 지웠다.
+
+---
+
+## RR11. 라이트/다크가 폰 설정을 따른다
+
+### 범위
+
+| 바뀐 것 | 내용 |
+|---|---|
+| `index.html` | `theme-color` 한 줄 → 둘(`media` light `#f1f1f1` · dark `#1b1b1b`, `neutralTheme.tokens['--color-background-body']` = `light-dark(#f1f1f1, #1b1b1b)`의 A·B) |
+| `src/ax/ax.css` | 상태바 받침 `background: #0b0b0d` → `var(--color-on-light)`(테마 값 `#111111`, 라이트·다크 같음) |
+| `scripts/ui-check.mjs` | `색 체계 전환` 흐름(`runSchemeFlow`, 여덟 장면, Chromium은 `after --check`마다), `--webkit`(같은 흐름 WebKit + `after/webkit/`에 장면 × 다크·라이트), `--safe-area`(`runSafeArea`, 위 47·아래 34, `상태바 받침`) |
+| 테스트 | `v120.test.ts` RR11 describe 4개, `scripts/rr11.test.mjs` 1개(.css는 vitest ?raw가 비어 fs — 제약 3) |
+
+### PLAN 검증 항목 ↔ 테스트·확인
+
+| PLAN 검증 | 테스트·확인 |
+|---|---|
+| theme-color 둘, media light·dark | `v120 RR11: index.html에 theme-color 메타가 정확히 둘이고…` |
+| 두 값 = 테마 토큰의 A·B | `v120 RR11: 두 theme-color 값이 테마의 … A·B와 글자 그대로 같다` (패키지를 import해 견줌) |
+| 다크 고정 글자 0건 | `v120 RR11: index.html·src(테스트 제외)에 content="dark"·color-scheme: dark·…가 0건이다` (`prefers-color-scheme: dark`는 뺀다) |
+| 받침 규칙에 `#` 리터럴 없음 | `scripts/rr11.test.mjs` `v120 RR11: ax.css의 상태바 받침 규칙…` |
+| 도구가 흐름·옵션을 가짐 | `v120 RR11: ui-check.mjs에 색 체계 전환 흐름…` |
+| `색 체계 전환` 여덟 장면 (Chromium·WebKit) | `ui-check after --check --safe-area --webkit --ver=v1.20` 종료 코드 0 (아래) |
+| `상태바 받침` 세 장면 × 다크·라이트 | 같은 실행, 6건 전부 통과 |
+| 스크린샷 | `docs/screenshots/v1.20/after/` 전 장면 다시 찍음 + `home-safe`·`session-safe`·`sheet-finish-safe`(각 `-light`) + `webkit/`(8장면 × 2). 화면 검증자 몫 |
+
+### ui-check 출력 (발췌, `.reports/rr11-uicheck.txt`)
+
+```
+- 흐름 통과 색 체계 전환 Chromium home: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 1건(기준 1)
+- 흐름 통과 색 체계 전환 Chromium session: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 없음→없음 · 대비 위반 0건(기준 0)
+- 흐름 통과 색 체계 전환 Chromium summary: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
+- 흐름 통과 색 체계 전환 Chromium history: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
+- 흐름 통과 색 체계 전환 Chromium analyze: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0) · 차트 
+- 흐름 통과 색 체계 전환 Chromium diet: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
+- 흐름 통과 색 체계 전환 Chromium settings: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
+- 흐름 통과 색 체계 전환 Chromium editor: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
+- 흐름 통과 상태바 받침 home-safe: 받침 없음 · 아래 끝 810/810
+- 흐름 통과 상태바 받침 session-safe: 받침 없음
+- 흐름 통과 상태바 받침 sheet-finish-safe: 받침 없음 · 아래 끝 790/810
+- 흐름 통과 상태바 받침 home-safe-light: 받침 47px rgb(17, 17, 17) · 아래 끝 810/810
+- 흐름 통과 상태바 받침 session-safe-light: 받침 47px rgb(17, 17, 17)
+- 흐름 통과 상태바 받침 sheet-finish-safe-light: 받침 47px rgb(17, 17, 17) · 아래 끝 790/810
+- 흐름 통과 색 체계 전환 WebKit home: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 1건(기준 1)
+- 흐름 통과 색 체계 전환 WebKit session: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 없음→없음 · 대비 위반 0건(기준 0)
+- 흐름 통과 색 체계 전환 WebKit summary: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
+- 흐름 통과 색 체계 전환 WebKit history: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
+- 흐름 통과 색 체계 전환 WebKit analyze: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0) · 차트 �
+- 흐름 통과 색 체계 전환 WebKit diet: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
+- 흐름 통과 색 체계 전환 WebKit settings: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
+- 흐름 통과 색 체계 전환 WebKit editor: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
+- 흐름 통과 상태바 받침 home-safe: 받침 없음 · 아래 끝 810/810
+- 흐름 통과 상태바 받침 session-safe: 받침 없음
+- 흐름 통과 상태바 받침 sheet-finish-safe: 받침 없음 · 아래 끝 790/810
+- 흐름 통과 상태바 받침 home-safe-light: 받침 47px rgb(17, 17, 17) · 아래 끝 810/810
+- 흐름 통과 상태바 받침 session-safe-light: 받침 47px rgb(17, 17, 17)
+- 흐름 통과 상태바 받침 sheet-finish-safe-light: 받침 47px rgb(17, 17, 17) · 아래 끝 790/810
+```
+
+### 판정을 정한 것 (PLAN에 없던 세부)
+
+- 장면 순서는 `home → session → summary → history → analyze → diet → settings → editor`(PLAN 여덟 장면). `③ 라이트 대비 위반`의 기준은 **같은 걸음을 colorScheme light로 처음부터 연 별도 문맥**이 만든다.
+- `session`은 `h1`이 없어 ② 제목 글자색은 "없음"으로 두고 배경 뒤집힘·돌아옴·대비로만 판정한다.
+- `home-safe`의 아래 끝은 띠(`.tabbar`) 자체로 잰다. 안의 버튼은 legacy 높이가 띠보다 1px 커서 811이 나온다(이 작업 밖의 기존 마크업).
+- `--same-layout=all`을 `before` 기준에 견주면 `settings` 계열 7장면이 실패한다(−69.5px, RRM의 "유리" 줄 삭제 — 이미 DEV-RECORD RRM에 적힌 차이). RR11은 화면 파일을 안 고쳐서 이 실행에서는 쓰지 않았다.
+- WebKit은 이 환경에서 장면을 열었고 통과했다(제약 추가 없음).
+
+### 수정표 밖
+
+- `src/lib/v117.test.ts:"@astryxdesign/을 import하는 파일은 src/ax/ 밖에 없다"` — 허용 목록에 `v120.test.ts`를 더했다(RR11 검증이 테마 패키지를 직접 읽어야 해서. 기계적 결과).
+
+### 결함 복원 (`cp` 백업 → 결함 → 테스트 → 복구 → `cmp`)
+
+| 되살린 결함 | 실패한 검사 | 원상복구 |
+|---|---|---|
+| ㉓ `AppRoot`의 `mode="system"` → `mode="dark"` | `v120 RR11: …0건이다`(+RR1의 mode=system 테스트) · `ui-check after --check`의 `색 체계 전환 Chromium` 7장면(제목 글자색이 안 뒤집힘; session은 h1이 없어 배경 판정만 해 통과) | `cmp` 같음 |
+| `index.html` 라이트 `theme-color`를 `#f2f2f2`로 | `v120 RR11: 두 theme-color 값이 …` | `cmp` 같음 |
+| `ax.css` 받침을 `#0b0b0d`로 | `v120 RR11: ax.css의 상태바 받침 규칙…` | `cmp` 같음 |
+
+### 과거 판정 불변·변이
+
+`src/lib`는 안 건드렸다 → 변이 테스트 **대상 없음**. 세 숫자(`astryx-inventory --check`)는 늘지 않았다(check 통과).
+
+### 실행 결과
+
+- `npm run check`: 흔적·Astryx 뒷걸음·린트·knip·테스트·빌드 전부 통과
+- `npm test`: Test Files 71 passed (71) · Tests 1666 passed (1666)
+- `git rev-list --count main..HEAD`: 16 (이 커밋 전)
+
+### 하지 않은 것
+
+- 수동 전환 버튼, 매니페스트·스플래시 색, 상태바 방식 변경(PLAN 범위 제외)
+- 스크린샷 육안 판정(화면 검증자 몫)
+
+### 실기기 확인
+
+- 폰 설정에서 다크 ↔ 라이트를 바꿀 때 홈 화면에 추가한 앱이 따라 바뀌는지(v1.20이 `main`에 머지돼 업데이트된 뒤)
+- 라이트에서 앱을 열 때 어두운 스플래시가 잠깐 보이는 것(범위 제외)
