@@ -422,7 +422,8 @@ PLAN의 뜻("다크에서만 버튼이 면에 묻히는 일을 잡는다")은 �
 
 - `npm run check`: 흔적·Astryx 뒷걸음·린트·knip·테스트·빌드 전부 통과. 린트 경고 1건(`SessionScreen.tsx:131` 안 쓰는 `eslint-disable`)은 이 작업이 안 건드린 파일의 기존 것
 - `npm test`: Test Files 70 passed (70) · Tests 1658 passed (1658)
-- `git rev-list --count main..HEAD`: 커밋 뒤 아래에 적는다
+- `git rev-list --count main..HEAD`: 11 (RR2 구현 `e159efc` 이후 RRM 코드 커밋 `1e5cb01` + 이 스크린샷·기록 커밋)
+- 커밋: `1e5cb01` 20파일(코드·테스트·README·기록), 이어서 `docs/screenshots/v1.20/after/` 새로 찍음(56장+`layout.json`)
 
 ### 하지 않은 것
 
