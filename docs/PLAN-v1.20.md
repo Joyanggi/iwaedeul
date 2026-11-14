@@ -6,9 +6,10 @@
 > **성격:** 화면만 바꾼다. 저장 구조(Dexie 3, 백업 `SCHEMA_VERSION` 3)·판정·내보내기는 바꾸지 않는다. `src/db/`·`src/store/`와 `src/lib/`의 판정 파일은 고치지 않는다.
 > **범위:** (1) 테마 고르기 (2) 앱 틀과 탭 (3) 홈 → 세션 → 요약과 그 화면들이 여는 시트 10개. 식단·기록·분석·설정·온보딩 화면은 Astryx 부품으로 **옮기지 않는다**(다음 기획). 다만 그 화면들의 **색**은 테마를 따르게 잇는다(RR2 — 이유는 그 절).
 > **사람이 고를 것은 남아 있지 않다.** 재질은 Astryx 표면(유리를 걷는다 — RRM), 테마는 Neutral + 파랑 강조(RRT)로 정해졌다.
-> 화면에 보이는 문구와 접근성 이름(`aria-label`)은 그대로다. 달라지는 것은 "과거 판정 불변"의 표에 있다.
+> 화면에 보이는 문구는 그대로다. 접근성 이름(`aria-label`)은 **둘만** 바뀐다(개정 3 — RRM의 "접근성 이름 둘"). 달라지는 것은 "과거 판정 불변"의 표에 있다.
 > **개정 1:** 2026-11-14, 검토 둘(codex·claude, 검토 커밋 `54562ff`)을 반영했다. 무엇을 반영하고 기각했는지는 끝의 "검토 반영 기록".
 > **개정 2:** 2026-11-14, RR0·RR1 승인과 RR2 구현(`e159efc`) 뒤에 받은 사람의 답 여덟을 반영했다(작성: Claude Fable 5.2, 설계자). 바뀐 것: ① 유리를 걷는 RRM을 RR2 바로 뒤의 확정 작업으로 ② 테마를 설계자가 정하고 RRT를 RR3 앞으로 ③ 라이트/다크가 폰 설정을 안 따르는 원인 확인과 RR11(새 작업) ④ 여백의 기준을 "맞물리는 관계"로 정하는 RR12(새 작업) ⑤ 홈 배치를 다시 짠 RR4, 요약 순서(RR9), 세션 카드의 칩 줄(RR7) ⑥ 스크린샷·검사로 볼 수 있는 것을 실기기 목록에서 화면 검증 장면으로 옮김. 표는 끝의 "검토 반영 기록 — 개정 2". **RR0·RR1은 고치지 않았다.**
+> **개정 3:** 2026-11-14, RR2+RRM 화면 검증 반려(`.reports/screen-check-RRM.md` 3절 1(a))를 반영했다(작성: Claude Fable 5.2, 설계자). "접근성 이름은 그대로"와 "RRM의 `ui-check` 종료 코드 0"이 같이 지켜질 수 없었다 — RR0 전부터 있던 접근성 실패 네 칸 때문이다. **허용 목록을 두지 않고 지금 고친다**: RRM에 보완 커밋 하나(접근성 이름 둘)를 더하고, RRM의 판정 명령을 한 줄로 못박았다. 바뀐 곳은 끝의 "검토 반영 기록 — 개정 3". **RR0·RR1·RR2와 RRM의 구현 커밋(`1e5cb01`)은 고치지 않는다.**
 
 ---
 
@@ -30,7 +31,7 @@
 | RR0 | 도구·기준선: `before` 스크린샷(라이트·다크)과 배치 기록, 첫 화면 시간 재기, 검사 항목 더하기, 안 쓰는 legacy 선택자 세기, 검사 스크립트가 클래스 이름에 묶인 곳 풀기 | 없음 | 그대로 | **승인·커밋됨** (`20df230` `9844e75` `2a925a4`) |
 | RR1 | 테마를 앱 뿌리에. Astryx를 헬스장 경로에서 정적으로 읽기. legacy 규칙의 범위 가두기 | 다크: 문서 배경과 legacy 시트 면의 색만 | 45→44 / 97 / 520 | **승인·커밋됨** (`171d509`) |
 | RR2 | 안 옮긴 화면의 색을 테마 토큰에 잇기(legacy 색 다리) | 전 legacy 화면의 색, 라이트 모드 | 그대로 | **구현됨** (`e159efc`). 화면 검증이 유리 `글자 대비`로 멈췄다 — 처리는 RR2 절의 "구현 뒤 처리". **RRM과 한 묶음으로 리뷰한다** |
-| RRM | **유리를 걷고 Astryx 표면으로**(확정). 유리 CSS·유리 검사·설정의 진단 줄을 지운다 | 띠 넷과 시트가 불투명한 테마 표면 | 44 / 97 / 520→515 (설정의 "유리" 줄) | 새 순서: RR2 바로 뒤 |
+| RRM | **유리를 걷고 Astryx 표면으로**(확정). 유리 CSS·유리 검사·설정의 진단 줄을 지운다 | 띠 넷과 시트가 불투명한 테마 표면 | 44 / 97 / 520→515 (설정의 "유리" 줄) | **구현됨** (`1e5cb01`). 화면 검증 반려 → **보완 커밋 하나가 남았다**(개정 3 — RRM 절의 "접근성 이름 둘". 세 숫자는 그대로) |
 | RR11 | **라이트/다크가 폰 설정을 따른다**: 남은 다크 고정 정리(`theme-color`, 상태바 받침 색), 실행 중 전환 검사(Chromium·WebKit), 안전 영역 장면 | 라이트에서 브라우저 띠 색, 상태바 받침 | 그대로 | 새 작업 |
 | RRT | **테마 확정: Neutral + 파랑 강조**(`src/ax/theme.ts` 한 파일) | 전 화면의 강조색 | 그대로 | 확정(사람이 설계자에게 맡겼다). RR3 앞으로 당겼다 |
 | RR12 | **여백 — 맞물림 기준과 검사**, `src/ax`의 여백 역할 부품(`Groups`·`Group`·`Card` 기본 안쪽 여백) | 없음(도구와 부품) | 그대로 | 새 작업 |
@@ -122,6 +123,7 @@ RR1이 이 둘을 CSS `@scope`로 가둔다(Safari 17.4부터 — 앱의 조건 
 | `useRestTimer.test.ts:190` | `<button className="rest-dismiss"` | RR6: 새 클래스 이름으로 옮긴다. `aria-label="휴식 완료 — 닫기"`는 그대로 |
 | `dayChoice.test.ts:205-206` | `aria-pressed={applyReturn}` … `setApplyReturn(true)` | RR4: `ToggleButton` 두 개의 `isPressed={applyReturn}`·`isPressed={!applyReturn}`로 옮긴다 |
 | `uiConsistency.test.ts:96` | `CompensationSheet.tsx`: 비우기 버튼의 조건식 뒤 `<button` | RR8: `<Button`으로 옮긴다(조건식이 저장된 값 `current`만 본다는 뜻은 그대로). X6(`btn-danger`)은 식단·기록 편집 파일만 보므로 이번에 안 걸린다 |
+| `uiConsistency.test.ts:81` | `ExerciseCard.tsx`: `aria-label="자리 없음 — 대체운동 고르기"` | RRM 보완(개정 3): 새 이름 `대체 — 자리 없음, 대체운동 고르기`로 옮긴다("줄인 라벨에 원래 뜻을 이름으로 남겼다"는 뜻은 그대로). RR7은 그 뒤 안 고치고 통과 |
 | `v18.test.ts:719-726` | `NumberStepper.tsx`: `onPointerUp={(e) => release(1, e)}`, `isTap(started` | RR7: 로직을 안 바꿔서 통과 |
 | `v112.test.ts:815` | `FinishSheet.tsx`: `{adjustLine && <p className="row-sub">{adjustLine}</p>}` | RR8: `Text`로 옮긴다 |
 
@@ -442,6 +444,14 @@ RR2는 `e159efc`에 구현돼 있고, 화면 검증이 `사람 필요`로 멈췄
 - 화면 검증자가 눈으로 본 "띠 뒤로 지나가는 글자가 띠 위 글자와 겹쳐 지저분하다"(`settings-light`·`history-detail-light`·`diet`)도 같은 원인이다.
 - 지울 것은 "확인한 것" 8에 있다. `glass-check.mjs`에는 유리와 무관한 도우미가 같이 살고 `scripts/screenshots.mjs`도 그것을 import한다 — 파일만 지우면 스크립트 둘이 깨진다.
 - **이 시점에 띠와 시트는 아직 legacy 마크업이다**(`.tabbar`·`.resume-strip`·`.session-header`·`.rest-bar`·`.sheet` — RR3·RR5·RR6·RR8이 옮기기 전). 그래서 legacy 규칙의 재질도 여기서 표면으로 바꾼다.
+- **(개정 3) 구현(`1e5cb01`) 뒤에도 `ui-check after --check`의 종료 코드가 1이다**(`.reports/screen-check-RRM.md`, `.reports/rrm-uicheck.txt`). 유리 실패 51장면은 없어졌고, 남은 것은 RR0 전부터 있던 접근성 칸 넷이다 — axe의 `label-content-name-mismatch`가 심각 위반이라 `접근성` 칸을 실패로 만든다(`scripts/ui-check.mjs:184-186`).
+
+  | 장면 | 코드 | 왜 걸리는가 (axe 4.14 `isLabelContainedInName` — 보이는 글자의 낱말들이 이름 안에 **이어진 낱말로** 들어 있어야 한다) |
+  |---|---|---|
+  | `session`·`session-375`·`session-open-b` (1건씩) | `ExerciseCard.tsx:585` — 보이는 글자 `대체`, `aria-label="자리 없음 — 대체운동 고르기"` | 이름의 낱말은 `대체운동`이다. `대체`라는 낱말이 없다 |
+  | `sheet-food` (10건) | `FoodLogSheet.tsx:277` — `aria-label={`${f.name} ${f.qty} 추가`}`, 보이는 글자는 이름·양·`플랜`·영양(`279-283`) | 보이는 글자가 이름보다 길다(영양 글자가 이름에 없다) |
+
+- **옮기는 작업이 이 넷을 없애지 않는다**(DEV-RECORD의 "RR5·RR7이 옮길 때 사라진다"는 맞지 않다): `FoodLogSheet`는 이 PLAN의 어느 작업도 옮기지 않고(RR5 범위 제외 — 식단 시트 4개), RR7은 `ExerciseCard`를 옮기면서 그 `aria-label`을 그대로 두라고 적었다 — Astryx `Button`으로 바꿔도 보이는 글자와 이름의 관계는 같다. 그래서 "RR5·RR7까지 기존 실패로 허용"은 끝나는 때가 없는 허용이 된다. **이름을 지금 고친다.** 허용 목록을 두지 않는다.
 
 ### 설계
 
@@ -485,13 +495,35 @@ RR2는 `e159efc`에 구현돼 있고, 화면 검증이 `사람 필요`로 멈췄
 | `v119.test.ts:32-34`(설정에 "유리" 줄이 있다), `glassDiag.test.ts`(12개), `legacy-scope.test.mjs`에서 `glass.css`를 읽는 스캔(79-83, 101-128 가운데 해당 줄) | 지운다 — 재는 대상이 없어진다. 지운 테스트 이름을 DEV-RECORD에 적는다("구현 순서와 검증"의 스캔 테스트 규칙 4의 예외) |
 | `v118.test.ts:7`의 주석 | 낡은 파일 이름만 고친다 |
 
+**접근성 이름 둘 (개정 3 — RRM 보완 커밋)**
+
+`1e5cb01`은 그대로 두고, 아래 넷을 **RRM 보완 커밋 하나**로 더한다(`fix(RRM): …`). 보이는 글자·자리·크기는 하나도 안 바뀐다.
+
+| 자리 | 지금 | 뒤 | 이유 |
+|---|---|---|---|
+| `ExerciseCard.tsx:585` — 세트 조작의 `대체` 버튼 | `aria-label="자리 없음 — 대체운동 고르기"` | `aria-label="대체 — 자리 없음, 대체운동 고르기"` | 보이는 글자 `대체`가 이름의 첫 낱말이 된다. 원래 뜻(자리가 없어서 대체운동을 고른다 — X8)은 그대로 남는다. 옆의 `워밍업`(`aria-label="워밍업 세트 추가"`)은 이미 통과하므로 그대로 |
+| `FoodLogSheet.tsx:277` — 음식 줄 버튼(`.diet-item`) | `aria-label={`${f.name} ${f.qty} 추가`}` | **속성을 지운다.** 이름은 보이는 글자(이름·양·`플랜`·영양)가 된다 | 이름을 보이는 글자에 맞춰 조립하는 길은 버린다 — 재 보니 낱말 경계에 묶인다(보이는 글자가 `플랜210kcal`처럼 붙어 읽혀 띄어 쓴 이름은 실패). 동작("추가")은 시트 이름 `먹은 것 추가`가 말한다. 같은 줄의 `편집` 버튼(`aria-label={`${f.name} 편집`}`)은 통과하므로 그대로. 범위 밖 화면(식단)이지만 속성 하나를 지우는 것이다 |
+| `scripts/ui-check.mjs:461` — `sheet-food` 뒤에 음식 하나를 더하는 줄 | 시트 안 `getByRole('button', { name: / 추가$/ }).first()` | `getByRole('button', { name: /(kcal\|g\|영양 미입력)$/ }).first()` — 음식 줄의 이름은 늘 `nutritionText`(`src/lib/diet.ts:538-543`)의 글자로 끝난다 | 지운 이름에 묶여 있다. 못 찾으면 `optional`이 조용히 넘어가 `diet-log-open`에 먹은 기록이 없는 채로 찍힌다 — 아래 판정 명령의 `--same-layout`이 잡는다 |
+| `uiConsistency.test.ts:81` | 옛 이름을 찾는다 | 새 이름을 찾는다(같은 뜻으로 옮김 — "확인한 것" 5) | |
+
+후보 이름은 이 레포의 axe(4.14)로 직접 쟀다: `대체` + 옛 이름 실패, `대체` + 새 이름 통과, 음식 줄에서 `aria-label`을 지우면 규칙 대상이 아님(통과), `대체운동 고르기 — 자리 없음`처럼 순서만 바꾼 이름은 실패.
+
 ### 검증
 
 - `v120` RRM: `src`·`scripts`·`index.html`에 `backdrop-filter`·`--glass-`·`glassDiag`·`glass-check` 글자가 0건이다. `src/styles/glass.css`·`scripts/lib/glass-check.mjs`·`scripts/screenshots-glass.mjs`가 없다. `SettingsScreen.tsx`에 `유리` 글자가 없다.
-- `node scripts/ui-check.mjs after --check --ver=v1.20`: **종료 코드 0**(RR2에서는 1이었다). `띠` 칸이 전 장면 × 다크·라이트에서 통과하고, 장면마다 잰 띠 수를 DEV-RECORD에 표로 복사한다(빈 통과가 아니다).
+- **종료 코드 판정(개정 3 — 화면 검증자가 이 한 줄을 그대로 돌린다. 보완 커밋 뒤, 레포 뿌리에서, Git Bash):**
+
+  ```sh
+  node scripts/ui-check.mjs after --check --ver=v1.20 --layout-base=.reports/rr2-layout-base.json --same-layout=home,home-end,home-375,sheet-home,session,session-375,session-open-b,home-resume,session-rest,sheet-finish,sheet-timer,summary,history,history-detail,history-detail-edit,analyze,diet,sheet-food,diet-log-open,editor,line-sheet; echo "종료 코드 $?"
+  ```
+
+  **마지막 줄이 `종료 코드 0`이면 통과, 아니면 반려다.** 빼는 칸·허용하는 실패는 없다. `--same-layout`의 21장면은 전 장면(28)에서 `settings` 계열 일곱(`settings`·`settings-end`·`settings-375`·`settings-open`·`settings-routines`·`settings-routines-375`·`settings-routines-confirm-375`)을 뺀 것이다 — 그 일곱은 "유리" 줄만큼 달라지는 것이 설계이고 `.reports/screen-check-RRM.md` 1절에서 이미 판정됐다(다시 보지 않는다. 보완 커밋은 설정 화면을 안 건드린다). `.reports/rr2-layout-base.json`은 RR2 커밋의 배치 기록으로 이 작업 트리에 있다(git에는 없다). 없으면 `--layout-base`·`--same-layout` 두 인자를 빼고 같은 방식으로 판정한다(보완 커밋은 자리·크기를 안 바꾼다).
+- 같은 실행의 출력: `session`·`session-375`·`session-open-b`·`sheet-food`의 `접근성` 칸이 통과이고, 끝의 "접근성(axe) 결과"에서 전 장면이 `serious·critical 0건`이다. `배치 같음`의 `diet-log-open`이 통과다(고친 줄이 음식 하나를 실제로 더했다). `띠` 칸이 전 장면 × 다크·라이트에서 통과하고, 장면마다 잰 띠 수를 DEV-RECORD에 표로 복사한다(빈 통과가 아니다).
+- `v120` RRM 보완: ① `ExerciseCard.tsx`에 옛 이름 `자리 없음 — 대체운동 고르기`로 **시작하는** `aria-label`이 없다(새 이름은 `uiConsistency` X8이 본다) ② `FoodLogSheet.tsx`에서 `className="diet-item"`인 `<button` 여는 태그 안에 `aria-label`이 없다 ③ **실패를 빼서 종료 코드를 맞출 수 없다:** `scripts/ui-check.mjs`의 접근성 판정에서 규칙을 빼는 곳이 `color-contrast` 하나뿐이다 — `v.id !==`가 파일에 정확히 한 번이고 그 값이 `'color-contrast'`, `disableRules`·`.exclude(`는 0건.
+- 화면 검증자: 보완 커밋은 보이는 것을 안 바꾸므로 스크린샷을 다시 판정하지 않는다. 위 한 줄의 종료 코드와 출력만 본다.
 - 같은 실행에서 axe의 대비 위반 수와 심각 위반 수가 RR2(`.reports/rr2-sc-uicheck.txt`)보다 늘지 않는다.
 - `시트 버튼`이 `sheet-food`·`sheet-finish`·`sheet-home`·`sheet-timer`·`line-sheet`의 다크·라이트에서 통과한다.
-- `--same-layout=<전 장면>`을 RR2 커밋의 배치 기록과 견줘 통과한다 — 재질만 바꿨으므로 자리와 크기는 그대로다. 예외는 `settings` 계열(진단 목록에서 줄 하나가 빠진다)뿐이고, 그 장면은 "유리" 줄 아래 요소들이 한 줄 높이만큼 올라간 것만 다른지 화면 검증자가 본다.
+- 배치 같음: 위 판정 명령의 `--same-layout`(21장면)이 RR2 커밋의 배치 기록과 견줘 통과한다 — 재질만 바꿨으므로 자리와 크기는 그대로다. 빠진 `settings` 계열 일곱(진단 목록에서 줄 하나가 빠진다)은 "유리" 줄 아래 요소들이 한 줄 높이만큼 올라간 것만 다른지 화면 검증자가 봤다(`.reports/screen-check-RRM.md` 3절 1(b) — 끝난 판정, 개정 3).
 - 대비 증가: `emulateMedia({ contrast: 'more' })`를 건 채 `home`·`session`·`sheet-finish`를 연다 — `pageerror` 0, `가로 넘침` 없음(유리 끄기 규칙이 없어져도 깨지지 않는다).
 - `npm run knip`이 지운 파일을 가리키는 것이 없다. `npm run check` 통과.
 - 화면 검증자(RR2에서 멈춘 판단을 여기서 마친다): `diet`·`settings`·`settings-end`·`history-detail`·`home`·`session`·`session-rest`를 다크·라이트로, 각각 300px 스크롤한 상태로 — 띠 위 글자가 띠 뒤의 내용과 겹쳐 보이지 않는다. `sheet-food`·`sheet-finish`: 시트 뒤 막이 어두운 곳에서 눈부시지 않고, 하단 버튼이 버튼으로 보인다.
@@ -500,6 +532,8 @@ RR2는 `e159efc`에 구현돼 있고, 화면 검증이 `사람 필요`로 멈췄
 
 - 띠·시트의 모양(떠 있는 알약 탭바, 재개 줄이 따로 뜬 띠)을 바꾸기: RR3·RR6의 일이다. 여기서는 재질만 바꾼다.
 - 유리로 되돌리는 설정: 두지 않는다. 되돌리려면 이 커밋을 `git revert`한다("되돌리기").
+- (개정 3) 접근성 실패를 "기존 실패"로 두는 허용 목록: 만들지 않는다. 진단에 적은 대로 옮기는 작업이 없애 주지 않아 끝나는 때가 없고, 목록을 읽는 코드·그것이 늘지 않는지 보는 검사·나중에 지우는 일이 이름 두 줄을 고치는 것보다 크다.
+- (개정 3) 그 밖의 접근성 이름: 바꾸지 않는다. axe가 걸지 않은 이름(`워밍업 세트 추가`, `<이름> 편집` 등)은 그대로다.
 
 ### README 반영
 
@@ -929,6 +963,7 @@ RR1이 `src/ax/theme.ts`에 깔린 Neutral을 그대로 뒀다. Neutral의 강�
 - 흐름: Day 선택 → 줄 1탭으로 시트가 닫히고 카드가 바뀐다(세션은 안 만들어진다). 진행 중 세션이 있을 때 다른 Day 시작 → 시트 → `마감하고 시작` / `버리고 시작`(2단계) / `이어서`.
 - 움직임 줄이기를 켜면 닫기가 바로 끝난다.
 - `ui-check`: `sheet-home`과 진행 중 세션 처리 시트의 다크·라이트에서 `시트 버튼`(RRM)과 `안쪽 대칭`(RR12 — 시트 안 내용의 좌·우, 버튼 안 글자)이 통과한다. `같은 역할`의 시트 좌우가 `line-sheet`(루틴 편집의 Astryx 시트)와 같다.
+- **접근성 칸(개정 3):** `sheet-home`과 진행 중 세션 처리 시트, `sheet-food`의 `접근성` 칸이 통과하고, 전체 실행 `node scripts/ui-check.mjs after --check --ver=v1.20; echo "종료 코드 $?"`의 마지막 줄이 `종료 코드 0`이다. RR0 전부터 있던 네 칸(`session`·`session-375`·`session-open-b`·`sheet-food`)은 RRM 보완에서 없어졌다 — RR5는 `FoodLogSheet`를 안 옮기므로 여기서는 **다시 생기지 않았는지**와 옮긴 시트 둘이 새 위반을 만들지 않았는지를 본다.
 - `v120` RR5: `src/ax/index.tsx`의 `Sheet`에 `clearTimeout`이 `useEffect`의 정리 함수 안에 있다.
 - 기존 사용처(루틴 편집): `v117`·`v118`의 `Sheet`·`RoutineLineSheet`·`ExercisePickerSheet` 스캔은 **안 고치고** 통과. 흐름(`ui-check`의 `editor`·`line-sheet`): 줄 시트를 열고 막을 눌러 닫는다 → 시트가 사라지고 **같은 줄을 다시 열 수 있다**(늦은 `onClose`가 새로 연 시트를 닫지 않는다). 종목 고르기에서 종목을 고르면 시트가 닫히고 줄이 더해진다. 줄 시트에서 값을 바꾸고 막을 눌러 닫으면 바꾼 값이 남아 있다.
 - 시트가 저장으로 먼저 사라지는 길: 진행 중 세션 처리 시트에서 `마감하고 시작`을 누른 뒤 닫힘 대기 길이의 두 배를 기다려도 화면이 세션에 그대로 있다(늦은 `onClose`가 없다).
@@ -1043,7 +1078,7 @@ RR1이 `src/ax/theme.ts`에 깔린 Neutral을 그대로 뒀다. Neutral의 강�
 | 세트 표 머리 | `.set-head` | `Text type="supporting" color="secondary"` 셋. **머리와 세트 행이 같은 열 격자를 쓴다**(`parts.css`의 열 정의 하나를 머리 줄과 `.set-row`가 같이 읽는다) — 지금은 머리의 열 폭이 따로라 "세트"가 두 줄로 꺾인다("확인한 것" 9) |
 | **세트 행** | `<div className={setRowClass(set)}>` | **직접 짓는다**(Astryx에 세트 표가 없다 — DESIGN 9.1의 1). `className={setRowClass(set)}`와 `src/lib/setRowState.ts`는 그대로. `.set-row`·`.set-row-done`·`.set-row-warmup` 규칙을 `global.css`에서 지우고 `parts.css`에 토큰만으로 다시 쓴다(`set-row`는 `global.css`에서 사라지므로 인벤토리의 legacy 클래스로 세지 않는다). 안: 세트 라벨 `Text weight="bold"`, 고스트 `Text type="supporting" color="secondary"` / 무게 미입력 `Text color="warning"`, 템포 `Button variant="ghost" isIconOnly label={`${i + 1}세트 템포 가이드`}`, 완료 `ToggleButton isIconOnly icon={체크} size="lg" label={`${i + 1}세트 완료`} isPressed={set.done} onPressedChange={() => onCheck(i, set.done)}`, `NumberStepper` 둘(폭 배분은 지금처럼 무게가 넓다) |
 | 캘리브레이션 적용 | `.btn-sm.btn-warn` | `Button variant="secondary"`(문구 그대로) |
-| 세트 조작 | `.btn-row` + `.btn-sm` 다섯 | `HStack wrap` + `Button variant="secondary"`(`+ 세트`, `워밍업`, `− 세트`, `스킵`/`스킵 해제`, `대체`). `aria-label` 둘 그대로. 워밍업의 `commitPendingEdits()` → `addSet` 순서 그대로 |
+| 세트 조작 | `.btn-row` + `.btn-sm` 다섯 | `HStack wrap` + `Button variant="secondary"`(`+ 세트`, `워밍업`, `− 세트`, `스킵`/`스킵 해제`, `대체`). `aria-label` 둘은 RRM 보완 뒤의 값 그대로(`워밍업 세트 추가`, `대체 — 자리 없음, 대체운동 고르기` — 보이는 글자가 이름의 첫 낱말이다). 워밍업의 `commitPendingEdits()` → `addSet` 순서 그대로 |
 | 감각 점수 | `.segment` 안 `aria-pressed` 넷 | `ToggleButton label="0"…"3" isPressed={entry.sensoryScore === score}` 넷을 `HStack`에. `SegmentedControl`을 안 쓰는 이유: 미입력(아무것도 안 고른 상태)이 있다 |
 | 감각 메모·통증 메모 | `input.field` | `TextField isLabelHidden`(`label`은 지금의 `aria-label`, `placeholder` 그대로) |
 | 보상작용 | `.btn-sm`(값 + `▸`) | `ListItem label={entry.compensation} endContent={꺾쇠} onClick`. 있음이면 `label`을 `Text color="warning"`으로 |
@@ -1073,10 +1108,11 @@ RR1이 `src/ax/theme.ts`에 깔린 Neutral을 그대로 뒀다. Neutral의 강�
 ### 검증
 
 - `v120` RR7: `ExerciseCard.tsx`의 `className=`은 `ax-scope`와 `{setRowClass(set)}`, 그리고 `parts.css`에 있는 `ax-` 이름뿐. `style=`·`<button`·`<input` 0건. `NumberStepper.tsx`의 `className=`은 `ax-scope` 하나뿐이고 `<button`·`<input` 0건, `onClick`이 없다. `global.css`에 `.stepper` 글자가 없다. `DietDayEditor.tsx`는 `git diff`에 없다.
-- 안 고치고 통과해야 하는 스캔: `v18`(CC12 두 개, `firstExposure`), `warmupInsert`, `guideFinish`, `inputProps`(`ExerciseCard`·전 `.tsx`의 `<input` 검사 — 이제 `<input`이 없어 조건이 비지 않는지 확인하고, 비면 "`TextField`만 쓴다"로 옮긴다), `setRowState`, `uiConsistency` X8(짧은 라벨·`aria-label` 둘), `v111`(`modeSetNotice`), `v113`·`v114`의 `ExerciseCard` 스캔, `NumberStepper.test.ts`(`isAllowedInput`).
+- 안 고치고 통과해야 하는 스캔: `v18`(CC12 두 개, `firstExposure`), `warmupInsert`, `guideFinish`, `inputProps`(`ExerciseCard`·전 `.tsx`의 `<input` 검사 — 이제 `<input`이 없어 조건이 비지 않는지 확인하고, 비면 "`TextField`만 쓴다"로 옮긴다), `setRowState`, `uiConsistency` X8(짧은 라벨·`aria-label` 둘 — 81줄은 RRM 보완이 새 이름으로 옮겨 둔 그대로), `v111`(`modeSetNotice`), `v113`·`v114`의 `ExerciseCard` 스캔, `NumberStepper.test.ts`(`isAllowedInput`).
 - 옮기는 스캔: `polish.test.ts:90-91`(빈 값·채운 값의 구분 — 새 마크업의 `color="secondary"` 조건으로), `setRowState.test.ts:101`(`stepper-slot-warn` → `status` 속성).
 - **탭 수(흐름, `ui-check`):** 새 세션에서 첫 카드의 `1세트 완료`를 1탭 → 세트가 완료되고 휴식 바가 뜬다. `… 1세트 무게 증가`를 1탭 → 값이 정확히 한 단계 오른다. 그 버튼 위에서 시작해 세로로 끌어 스크롤하면 값이 안 바뀐다. 숫자 칸에 `40.123456`을 치면 `40.12`까지만 들어가고, 횟수 칸에는 소수점이 안 들어간다. 타이핑 중에 `워밍업`을 누르면 친 값이 원래 세트에 남는다(v1.7 §3.2).
 - `ui-check`: `세트 숫자`(RR0의 `inPageSetNumber` — `.set-row` 안 `input`의 글자 크기가 `--text-heading-2-size` 이상)가 `session`·`session-375`·`history-detail-edit`에서 통과. 비교 대상이 다른 요소의 글자가 아니라 테마 토큰이라, 고스트 글자의 마크업이 바뀌어도 기준이 흔들리지 않는다. `−`·`+`·`✓`의 누르는 영역(`elementFromPoint`로 중심에서 위·아래·왼쪽·오른쪽 21px)이 자기 자신이거나, 이웃 버튼과 맞닿아 있으면 두 버튼의 중간선까지다.
+- **접근성 칸(개정 3):** 옮긴 뒤에도 `session`·`session-375`·`session-open-b`의 `접근성` 칸이 통과하고(`label-content-name-mismatch` 0건), 전체 실행 `node scripts/ui-check.mjs after --check --ver=v1.20; echo "종료 코드 $?"`의 마지막 줄이 `종료 코드 0`이다. RRM 보완이 없앤 세 칸이 Astryx `Button`으로 옮기면서 되살아나지 않아야 한다 — `Button`의 보이는 글자(`label`)가 접근성 이름 안에 낱말로 들어 있다. 어긋나면 이름을 새로 짓지 말고 RRM 보완의 두 값을 그대로 넘긴다.
 - 375 폭에서 세트 행이 가로로 넘치지 않고(`가로 넘침`), 무게 `142.5`와 횟수 `12`가 잘리지 않는다.
 - 세트 표 머리의 세 글귀가 각각 한 줄이고(줄 높이가 한 줄 높이다), 머리의 열 왼쪽 끝이 아래 세트 행의 같은 열과 같다(`session`·`session-375`·`history-detail-edit`).
 - `v120` RR7 — 순서: `ExerciseCard.tsx`에서 칩 줄을 그리는 자리가 자극 요령·세팅 메모 줄보다 앞이고 세트 표보다 앞이다. 순서에 묶인 기존 스캔이 있으면 "구현 순서와 검증"의 스캔 테스트 규칙 3으로 옮긴다.
@@ -1316,6 +1352,8 @@ RR5의 "시트 공통 규칙"을 그대로 쓴다. 로직(저장·취소·계산
 | 앱을 여는 순간(라이트) | — | 어두운 스플래시가 잠깐 보인 뒤 밝은 화면 |
 | 띠와 시트의 재질 | 유리(뒤가 흐리게 비친다) | 불투명한 테마 표면 |
 | 설정 → 진단 | "유리" 줄이 있다 | 없다 |
+| 세션 카드 `대체` 버튼의 접근성 이름 (개정 3) | `자리 없음 — 대체운동 고르기` | `대체 — 자리 없음, 대체운동 고르기`(보이는 글자 `대체`는 그대로) |
+| 먹은 것 추가 시트의 음식 줄의 접근성 이름 (개정 3) | `<이름> <양> 추가` | 보이는 글자 그대로(이름·양·`플랜`·영양). 보이는 것은 그대로 |
 | 브라우저의 띠 색(`theme-color`) | 늘 어두운 색 | 폰이 라이트면 밝은 본문 배경색 |
 | 홈의 순서 | 알림 → 식단 줄 → 운동 카드 → 시작/변경 → 이번 주 → 볼륨 → Phase 0 → 디로드 → 근거 | 운동 카드(안에 변경과 전체 폭 시작) → 알림 → 식단 줄 → 이번 주 → 볼륨 → 주기(Phase 0·디로드 한 카드) → 근거 |
 | 홈의 운동 카드를 누르면 | Day 선택이 열린다 | 아무 일도 없다(카드 머리의 [변경]이 연다) |
@@ -1327,10 +1365,10 @@ RR5의 "시트 공통 규칙"을 그대로 쓴다. 로직(저장·취소·계산
 
 ## 구현 순서와 검증
 
-**RR0 → RR1 → RR2 → RRM → RR11 → RRT → RR12 → RR3 → RR4 → RR5 → RR6 → RR7 → RR8 → RR9 → RR10.** (RR0·RR1은 승인·커밋됐고 RR2는 구현돼 있다. 다음 작업은 **RRM**이다.)
+**RR0 → RR1 → RR2 → RRM → RR11 → RRT → RR12 → RR3 → RR4 → RR5 → RR6 → RR7 → RR8 → RR9 → RR10.** (RR0·RR1은 승인·커밋됐고 RR2·RRM은 구현돼 있다. 다음 일은 **RRM 보완 커밋**(개정 3)이고, 그 뒤 RR2+RRM 묶음을 RRM의 판정 명령으로 다시 판정한다.)
 RR0의 `before`는 다른 작업 뒤에 못 찍는다. RR1이 테마를 뿌리에 올려야 화면들이 Astryx 부품을 쓸 수 있고, RR2가 색을 이어야 RR3부터 라이트 스크린샷이 뜻이 있다. RR3이 `.app`을 없애야 RR4의 홈이 legacy 범위 밖에 놓인다(순서를 바꾸면 홈의 Astryx 버튼에 legacy 규칙이 걸린다). RR5가 `Sheet`의 `dismiss`를 만들어야 RR8이 쓴다. RR6의 `Bar`·세션 틀이 있어야 RR7의 카드를 그 안에서 본다.
 **RRM·RR11·RRT·RR12를 화면을 옮기는 작업(RR3~RR9)보다 먼저 하는 이유:** RRM이 RR2에서 실패하게 된 검사를 없애 `ui-check`를 다시 종료 코드 0으로 돌려놓아야 그 뒤 작업의 검증이 뜻이 있다. RR11은 RRM 뒤의 깨끗한 검사 위에서 전환을 잰다. RRT가 먼저 끝나야 RR3부터의 스크린샷이 최종 색이고, RR12가 먼저 있어야 RR3부터 여백 검사를 판정받는다. 넷 다 사람의 답을 기다리지 않는다(정해졌다). PR은 RR10 뒤에 올린다.
-커밋은 **작업마다 하나, 15개**(RR0·RR1·RR2는 이미 있다 — 앞으로 12개). 작업끼리 한 커밋에 섞지 않는다. 화면 검증·기록 커밋은 지금처럼 따로 둔다.
+커밋은 **작업마다 하나, 15개**(RR0·RR1·RR2는 이미 있다 — 앞으로 12개). RRM만 둘이다: 구현 `1e5cb01` + 개정 3의 보완 커밋(구현 커밋을 고쳐 쓰지 않는다) — 그래서 작업 커밋은 모두 16개다. 작업끼리 한 커밋에 섞지 않는다. 화면 검증·기록 커밋은 지금처럼 따로 둔다.
 
 관례:
 - `npm run check`(마무리), 작업 중에는 `npm run check -- --fast`와 관련 테스트만: `npx vitest run src/lib/v120.test.ts <그 작업이 고친 스캔 테스트>`. `tsc`를 직접 부르지 않는다.
@@ -1342,6 +1380,7 @@ RR0의 `before`는 다른 작업 뒤에 못 찍는다. RR1이 테마를 뿌리�
   2. `.tsx`를 글자로 읽는 스캔이 깨지면 먼저 **코드 쪽에서** 통과시킨다(로직 줄을 그대로 두면 대부분 통과한다).
   3. 마크업 글자에 묶여 통과시킬 수 없는 것만 **같은 뜻으로 옮긴다.** 지우지 않는다. "확인한 것" 5의 표에 없는 것을 옮기게 되면 DEV-RECORD의 "옮긴 스캔" 표에 테스트 이름·전·후·같은 뜻인 이유를 적는다.
   4. `npm test`의 테스트 개수가 작업마다 줄지 않는다(RRM의 유리 테스트 삭제만 예외 — 지운 테스트 이름을 DEV-RECORD에 적는다).
+- **`ui-check` 종료 코드(개정 3):** RRM 보완 뒤로는 작업 커밋마다 `node scripts/ui-check.mjs after --check --ver=v1.20; echo "종료 코드 $?"`의 마지막 줄이 `종료 코드 0`이다(RRM만 그 절의 판정 명령을 쓴다). "전부터 있던 실패"로 넘기는 칸은 없다 — 접근성 위반을 이름으로 빼는 허용 목록을 두지 않고, `v120` RRM의 스캔이 그것을 지킨다. 실패가 그 작업 것이 아니어 보여도 넘기지 말고 멈추고 보고한다.
 - 스크린샷 검사는 하나씩 백그라운드로 돌린다(DEV-RECORD 제약 17). 파일 편집은 Edit 도구로(제약 17·21).
 - **새 스캔 결함 복원 확인:** `cp` 백업 뒤 결함을 되살려 실패를 보고 되돌린다(`cmp`로 같음 확인). 최소:
   ① `App.tsx`의 한 반환 갈래에서 `<AppRoot>`를 뺀다 → `v120` RR1 실패
@@ -1372,6 +1411,7 @@ RR0의 `before`는 다른 작업 뒤에 못 찍는다. RR1이 테마를 뿌리�
   ㉖ (RR4 뒤) 홈의 한 묶음을 `Group` 대신 `VStack gap={5}`로 쌓는다 → `같은 역할` 실패(카드 사이가 두 가지) 
   ㉗ (RR4 뒤) 홈의 카드 하나에서 마지막 줄에 아래 여백을 더한다(또는 `padding`을 직접 준다) → `안쪽 대칭` 실패(카드 위·아래) + `v120` RR4 실패
   ㉘ (RRM 뒤) `global.css`의 시트 안 버튼 면을 시트 면과 같은 토큰으로 바꾼다 → `시트 버튼` 실패
+  ㉙ (RRM 보완 뒤) `ExerciseCard.tsx`의 `대체` 버튼 이름을 `자리 없음 — 대체운동 고르기`로 되돌린다 → `uiConsistency` X8·`v120` RRM 실패 + `ui-check --only=session`의 `접근성` 칸 실패(종료 코드 1). `ui-check.mjs`의 접근성 판정에 `&& v.id !== 'label-content-name-mismatch'`를 더한다 → `v120` RRM 실패
 - **과거 판정 불변 확인 절**(DEV-RECORD): ① `git diff --stat main..HEAD -- src/db src/store` 출력이 비어 있다(복사) ② `git diff --stat main..HEAD -- src/lib` 출력(복사)에 판정 파일이 없다 — 새 파일·스캔 테스트·`glassDiag` 삭제뿐 ③ 골든 테스트 수정 없이 통과 ④ 달라지는 것: "과거 판정 불변" 표.
 - **변이 테스트:** `src/lib`의 판정 파일을 안 고치므로 `npm run mutation`의 대상이 없다. DEV-RECORD에 "대상 없음"과 `git diff --stat`의 근거를 적는다.
 - 완료 후 `docs/DEV-RECORD-v1.20.md`(맨 위 "이 환경에서 확인된 제약"은 v1.19 목록을 이어받고 새로 확인한 것을 더한다: `@scope`가 이 Chromium과 iOS에서 리셋을 가두는지, `Sheet`의 닫힘 대기 길이, `Button`의 `preventDefault`와 눌림 표시, `TextField`의 `status` 모양, 쓴 테마 아이콘 이름, 제목 글자 단계 토큰 이름, `first-screen.mjs`의 전·후 값, precache 개수·KiB, 옮긴 스캔 표). "배포 영향" 절에 아래를 남기고 PR 본문 맨 위에도 넣는다:
@@ -1421,7 +1461,8 @@ RR0의 `before`는 다른 작업 뒤에 못 찍는다. RR1이 테마를 뿌리�
 - 끝 기준 4("세 숫자가 작업마다 줄어든다")는 화면 파일을 고치는 작업에서만 성립한다. 도구·색 다리·테마·여백 기준·정리 작업(RR0·RR2·RR11·RRT·RR12·RR10)에서는 "늘지 않는다"다.
 - 세트 행의 숫자와 버튼의 **보이는** 크기가 지금보다 작아질 수 있다(Astryx 기본 크기를 쓴다 — DESIGN 9.1의 4). 누르는 영역은 Astryx가 넓힌다. 화면 검증과 실기기 확인에서 작다고 판단되면 테마 한 곳(`theme.ts`)에서 키운다.
 - 이 PR은 이슈 #48을 **닫는다**(`Closes #48`). 이슈의 완료 기준이 이번 범위를 "앱 틀·탭·홈·세션·요약까지"로 적어 뒀기 때문이다. 남은 화면(식단·기록·분석·설정·온보딩)은 PR 본문과 DEV-RECORD에 목록과 숫자로 남겨 다음 기획이 이어받는다. 이슈를 열어 둔 채 이어 가고 싶으면 `Closes`를 `Refs`로 바꾸면 된다.
-- 범위 밖 화면에서 달라지는 것이 넷 있다: 식단 편집의 "먹은 개수" 스테퍼가 세션과 같은 새 모습이 된다(RR7), 루틴 편집의 시트 둘이 막·끌어내림으로 닫힐 때 내려가는 움직임이 끝까지 보인다(RR5), 기록 편집 화면 안의 운동 카드가 새 모습이 된다(RR7), 설정 → 진단의 "유리" 줄이 없어진다(RRM).
+- **접근성 이름 둘이 바뀐다**(개정 3, RRM 보완). 화면에 보이는 글자는 그대로고, 화면 낭독기·음성 제어가 읽는 이름만 다르다. ① 세션 카드의 `대체` 버튼: `자리 없음 — 대체운동 고르기` → `대체 — 자리 없음, 대체운동 고르기` ② 먹은 것 추가 시트의 음식 줄: `반숙란 3개 추가` 꼴 → 보이는 글자 그대로(`반숙란 3개 플랜 210kcal · 단 18g` 꼴 — "추가"는 시트 이름이 말한다). 다른 말이 좋으면 말하면 된다. 조건은 하나다: 보이는 글자가 이름 안에 낱말로 들어 있을 것.
+- 범위 밖 화면에서 달라지는 것이 넷 있다(위의 음식 줄 이름까지 치면 다섯): 식단 편집의 "먹은 개수" 스테퍼가 세션과 같은 새 모습이 된다(RR7), 루틴 편집의 시트 둘이 막·끌어내림으로 닫힐 때 내려가는 움직임이 끝까지 보인다(RR5), 기록 편집 화면 안의 운동 카드가 새 모습이 된다(RR7), 설정 → 진단의 "유리" 줄이 없어진다(RRM).
 - 아래 탭의 접근성 표시가 `aria-current="page"`에서 `aria-current="true"`로 바뀐다(Astryx가 정한 값 — RR3). 화면 낭독기에서 들리는 말이 조금 달라질 수 있다.
 
 ---
@@ -1489,3 +1530,20 @@ RR0·RR1이 승인·커밋되고 RR2가 구현된 뒤(`e159efc`), RR2의 화면 
 - `ax.css:117`에는 Astryx 리셋 사본의 `light-dark(#…)` 폴백이 있어 "`ax.css`에 색 리터럴 0건"은 쓸 수 없다 → RR11의 스캔은 상태바 받침 규칙만 본다.
 
 **정하지 않고 남긴 것:** 없다.
+
+---
+
+### 개정 3 — RR2+RRM 화면 검증 반려 반영 (2026-11-14)
+
+반려 원문: `.reports/screen-check-RRM.md` 3절 1(a). RRM의 검증은 "`ui-check after --check` 종료 코드 0"을 요구하는데 RR0 전부터 있던 접근성 `label-content-name-mismatch` 네 칸(`session`·`session-375`·`session-open-b`·`sheet-food`)이 종료 코드를 1로 만들고, PLAN은 접근성 이름을 안 바꾼다고도 적었다. 화면 검증자가 낸 두 길 가운데 **(ii) 지금 이름을 고친다**로 정했다.
+
+| 판단 | 코드로 확인한 것 | 반영한 곳 |
+|---|---|---|
+| (i) "RR5·RR7이 옮길 때까지 기존 실패로 허용"을 **기각** | ① `sheet-food`의 실패는 `FoodLogSheet.tsx:277`이고 이 파일은 어느 작업도 옮기지 않는다(RR5 범위 제외) ② RR7은 `ExerciseCard`의 `aria-label` 둘을 그대로 두라고 적었다 — 옮겨도 `대체` ↔ `자리 없음 — 대체운동 고르기`의 어긋남은 남는다 ③ 그래서 허용이 끝나는 작업이 없다. 허용 목록 코드·늘지 않는지 보는 검사·나중에 지우기가 이름 두 줄보다 크다 | RRM 진단·범위 제외 |
+| (ii) 지금 고친다 — **RRM 보완 커밋** | 이 레포의 axe 4.14로 후보 이름을 쟀다(규칙은 낱말 단위로 본다 — `isLabelContainedInName`). 새 이름 통과, 음식 줄은 `aria-label`을 지우면 규칙 대상이 아니다. 이름을 조립하는 안은 낱말 경계에 묶여 버렸다. `ui-check.mjs:461`이 지울 이름(`/ 추가$/`)으로 버튼을 찾는다 → 같이 고친다 | RRM 진단·설계("접근성 이름 둘")·검증, "확인한 것" 5(`uiConsistency.test.ts:81`), "과거 판정 불변" 두 줄, 결함 복원 ㉙, 머리말·작업 표 |
+| RRM의 판정 명령을 한 줄로 | `--same-layout`의 `settings` 계열 일곱은 설계된 차이라 전체를 넣으면 종료 코드가 0이 될 수 없다(반려 보고 3절 1(b) — 허용). 그 일곱을 뺀 21장면을 장면 이름으로 적었다 | RRM 검증 |
+| RR5·RR7의 완료 조건 | 네 칸은 RRM 보완에서 없어지므로 RR5·RR7에는 "다시 생기지 않는다 + 전체 실행 종료 코드 0"으로 넣었다. RR7은 `Button`으로 옮길 때 이름을 그대로 넘기라고 고쳤다 | RR5 검증, RR7 설계·검증, "구현 순서와 검증"의 `ui-check` 종료 코드 관례 |
+
+**새 작업 ID는 없다.** 보완은 RRM의 둘째 커밋이다(구현 커밋 `1e5cb01`은 고쳐 쓰지 않는다). 세 숫자는 안 바뀐다(`aria-label`은 클래스·인라인 스타일이 아니다).
+
+**정하지 않고 남긴 것:** 없다. 접근성 이름 둘의 원문은 "알려 둘 것"에 적었다.
