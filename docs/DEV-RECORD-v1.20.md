@@ -611,3 +611,80 @@ PLAN의 뜻("다크에서만 버튼이 면에 묻히는 일을 잡는다")은 �
 ### 하지 않은 것
 
 - 터치 `adaptations`(크기 토큰) — PLAN대로 올리지 않고 시작. 스크린샷 육안 판정(화면 검증자 몫)
+
+---
+
+## RR12. 여백 — 맞물림 기준과 검사
+
+### 범위
+
+| 바뀐 파일 | 내용 |
+|---|---|
+| `src/ax/index.tsx` | `Groups`(묶음 사이 5)·`Group`(카드 사이 3)·`Card`·`ClickableCard`(안쪽 4, `padding` 속성은 받지 않는다). 단계 숫자는 이 파일의 상수 셋뿐. 안의 `export { Card }`는 감싼 것으로 대체 |
+| `scripts/lib/ui-space.mjs` | `inPageInsetSymmetry`·`EXPECTED_PAIRS`·`insetSymmetryVerdict`(기대한 쌍 0개면 `ok: false`)·`nearnessVerdict`. `inPageLayout`에 묶음 사이·카드 안쪽·줄 사이를 더했고 `spaceSetVerdicts`를 `spaceRoleVerdicts`로 넓혔다(옛 이름은 지웠다) |
+| `scripts/ui-check.mjs` | `안쪽 대칭` 칸(다크·라이트), `같은 역할` 출력. 판정은 `SYMMETRY_JUDGED`(editor·line-sheet)의 `button` 쌍만, `ROLES_JUDGED`는 비어 있다(RR4부터) |
+| `scripts/ui-space.test.mjs`(새) | 판정 함수 13개(예시 + fast-check 속성 둘) |
+| `src/lib/v120.test.ts` | RR12 describe 4개 |
+| `src/lib/v119.test.ts` | 수정표 밖 1건 — 아래 |
+| `README.md` | "여백은 역할 토큰 한 벌이다" 끝에 PLAN 문장 |
+
+**수정표 밖:** `src/lib/v119.test.ts: ui-check.mjs가 정적 검사와 여백 한 벌 비교를 부른다` — 기대 정규식 `spaceSetVerdicts(layouts)` → `spaceRoleVerdicts(layouts`. PLAN이 함수 이름을 바꾼 기계적 결과(같은 비교).
+
+### 검증 대응
+
+| PLAN 검증 | 테스트·명령 |
+|---|---|
+| 함수·상수·0쌍 실패 갈래 | `v120 RR12: ui-space.mjs에 inPageInsetSymmetry·EXPECTED_PAIRS가 있고 …`, `ui-space.test.mjs: 기대한 쌍 종류가 0개면 실패한다` |
+| `Groups`·`Group`·`Card`·`ClickableCard` 내보내기, 단계 숫자가 이 파일에만 | `v120 RR12: ax/index.tsx가 … 이 파일에만 있다`, `v120 RR12: 짝 — Card·ClickableCard는 padding …` |
+| 칸이 `ui-check`에 있다 | `v120 RR12: ui-check.mjs에 안쪽 대칭 칸이 …` |
+| 대칭 허용 1px·방향별 판정 | `ui-space.test.mjs`: 17/14 실패, 1px 이하 통과, lr·tb·both, 속성 테스트 |
+| 같은 역할 = 지금의 여백 한 벌과 같은 결론 | `ui-space.test.mjs: 화면 좌우·카드 사이·시트 좌우는 …` + 아래 나란히 출력 |
+| 가까움 순서 | `ui-space.test.mjs: 가까움 순서 …`, 속성 테스트 |
+| `--same-layout=<전 장면>` | 아래 |
+| legacy 알약의 위·아래 차이가 0이 아닌 값으로 찍힌다 | 아래 출력 |
+| editor 버튼 쌍이 판정되고 통과 | 아래 출력 |
+
+### `ui-check after --check --same-layout=all --layout-base=<직전 after/layout.json>` (출력 `.reports/rr12-full.txt`)
+
+종료 코드 0. `--same-layout` 전 장면 "요소 같다"(부품을 더했을 뿐 쓰는 화면이 아직 없다). `안쪽 대칭` 칸:
+
+```
+- 기록 home · 안쪽 대칭: 실패였을 것 — legacy-pill nav.tabbar 위 6·아래 4(차이 2)      ← 탭바 안 선택 알약이 0이 아닌 값으로 찍힌다
+- 기록 session · 안쪽 대칭: 실패였을 것 — set-row div.set-row 위 16.5·아래 12.6(차이 3.9) …  ← RR7이 고친다
+- 기록 summary · 안쪽 대칭: 통과였을 것 — 쌍 0개 대칭 (없음)                               ← 기대 쌍이 없는 장면(RR4가 card·badge를 더한다)
+editor·line-sheet: 통과 (button 쌍 판정; card 쌍은 "기록만"에 위 16·아래 21 같은 차이가 찍힌다 — RR4 몫)
+```
+
+`같은 역할` — 앞의 셋이 RR12 전(`.reports/rrt-uicheck.txt`)과 같다:
+
+| | RR12 전 (`여백 한 벌`) | RR12 (`같은 역할`) |
+|---|---|---|
+| 화면 좌우 | 통과 home·session·summary·history·analyze·diet·settings·editor 16 | 같음 |
+| 카드 사이 | 통과 12px (home·summary·history·analyze·diet·settings) | 같음 |
+| 시트 좌우 | 통과 sheet-finish·sheet-home·sheet-food·line-sheet 16 | 같음 |
+| 묶음 사이 / 카드 안쪽 / 가까움 순서 | — | 기록만: `.ax-groups` 쓰는 장면 없음 / home 16·summary 60·history 35·analyze 16·diet 135·settings 16·editor 15 / 없음 |
+
+"카드 안쪽"이 장면마다 크게 다른 것은 legacy 카드의 첫 글자가 아이콘·머리 줄 뒤에 있기 때문이다. `Card`(RR4)로 옮긴 뒤 판정을 켜므로, 그때 "첫 글자" 대신 카드 안 첫 내용 상자로 잴지 RR4가 본다.
+
+### 결함 복원 (PLAN ㉔·㉖은 RR3·RR4 뒤 항목이라 RR12 단독으로 가능한 같은 뜻의 결함으로 했다)
+
+| 되살린 결함 | 실패한 검사 | 원상복구 |
+|---|---|---|
+| `insetSymmetryVerdict`가 기대한 쌍 0개를 통과시킨다 | `ui-space.test.mjs: 기대한 쌍 종류가 0개면 …`, `v120 RR12: ui-space.mjs에 …` | `cmp` 같음 |
+| 대칭 허용치 1px → 5px (㉔의 뜻: 어긋남을 못 잡는다) | `ui-space.test.mjs` 3개(17/14, 1.5px, 속성) | 같음 |
+| `Group`의 카드 사이 3 → 5 (㉖의 뜻: 같은 역할에 다른 단계) | `v120 RR12: ax/index.tsx가 … 이 파일에만 있다` | 같음 |
+| `inPageInsetSymmetry`의 버튼 선택자를 놓친다 | `ui-check --only=editor` 종료 코드 1: `실패 editor · 안쪽 대칭: 쌍 없음: button (기대)` | 같음 |
+
+㉔(띠 아래 안쪽 여백)·㉖(홈 묶음을 `VStack gap={5}`로)은 띠·홈이 아직 안 옮겨져 RR3·RR4에서 한다.
+
+### 실행 결과
+
+- `npm run check`: 전부 통과(흔적·Astryx 뒷걸음 `44 → 44`·`97 → 97`·`520 → 520`·`2 → 2`·린트·knip·테스트·빌드)
+- `npm test`: Test Files 72 passed (72) · Tests 1686 passed (1686) (RRT 때 71·1669)
+- 변이 테스트: 대상 없음(`src/lib` 변경 없음 — 바뀐 것은 `scripts/`와 `src/ax`, 테스트)
+- 과거 판정 불변: `src/db`·`src/store`·`src/lib` 판정 파일 변경 없음
+
+### 하지 않은 것
+
+- 안 옮긴 화면의 대칭 고치기(범위 제외). 판정을 켠 쌍은 `button`뿐이다 — `bar`·`tab-*`는 RR3, `card`·`badge`는 RR4, `sheet`는 RR5, 위 띠는 RR6, `set-row`는 RR7이 켠다(`SYMMETRY_KINDS`·`ROLES_JUDGED`)
+- `tab-indicator`의 선택자(`[class*="indicator"]`)는 Astryx 탭이 아직 화면에 없어 확인하지 못했다 — RR3이 확인한다

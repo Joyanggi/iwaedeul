@@ -26,7 +26,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, devices, webkit } from 'playwright'
 import { preview } from 'vite'
-import { inPageLayout, spaceSetVerdicts, spaceStaticChecks } from './lib/ui-space.mjs'
+import { EXPECTED_PAIRS, inPageInsetSymmetry, inPageLayout, insetSymmetryVerdict, spaceRoleVerdicts, spaceStaticChecks } from './lib/ui-space.mjs'
 import {
   THEME_TOKENS,
   barStaticChecks,
@@ -93,13 +93,22 @@ const DEVICE = { ...IPHONE, viewport: { width: 390, height: 844 } }
 const settle = (page, ms = 600) => page.waitForTimeout(ms)
 const btn = (page, name) => page.getByRole('button', { name, exact: true })
 
-const COLUMNS = ['접근성', '눌림 반응', '움직임 줄이기', '여백 격자', '가로 넘침', '줄 안 버튼', '띠', '시트 버튼', '탭 누름', '마지막 요소', '세트 숫자', '섬 버튼', '테마 토큰']
+const COLUMNS = ['접근성', '눌림 반응', '움직임 줄이기', '여백 격자', '가로 넘침', '줄 안 버튼', '띠', '시트 버튼', '탭 누름', '마지막 요소', '세트 숫자', '섬 버튼', '테마 토큰', '안쪽 대칭']
 /**
  * RR0이 더한 칸은 `before`에서는 기록만 한다(실패로 세지 않는다). `after --check`에서 판정하기 시작하는 작업:
  * 탭 누름·마지막 요소 = RR3, 세트 숫자·섬 버튼 = RR7, 테마 토큰 = RR1(그 전 `before`에서는 테마가 있는 editor 장면만).
  * 작업이 끝날 때 해당 값을 true로 바꾼다.
  */
 const JUDGED = { '탭 누름': false, '마지막 요소': false, '세트 숫자': false, '섬 버튼': false, '테마 토큰': true }
+/**
+ * `안쪽 대칭`(RR12)은 이미 Astryx 부품인 장면(루틴 편집)에서만 판정하고, 나머지는 기록만 한다(옮기기 전 장면은 실패로 세지 않는다).
+ * 화면·띠를 옮기는 작업(RR3·RR4·RR5·RR6·RR7)이 자기 장면을 여기에 더한다.
+ */
+const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet'])
+/** 판정을 켠 쌍 종류. 나머지 종류는 장면이 Astryx여도 기록만 한다(card·badge = RR4, bar·tab-* = RR3, 위 띠 = RR6, set-row = RR7, sheet = RR5) */
+const SYMMETRY_KINDS = new Set(['button'])
+/** `같은 역할`의 묶음 사이·카드 안쪽·가까움 순서는 홈을 옮기는 RR4부터 판정한다 */
+const ROLES_JUDGED = new Set()
 const THEME_SCENES_BEFORE = new Set(['editor', 'line-sheet'])
 /** 장면마다 기대하는 띠·시트 수의 최소값. 모자라면 `띠` 칸을 실패로 낸다 — 아무것도 안 재고 지나가지 않게 (RR0) */
 const EXPECTED_BARS = {
@@ -173,6 +182,12 @@ async function newColumns(page, scene, cells, light) {
     cells['테마 토큰'] = softVerdict('테마 토큰', t, phase === 'before' ? THEME_SCENES_BEFORE.has(scene) : JUDGED['테마 토큰'])
   }
   if (scene === 'analyze') chartColors[scene] = { ...chartColors[scene], [light ? 'light' : 'dark']: await page.evaluate(inPageChartColors) }
+  const pairs = await page.evaluate(inPageInsetSymmetry)
+  const judgedPairs = pairs.filter((p) => SYMMETRY_KINDS.has(p.kind))
+  const sym = insetSymmetryVerdict(SYMMETRY_JUDGED.has(scene) ? judgedPairs : pairs, EXPECTED_PAIRS[scene] ?? [])
+  const rest = SYMMETRY_JUDGED.has(scene) ? insetSymmetryVerdict(pairs.filter((p) => !SYMMETRY_KINDS.has(p.kind)), []) : null
+  if (rest) sym.detail += ` · (기록만: ${rest.ok ? '나머지 쌍 대칭' : rest.detail})`
+  cells['안쪽 대칭'] = softVerdict('안쪽 대칭', sym, SYMMETRY_JUDGED.has(scene) && phase === 'after')
   if (light) return name
   cells['탭 누름'] = softVerdict('탭 누름', await page.evaluate(inPageTabHit))
   cells['마지막 요소'] = LAST_SCENES.has(scene) ? softVerdict('마지막 요소', await page.evaluate(inPageLastVisible)) : { status: '건너뜀', detail: '이 장면은 재지 않는다' }
@@ -811,12 +826,12 @@ function printResults() {
   }
   if (rows.length && ONLY) {
     // 장면 사이 비교는 견줄 장면이 다 있어야 한다. --only로 일부만 찍으면 '잰 장면 없음'으로 실패가 나서 건너뛴다
-    console.log('\n여백 한 벌 (장면 사이 비교): 건너뜀 — --only 실행이다. 전체 실행에서 본다')
+    console.log('\n같은 역할 (장면 사이 비교): 건너뜀 — --only 실행이다. 전체 실행에서 본다')
   } else if (rows.length) {
-    console.log('\n여백 한 벌 (장면 사이 비교):')
-    for (const c of spaceSetVerdicts(layouts)) {
-      if (!c.ok) failed++
-      console.log(`- ${c.ok ? '통과' : '실패'} 여백 한 벌 · ${c.name}: ${c.detail}`)
+    console.log('\n같은 역할 (장면 사이 비교 — 옛 이름 `여백 한 벌`):')
+    for (const c of spaceRoleVerdicts(layouts, ROLES_JUDGED)) {
+      if (!c.ok && !c.record) failed++
+      console.log(`- ${c.record ? '기록' : c.ok ? '통과' : '실패'} 같은 역할 · ${c.name}: ${c.detail}`)
     }
   }
   if (SAME_LAYOUT) {

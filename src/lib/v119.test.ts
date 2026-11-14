@@ -123,7 +123,7 @@ describe("QQ4 — 여백 토큰 한 벌", () => {
   it("ui-check.mjs가 정적 검사와 여백 한 벌 비교를 부른다", () => {
     const text = code(SCRIPTS["/scripts/ui-check.mjs"])
     expect(text).toMatch(/spaceStaticChecks\(allCss\)/)
-    expect(text).toMatch(/spaceSetVerdicts\(layouts\)/)
+    expect(text).toMatch(/spaceRoleVerdicts\(layouts/) // v1.20 RR12: spaceSetVerdicts를 넓혀 이름을 바꿨다(같은 비교, 역할이 늘었다)
   })
 })
 

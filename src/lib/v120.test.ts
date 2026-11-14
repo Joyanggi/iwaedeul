@@ -295,3 +295,43 @@ describe("v120 RRT — Neutral + 파랑 강조", () => {
     expect(appTheme.tokens?.["--color-background-body"]).toEqual(neutralTheme.tokens?.["--color-background-body"])
   })
 })
+
+describe("v120 RR12 — 여백: 맞물림 기준과 검사", () => {
+  it("v120 RR12: ui-space.mjs에 inPageInsetSymmetry·EXPECTED_PAIRS가 있고, 기대한 쌍이 0개이면 ok: false를 내는 갈래가 있다", () => {
+    const t = text(LIB, "/scripts/lib/ui-space.mjs")
+    expect(t).toMatch(/export const inPageInsetSymmetry/)
+    expect(t).toMatch(/export const EXPECTED_PAIRS/)
+    expect(t).toMatch(/const ok = bad\.length === 0 && lacking\.length === 0/)
+    expect(t).toMatch(/lacking = expected\.filter\(\(k\) => !seen\.has\(k\)\)/)
+  })
+
+  it("v120 RR12: ui-check.mjs에 안쪽 대칭 칸이 있고 EXPECTED_PAIRS로 판정하며, 같은 역할은 spaceRoleVerdicts가 낸다", () => {
+    const t = text(SCRIPTS, "/scripts/ui-check.mjs")
+    expect(t).toMatch(/'섬 버튼', '테마 토큰', '안쪽 대칭'\]/)
+    expect(t).toMatch(/insetSymmetryVerdict\(.*EXPECTED_PAIRS\[scene\]/)
+    expect(t).not.toMatch(/spaceSetVerdicts/)
+  })
+
+  it("v120 RR12: ax/index.tsx가 Groups·Group·Card·ClickableCard를 내보내고, 묶음 사이 5·카드 사이 3·카드 안쪽 4가 이 파일에만 있다", () => {
+    const s = code("/src/ax/index.tsx")
+    for (const n of ["Groups", "Group", "Card", "ClickableCard"]) expect(s).toMatch(new RegExp(`export function ${n}\\b`))
+    expect(s).toMatch(/const GROUP_GAP = 5/)
+    expect(s).toMatch(/const CARD_GAP = 3/)
+    expect(s).toMatch(/const CARD_PADDING = 4/)
+    expect(s).toMatch(/<VStack gap=\{GROUP_GAP\} className="ax-groups">/)
+    expect(s).toMatch(/<VStack gap=\{CARD_GAP\} className="ax-group">/)
+    // 화면은 클래스 이름을 직접 쓰거나 카드에 padding을 주지 않는다(숫자는 이 파일에만)
+    const screens = Object.entries(SRC).filter(([p]) => !p.endsWith(".test.ts") && !p.startsWith("/src/ax/"))
+    for (const [p, src] of screens) {
+      expect(src, p).not.toMatch(/ax-groups?["' ]/)
+      expect(src, p).not.toMatch(/<(Clickable)?Card\b[^>]*\bpadding=/)
+    }
+  })
+
+  it("v120 RR12: 짝 — Card·ClickableCard는 padding 속성을 받지 않고(Omit) 기본값만 준다", () => {
+    const s = code("/src/ax/index.tsx")
+    expect(s).toMatch(/Omit<CardProps, 'padding'>/)
+    expect(s).toMatch(/Omit<ClickableCardProps, 'padding'>/)
+    expect(s).toMatch(/<AstryxCard padding=\{CARD_PADDING\} \{\.\.\.props\} \/>/)
+  })
+})

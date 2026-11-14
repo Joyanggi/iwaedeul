@@ -52,7 +52,7 @@ export function spaceStaticChecks(allCss) {
 export const inPageLayout = () => {
   const vis = (el) => window.__vis(el)
   const half = (v) => Math.round(v * 2) / 2
-  const res = { screenX: null, cardGaps: [], sheetInset: null }
+  const res = { screenX: null, cardGaps: [], sectionGaps: [], cardInset: null, rowMax: null, sheetInset: null }
   const sheet = [...document.querySelectorAll('.sheet, .astryx-bottom-sheet')].find(vis)
   if (sheet) {
     const sr = sheet.getBoundingClientRect()
@@ -77,11 +77,44 @@ export const inPageLayout = () => {
     if (cards[i].previousElementSibling !== cards[i - 1]) continue
     res.cardGaps.push(half(cards[i].getBoundingClientRect().top - cards[i - 1].getBoundingClientRect().bottom))
   }
+  // RR12: 이웃한 두 자식 사이의 세로 간격. 카드 사이는 .ax-group(와 legacy .card), 묶음 사이는 .ax-groups
+  const gapsOf = (parent) => {
+    const kids = [...parent.children].filter(vis)
+    const g = []
+    for (let i = 1; i < kids.length; i++) g.push(half(kids[i].getBoundingClientRect().top - kids[i - 1].getBoundingClientRect().bottom))
+    return g
+  }
+  for (const g of [...frame.querySelectorAll('.ax-group')].filter(vis)) res.cardGaps.push(...gapsOf(g))
+  for (const g of [...frame.querySelectorAll('.ax-groups')].filter(vis)) res.sectionGaps.push(...gapsOf(g))
+  // 카드 안쪽: 첫 카드의 왼쪽 가장자리에서 첫 글자까지(테두리는 안쪽 여백의 일부가 아니라 뺀다)
+  const card = [...frame.querySelectorAll('.card, [class*="astryx-card"]')].find(vis)
+  if (card) {
+    const cr = card.getBoundingClientRect()
+    const w = document.createTreeWalker(card, NodeFilter.SHOW_TEXT)
+    for (let n = w.nextNode(); n; n = w.nextNode()) {
+      if (!n.nodeValue.trim() || !n.parentElement || !vis(n.parentElement)) continue
+      const range = document.createRange()
+      range.selectNodeContents(n)
+      const rect = range.getBoundingClientRect()
+      if (rect.width < 1) continue
+      res.cardInset = half(rect.left - cr.left - card.clientLeft)
+      break
+    }
+    // 카드 안 줄 사이: 카드 안에서 자식이 하나뿐인 감싸개를 내려가 이웃한 줄 요소의 간격 가운데 가장 큰 값
+    let box = card
+    while ([...box.children].filter(vis).length === 1) box = [...box.children].find(vis)
+    const rg = gapsOf(box)
+    if (rg.length) res.rowMax = Math.max(...rg)
+  }
   return res
 }
 
-/** 장면 사이 비교(`여백 한 벌`): layouts = { 장면: inPageLayout() 결과 }. [{ name, ok, detail }] */
-export function spaceSetVerdicts(layouts) {
+/**
+ * 장면 사이 비교(`같은 역할`, RR12 — 지금의 `여백 한 벌`을 넓힌 것): layouts = { 장면: inPageLayout() 결과 }. [{ name, ok, detail, record? }]
+ * 앞의 셋(화면 좌우·카드 사이·시트 좌우)은 `여백 한 벌`과 같은 판정이다. 묶음 사이·카드 안쪽·가까움 순서는 그 역할을 쓰는 화면이 옮겨질 때(RR4)부터
+ * 판정한다 — `judged`에 이름이 없으면 값만 찍고(`record: true`) 실패로 세지 않는다. 판정을 켜면 역할마다 잰 장면이 2개 미만일 때 실패다.
+ */
+export function spaceRoleVerdicts(layouts, judged = new Set()) {
   const same = (xs) => xs.every((x) => Math.abs(x - xs[0]) < 0.5)
   const SCREENS = ['home', 'session', 'summary', 'history', 'analyze', 'diet', 'settings', 'editor']
   const SHEETS = ['sheet-finish', 'sheet-home', 'sheet-food', 'line-sheet']
@@ -90,9 +123,154 @@ export function spaceSetVerdicts(layouts) {
   const gaps = SCREENS.flatMap((s) => (layouts[s]?.cardGaps ?? []).map((g) => [s, g]))
   const gapSet = [...new Set(gaps.map((p) => p[1]))]
   const sh = SHEETS.filter((s) => layouts[s]?.sheetInset != null).map((s) => [s, layouts[s].sheetInset])
+  const sections = SCREENS.flatMap((s) => (layouts[s]?.sectionGaps ?? []).map((g) => [s, g]))
+  const sectionSet = [...new Set(sections.map((p) => p[1]))]
+  const inset = SCREENS.filter((s) => layouts[s]?.cardInset != null).map((s) => [s, layouts[s].cardInset])
+  const insetScenes = new Set(inset.map((p) => p[0]))
+  const sectionScenes = new Set(sections.map((p) => p[0]))
+  const role = (name, key, scenes, ok, detail) => ({ name, ok: judged.has(key) ? scenes >= 2 && ok : true, record: !judged.has(key), detail: `${judged.has(key) ? '' : '기록만 — '}${detail}` })
+  // 가까움 순서: 한 장면 안에서 줄 사이 ≤ 카드 사이 < 묶음 사이 (묶음 사이를 잰 장면만)
+  const nearness = [...sectionScenes].map((s) => {
+    const l = layouts[s]
+    const v = nearnessVerdict({ rowMax: l.rowMax, cardGap: l.cardGaps.length ? Math.max(...l.cardGaps) : null, sectionGap: Math.min(...l.sectionGaps) })
+    return [s, v]
+  })
   return [
     { name: '화면 좌우', ok: x.length >= 2 && same(x.map((p) => p[1])), detail: fmt(x) || '잰 장면 없음' },
     { name: '카드 사이', ok: gaps.length > 0 && gapSet.length === 1, detail: gaps.length ? `간격 ${gapSet.join('·')}px (${[...new Set(gaps.map((p) => `${p[0]} ${p[1]}`))].join(' · ')})` : '카드가 둘 이상인 장면 없음' },
     { name: '시트 좌우', ok: sh.length >= 2 && same(sh.map((p) => p[1])), detail: fmt(sh) || '잰 장면 없음' },
+    role('묶음 사이', '묶음 사이', sectionScenes.size, sections.length > 0 && sectionSet.length === 1, sections.length ? `간격 ${sectionSet.join('·')}px (${fmt(sections.filter((p, i, a) => a.findIndex((q) => q[0] === p[0] && q[1] === p[1]) === i))})` : '.ax-groups를 쓰는 장면 없음'),
+    role('카드 안쪽', '카드 안쪽', insetScenes.size, inset.length > 0 && same(inset.map((p) => p[1])), fmt(inset) || '카드가 있는 장면 없음'),
+    role('가까움 순서', '가까움 순서', nearness.length, nearness.length > 0 && nearness.every(([, v]) => v.skip || v.ok), nearness.map(([s, v]) => `${s} ${v.detail}`).join(' · ') || '.ax-groups를 쓰는 장면 없음'),
   ]
+}
+
+/**
+ * RR12 안쪽 대칭: 바깥 요소 안에 든 요소가 바깥 요소 안에서 위·아래(와 좌·우)가 같은가. page.evaluate용.
+ * 쌍 종류(`kind`)와 재는 방향은 PLAN "쌍" 표 그대로다. 안 요소의 상자는 글자·아이콘·이미지·입력칸의 상자를 합친 것이다(글자는 Range).
+ * 안전 영역은 뺀다. 돌려주는 값은 쌍 목록이고 판정은 Node(`insetSymmetryVerdict`)가 한다.
+ */
+export const inPageInsetSymmetry = () => {
+  const vis = (el) => window.__vis(el)
+  const probe = document.createElement('div')
+  probe.style.cssText = 'position:fixed;visibility:hidden;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)'
+  document.body.appendChild(probe)
+  const pcs = getComputedStyle(probe)
+  const safeTop = Number.parseFloat(pcs.paddingTop) || 0
+  const safeBottom = Number.parseFloat(pcs.paddingBottom) || 0
+  probe.remove()
+  /** 안의 글자·그림·입력칸 상자를 합친 것 */
+  const content = (root) => {
+    let box = null
+    const add = (r) => {
+      if (r.width < 0.5 || r.height < 0.5) return
+      box = box
+        ? { top: Math.min(box.top, r.top), bottom: Math.max(box.bottom, r.bottom), left: Math.min(box.left, r.left), right: Math.max(box.right, r.right) }
+        : { top: r.top, bottom: r.bottom, left: r.left, right: r.right }
+    }
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+    for (let n = w.nextNode(); n; n = w.nextNode()) {
+      if (!n.nodeValue.trim() || !n.parentElement || !vis(n.parentElement)) continue
+      const range = document.createRange()
+      range.selectNodeContents(n)
+      add(range.getBoundingClientRect())
+    }
+    for (const el of root.querySelectorAll('svg, img, input, textarea')) if (vis(el) && !el.parentElement.closest('svg')) add(el.getBoundingClientRect())
+    return box
+  }
+  const out = []
+  const borders = (el) => {
+    const cs = getComputedStyle(el)
+    return { top: Number.parseFloat(cs.borderTopWidth) || 0, bottom: Number.parseFloat(cs.borderBottomWidth) || 0, left: Number.parseFloat(cs.borderLeftWidth) || 0, right: Number.parseFloat(cs.borderRightWidth) || 0 }
+  }
+  const push = (kind, el, inner, axes, safe = false) => {
+    if (!inner) return
+    const o = el.getBoundingClientRect()
+    const b = borders(el)
+    let top = inner.top - o.top - b.top
+    let bottom = o.bottom - inner.bottom - b.bottom
+    if (safe) {
+      if (o.top <= 1) top -= safeTop
+      if (o.bottom >= innerHeight - 1) bottom -= safeBottom
+    }
+    const label = `${el.tagName.toLowerCase()}.${el.className.toString().split(' ')[0] || '-'}${el.getAttribute('aria-label') ? `[${el.getAttribute('aria-label')}]` : ''}`
+    out.push({ kind, label, axes, top, bottom, left: inner.left - o.left - b.left, right: o.right - inner.right - b.right })
+  }
+  // 띠(.ax-bar): 보이는 자식들의 상자를 합친 것이 안이다. 위·아래
+  for (const bar of [...document.querySelectorAll('.ax-bar')].filter(vis)) {
+    const rects = [...bar.children].filter(vis).map((k) => k.getBoundingClientRect())
+    if (!rects.length) continue
+    push('bar', bar, { top: Math.min(...rects.map((r) => r.top)), bottom: Math.max(...rects.map((r) => r.bottom)), left: 0, right: 0 }, 'tb', true)
+  }
+  // legacy 탭바(.tabbar): 지금 탭의 알약(::before의 inset)이 안이다 — 옮기기 전의 모습을 "기록"하려고 잰다
+  for (const bar of [...document.querySelectorAll('.tabbar')].filter(vis)) {
+    const cur = bar.querySelector('button[aria-current="page"]')
+    if (!cur) continue
+    const cs = getComputedStyle(cur, '::before')
+    const r = cur.getBoundingClientRect()
+    const px = (v) => Number.parseFloat(v) || 0
+    push('legacy-pill', bar, { top: r.top + px(cs.top), bottom: r.bottom - px(cs.bottom), left: r.left + px(cs.left), right: r.right - px(cs.right) }, 'tb', true)
+  }
+  // 탭 하나(role=tab): 선택 표시와 아이콘 + 글자
+  for (const tab of [...document.querySelectorAll('[role="tab"]')].filter(vis)) {
+    const ind = [...tab.querySelectorAll('[class*="indicator" i], [class*="underline" i]')].find(vis)
+    if (ind && tab.getAttribute('aria-selected') === 'true') push('tab-indicator', tab, ind.getBoundingClientRect(), 'lr')
+    push('tab-content', tab, content(tab), 'both')
+  }
+  // 버튼: 글자·아이콘. 아이콘만 있는 버튼은 좌·우도
+  for (const btn of [...document.querySelectorAll('button[class*="astryx-"]')].filter(vis)) {
+    const w = document.createTreeWalker(btn, NodeFilter.SHOW_TEXT)
+    let hasText = false
+    for (let n = w.nextNode(); n; n = w.nextNode()) if (n.nodeValue.trim()) hasText = true
+    push('button', btn, content(btn), hasText ? 'tb' : 'both')
+  }
+  // 카드: 첫 내용과 마지막 내용(위·아래)
+  for (const card of [...document.querySelectorAll('[class*="astryx-card"]')].filter(vis)) push('card', card, content(card), 'tb')
+  // 뱃지: 글자
+  for (const badge of [...document.querySelectorAll('[class*="astryx-badge"]')].filter(vis)) push('badge', badge, content(badge), 'both')
+  // 세트 행
+  for (const row of [...document.querySelectorAll('.set-row')].filter(vis)) push('set-row', row, content(row), 'tb')
+  // 시트의 내용 영역: 좌·우
+  const sheet = window.__ui.sheetOf()
+  if (sheet) push('sheet', sheet, content(sheet), 'lr')
+  return out
+}
+
+/** 장면마다 기대하는 쌍 종류. 하나라도 0개면 `안쪽 대칭`이 실패다 — 선택자를 놓쳐 아무것도 안 재고 지나가지 않게. 쌍 종류를 더하는 작업(RR3~RR7)이 이 표를 채운다 */
+export const EXPECTED_PAIRS = {
+  home: ['legacy-pill'], // RR3이 'bar'·'tab-indicator'·'tab-content'로 바꾼다
+  editor: ['button'],
+  'line-sheet': ['button'],
+}
+
+/** 안쪽 대칭 판정 (Node). pairs = inPageInsetSymmetry() 결과, expected = 기대하는 쌍 종류. 위·아래·좌·우 차이가 tol(1px) 이하여야 하고, 기대한 쌍이 하나라도 0개면 실패 */
+export function insetSymmetryVerdict(pairs, expected = [], tol = 1) {
+  const bad = []
+  const seen = new Map()
+  for (const p of pairs) seen.set(p.kind, (seen.get(p.kind) ?? 0) + 1)
+  const lacking = expected.filter((k) => !seen.has(k))
+  for (const p of pairs) {
+    const dv = Math.abs(p.top - p.bottom)
+    const dh = Math.abs(p.left - p.right)
+    const vBad = p.axes !== 'lr' && dv > tol
+    const hBad = p.axes !== 'tb' && dh > tol
+    if (!vBad && !hBad) continue
+    const parts = []
+    if (vBad) parts.push(`위 ${+p.top.toFixed(1)}·아래 ${+p.bottom.toFixed(1)}(차이 ${+dv.toFixed(1)})`)
+    if (hBad) parts.push(`왼 ${+p.left.toFixed(1)}·오른 ${+p.right.toFixed(1)}(차이 ${+dh.toFixed(1)})`)
+    bad.push(`${p.kind} ${p.label} ${parts.join(' ')}`)
+  }
+  const kinds = [...seen].map(([k, n]) => `${k} ${n}`).join(' · ')
+  const lack = lacking.length ? `쌍 없음: ${lacking.join(', ')} (기대)` : ''
+  const ok = bad.length === 0 && lacking.length === 0
+  const shown = bad.slice(0, 3).join(' / ') + (bad.length > 3 ? ` 외 ${bad.length - 3}` : '')
+  const detail = [lack, shown, ok ? `쌍 ${pairs.length}개 대칭 (${kinds || '없음'})` : ''].filter(Boolean).join(' / ')
+  return { ok, detail }
+}
+
+/** `가까움 순서`: 줄 사이 ≤ 카드 사이 < 묶음 사이. 카드 사이·묶음 사이를 못 쟀으면 skip */
+export function nearnessVerdict({ rowMax, cardGap, sectionGap }) {
+  if (cardGap == null || sectionGap == null) return { skip: true, detail: `카드 사이 ${cardGap ?? '-'} · 묶음 사이 ${sectionGap ?? '-'} — 재지 못했다` }
+  const ok = (rowMax == null || rowMax <= cardGap) && cardGap < sectionGap
+  return { ok, detail: `줄 사이 ${rowMax ?? '-'} ≤ 카드 사이 ${cardGap} < 묶음 사이 ${sectionGap}` }
 }

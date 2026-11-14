@@ -10,6 +10,9 @@ import { Theme } from '@astryxdesign/core/theme'
 import { SizeProvider } from '@astryxdesign/core/SizeContext'
 import { Button } from '@astryxdesign/core/Button'
 import { HStack } from '@astryxdesign/core/HStack'
+import { VStack } from '@astryxdesign/core/VStack'
+import { Card as AstryxCard, type CardProps } from '@astryxdesign/core/Card'
+import { ClickableCard as AstryxClickableCard, type ClickableCardProps } from '@astryxdesign/core/ClickableCard'
 import { NumberInput } from '@astryxdesign/core/NumberInput'
 import { TextInput, type TextInputProps } from '@astryxdesign/core/TextInput'
 import { BottomSheet, type BottomSheetProps } from '@astryxdesign/core/BottomSheet'
@@ -35,6 +38,43 @@ export function AppRoot({ children }: { children: ReactNode }) {
 /** 화면 틀. 테마는 `AppRoot`가 이미 걸었다. */
 export function AxRoot({ children }: { children: ReactNode }) {
   return <div className="ax-screen">{children}</div>
+}
+
+/**
+ * 여백 역할 (v1.20 RR12). 묶음 사이·카드 사이·카드 안쪽의 단계 숫자는 이 파일에만 적는다.
+ * 화면은 `Groups`·`Group`·`Card`를 쓰고 숫자를 적지 않는다 — 같은 역할에 다른 값이 생길 길이가 없다.
+ * (안 옮긴 화면의 짝은 `styles/space.css`의 `--space-section`·`--space-card`·`--inset-card`이고 같은 길이다.)
+ */
+const GROUP_GAP = 5
+const CARD_GAP = 3
+const CARD_PADDING = 4
+
+/** 화면 안의 묶음들을 세로로 쌓는다. 화면은 `AxRoot` 안에 `Groups` 하나를 둔다. */
+export function Groups({ children }: { children: ReactNode }) {
+  return (
+    <VStack gap={GROUP_GAP} className="ax-groups">
+      {children}
+    </VStack>
+  )
+}
+
+/** 한 묶음 안의 카드들을 쌓는다. */
+export function Group({ children }: { children: ReactNode }) {
+  return (
+    <VStack gap={CARD_GAP} className="ax-group">
+      {children}
+    </VStack>
+  )
+}
+
+/** 카드. `padding`은 받지 않는다(카드 안쪽은 한 단계다). */
+export function Card(props: Omit<CardProps, 'padding'>) {
+  return <AstryxCard padding={CARD_PADDING} {...props} />
+}
+
+/** 눌리는 카드. `Card`와 같은 안쪽 여백. */
+export function ClickableCard(props: Omit<ClickableCardProps, 'padding'>) {
+  return <AstryxClickableCard padding={CARD_PADDING} {...props} />
 }
 
 /** 텍스트 입력. 자동완성 억제(G5)와 16px 하한을 빠뜨릴 수 없게 한다. */
@@ -115,7 +155,6 @@ export function Sheet({ label, purpose = 'info', height = 'hug', onClose, childr
 }
 
 export { Button } from '@astryxdesign/core/Button'
-export { Card } from '@astryxdesign/core/Card'
 export { Banner } from '@astryxdesign/core/Banner'
 export { Badge } from '@astryxdesign/core/Badge'
 export { Heading } from '@astryxdesign/core/Heading'
