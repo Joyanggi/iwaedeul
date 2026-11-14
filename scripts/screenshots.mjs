@@ -24,7 +24,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, devices, webkit } from 'playwright'
 import { preview } from 'vite'
-import { freePort, inPageContentOpaque, inPageGlassOn, inPageOverflow, inPageSheetShow, installScript } from './lib/glass-check.mjs'
+import { freePort, inPageOverflow, installScript } from './lib/ui-check-lib.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASE = '/workout-tracker/'
@@ -247,9 +247,6 @@ const inPageResetScroll = () => {
 
 // ───────────────────────── 검사 실행 ─────────────────────────
 const CHECK_COLUMNS = ['가로 넘침', '제목 한 줄', '머리 줄', '글자 잘림', '입력 글자', '마지막 줄', '탭 영역', '버튼 높이']
-/** 시트 장면에서만 재는 유리 검사(PLAN v1.18 PP2). 함수는 scripts/lib/glass-check.mjs 것을 그대로 쓴다 */
-const GLASS_COLUMNS = ['유리 켜짐', '내용은 불투명', '시트 비침']
-CHECK_COLUMNS.push(...GLASS_COLUMNS)
 /** 재서 찍기만 하고 실패로 세지 않는 칸. 크기는 숫자 기준이 아니라 화면 검증자와 실기기에서 판단한다 */
 const INFO_ONLY = new Set(['탭 영역', '버튼 높이'])
 const results = [] // { scene, vp, scheme, cells: {col: {ok, detail}|null} }
@@ -264,13 +261,6 @@ async function runChecks(page, scene, vp, scheme, kind) {
     cells['글자 잘림'] = await page.evaluate(inPageClip)
     cells['입력 글자'] = await page.evaluate(inPageInputFont)
     if (kind === 'sheet') cells['마지막 줄'] = await page.evaluate(inPageLastRow)
-    if (kind === 'sheet' && phase === 'after') {
-      const [on, opaque, show] = [inPageGlassOn, inPageContentOpaque, inPageSheetShow]
-      for (const [col, fn] of [['유리 켜짐', on], ['내용은 불투명', opaque], ['시트 비침', show]]) {
-        const r = await page.evaluate(fn)
-        cells[col] = r.skip ? { ok: true, warn: 0, skip: true, detail: r.detail } : { ok: r.ok, warn: 0, detail: r.detail, info: r.info }
-      }
-    }
     cells['탭 영역'] = await page.evaluate(inPageTapArea, kind === 'sheet')
     if (phase === 'after') cells['버튼 높이'] = await page.evaluate(inPageButtonHeight)
     await page.evaluate(inPageResetScroll)
@@ -294,8 +284,6 @@ function printResults() {
       (c) => `- ${r.scene} ${r.vp} ${r.scheme} · ${c}: ${r.cells[c].detail}`,
     ),
   )
-  const glassValues = results.flatMap((r) => GLASS_COLUMNS.filter((c) => r.cells[c]).map((c) => `- ${r.scene} ${r.vp} ${r.scheme} · ${c}: ${r.cells[c].detail}`))
-  if (glassValues.length > 0) console.log(`\n유리 검사 값(시트 비침은 Astryx 시트에서 값만 찍는다):\n${glassValues.join('\n')}`)
   if (warns.length > 0) console.log(`\n참고 상세(실패 아님. 화면 검증자가 보고 판단하고, 애매하면 실기기 목록으로):\n${warns.join('\n')}`)
   return fails.length
 }

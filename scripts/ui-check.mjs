@@ -6,18 +6,16 @@
  *   before|after  저장 폴더 docs/screenshots/<버전>/<before|after>/<장면>.png (다크)와 <장면>-light.png (라이트). 전 장면을 두 벌로 찍는다
  *                 (지금 다크 고정인 화면의 라이트는 다크와 같게 나오는 것이 정상이다 — RR1까지)
  *   --ver=v1.20   저장 폴더의 버전. 없으면 package.json 버전의 앞 두 자리
- *   --check       장면마다 접근성(axe)·눌림 반응·움직임 줄이기·여백 격자·가로 넘침 + (띠·시트가 있으면) 유리 검사를 재서 표로 찍는다.
+ *   --check       장면마다 접근성(axe)·눌림 반응·움직임 줄이기·여백 격자·가로 넘침 + (띠·시트가 있으면) 띠·시트 버튼 검사를 재서 표로 찍는다.
  *                 하나라도 실패면 종료 코드 1. 정적 검사는 after에서만(지금은 QQ1~QQ4가 더하는 만큼)
  *   --only=a,b    이 장면만 찍고 잰다(흐름은 앞에서부터 그대로 거친다)
  *   --press-shot=<장면>:<버튼 이름>  그 장면에서 그 버튼 가운데에 touchStart를 보내고 뗀 적 없는 상태로 <장면>-press.png를 찍는다(판정 없음, 화면 검증자가 보는 사진)
  *   --same-layout=<장면,…|all>  after: 그 장면들의 요소 사각형이 <기준>/layout.json과 같은지 본다(다크). 다르면 실패
  *   --layout-base=<파일>  --same-layout이 견줄 기준 파일(기본 docs/screenshots/<버전>/before/layout.json)
- *   --glass=<띠 알파>,<시트 알파>,<막 알파>  addStyleTag로 유리 농도를 덮어 docs/screenshots/v1.19/compare/에 찍는다(home·session·sheet-finish만, 검사 안 함).
- *                 비교용이다 — 값을 다시 고르는 일이 아니다
  *
  * 브라우저: `npx playwright install chromium`. 레포에 넣지 않는다, CI는 받지 않는다.
  * 요소는 글자·역할·aria-label로만 고른다(시작 버튼·재개 줄·휴식 바도 — 옮겨도 선택자가 안 깨진다).
- * 검사 함수: scripts/lib/ui-check-lib.mjs, 유리는 scripts/lib/glass-check.mjs를 그대로 쓴다.
+ * 검사 함수: scripts/lib/ui-check-lib.mjs.
  */
 import { AxeBuilder } from '@axe-core/playwright'
 import { execSync } from 'node:child_process'
@@ -26,24 +24,17 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, devices } from 'playwright'
 import { preview } from 'vite'
-import {
-  freePort,
-  inPageBarShow,
-  inPageContentOpaque,
-  inPageGlassOff,
-  inPageGlassOn,
-  inPageOneLayer,
-  inPageOverflow,
-  inPagePillSeparation,
-  inPageSheetShow,
-  inPageTabbarSpot,
-  inPageTextContrast,
-  installScript,
-  staticChecks,
-} from './lib/glass-check.mjs'
 import { inPageLayout, spaceSetVerdicts, spaceStaticChecks } from './lib/ui-space.mjs'
 import {
   THEME_TOKENS,
+  barStaticChecks,
+  freePort,
+  inPageBars,
+  inPageOverflow,
+  inPageSheetButtons,
+  inPageTabbarSpot,
+  installScript,
+  sheetButtonVerdict,
   compareRects,
   inPageIslandButtons,
   inPageLastVisible,
@@ -83,19 +74,12 @@ if (!/^v\d+\.\d+$/.test(VER)) {
 }
 const onlyFlag = flags.find((f) => f.startsWith('--only='))
 const ONLY = onlyFlag ? new Set(onlyFlag.slice(7).split(',').filter(Boolean)) : null
-const glassFlag = flags.find((f) => f.startsWith('--glass='))
-const GLASS = glassFlag ? glassFlag.slice(8).split(',').map(Number) : null
 const pressFlag = flags.find((f) => f.startsWith('--press-shot='))
 const PRESS_SHOT = pressFlag ? pressFlag.slice(13).split(/:(.+)/).filter(Boolean) : null // [장면, 버튼 이름]
 const sameFlag = flags.find((f) => f.startsWith('--same-layout='))
 const SAME_LAYOUT = sameFlag ? sameFlag.slice(14).split(',').filter(Boolean) : null
 const baseFlag = flags.find((f) => f.startsWith('--layout-base='))
-if (GLASS && (GLASS.length !== 3 || GLASS.some((n) => !Number.isFinite(n) || n < 0 || n > 1))) {
-  console.error('--glass=<띠 알파>,<시트 알파>,<막 알파> (0~1 숫자 셋)')
-  process.exit(2)
-}
-const COMPARE_SCENES = new Set(['home', 'session', 'sheet-finish'])
-const OUT = join(ROOT, 'docs', 'screenshots', VER, GLASS ? 'compare' : phase)
+const OUT = join(ROOT, 'docs', 'screenshots', VER, phase)
 const LAYOUT_BASE = baseFlag ? baseFlag.slice(14) : join(ROOT, 'docs', 'screenshots', VER, 'before', 'layout.json')
 
 const IPHONE = { ...devices['iPhone 14'] }
@@ -105,7 +89,7 @@ const DEVICE = { ...IPHONE, viewport: { width: 390, height: 844 } }
 const settle = (page, ms = 600) => page.waitForTimeout(ms)
 const btn = (page, name) => page.getByRole('button', { name, exact: true })
 
-const COLUMNS = ['접근성', '눌림 반응', '움직임 줄이기', '여백 격자', '가로 넘침', '줄 안 버튼', '유리', '탭 누름', '마지막 요소', '세트 숫자', '섬 버튼', '테마 토큰']
+const COLUMNS = ['접근성', '눌림 반응', '움직임 줄이기', '여백 격자', '가로 넘침', '줄 안 버튼', '띠', '시트 버튼', '탭 누름', '마지막 요소', '세트 숫자', '섬 버튼', '테마 토큰']
 /**
  * RR0이 더한 칸은 `before`에서는 기록만 한다(실패로 세지 않는다). `after --check`에서 판정하기 시작하는 작업:
  * 탭 누름·마지막 요소 = RR3, 세트 숫자·섬 버튼 = RR7, 테마 토큰 = RR1(그 전 `before`에서는 테마가 있는 editor 장면만).
@@ -113,7 +97,7 @@ const COLUMNS = ['접근성', '눌림 반응', '움직임 줄이기', '여백 �
  */
 const JUDGED = { '탭 누름': false, '마지막 요소': false, '세트 숫자': false, '섬 버튼': false, '테마 토큰': true }
 const THEME_SCENES_BEFORE = new Set(['editor', 'line-sheet'])
-/** 장면마다 기대하는 유리 층(띠·시트) 수의 최소값. 모자라면 `유리` 칸을 실패로 낸다 — 아무것도 안 재고 지나가지 않게 (RR0) */
+/** 장면마다 기대하는 띠·시트 수의 최소값. 모자라면 `띠` 칸을 실패로 낸다 — 아무것도 안 재고 지나가지 않게 (RR0) */
 const EXPECTED_BARS = {
   // 탭 장면: 아래 탭 띠 1 (재개 줄이 있으면 2)
   ...Object.fromEntries(['home', 'home-end', 'home-375', 'history', 'history-detail', 'history-detail-edit', 'analyze', 'diet', 'diet-log-open', 'settings', 'settings-end', 'settings-375', 'settings-routines', 'settings-routines-375', 'settings-routines-confirm-375'].map((n) => [n, 1])),
@@ -129,6 +113,7 @@ const EXPECTED_BARS = {
 }
 const SET_SCENES = new Set(['session', 'session-375', 'history-detail-edit'])
 const LAST_SCENES = new Set(['home', 'home-end', 'home-resume', 'home-resume-end', 'diet', 'history', 'analyze', 'settings-end'])
+const sheetBtns = {} // 장면 -> { dark, light } 시트 버튼의 대비 (RRM)
 const chartColors = {} // 장면 -> { dark, light } 차트 선·축의 계산된 색 (RR2)
 const themeBg = {} // 장면 -> { dark, light } 문서 배경 (테마 토큰 칸의 라이트·다크 견줌)
 const rects = {} // 장면 -> inPageRects() (배치 기록)
@@ -143,51 +128,27 @@ const verdict = (r) => (r.skip ? { status: '건너뜀', detail: r.detail } : { s
 const TAB_SCENES = new Set(['home', 'home-end', 'home-resume', 'home-resume-end'])
 const COVER_SCENES = new Set(['home-end', 'home-resume-end'])
 
-/** CDP로 미디어 기능을 흉내 낸다. 다크 고정이라 color-scheme도 같이 넣는다 (screenshots-glass.mjs와 같은 방식) */
-let SCHEME = 'dark'
-async function emulate(cdp, feature) {
-  const features = [{ name: 'prefers-color-scheme', value: SCHEME }]
-  if (feature) features.push(feature)
-  await cdp.send('Emulation.setEmulatedMedia', { features })
-}
-
-async function glassVerdict(page, scene) {
-  const layers = await page.evaluate(() => window.__glass.layersOf(true).length)
+async function barsVerdict(page, scene) {
+  const bars = await page.evaluate(inPageBars)
   const expected = EXPECTED_BARS[scene] ?? 0
   // 띠를 고치는 작업(RR3·RR6)이 선택자를 놓쳐 0개를 재면 칸이 비어 지나가던 것을 실패로 (RR0)
-  if (layers < expected) return { status: '실패', detail: `띠 ${layers}개 — 기대 ${expected}개`, marks: [`띠 ${layers}개 — 기대 ${expected}개`] }
-  if (layers === 0) return null
-  const parts = [] // [이름, 결과]
-  const run = async (name, fn, arg) => parts.push([name, await page.evaluate(fn, arg)])
-  await run('유리 켜짐', inPageGlassOn)
-  await run('내용은 불투명', inPageContentOpaque)
-  await run('한 겹', inPageOneLayer)
-  await run('띠 비침', inPageBarShow)
-  await run('글자 대비', inPageTextContrast) // 미디어 흉내를 걸기 전에 잰다
-  if (TAB_SCENES.has(scene)) await run('알약 구별', inPagePillSeparation)
-  const cdp = await page.context().newCDPSession(page)
-  for (const [name, feature, value] of [
-    ['투명도 줄이기', 'prefers-reduced-transparency', 'reduce'],
-    ['대비 증가', 'prefers-contrast', 'more'],
-  ]) {
-    await emulate(cdp, { name: feature, value })
-    await settle(page, 150)
-    const r = await page.evaluate(inPageGlassOff, `${feature}: ${value}`)
-    // 이 Chromium이 흉내를 못 내면 규칙을 잴 수 없다 → 건너뜀
-    parts.push([name, r.matches ? r : { skip: true, detail: `${feature} 흉내가 안 먹는다(matchMedia false)` }])
-    await emulate(cdp, null)
-    await settle(page, 150)
-  }
-  await cdp.detach()
-  await page.emulateMedia({ colorScheme: SCHEME }) // detach가 색 체계를 라이트로 풀어 뒤 측정(시트 비침)이 어긋난다 — DEV-RECORD 제약 31
-  if (await page.evaluate(() => window.__glass.sheetOf() !== null)) await run('시트 비침', inPageSheetShow)
-  if (TAB_SCENES.has(scene)) await run('탭바 자리', inPageTabbarSpot, COVER_SCENES.has(scene))
+  if (bars.count < expected) return { status: '실패', detail: `띠 ${bars.count}개 — 기대 ${expected}개`, marks: [`띠 ${bars.count}개 — 기대 ${expected}개`] }
+  if (bars.count === 0) return null
+  const parts = [['띠·시트 불투명·흐림 없음', bars]]
+  if (TAB_SCENES.has(scene)) parts.push(['탭바 자리', await page.evaluate(inPageTabbarSpot, COVER_SCENES.has(scene))])
   const bad = parts.filter(([, r]) => !r.skip && !r.ok).map(([n, r]) => `${n}: ${r.detail}`)
-  const skipped = parts.filter(([, r]) => r.skip).map(([n, r]) => `${n} 건너뜀(${r.detail})`)
-  const ran = parts.filter(([, r]) => !r.skip).length
-  const marks = parts.map(([n, r]) => `${n} ${r.skip ? '건너뜀' : r.ok ? '통과' : '실패'}`)
-  marks.unshift(`층 ${layers}개(기대 ${expected} 이상)`)
-  return { status: bad.length ? '실패' : '통과', detail: bad.join(' / ') || `${ran}개 통과${skipped.length ? ' · ' + skipped.join(', ') : ''}`, marks }
+  const marks = [`층 ${bars.count}개(기대 ${expected} 이상)`, ...parts.map(([n, r]) => `${n} ${r.skip ? '건너뜀' : r.ok ? '통과' : '실패'}`), bars.detail]
+  return { status: bad.length ? '실패' : '통과', detail: bad.join(' / ') || `${bars.count}개 통과`, marks }
+}
+
+/** 시트 버튼 칸 (RRM): 시트가 떠 있는 장면에서만. 다크 값은 이 장면에서 판정하고, 다크·라이트 견줌은 printResults가 한다 */
+async function sheetButtonsCell(page, scene, light) {
+  const r = await page.evaluate(inPageSheetButtons)
+  if (r.skip) return { status: '건너뜀', detail: r.detail }
+  const key = scene
+  sheetBtns[key] = { ...sheetBtns[key], [light ? 'light' : 'dark']: r.buttons }
+  const v = sheetButtonVerdict(r.buttons, null)
+  return { status: v.ok ? '통과' : '실패', detail: v.detail }
 }
 
 /** RR0이 더한 칸의 판정: before이거나 아직 판정을 안 켠 칸이면 '기록'(실패로 세지 않는다) */
@@ -229,7 +190,7 @@ async function runChecks(page, scene) {
   // 이 검사는 legacy 버튼만 잰다: Astryx 요소는 inPagePressTargets가 요소 단위로 뺀다(이 Chromium은 mouse.down으로 Astryx의 눌림을 못 칠한다 — DEV-RECORD 제약)
   cells['눌림 반응'] = verdict(pressVerdict(await measurePress(page)))
   // 움직임 줄이기 (시트 장면만 판정, 나머지는 눌림 transform만)
-  const sheetUp = await page.evaluate(() => window.__glass.sheetOf() !== null)
+  const sheetUp = await page.evaluate(() => window.__ui.sheetOf() !== null)
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await settle(page, 150)
   const matches = await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)
@@ -251,9 +212,9 @@ async function runChecks(page, scene) {
   // 줄 안 버튼은 .row > .btn이 있는 장면(settings)에서만 잰다. 그 장면에서 0개면 실패
   const rowBtns = await page.evaluate(() => document.querySelectorAll('.row > .btn').length)
   cells['줄 안 버튼'] = rowBtns || scene === 'settings' ? verdict(await page.evaluate(inPageRowButtons)) : { status: '건너뜀', detail: '이 장면에 줄 안 버튼이 없다' }
-  // 새 칸을 유리보다 먼저 잰다: 유리 검사가 CDP로 미디어를 흉내 내고 detach하면 prefers-color-scheme이 풀려 테마 토큰이 라이트로 읽힌다(RR0에서 발견)
   await newColumns(page, scene, cells, false)
-  cells['유리'] = await glassVerdict(page, scene)
+  cells['띠'] = await barsVerdict(page, scene)
+  cells['시트 버튼'] = await sheetButtonsCell(page, scene, false)
   rows.push({ scene, cells })
 }
 
@@ -265,13 +226,13 @@ async function closeFlows(page) {
     await settle(page, 450)
   }
   const flow = (name, ok, detail) => flows.push([name, { ok, detail }])
-  // 막 눌러 닫기: 누른 직후 is-closing, --motion-medium(300ms) 안에 막이 사라지고 아래 띠 유리가 켜진다
+  // 막 눌러 닫기: 누른 직후 is-closing, --motion-medium(300ms) 안에 막이 사라지고 아래 띠가 다시 보인다
   await page.mouse.click(195, 30)
   const closing = await page.locator('.sheet.is-closing').count()
   const gone = await page.locator('.sheet-backdrop').waitFor({ state: 'detached', timeout: 600 }).then(() => true, () => false)
   await settle(page, 150)
-  const glass = gone ? await page.evaluate(inPageGlassOn) : { ok: false, detail: '막이 안 사라졌다' }
-  flow('막 눌러 닫기', closing > 0 && gone && glass.ok, `is-closing ${closing}개 · 막 사라짐 ${gone} · 유리 켜짐 ${glass.ok}`)
+  const bars = gone ? await page.evaluate(inPageBars) : { ok: false, count: 0, detail: '막이 안 사라졌다' }
+  flow('막 눌러 닫기', closing > 0 && gone && bars.ok && bars.count > 0, `is-closing ${closing}개 · 막 사라짐 ${gone} · 아래 띠 ${bars.count}개 불투명 ${bars.ok}`)
   // 두 번 누르기: 닫히는 중 한 번 더 눌러도 오류 없이 한 번만 닫힌다
   await reopen()
   const errs = []
@@ -296,11 +257,12 @@ async function closeFlows(page) {
   await reopen()
 }
 
-/** 라이트 장면: 유리와 테마 토큰만 잰다 (다크와 같은 화면이라 나머지는 다크가 맡는다). scene은 -light 없는 이름 */
+/** 라이트 장면: 띠·시트 버튼과 테마 토큰만 잰다 (다크와 같은 화면이라 나머지는 다크가 맡는다). scene은 -light 없는 이름 */
 async function runLightOnly(page, scene) {
   const cells = Object.fromEntries(COLUMNS.map((c) => [c, null]))
   await newColumns(page, scene, cells, true)
-  cells['유리'] = await glassVerdict(page, scene)
+  cells['띠'] = await barsVerdict(page, scene)
+  cells['시트 버튼'] = await sheetButtonsCell(page, scene, true)
   rows.push({ scene: `${scene}-light`, cells })
 }
 
@@ -324,31 +286,22 @@ async function pressShot(page, scene, label) {
 
 async function runScenes(browser, port, scheme) {
   const light = scheme === 'light'
-  SCHEME = scheme
   const ctx = await browser.newContext({ ...DEVICE, locale: 'ko-KR', colorScheme: scheme, serviceWorkers: 'block' })
   const page = await ctx.newPage()
   await page.addInitScript(installScript())
-  if (GLASS) {
-    // 비교용 덮어쓰기: 띠·시트·막 알파만 바꾼다(RGB는 그대로). 막은 Astryx ::backdrop도 같이
-    const [bar, sheet, scrim] = GLASS
-    await page.addInitScript(
-      `document.addEventListener('DOMContentLoaded', () => { const st = document.createElement('style'); st.textContent = ':root{--glass-bar:rgba(6,6,8,${bar});--glass-sheet:rgba(22,22,26,${sheet});--glass-scrim:rgba(0,0,0,${scrim})} dialog:has(.astryx-bottom-sheet)::backdrop{background-color:rgba(0,0,0,${scrim})}'; document.head.appendChild(st) })`,
-    )
-  }
   await page.goto(`http://localhost:${port}${BASE}`)
 
   const snap = async (scene) => {
     await settle(page, 500)
     const name = light ? `${scene}-light` : scene
     if (ONLY && !ONLY.has(name)) return
-    if (GLASS && !COMPARE_SCENES.has(name)) return
     await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
     shots.push({ name, buf: await page.screenshot() })
-    if (!light && !GLASS) rects[scene] = await page.evaluate(inPageRects)
+    if (!light) rects[scene] = await page.evaluate(inPageRects)
     if (PRESS_SHOT && !light && PRESS_SHOT[0] === scene) await pressShot(page, scene, PRESS_SHOT[1])
-    if (CHECK && !GLASS) {
+    if (CHECK) {
       if (!light) await runChecks(page, scene)
-      else await runLightOnly(page, scene) // 라이트: 유리와 테마 토큰만
+      else await runLightOnly(page, scene) // 라이트: 띠·시트 버튼과 테마 토큰만
     }
   }
   const optional = async (label, fn) => {
@@ -443,7 +396,7 @@ async function runScenes(browser, port, scheme) {
     await page.getByRole('dialog', { name: '세션 종료' }).waitFor()
     await settle(page)
     await snap('sheet-finish')
-    if (CHECK && phase === 'after' && !GLASS && !light) await closeFlows(page)
+    if (CHECK && phase === 'after' && !light) await closeFlows(page)
     await page.keyboard.press('Escape')
     await page.getByRole('dialog').first().waitFor({ state: 'detached', timeout: 1500 }).catch(() => {})
     if (await page.getByRole('dialog').count()) {
@@ -623,10 +576,8 @@ function readAllCss() {
 }
 
 function runStatic() {
-  const read = (p) => readFileSync(join(ROOT, p), 'utf8')
-  const hasGlass = existsSync(join(ROOT, 'src/styles/glass.css'))
   const allCss = readAllCss()
-  return [...staticChecks({ globalCss: read('src/styles/global.css'), axCss: read('src/ax/ax.css'), glassCss: hasGlass ? read('src/styles/glass.css') : null, allCss }), ...motionStaticChecks(allCss), ...rowButtonStaticChecks(allCss), ...spaceStaticChecks(allCss)]
+  return [...barStaticChecks(allCss), ...motionStaticChecks(allCss), ...rowButtonStaticChecks(allCss), ...spaceStaticChecks(allCss)]
 }
 
 function printResults() {
@@ -646,7 +597,7 @@ function printResults() {
     for (const c of COLUMNS) {
       const cell = r.cells[c]
       if (!cell) continue
-      if (c === '유리' && cell.marks) lines.push(`- 유리 ${r.scene}: ${cell.marks.join(' · ')}`)
+      if (c === '띠' && cell.marks) lines.push(`- 띠 ${r.scene}: ${cell.marks.join(' · ')}`)
       if (cell.status === '실패') {
         failed++
         lines.push(`- 실패 ${r.scene} · ${c}: ${cell.detail}`)
@@ -666,6 +617,15 @@ function printResults() {
       const judged = themeJudged(scene)
       if (judged && !differ) failed++
       console.log(`- ${judged ? (differ ? '통과' : '실패') : '기록'} ${scene}: 다크 ${v.dark} · 라이트 ${v.light}`)
+    }
+  }
+  const btnPairs = Object.entries(sheetBtns).filter(([, v]) => v.dark && v.light)
+  if (btnPairs.length) {
+    console.log('\n시트 버튼 · 다크·라이트 견줌 (다크 값이 라이트 값보다 0.05 넘게 낮지 않다):')
+    for (const [scene, v] of btnPairs) {
+      const r = sheetButtonVerdict(v.dark, v.light)
+      if (!r.ok) failed++
+      console.log(`- ${r.ok ? '통과' : '실패'} ${scene}: ${r.detail}`)
     }
   }
   if (chartColors.analyze) {
@@ -719,19 +679,17 @@ const browser = await chromium.launch()
 let exitCode = 0
 try {
   await runScenes(browser, port, 'dark')
-  if (CHECK && phase === 'after' && !GLASS && !ONLY) await runOffline(browser, port)
+  if (CHECK && phase === 'after' && !ONLY) await runOffline(browser, port)
   if (!ONLY || [...ONLY].some((s) => s.endsWith('-light'))) await runScenes(browser, port, 'light')
   mkdirSync(OUT, { recursive: true })
-  // compare는 값 조합마다 파일 이름이 달라야 한다: <장면>-b<띠>-s<시트>-m<막>.png
-  const tag = GLASS ? `-b${GLASS[0]}-s${GLASS[1]}-m${GLASS[2]}` : ''
-  for (const s of shots) writeFileSync(join(OUT, `${s.name}${tag}.png`), s.buf)
-  if (!GLASS && Object.keys(rects).length) {
+  for (const s of shots) writeFileSync(join(OUT, `${s.name}.png`), s.buf)
+  if (Object.keys(rects).length) {
     // 배치 기록. --only로 일부만 쟀으면 이미 있는 파일에 합친다
     const file = join(OUT, 'layout.json')
     const prev = ONLY && existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {}
     writeFileSync(file, JSON.stringify({ ...prev, ...rects }) + '\n')
   }
-  console.log(`스크린샷 ${shots.length}장 → docs/screenshots/${VER}/${GLASS ? 'compare' : phase}/`)
+  console.log(`스크린샷 ${shots.length}장 → docs/screenshots/${VER}/${phase}/`)
   if (CHECK && printResults() > 0) exitCode = 1
 } finally {
   await browser.close()

@@ -4,7 +4,7 @@ import { stripComments } from "./sourceScan"
 /**
  * v1.18 PP — 유리 재질. 이 파일의 describe는 작업별(PP1, PP2)로 이어 붙는다.
  * 소스는 import.meta.glob(?raw)로 읽는다(`node:fs`는 DEV-RECORD 제약 13).
- * .css는 vitest에서 빈 문자열이라(제약 3) 규칙 검사는 scripts/screenshots-glass.mjs --check가 맡는다.
+ * .css는 vitest에서 빈 문자열이라(제약 3) 규칙 검사는 scripts/ui-check.mjs의 정적 검사(`barStaticChecks`)가 맡는다.
  */
 const SOURCES = import.meta.glob("/src/**/*.{ts,tsx}", { query: "?raw", import: "default", eager: true }) as Record<string, string>
 

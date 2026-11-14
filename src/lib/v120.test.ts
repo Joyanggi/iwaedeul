@@ -16,8 +16,8 @@ const text = (files: Record<string, string>, path: string): string => {
 }
 
 describe("v120 RR0 — 검사 도구가 화면 클래스에 안 묶인다", () => {
-  it("v120 RR0: ui-check.mjs·screenshots-glass.mjs에 .btn-start·.resume-strip·.rest-bar 글자가 없다", () => {
-    for (const f of ["/scripts/ui-check.mjs", "/scripts/screenshots-glass.mjs"]) {
+  it("v120 RR0: ui-check.mjs에 .btn-start·.resume-strip·.rest-bar 글자가 없다 (RRM: screenshots-glass.mjs는 지워졌다)", () => {
+    for (const f of ["/scripts/ui-check.mjs"]) {
       const t = text(SCRIPTS, f)
       expect(t, f).not.toMatch(/\.btn-start/)
       expect(t, f).not.toMatch(/\.resume-strip/)
@@ -31,8 +31,8 @@ describe("v120 RR0 — 검사 도구가 화면 클래스에 안 묶인다", () =
     expect(t).toContain("button[aria-expanded]")
   })
 
-  it("v120 RR0: 시작 버튼·재개 줄·휴식 바를 글자·역할로 고른다 (ui-check와 screenshots-glass가 같은 선택자)", () => {
-    for (const f of ["/scripts/ui-check.mjs", "/scripts/screenshots-glass.mjs"]) {
+  it("v120 RR0: 시작 버튼·재개 줄·휴식 바를 글자·역할로 고른다 (RRM: screenshots-glass.mjs는 지워졌다)", () => {
+    for (const f of ["/scripts/ui-check.mjs"]) {
       const t = text(SCRIPTS, f)
       expect(t, f).toContain("name: /시작$|이어서 하기/")
       expect(t, f).toContain("name: /진행 중/")
@@ -50,34 +50,27 @@ describe("v120 RR0 — 검사 도구가 화면 클래스에 안 묶인다", () =
     expect(fn).toContain("el.closest(\"[class*='astryx-'], .ax-screen, .ax-bar, .ax-scope\")")
   })
 
-  it("v120 RR0: glass-check.mjs에 띠 선택자 글자(.session-header)가 BAR_SELECTOR 한 줄에만 있고, 그 줄에 .ax-bar가 있다", () => {
-    const t = text(LIB, "/scripts/lib/glass-check.mjs")
+  it("v120 RR0: ui-check-lib.mjs에 띠 선택자 글자(.session-header)가 BAR_SELECTOR 한 줄에만 있고, 그 줄에 .ax-bar가 있다 (RRM: glass-check.mjs에서 옮김)", () => {
+    const t = text(LIB, "/scripts/lib/ui-check-lib.mjs")
     const hits = t.split("\n").filter((l) => l.includes(".session-header"))
     expect(hits).toHaveLength(1)
     expect(hits[0]).toContain("BAR_SELECTOR")
     expect(hits[0]).toContain(".ax-bar")
   })
 
-  it("v120 RR0: 띠 선택자 사본 세 곳은 설치 때 깔린 window.__glass.BARS를 읽는다", () => {
-    const t = text(LIB, "/scripts/lib/glass-check.mjs")
+  it("v120 RR0: 띠 선택자 사본은 설치 때 깔린 window.__ui.BARS를 읽는다 (RRM: window.__glass.BARS에서 이름을 바꿨다. cssVar 스캔은 쓰는 검사(알약 구별)가 지워져 같이 지웠다)", () => {
+    const t = text(LIB, "/scripts/lib/ui-check-lib.mjs")
     expect(t).toContain("BARS: window.__BARS")
-    expect(t.match(/querySelectorAll\(g\.BARS\)/g)).toHaveLength(2)
-    expect(t).toContain("querySelectorAll(window.__BARS)")
+    expect(t).toContain("querySelectorAll(u.BARS)")
+    expect(t).toContain("querySelectorAll(window.__ui.BARS)")
     expect(t).toContain("window.__BARS = ${JSON.stringify(BAR_SELECTOR)}")
+    expect(t).not.toContain("window.__glass")
   })
 
-  it("v120 RR0: ui-check.mjs에 EXPECTED_BARS가 있고, 모자라면 유리 칸을 실패로 낸다 (0개 통과 금지)", () => {
+  it("v120 RR0: ui-check.mjs에 EXPECTED_BARS가 있고, 모자라면 띠 칸을 실패로 낸다 (0개 통과 금지 — RRM: 유리 칸이 띠 칸이 됐다)", () => {
     const t = text(SCRIPTS, "/scripts/ui-check.mjs")
     expect(t).toContain("const EXPECTED_BARS")
-    expect(t).toMatch(/layers < expected\) return \{ status: '실패'/)
-  })
-
-  it("v120 RR0: cssVar는 토큰을 글자로 읽지 않고 임시 요소의 color로 풀어 읽는다 (light-dark(…) 대비)", () => {
-    const t = text(LIB, "/scripts/lib/glass-check.mjs")
-    const fn = t.slice(t.indexOf("const cssVar ="), t.indexOf("const sheetOf"))
-    expect(fn).toContain("probe.style.color = `var(${name})`")
-    expect(fn).toContain("getComputedStyle(probe).color")
-    expect(fn).not.toContain("getPropertyValue")
+    expect(t).toMatch(/bars\.count < expected\) return \{ status: '실패'/)
   })
 
   it("v120 RR0: ui-check가 전 장면을 다크·라이트 두 벌로 찍는다 (라이트는 -light 이름)", () => {
@@ -115,10 +108,9 @@ describe("v120 RR0 — 검사 도구가 화면 클래스에 안 묶인다", () =
     expect(t).toContain("status: '기록'")
   })
 
-  it("v120 RR0: 새 칸은 유리 검사보다 먼저 잰다 (유리 검사의 CDP detach가 color-scheme을 풀어 테마 토큰을 라이트로 읽게 한다)", () => {
+  it("v120 RR0: 새 칸은 띠 칸 옆에서 돈다 — 다크·라이트 둘 다 newColumns 줄 바로 다음이 띠 줄이다 (RRM: 유리 검사가 없어져 CDP detach 순서 걱정은 사라졌다)", () => {
     const t = text(SCRIPTS, "/scripts/ui-check.mjs")
-    // 다크(runChecks)와 라이트(runLightOnly) 둘 다: 새 칸 줄 바로 다음 줄이 유리 줄이다
-    const pairs = t.match(/await newColumns\(page, scene, cells, (false|true)\)\n\s*cells\['유리'\] = await glassVerdict\(page, scene\)/g)
+    const pairs = t.match(/await newColumns\(page, scene, cells, (false|true)\)\n\s*cells\['띠'\] = await barsVerdict\(page, scene\)/g)
     expect(pairs).toHaveLength(2)
   })
 })

@@ -75,8 +75,7 @@
   transition: none;
 }
 
-/* 시트가 들어오는 움직임: 화면 아래 밖에서 올라온다. 막은 opacity가 아니라 배경색을 투명 → --glass-scrim으로
-   (opacity가 1보다 작은 조상은 시트의 흐림을 끊는다) */
+/* 시트가 들어오는 움직임: 화면 아래 밖에서 올라온다. 막은 opacity가 아니라 배경색을 투명 → --color-overlay로 */
 .sheet {
   animation: sheet-enter var(--motion-medium) var(--ease-enter);
 }

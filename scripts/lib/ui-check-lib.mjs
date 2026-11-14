@@ -1,8 +1,199 @@
 /**
  * UI 검사 함수 모음 (PLAN v1.19 QQ0). import해도 아무것도 실행하지 않는다.
  * `inPage*`는 page.evaluate로 브라우저 안에서 돈다(바깥 변수를 못 본다. 보이는 요소 판정은 window.__vis).
- * 판정 모양은 glass-check.mjs와 같다: `{ ok, detail }` 또는 `{ skip, detail }`.
+ * 판정 모양: `{ ok, detail }` 또는 `{ skip, detail }`.
  */
+
+import { createServer } from 'node:net'
+
+/** 띠 선택자 — 이 한 줄이 유일한 출처다. 페이지에는 window.__ui.BARS로 한 번 깔린다 (v1.20 RR0, RRM에서 RRM에서 옮김). 시트는 따로 */
+export const BAR_SELECTOR = '.tabbar, .resume-strip, .session-header, .rest-bar, .ax-bar'
+export const SHEET_SELECTOR = '.sheet, .astryx-bottom-sheet'
+
+/** 보이는 요소만 (크기 1px 이하·display none·visibility hidden은 뺀다). 판정은 여기 한 곳. 페이지에는 window.__vis로 깔린다 */
+export const inPageVisibleDef = (el) => {
+  const cs = getComputedStyle(el)
+  const r = el.getBoundingClientRect()
+  return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 1 && r.height > 1
+}
+
+/** 색 도우미를 페이지에 깐다 (window.__ui) */
+export const inPageInstall = () => {
+  const parse = (s) => {
+    s = (s ?? '').trim()
+    if (s === '' || s === 'transparent') return { r: 0, g: 0, b: 0, a: 0 }
+    let m = s.match(/^rgba?\(([^)]+)\)$/)
+    if (m) {
+      const p = m[1].split(/[\s,/]+/).filter(Boolean).map((x) => (x.endsWith('%') ? Number.parseFloat(x) / 100 : Number.parseFloat(x)))
+      return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }
+    }
+    m = s.match(/^color\(srgb ([^)]+)\)$/)
+    if (m) {
+      const p = m[1].split(/[\s/]+/).filter(Boolean).map(Number.parseFloat)
+      return { r: p[0] * 255, g: p[1] * 255, b: p[2] * 255, a: p.length > 3 ? p[3] : 1 }
+    }
+    m = s.match(/^#([0-9a-f]{3,8})$/i)
+    if (m) {
+      let h = m[1]
+      if (h.length <= 4) h = [...h].map((c) => c + c).join('')
+      const n = (i) => Number.parseInt(h.slice(i, i + 2), 16)
+      return { r: n(0), g: n(2), b: n(4), a: h.length === 8 ? n(6) / 255 : 1 }
+    }
+    throw new Error(`색을 못 읽는다: ${s}`)
+  }
+  /** sRGB 채널별 α·위 + (1−α)·아래. 결과 알파는 1(아래가 불투명이라고 본다) */
+  const over = (top, under) => ({
+    r: top.a * top.r + (1 - top.a) * under.r,
+    g: top.a * top.g + (1 - top.a) * under.g,
+    b: top.a * top.b + (1 - top.a) * under.b,
+    a: 1,
+  })
+  const lum = (c) => {
+    const f = (v) => {
+      v /= 255
+      return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+    }
+    return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b)
+  }
+  const ratio = (a, b) => {
+    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x)
+    return (hi + 0.05) / (lo + 0.05)
+  }
+  const bg = (el) => parse(getComputedStyle(el).backgroundColor)
+  const filterOf = (el) => {
+    const cs = getComputedStyle(el)
+    const v = cs.backdropFilter && cs.backdropFilter !== '' ? cs.backdropFilter : cs.webkitBackdropFilter
+    return v && v !== '' ? v : 'none'
+  }
+  const sheetOf = () => [...document.querySelectorAll(window.__SHEETS)].find((el) => window.__vis(el)) ?? null
+  window.__ui = { parse, over, ratio, bg, filterOf, sheetOf, BARS: window.__BARS }
+}
+
+/** addInitScript에 넘길 글: window.__vis와 window.__ui를 함께 깐다 */
+export const installScript = () =>
+  `window.__vis = ${inPageVisibleDef}; window.__BARS = ${JSON.stringify(BAR_SELECTOR)}; window.__SHEETS = ${JSON.stringify(SHEET_SELECTOR)}; (${inPageInstall})()`
+
+/** 빈 포트 하나 (Node) */
+export function freePort() {
+  return new Promise((resolve, reject) => {
+    const s = createServer()
+    s.once('error', reject)
+    s.listen(0, () => {
+      const { port } = s.address()
+      s.close(() => resolve(port))
+    })
+  })
+}
+
+/** 가로 넘침 */
+export const inPageOverflow = () => ({
+  ok: document.documentElement.scrollWidth <= innerWidth,
+  detail: `scrollWidth ${document.documentElement.scrollWidth} / ${innerWidth}`,
+})
+
+/**
+ * `띠` (RRM): 보이는 띠·시트마다 ① 계산된 backdrop-filter(와 -webkit- 짝)가 none ② 배경색 알파가 1(불투명).
+ * 띠 위 글자의 대비는 따로 안 잰다 — 불투명한 면이라 axe의 color-contrast가 잰다. 개수(count)는 Node가 EXPECTED_BARS와 견준다
+ */
+export const inPageBars = () => {
+  const u = window.__ui
+  const bars = [...document.querySelectorAll(u.BARS)].filter((el) => window.__vis(el))
+  const sheet = u.sheetOf()
+  const layers = sheet ? [...bars, sheet] : bars
+  const bad = []
+  const seen = []
+  for (const el of layers) {
+    const name = el.className.toString().split(' ')[0]
+    const f = u.filterOf(el)
+    const a = u.bg(el).a
+    seen.push(`${name} α${+a.toFixed(3)}`)
+    if (f !== 'none') bad.push(`${name} backdrop-filter ${f}`)
+    if (a < 1 - 1e-9) bad.push(`${name} 배경 α${+a.toFixed(3)}`)
+  }
+  return { ok: bad.length === 0, count: layers.length, detail: bad.length ? bad.join(' · ') : seen.join(' · ') }
+}
+
+/**
+ * `시트 버튼` (RRM): 시트 안 보이는 버튼마다 "버튼 면 또는 선의 색"과 "시트 면의 색"의 대비 가운데 큰 쪽.
+ * 돌려주는 buttons는 [이름, 대비]. 판정은 Node가 한다(시트 면과 같은 색이 아닌가, 다크 값이 라이트 값보다 0.05 넘게 낮지 않은가)
+ */
+export const inPageSheetButtons = () => {
+  const u = window.__ui
+  const sheet = u.sheetOf()
+  if (!sheet) return { skip: true, detail: '시트가 없다' }
+  const face = u.bg(sheet)
+  const buttons = [...sheet.querySelectorAll('button')].filter((b) => window.__vis(b))
+  const out = buttons.map((b, i) => {
+    const cs = getComputedStyle(b)
+    const fill = u.over(u.parse(cs.backgroundColor), face)
+    const line = Number.parseFloat(cs.borderTopWidth) > 0 ? u.over(u.parse(cs.borderTopColor), face) : face
+    const r = Math.max(u.ratio(fill, face), u.ratio(line, face))
+    return [`${i}:${(b.getAttribute('aria-label') ?? b.textContent ?? '').trim().slice(0, 12)}`, +r.toFixed(3)]
+  })
+  return { buttons: out, detail: `${out.length}개` }
+}
+
+/**
+ * 시트 버튼 판정 (Node). dark·light는 inPageSheetButtons의 buttons([이름, 대비]). light가 없으면(다크 장면 칸) 버튼이 있는지만 본다 — 견줌은 둘이 다 있을 때.
+ * 글자만 있는 버튼(다크·라이트 둘 다 면·선이 시트 면과 같은 색 — 목록 줄·시간 칩)은 면으로 알려지는 버튼이 아니라 판정에서 뺀다(개수만 찍는다).
+ * 면·선이 있는 버튼은 ① 다크에서만 시트 면과 같은 색이 되면 실패 ② 다크 값이 라이트 값보다 0.05 넘게 낮고 3:1(WCAG 비텍스트 대비)에도 못 미치면 실패.
+ * ②를 3:1로 좁힌 까닭: 반전 버튼은 다크 13:1 · 라이트 17:1처럼 값이 달라도 둘 다 또렷하다 — 값이 낮다는 것만으로 "묻힘"은 아니다
+ */
+export function sheetButtonVerdict(dark, light) {
+  if (!dark || dark.length === 0) return { ok: false, detail: '버튼이 0개 — 아무것도 안 쟀다' }
+  if (!light) return { ok: true, detail: `${dark.length}개` }
+  const bad = []
+  const seen = []
+  let textOnly = 0
+  for (const [name, r] of dark) {
+    const l = light.find(([n]) => n === name)?.[1]
+    if (r < 1.05 && (l === undefined || l < 1.05)) {
+      textOnly++
+      continue
+    }
+    if (r < 1.05) bad.push(`${name} 다크에서 시트 면과 같은 색(${r}) · 라이트 ${l}`)
+    else if (l !== undefined && r < l - 0.05 && r < 3) bad.push(`${name} 다크 ${r} < 라이트 ${l} − 0.05 · 3:1 미만`)
+    seen.push(`${name} 다크 ${r}${l === undefined ? '' : ` · 라이트 ${l}`}`)
+  }
+  return { ok: bad.length === 0, detail: `${bad.length ? bad.join(' · ') + ' / ' : ''}면·선 있는 버튼 ${seen.length}개 · 글자만 ${textOnly}개 제외${seen.length ? ' — ' + seen.join(' · ') : ''}` }
+}
+
+/** 정적 검사 (RRM): src/**\/*.css에 backdrop-filter 0건 (Node). 주석은 뺀다 */
+export function barStaticChecks(allCss) {
+  const hits = Object.entries(allCss).filter(([, css]) => /backdrop-filter/i.test(css.replace(/\/\*[\s\S]*?\*\//g, '')))
+  return [{ name: 'src/**/*.css에 backdrop-filter 0건', ok: hits.length === 0, detail: hits.length ? hits.map(([f]) => f).join(', ') : `${Object.keys(allCss).length}개 파일 0건` }]
+}
+
+/** 탭바 자리 (하위 항목, RR3이 지운다 — RRM에서 옮김). measureCover는 'home-end' 계열만 가림을 잰다 */
+export const inPageTabbarSpot = (measureCover) => {
+  const bar = document.querySelector('.tabbar')
+  if (!bar) return { skip: true, detail: '탭바가 없다' }
+  const strip = document.querySelector('.resume-strip')
+  const r = bar.getBoundingClientRect()
+  const parts = []
+  const gaps = { 좌: r.left, 우: innerWidth - r.right, 아래: innerHeight - r.bottom }
+  const tight = Object.entries(gaps).filter(([, v]) => v < 8)
+  parts.push({ name: '좌·우·아래 8px', ok: tight.length === 0, detail: `좌 ${Math.round(gaps.좌)} · 우 ${Math.round(gaps.우)} · 아래 ${Math.round(gaps.아래)}` })
+  const small = [...bar.querySelectorAll('button')].map((b) => b.getBoundingClientRect()).filter((x) => x.width < 44 || x.height < 44)
+  const count = bar.querySelectorAll('button').length
+  parts.push({ name: '탭 버튼 44px', ok: count === 5 && small.length === 0, detail: `${count}개 · 작은 것 ${small.map((x) => `${Math.round(x.width)}×${Math.round(x.height)}`).join(',') || '없음'}` })
+  if (strip) {
+    const s = strip.getBoundingClientRect()
+    const apart = s.bottom <= r.top + 0.5 || r.bottom <= s.top + 0.5 || s.right <= r.left + 0.5 || r.right <= s.left + 0.5
+    parts.push({ name: '스트립·탭바 안 겹침', ok: apart, detail: `스트립 아래 ${Math.round(s.bottom)} · 탭바 위 ${Math.round(r.top)}` })
+  }
+  if (measureCover) {
+    const last = document.querySelector('.screen')?.lastElementChild
+    if (!last) parts.push({ name: '가림', ok: false, detail: '.screen의 마지막 자식을 못 찾았다' })
+    else {
+      const top = (strip ?? bar).getBoundingClientRect().top
+      const bottom = last.getBoundingClientRect().bottom
+      parts.push({ name: '가림', ok: bottom < top, detail: `마지막 내용 아래 ${Math.round(bottom)} · ${strip ? '스트립' : '탭바'} 위 ${Math.round(top)}${bottom >= top ? ` (${Math.round(bottom - top)}px 가림)` : ''}` })
+    }
+  }
+  const bad = parts.filter((p) => !p.ok)
+  return { ok: bad.length === 0, detail: parts.map((p) => `${p.name} ${p.ok ? '✓' : '✗'}(${p.detail})`).join(' · '), parts }
+}
 
 /** 눌림 반응을 재는 요소 선택자 */
 export const PRESS_SELECTOR = 'button, [role="button"], a[href]'
@@ -272,7 +463,7 @@ export const inPageLastVisible = () => {
   const y0 = window.scrollY
   window.scrollTo(0, document.documentElement.scrollHeight)
   const kids = [...root.children].filter((el) => window.__vis(el) && !el.matches('.ax-bar, .tabbar, .resume-strip'))
-  const bars = [...document.querySelectorAll(window.__glass.BARS)].filter((b) => window.__vis(b) && b.getBoundingClientRect().bottom >= innerHeight - 1)
+  const bars = [...document.querySelectorAll(window.__ui.BARS)].filter((b) => window.__vis(b) && b.getBoundingClientRect().bottom >= innerHeight - 1)
   let out
   if (kids.length === 0) out = { ok: false, detail: '본문에 보이는 자식이 0개 — 아무것도 안 쟀다' }
   else if (bars.length === 0) out = { skip: true, detail: '화면 아래에 붙은 띠가 없다' }

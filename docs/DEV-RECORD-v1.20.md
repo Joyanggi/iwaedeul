@@ -344,3 +344,93 @@ PLAN "확인한 것" 3의 923ms·271ms보다 작다(제약 33). RR1의 3배 선�
 **실패로 남은 것 — `유리` 칸 `글자 대비` (전 장면 다크·라이트, RR1에선 통과)**: 검사가 띠 뒤에 accent·ok 면이 있다고 가정하고 글자를 잰다. Neutral 테마의 accent는 다크에서 `#f1f1f1`, 라이트에서 `#1b1b1b`라 `--text-dim`(secondary)이 2.5~4.3:1이 된다(예: `"식단" 2.52:1 (accent 위)`). 옛 주황 accent 가정에서 맞춘 검사다. 이 대비는 어떤 띠 색으로도 못 올린다(다크: 뒤 비침 0.30만으로 이미 모자람). 고칠 자리는 테마(RRT)나 검사의 가정이다 — RR2에서 검사를 끄거나 고치지 않았다. 지휘자 판단 필요. `after --check` 종료 코드는 1.
 
 **하지 않은 것:** `bodyLuminance`를 `inPageLayout`에 더하지 않고 기존 `테마 토큰` 칸의 배경색으로 견줬다. 라이트 `유리` 값 재조정은 RRM 몫. 화면 검증(스크린샷 육안)은 안 했다. 실기기 ① 사람 확인 필요.
+
+---
+
+## RRM. 유리를 걷고 Astryx 표면으로
+
+RR2(`e159efc`)와 **한 묶음으로 리뷰**한다(RR2 "구현 뒤 처리"). RR2 단독으로는 `유리` `글자 대비`가 51장면 실패였다 — 그 칸이 이 작업에서 없어졌다.
+
+### 범위
+
+| 항목 | 내용 |
+|---|---|
+| 지운 것 | `src/styles/glass.css`(+`index.css` import), `ax.css`의 시트 유리 블록(195-271)과 막 덧칠, `src/lib/glassDiag.ts`·`glassDiag.test.ts`, 설정의 "유리" 줄(import·상태·줄), `scripts/lib/glass-check.mjs`, `scripts/screenshots-glass.mjs`, `screenshots.mjs`의 유리 칸·`GLASS_COLUMNS`, `ui-check.mjs`의 `유리` 칸·`glassVerdict`·`--glass=`·`알약 구별`·`inPageGlassOn` 쓰는 흐름 |
+| 옮긴 것 | `BAR_SELECTOR`·`SHEET_SELECTOR`·`inPageVisibleDef`·`installScript`·`freePort`·`inPageOverflow`·`inPageTabbarSpot` → `ui-check-lib.mjs`. `window.__glass` → `window.__ui`(색 도우미는 쓰는 것만 남김) |
+| legacy 재질 | `.tabbar`·`.resume-strip`·`.session-header`·`.rest-bar`·`.sheet` = `--color-background-surface` + `--color-border`(그림자·빛 선언 삭제). 알약 = `--color-background-muted` + `--color-border-emphasized`. `.sheet-backdrop` = `--color-overlay`. `.rest-bar-done`은 같은 초록 두 겹을 표면 위에. `motion.css` 주석 |
+| 새 검사 | `띠`(`inPageBars` — `EXPECTED_BARS` 이상·`backdrop-filter` none·배경 알파 1, `탭바 자리`는 이 칸의 하위로), `시트 버튼`(`inPageSheetButtons` + `sheetButtonVerdict`), 정적 `backdrop-filter` 0건(`barStaticChecks`) |
+| README | "유리는 떠 있는 층에만…" 항목 전체와 Limitations의 "투명도 줄이기" 줄 삭제 (표면 문장은 RRT) |
+| 테스트 | 새 `scripts/ui-check-lib.test.mjs` 8개, `legacy-scope.test.mjs`에 `v120 RRM` 5개. 전체 **70파일/1658개**, `npm run check` 통과 |
+| 커밋 | 아래 "실행 결과" |
+
+### PLAN 검증 항목 ↔ 테스트·측정
+
+| PLAN 검증 | 결과 |
+|---|---|
+| 글자 0건 + 파일 없음 + 설정에 `유리` 없음 | `legacy-scope.test.mjs` `v120 RRM` 1~3번. **`backdrop-filter`만 예외 세 파일**: 검사기 `ui-check-lib.mjs`(none인지 재는 곳)·`ui-check-lib.test.mjs`·`v118.test.ts`(기존 "앱 코드에 backdrop-filter 없음" 스캔)는 낱말을 담을 수밖에 없다 |
+| `ui-check after --check` 종료 코드 0 | **1 — 남은 실패는 RRM 것이 아니다.** 접근성 `label-content-name-mismatch` 네 칸(`session`·`session-375`·`session-open-b`·`sheet-food`, 제약 32·RR2 `screen-check`와 같은 노드)과 `--same-layout`의 `settings` 계열 일곱(아래). `띠`·`시트 버튼`·정적·흐름·테마·차트·여백 한 벌은 전부 통과 (`.reports/rrm-uicheck.txt`). `유리` `글자 대비` 51장면 실패는 없다 |
+| `띠` 칸이 전 장면 다크·라이트 통과, 장면별 띠 수 | 56장면 전부 통과, 빈 통과 0(0이면 실패로 내는 `EXPECTED_BARS` 유지). 수: 탭 장면 1(`tabbar`), `home-resume`·`settings-open`·`session-rest` 2, 세션 장면 1(`session-header`), `sheet-home`·`sheet-food` 2(탭바+시트), `sheet-finish`·`sheet-timer` 3(상단 바+휴식 바+시트), `line-sheet` 1(`astryx-bottom-sheet`). 라이트도 같다. 모든 층 α1 |
+| axe 대비·심각 위반이 RR2보다 늘지 않음 | 대비 위반 수 같음(`sheet-timer` 1건 외 0), 심각 위반 수 같음. `incomplete`만 줄었다(sheet-home 23→13, sheet-food 57→25, line-sheet 9→4 …: 면이 불투명해져 판정 불가가 줄었다) |
+| `시트 버튼`이 시트 다섯 장면 다크·라이트 통과 | 통과. 값은 아래 "판정을 좁힌 것" |
+| `--same-layout=all`(RR2 배치 기록 `.reports/rr2-layout-base.json`) | 25장면 중 **18 통과, 7 실패 = 전부 `settings` 계열**(`settings`·`-end`·`-375`·`-open`·`-routines`·`-routines-375`·`-routines-confirm-375`): 진단 목록의 한 요소 높이 627→557.5(−69.5, "유리" 줄 한 줄 높이) 외 같다. PLAN의 예외. 줄 아래 요소가 69.5만큼 올라간 것만 다른지는 화면 검증자가 본다 |
+| 대비 증가(`prefers-contrast: more`)로 `home`·`session`·`sheet-finish` | 다크·라이트 6칸 모두 `pageerror` 0, 가로 넘침 없음(scrollWidth 390/390). 일회용 스크립트로 쟀다(레포에 안 남김) |
+| `npm run knip`·`npm run check` | 통과 |
+| 화면 검증자 | 이 기록의 몫이 아니다. 스크린샷은 `docs/screenshots/v1.20/after/`(56장, `layout.json`)를 새로 찍었다 |
+
+### 판정을 좁힌 것 (PLAN과 다르게 한 것)
+
+`시트 버튼`을 PLAN 문장 그대로(모든 버튼 × "시트 면과 같은 색 아님" × "다크 값이 라이트보다 0.05 넘게 낮지 않음")로 돌리니 처음 실행이 실패했다 — 버튼이 나쁜 것이 아니라 판정이 거칠었다:
+
+1. **글자만 있는 버튼**(목록 줄 `Day 1 — Push`, 시간 칩 `1:00`, 종목 칩 `가슴`)은 다크·라이트 모두 면·선이 시트와 같은 색(대비 1)이다. 면으로 알려지는 버튼이 아니라 판정에서 빼고 "글자만 N개 제외"로 개수를 찍는다. 다크·라이트 **둘 다** 1일 때만 뺀다 — 다크에서만 1이면(RR2가 본 `sheet-food` 다크) 실패다.
+2. **다크가 라이트보다 낮은 것**은 3:1(WCAG 비텍스트 대비) 미만일 때만 실패다. 반전 버튼(`기록 마치기`·`2:30 시작`)은 다크 13.4:1 · 라이트 17.2:1로 값이 달라도 둘 다 또렷한데, 낮다는 것만으로 실패가 났다.
+
+PLAN의 뜻("다크에서만 버튼이 면에 묻히는 일을 잡는다")은 그대로다. 경계는 `ui-check-lib.test.mjs`가 잠근다. **리뷰어에게 묻는 것**: 이 좁힘이 맞는지(특히 1 — 글자만 버튼은 뺐다).
+
+값(다크 · 라이트 대비): `sheet-food` 추가 버튼 1.37 · 1.20(RR2가 묻힌다고 본 버튼 — 이제 면이 있는 버튼으로 잡힌다), `sheet-finish` 종목 칩 1.14 · 1.13, `sheet-timer` 시작 13.4 · 17.2, `line-sheet` 세트 증감 1.37 · 1.14.
+
+### 그 밖에 PLAN과 다르게 한 것
+
+| 무엇 | 까닭 |
+|---|---|
+| `v120.test.ts`의 RR0 스캔 여섯 중 **`cssVar` 스캔은 지웠다** (옮기지 않음) | `cssVar`를 쓰던 것이 `알약 구별`(지워짐)뿐이라 도우미째 안 옮겼다. 안 쓰는 코드를 옮겨 두지 않는다 |
+| `v120.test.ts`: `ui-check.mjs`의 "새 칸은 유리 검사보다 먼저 잰다" → "띠 칸 옆에서 돈다" | CDP `detach`가 색 체계를 푸는 순서 걱정(제약 31)은 유리 검사가 없어져 사라졌다. 다크·라이트 두 짝의 위치만 잠근다 |
+| `astryx-inventory` 세 숫자 `520→515` 예상이 **`520→520`** | 세는 단위가 "파일마다 서로 다른 legacy 클래스 이름"이라, 설정 줄이 쓰던 `row`·`row-main`… 은 같은 파일의 다른 줄이 계속 쓴다. 표(`ASTRYX-INVENTORY.md`)는 안 새로 썼다 |
+| `ui-check.mjs`가 `미디어 흉내`(`emulate`)·`SCHEME`을 잃었다 | 유리 끄기 검사만 쓰던 것(린트 `no-unused-vars`) |
+| `screenshots.mjs`(v1.18 도구)는 유리 칸만 지우고 `freePort`·`inPageOverflow`·`installScript`를 `ui-check-lib.mjs`에서 가져온다 | |
+
+### 지운 테스트 (RRM 스캔 규칙 4의 예외)
+
+- `src/lib/glassDiag.test.ts` 12개(`glassDiag.ts`와 함께)
+- `src/lib/v119.test.ts` "SettingsScreen이 glassDiagnosis를 부르고 '유리' 줄을 가진다" (`QQ1 — 유리 재료`)
+- `scripts/legacy-scope.test.mjs` "v120 RR1: 테마에서 만든 시트 면·테두리 토큰은 html이 아니라 Astryx 시트에만…", "v120 RR2: html[data-astryx-theme] 블록이 --glass-bar를…", "v120 RR2: 라이트에서 legacy 띠 넷의 흐림에 brightness()가 없다"
+- `v118.test.ts`의 주석만 고쳤다.
+
+### 결함 복원 (`cp` 백업 → 결함 → 테스트 → 복구 → `cmp`)
+
+| 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|
+| `global.css` `.sheet`의 면을 `rgba(22,22,26,.5)`로 | `v120 RRM: 띠·시트…테마 표면` + `v120 RR2: # 색 리터럴과 rgba( 0건` | `cmp` 같음 |
+| `sheetButtonVerdict`의 "다크에서 시트 면과 같은 색" 검사를 `if (false)`로 | `v120 RRM: 시트 버튼: 다크에서만 시트 면과 같은 색이 되면 실패한다` | `cmp` 같음 |
+| `barStaticChecks`가 `backdrop-filter`를 못 알아보게 | `v120 RRM: src/**/*.css에 backdrop-filter가 있으면 실패하고…` | `cmp` 같음 |
+| 설정 화면에 "유리" 줄을 되살림 | `v120 RRM: SettingsScreen.tsx에 유리 글자가 없다` | `cmp` 같음 |
+
+### 과거 판정 불변·변이
+
+`src/lib`의 판정 코드는 안 건드렸다(`glassDiag.ts` 삭제뿐 — 판정이 아니라 진단 표시). 변이 테스트: **대상 없음**(바뀐 `src/lib` 파일 없음).
+
+### 실행 결과
+
+- `npm run check`: 흔적·Astryx 뒷걸음·린트·knip·테스트·빌드 전부 통과. 린트 경고 1건(`SessionScreen.tsx:131` 안 쓰는 `eslint-disable`)은 이 작업이 안 건드린 파일의 기존 것
+- `npm test`: Test Files 70 passed (70) · Tests 1658 passed (1658)
+- `git rev-list --count main..HEAD`: 커밋 뒤 아래에 적는다
+
+### 하지 않은 것
+
+- 화면 검증(스크린샷 육안) — 화면 검증자 몫. `settings` 계열 배치 차이(−69.5px)와 라이트·다크 `sheet-food` 하단 버튼, 띠 뒤 글자 겹침이 사라졌는지는 눈으로 봐야 한다
+- `label-content-name-mismatch` 네 칸 — RR0 전부터 있던 legacy 마크업의 `aria-label`이라 이 작업 범위가 아니다(RR5·RR7이 옮길 때 사라진다). 그래서 `ui-check after --check` 종료 코드는 0이 아니다
+
+### 실기기 확인
+
+- 폰(라이트·다크)에서 띠 뒤로 지나가는 글자가 띠 글자와 겹쳐 지저분하던 것이 사라졌는지(`settings`·`history-detail`·`diet`을 스크롤하며)
+- 시트가 뜰 때 뒤 막이 라이트에서 눈부시지 않은지 — 막은 이제 테마 `--color-overlay`(라이트 50%·다크 80% 검정)다. 예전보다 진하다
+- iOS "대비 증가"를 켠 채 시트·탭바 (유리 끄기 규칙이 없어졌다 — 처음부터 불투명이라 변화가 없어야 한다)

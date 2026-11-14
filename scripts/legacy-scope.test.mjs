@@ -1,5 +1,5 @@
 // PLAN v1.20 RR1 — legacy CSS의 범위 가두기. vitest에서 `.css`를 ?raw로 읽으면 빈 문자열이라(제약 3) fs로 읽는다.
-import { readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
@@ -75,14 +75,6 @@ describe('v120 RR1 — legacy 규칙의 범위', () => {
     }
   })
 
-  it('v120 RR1: 테마에서 만든 시트 면·테두리 토큰은 html이 아니라 Astryx 시트에만 건다 (html에 걸면 안 옮긴 legacy 시트의 면이 바뀐다)', () => {
-    const glassCss = read('src/styles/glass.css')
-    // RR2: html 블록이 --glass-bar를 갖게 됐다 — 금지 대상은 블록이 아니라 시트 토큰(같은 뜻: 안 옮긴 legacy 시트의 면을 html이 바꾸지 않는다)
-    expect(glassCss).not.toMatch(/html\[data-astryx-theme\]\s*\{[^}]*--glass-(sheet|solid|edge)/)
-    expect(axCss).not.toMatch(/html\[data-astryx-theme\]\s*\{[^}]*--glass-/)
-    expect(glassCss).toMatch(/html\[data-astryx-theme\] \.astryx-bottom-sheet \{\s*--glass-solid/)
-  })
-
   it('v120 RR1: Theme 감싸개가 거는 글꼴·글자색을 legacy 뿌리에서 되돌린다 (Figtree·흰색이 번지면 글자 폭이 달라진다)', () => {
     const body = globalCss.slice(globalCss.indexOf('@scope ('))
     const m = body.match(/:where\(:scope\)\s*\{([^}]*)\}/)
@@ -98,7 +90,6 @@ describe('v120 RR2 — 색 다리', () => {
   const rootStart = globalCss.indexOf(':root {')
   const root = globalCss.slice(rootStart, globalCss.indexOf('\n}', rootStart))
   const outside = globalCss.replace(root, '')
-  const glassCss = read('src/styles/glass.css')
 
   it('v120 RR2: global.css의 :root 색 토큰 12개(+placeholder)의 값이 전부 var(--color-로 시작한다', () => {
     const names = ['bg', 'surface', 'surface-2', 'line', 'text', 'text-dim', 'text-faint', 'text-placeholder', 'accent', 'accent-soft', 'ok', 'warn', 'danger']
@@ -118,13 +109,52 @@ describe('v120 RR2 — 색 다리', () => {
     expect(axCss).toMatch(/prefers-color-scheme: light\) \{\s*body::before \{/)
     expect(axCss).not.toContain('.ax-screen::before')
   })
+})
 
-  it('v120 RR2: html[data-astryx-theme] 블록이 --glass-bar를 테마 표면에서 만들고 시트 토큰은 html 블록에 없다', () => {
-    expect(glassCss).toMatch(/html\[data-astryx-theme\] \{\s*--glass-bar: color-mix\(in srgb, var\(--color-background-surface\) 50%, transparent\);/)
-    expect(glassCss).not.toMatch(/--glass-(sheet|solid|edge): (rgba|#)/)
+// PLAN v1.20 RRM — 유리를 걷고 Astryx 표면으로 (CSS·스크립트라 fs로 읽는다)
+describe('v120 RRM — 유리를 걷는다', () => {
+  const walk = (dir) =>
+    readdirSync(new URL(`../${dir}`, import.meta.url), { recursive: true })
+      .map((p) => `${dir}/${String(p).split('\\').join('/')}`)
+      .filter((p) => /\.(css|ts|tsx|mjs|html)$/.test(p))
+  const raw = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
+  // 이 검사 파일 넷과 검사기(ui-check-lib.mjs — backdrop-filter가 none인지 재는 곳)는 낱말을 담을 수밖에 없다
+  const SELF = new Set(['scripts/legacy-scope.test.mjs', 'scripts/lib/ui-check-lib.mjs', 'src/lib/v120.test.ts', 'src/lib/v118.test.ts', 'scripts/ui-check-lib.test.mjs'])
+  const files = [...walk('src'), ...walk('scripts'), 'index.html'].filter((p) => !SELF.has(p))
+
+  it('v120 RRM: src·scripts·index.html에 backdrop-filter·--glass-·glassDiag·glass-check 글자가 0건이다', () => {
+    const hits = files.flatMap((p) => ['backdrop-filter', '--glass-', 'glassDiag', 'glass-check'].filter((w) => raw(p).includes(w)).map((w) => `${p}: ${w}`))
+    expect(hits).toEqual([])
   })
 
-  it('v120 RR2: 라이트에서 legacy 띠 넷의 흐림에 brightness()가 없다', () => {
-    expect(glassCss).toMatch(/prefers-color-scheme: light\) \{\s*\.tabbar,[\s\S]*?backdrop-filter: saturate\(180%\) blur\(20px\);/)
+  it('v120 RRM: glass.css·glass-check.mjs·screenshots-glass.mjs·glassDiag.ts가 없다', () => {
+    for (const p of ['src/styles/glass.css', 'scripts/lib/glass-check.mjs', 'scripts/screenshots-glass.mjs', 'src/lib/glassDiag.ts', 'src/lib/glassDiag.test.ts']) {
+      expect(existsSync(new URL(`../${p}`, import.meta.url)), p).toBe(false)
+    }
+  })
+
+  it('v120 RRM: SettingsScreen.tsx에 유리 글자가 없다 (옆의 오디오 줄은 남는다)', () => {
+    const t = raw('src/screens/SettingsScreen.tsx')
+    expect(t).not.toContain('유리')
+    expect(t).toContain('오디오')
+  })
+
+  it('v120 RRM: 띠(.tabbar·.resume-strip·.session-header·.rest-bar)와 시트(.sheet)와 막은 테마 표면·테두리·막 색이다', () => {
+    const rule = (sel) => {
+      const at = globalCss.indexOf('\n' + sel + ' {')
+      return at < 0 ? '' : globalCss.slice(at, globalCss.indexOf('}', at))
+    }
+    for (const sel of ['.tabbar', '.resume-strip', '.session-header', '.rest-bar', '.sheet']) {
+      expect(rule(sel), sel).toContain('background: var(--color-background-surface);')
+      expect(rule(sel), sel).toMatch(/border(-top|-bottom)?: 1px solid var\(--color-border\);/)
+    }
+    expect(rule('.sheet-backdrop')).toContain('background: var(--color-overlay);')
+    expect(rule('.rest-bar-done')).toContain('var(--color-background-surface);')
+    expect(globalCss).toMatch(/\[aria-current='page'\]::before \{[^}]*background: var\(--color-background-muted\);[^}]*border: 1px solid var\(--color-border-emphasized\);/)
+  })
+
+  it('v120 RRM: ax.css에 Astryx 시트를 덧칠하는 규칙이 없다 (Astryx가 정한 표면과 막을 그대로 쓴다)', () => {
+    expect(axCss).not.toContain('.astryx-bottom-sheet')
+    expect(axCss).not.toContain('::backdrop')
   })
 })
