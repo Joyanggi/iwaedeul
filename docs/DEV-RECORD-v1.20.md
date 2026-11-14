@@ -543,3 +543,71 @@ PLAN의 뜻("다크에서만 버튼이 면에 묻히는 일을 잡는다")은 �
 - 라이트에서 앱을 열 때 어두운 스플래시가 잠깐 보이는 것(범위 제외)
 
 리뷰 반영(RR11 반려, 새 커밋): ① `ax.css` 받침 `z-index` 1→100으로 세션 머리·시트 막 위에 그렸다. ② `runSafeArea`가 스크린샷 위 47px의 픽셀을 읽어 판정한다(라이트는 어두움, 다크는 밝지 않음) — ①을 되돌리면 session·sheet-finish 라이트가 실패. ③ `schemeProbe`가 `h1` 없으면 `.session-day`를 잰다 — ㉓에서 session도 실패. ④ `session-safe-light`·`sheet-finish-safe-light` 스크린샷 다시 찍음(상태바 자리 17,17,17), 위 출력 발췌 갱신. 경미: WebKit 흐름은 `after --check`일 때만 돈다.
+
+
+---
+
+## RRT. 테마 확정: Neutral + 파랑 강조
+
+### 범위
+
+| 바뀐 파일 | 내용 |
+|---|---|
+| `src/ax/theme.ts` | `defineTheme({ name: 'workout', extends: neutralTheme, tokens })` — 덮은 토큰 다섯 |
+| `src/ax/index.tsx` | 정적 `theme-neutral/theme.css` import 한 줄 삭제 |
+| `src/lib/v120.test.ts` | RR1 테스트 둘(defineTheme 0건·이름 짝)을 RRT 꼴로 옮기고 RRT describe(4개 테스트) 추가 |
+| `README.md` | "모양은 테마 한 벌이 정한다" 항목(`parts.css` 문장은 RR3 커밋에서) |
+| `docs/screenshots/v1.20/after/` | 56장 + `layout.json` 다시 |
+
+### 단계 (PLAN 출발점 그대로 — 대비 위반이 늘지 않아 45로 내리지 않았다)
+
+| 토큰 | 라이트 | 다크 |
+|---|---|---|
+| `--color-accent` | blue 50 | blue 65 |
+| `--color-accent-muted` | blue 90 | blue 25 |
+| `--color-text-accent`·`--color-icon-accent` | blue 45 | blue 80 |
+| `--color-on-accent` | neutral 100 | neutral 5 |
+
+### 검증 대응
+
+| PLAN 검증 | 테스트·명령 |
+|---|---|
+| hex 없음 | `v120 RRT: theme.ts에 #으로 시작하는 색 리터럴이 없다` |
+| 이름과 CSS의 짝 | `v120 RRT: 이름과 CSS의 짝 …` (RR1의 스캔을 옮김) |
+| 토큰 다섯만, 파랑 단계 | `v120 RRT: 덮는 토큰은 강조 다섯뿐이고 …`, `…주입된 테마의 강조 토큰이 파랑이고 나머지 토큰은 Neutral과 같다` |
+| 배치 불변 | `ui-check after --check --same-layout=all --layout-base=<RRT 직전 after/layout.json>` — 전 장면 "요소 같다", 종료 코드 0 |
+| 테마 토큰·색 체계 전환(RR11) | 같은 실행, 전 장면 통과(전환 흐름 8장면, 대비 위반 수가 기준과 같다) |
+| 대비 | axe serious·critical 0건, color-contrast 위반 수는 색 체계 전환의 "기준"과 같다 |
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|
+| `index.tsx`에 정적 `theme.css` import 되살림 | `…이름과 CSS의 짝` | `cmp` 같음 |
+| `theme.ts`에 `'#2563eb'` 직접 적음 | `…색 리터럴이 없다`, `…토큰 다섯뿐이고` | 같음 |
+| 덮는 토큰 하나를 `--color-background-body`로 바꿈 | `…토큰 다섯뿐이고`, `…주입된 테마의…` | 같음 |
+
+### 첫 화면 (`node scripts/first-screen.mjs`)
+
+| | RR0 | RR1 | RRT | RR0 대비 | 멈춤 선(3배) |
+|---|---|---|---|---|---|
+| 캐시 없는 첫 방문 | 415ms | 542ms | 693ms (693, 693, 712, 667, 670) | 1.67 | 1245ms |
+| 서비스워커 캐시로 다시 열기 | 146ms | 233ms | 299ms (351, 285, 298, 299, 300) | 2.05 | 438ms |
+
+선 아래다(테마 CSS 주입 비용이 보인다). 판단은 실기기 확인 ⑨.
+
+### 제약·메모
+
+- 개발 모드에서 실행 중 주입 경고("is using runtime style injection")가 한 번 난다(빌드에서는 안 남). `ui-check`는 `pageerror`만 센다.
+- **RR4에서 볼 것(지휘자 전달):** 다크 홈 '이번 주'의 빈 요일 동그라미가 배경에 묻힌다. RRT 범위가 아니라 고치지 않았다.
+- Argos: `Argos 건너뜀: ARGOS_TOKEN 없음`. `astryx-inventory --check`: 늘지 않음(97·520·2).
+
+### 실행 결과
+
+- `npm run check`: 전부 통과 (린트·knip·테스트·빌드 포함)
+- `npm test`: Test Files 71 passed (71) · Tests 1669 passed (1669)
+- 변이 테스트: 대상 없음(`src/lib` 판정 코드 불변, 테스트 파일만)
+
+### 하지 않은 것
+
+- 터치 `adaptations`(크기 토큰) — PLAN대로 올리지 않고 시작. 스크린샷 육안 판정(화면 검증자 몫)
