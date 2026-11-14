@@ -472,7 +472,7 @@ PLAN의 뜻("다크에서만 버튼이 면에 묻히는 일을 잡는다")은 �
 
 ```
 - 흐름 통과 색 체계 전환 Chromium home: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 1건(기준 1)
-- 흐름 통과 색 체계 전환 Chromium session: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 없음→없음 · 대비 위반 0건(기준 0)
+- 흐름 통과 색 체계 전환 Chromium session: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
 - 흐름 통과 색 체계 전환 Chromium summary: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
 - 흐름 통과 색 체계 전환 Chromium history: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
 - 흐름 통과 색 체계 전환 Chromium analyze: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0) · 차트 
@@ -482,11 +482,11 @@ PLAN의 뜻("다크에서만 버튼이 면에 묻히는 일을 잡는다")은 �
 - 흐름 통과 상태바 받침 home-safe: 받침 없음 · 아래 끝 810/810
 - 흐름 통과 상태바 받침 session-safe: 받침 없음
 - 흐름 통과 상태바 받침 sheet-finish-safe: 받침 없음 · 아래 끝 790/810
-- 흐름 통과 상태바 받침 home-safe-light: 받침 47px rgb(17, 17, 17) · 아래 끝 810/810
-- 흐름 통과 상태바 받침 session-safe-light: 받침 47px rgb(17, 17, 17)
-- 흐름 통과 상태바 받침 sheet-finish-safe-light: 받침 47px rgb(17, 17, 17) · 아래 끝 790/810
+- 흐름 통과 상태바 받침 home-safe-light: 받침 47px rgb(17, 17, 17) · 픽셀 rgb(17,17,17) · 아래 끝 810/810
+- 흐름 통과 상태바 받침 session-safe-light: 받침 47px rgb(17, 17, 17) · 픽셀 rgb(17,17,17)
+- 흐름 통과 상태바 받침 sheet-finish-safe-light: 받침 47px rgb(17, 17, 17) · 픽셀 rgb(17,17,17) · 아래 끝 790/810
 - 흐름 통과 색 체계 전환 WebKit home: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 1건(기준 1)
-- 흐름 통과 색 체계 전환 WebKit session: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 없음→없음 · 대비 위반 0건(기준 0)
+- 흐름 통과 색 체계 전환 WebKit session: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
 - 흐름 통과 색 체계 전환 WebKit summary: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
 - 흐름 통과 색 체계 전환 WebKit history: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0)
 - 흐름 통과 색 체계 전환 WebKit analyze: 배경 rgb(27, 27, 27)→rgb(241, 241, 241)→rgb(27, 27, 27) · 제목 rgb(255, 255, 255)→rgb(0, 0, 0) · 대비 위반 0건(기준 0) · 차트 �
@@ -496,15 +496,15 @@ PLAN의 뜻("다크에서만 버튼이 면에 묻히는 일을 잡는다")은 �
 - 흐름 통과 상태바 받침 home-safe: 받침 없음 · 아래 끝 810/810
 - 흐름 통과 상태바 받침 session-safe: 받침 없음
 - 흐름 통과 상태바 받침 sheet-finish-safe: 받침 없음 · 아래 끝 790/810
-- 흐름 통과 상태바 받침 home-safe-light: 받침 47px rgb(17, 17, 17) · 아래 끝 810/810
-- 흐름 통과 상태바 받침 session-safe-light: 받침 47px rgb(17, 17, 17)
-- 흐름 통과 상태바 받침 sheet-finish-safe-light: 받침 47px rgb(17, 17, 17) · 아래 끝 790/810
+- 흐름 통과 상태바 받침 home-safe-light: 받침 47px rgb(17, 17, 17) · 픽셀 rgb(17,17,17) · 아래 끝 810/810
+- 흐름 통과 상태바 받침 session-safe-light: 받침 47px rgb(17, 17, 17) · 픽셀 rgb(17,17,17)
+- 흐름 통과 상태바 받침 sheet-finish-safe-light: 받침 47px rgb(17, 17, 17) · 픽셀 rgb(17,17,17) · 아래 끝 790/810
 ```
 
 ### 판정을 정한 것 (PLAN에 없던 세부)
 
 - 장면 순서는 `home → session → summary → history → analyze → diet → settings → editor`(PLAN 여덟 장면). `③ 라이트 대비 위반`의 기준은 **같은 걸음을 colorScheme light로 처음부터 연 별도 문맥**이 만든다.
-- `session`은 `h1`이 없어 ② 제목 글자색은 "없음"으로 두고 배경 뒤집힘·돌아옴·대비로만 판정한다.
+- 제목 글자색은 `h1`, 없으면(`session`) 세션 머리의 `.session-day`를 잰다. `body` 배경은 `AppRoot`의 `mode`와 무관하게 뒤집혀서(리뷰 4절) 배경만으로는 앱의 테마를 못 잰다.
 - `home-safe`의 아래 끝은 띠(`.tabbar`) 자체로 잰다. 안의 버튼은 legacy 높이가 띠보다 1px 커서 811이 나온다(이 작업 밖의 기존 마크업).
 - `--same-layout=all`을 `before` 기준에 견주면 `settings` 계열 7장면이 실패한다(−69.5px, RRM의 "유리" 줄 삭제 — 이미 DEV-RECORD RRM에 적힌 차이). RR11은 화면 파일을 안 고쳐서 이 실행에서는 쓰지 않았다.
 - WebKit은 이 환경에서 장면을 열었고 통과했다(제약 추가 없음).
@@ -517,13 +517,14 @@ PLAN의 뜻("다크에서만 버튼이 면에 묻히는 일을 잡는다")은 �
 
 | 되살린 결함 | 실패한 검사 | 원상복구 |
 |---|---|---|
-| ㉓ `AppRoot`의 `mode="system"` → `mode="dark"` | `v120 RR11: …0건이다`(+RR1의 mode=system 테스트) · `ui-check after --check`의 `색 체계 전환 Chromium` 7장면(제목 글자색이 안 뒤집힘; session은 h1이 없어 배경 판정만 해 통과) | `cmp` 같음 |
+| ㉓ `AppRoot`의 `mode="system"` → `mode="dark"` | `v120 RR11: …0건이다`(+RR1의 mode=system 테스트) · `ui-check after --check`의 `색 체계 전환 Chromium` 7장면(제목 글자색이 안 뒤집힘; `session`도 `.session-day`로 재서 실패) | `cmp` 같음 |
 | `index.html` 라이트 `theme-color`를 `#f2f2f2`로 | `v120 RR11: 두 theme-color 값이 …` | `cmp` 같음 |
+| `ax.css` 받침 `z-index: 100` → `1` | `ui-check --safe-area`의 `상태바 받침 session-safe-light`(픽셀 255,255,255)·`sheet-finish-safe-light`(127,127,127), 종료 코드 1 | `cmp` 같음 |
 | `ax.css` 받침을 `#0b0b0d`로 | `v120 RR11: ax.css의 상태바 받침 규칙…` | `cmp` 같음 |
 
 ### 과거 판정 불변·변이
 
-`src/lib`는 안 건드렸다 → 변이 테스트 **대상 없음**. 세 숫자(`astryx-inventory --check`)는 늘지 않았다(check 통과).
+판정 파일(`src/lib`)은 안 건드렸다(테스트 파일 둘만) → 변이 테스트 **대상 없음**. 세 숫자(`astryx-inventory --check`)는 늘지 않았다(check 통과).
 
 ### 실행 결과
 
@@ -540,3 +541,5 @@ PLAN의 뜻("다크에서만 버튼이 면에 묻히는 일을 잡는다")은 �
 
 - 폰 설정에서 다크 ↔ 라이트를 바꿀 때 홈 화면에 추가한 앱이 따라 바뀌는지(v1.20이 `main`에 머지돼 업데이트된 뒤)
 - 라이트에서 앱을 열 때 어두운 스플래시가 잠깐 보이는 것(범위 제외)
+
+리뷰 반영(RR11 반려, 새 커밋): ① `ax.css` 받침 `z-index` 1→100으로 세션 머리·시트 막 위에 그렸다. ② `runSafeArea`가 스크린샷 위 47px의 픽셀을 읽어 판정한다(라이트는 어두움, 다크는 밝지 않음) — ①을 되돌리면 session·sheet-finish 라이트가 실패. ③ `schemeProbe`가 `h1` 없으면 `.session-day`를 잰다 — ㉓에서 session도 실패. ④ `session-safe-light`·`sheet-finish-safe-light` 스크린샷 다시 찍음(상태바 자리 17,17,17), 위 출력 발췌 갱신. 경미: WebKit 흐름은 `after --check`일 때만 돈다.

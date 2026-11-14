@@ -585,7 +585,9 @@ async function walkSchemeScenes(page, onScene) {
 async function schemeProbe(page, scene) {
   const m = await page.evaluate(() => {
     const bg = getComputedStyle(document.body).backgroundColor
-    const h = document.querySelector('h1')
+    // 앱의 색은 AppRoot(mode)가 정한다. body 배경은 mode와 무관하게 뒤집히므로, 앱 안의 제목 글자색을 잰다.
+    // 세션 장면은 h1이 없어 세션 머리의 루틴 이름(.session-day)을 쓴다 (RR11 리뷰 3)
+    const h = document.querySelector('h1') ?? document.querySelector('.session-day')
     return { bg, h1: h ? getComputedStyle(h).color : null }
   })
   const res = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
@@ -629,7 +631,8 @@ async function runSchemeFlow(type, port, shotDir) {
       const bad = []
       if (!(rgbLuminance(lit.bg) > rgbLuminance(dark.bg))) bad.push(`배경이 밝아지지 않았다 ${dark.bg}→${lit.bg}`)
       if (back.bg !== dark.bg) bad.push(`다크로 돌아오지 않았다 ${back.bg}`)
-      if (dark.h1 !== null && (dark.h1 === lit.h1 || back.h1 !== dark.h1)) bad.push(`제목 글자색이 안 뒤집혔다 ${dark.h1}→${lit.h1}→${back.h1}`)
+      if (dark.h1 === null) bad.push('제목 요소(h1·.session-day)를 못 찾았다')
+      else if (dark.h1 === lit.h1 || back.h1 !== dark.h1) bad.push(`제목 글자색이 안 뒤집혔다 ${dark.h1}→${lit.h1}→${back.h1}`)
       if (lit.bg !== b.bg) bad.push(`라이트 배경이 처음부터 라이트와 다르다 ${lit.bg} ≠ ${b.bg}`)
       if (lit.contrast > b.contrast) bad.push(`라이트 대비 위반 ${lit.contrast}건 > 처음부터 라이트 ${b.contrast}건`)
       if (scene === 'analyze' && (lit.chart === dark.chart || back.chart !== dark.chart)) bad.push('차트 선 색이 전환을 따르지 않는다')
@@ -665,7 +668,27 @@ async function runSafeArea(browser, port) {
         },
         bottomSel,
       )
+      // 그려진 픽셀: 스크린샷 위 47px 안의 점들 (계산된 스타일은 위를 다른 층이 덮어도 통과한다 — RR11 리뷰 2)
+      const px = await page.evaluate(async ([b64]) => {
+        const img = new Image()
+        img.src = 'data:image/png;base64,' + b64
+        await img.decode()
+        const k = img.naturalWidth / window.innerWidth
+        const c = document.createElement('canvas')
+        c.width = img.naturalWidth
+        c.height = img.naturalHeight
+        const g = c.getContext('2d')
+        g.drawImage(img, 0, 0)
+        const pts = [[20, 10], [window.innerWidth / 2, 30], [window.innerWidth - 20, 40], [window.innerWidth / 2, 5]]
+        const at = (x, y) => [...g.getImageData(Math.round(x * k), Math.round(y * k), 1, 1).data.slice(0, 3)]
+        return { bar: pts.map(([x, y]) => at(x, y)), below: at(window.innerWidth / 2, 60) }
+      }, [shots[shots.length - 1].buf.toString('base64')])
+      const lum = ([r2, g2, b2]) => rgbLuminance(`rgb(${r2}, ${g2}, ${b2})`)
       const bad = []
+      if (light) {
+        const worst = Math.max(...px.bar.map(lum))
+        if (!(worst < lum(px.below) || worst < 60)) bad.push(`상태바 자리 픽셀이 어둡지 않다 ${JSON.stringify(px.bar)}`)
+      } else if (px.bar.some((p) => lum(p) > 128)) bad.push(`다크인데 상태바 자리가 밝다 ${JSON.stringify(px.bar)}`)
       if (light) {
         if (r.height !== '47px') bad.push(`받침 높이 ${r.height} ≠ 47px`)
         if (!(rgbLuminance(r.bg) < rgbLuminance(r.bodyBg))) bad.push(`받침 ${r.bg}이 문서 배경 ${r.bodyBg}보다 어둡지 않다`)
@@ -674,7 +697,7 @@ async function runSafeArea(browser, port) {
         if (r.bottom === null) bad.push(`${bottomSel}를 못 찾았다`)
         else if (r.bottom > r.h - 34 + 0.5) bad.push(`아래 끝 ${r.bottom} > ${r.h - 34} (홈 바 자리를 침범)`)
       }
-      flows.push([`상태바 받침 ${name}${light ? '-light' : ''}`, { ok: bad.length === 0, detail: bad.join(' / ') || (light ? `받침 ${r.height} ${r.bg}` : '받침 없음') + (r.bottom !== null ? ` · 아래 끝 ${r.bottom}/${r.h - 34}` : '') }])
+      flows.push([`상태바 받침 ${name}${light ? '-light' : ''}`, { ok: bad.length === 0, detail: bad.join(' / ') || (light ? `받침 ${r.height} ${r.bg} · 픽셀 rgb(${px.bar[0]})` : '받침 없음') + (r.bottom !== null ? ` · 아래 끝 ${r.bottom}/${r.h - 34}` : '') }])
     }
     await page.getByRole('button', { name: /^(시작하기|확인했어요, 그래도 계속)$/ }).click()
     await page.getByRole('button', { name: '설정', exact: true }).waitFor()
@@ -835,7 +858,7 @@ try {
   if (!ONLY || [...ONLY].some((s) => s.endsWith('-light'))) await runScenes(browser, port, 'light')
   if (CHECK && phase === 'after' && !ONLY) await runSchemeFlow(chromium, port, null)
   if (SAFE_AREA) await runSafeArea(browser, port)
-  if (WEBKIT) await runSchemeFlow(webkit, port, 'webkit')
+  if (WEBKIT && CHECK && phase === 'after') await runSchemeFlow(webkit, port, 'webkit')
   mkdirSync(OUT, { recursive: true })
   for (const s of shots) {
     const dir = s.dir ? join(OUT, s.dir) : OUT
