@@ -439,3 +439,5 @@ PLAN의 뜻("다크에서만 버튼이 면에 묻히는 일을 잡는다")은 �
 ### RRM 보완 (개정 3 — 화면 검증 반려 반영)
 
 `1e5cb01`은 그대로 두고 둘째 커밋으로 더했다. `ExerciseCard` `대체` 버튼 이름 → `대체 — 자리 없음, 대체운동 고르기`, `FoodLogSheet` `.diet-item` 버튼의 `aria-label` 삭제, `ui-check.mjs` sheet-food의 찾는 이름 → `/(kcal|g|영양 미입력)$/`, `uiConsistency` X8 81줄을 새 이름으로. `v120.test.ts`에 보완 스캔 셋 추가. 판정 명령(`--layout-base`·`--same-layout` 21장면): **종료 코드 0**, 출력 `.reports/rrm-fix-uicheck.txt`. 접근성 네 칸 없어짐, 심각 위반 0건. 변이: 대상 없음.
+
+리뷰 반영: `.diet-item` 스캔이 `onClick={() => …}`의 `>`에서 멈춰 결함을 못 잡던 것을 className부터 첫 `</button>` 앞까지 자르는 방식으로 고쳤다. 결함 복원: `onClick={() => add(f)}` 다음 줄에 `aria-label`을 넣으면 이 테스트가 실패하고, 되돌리면 통과(`cmp` 동일). `SettingsScreen.tsx`의 지운 `glass` 상태 고아 주석도 지웠다.

@@ -76,7 +76,6 @@ export default function SettingsScreen({
   const [openDayId, setOpenDayId] = useState<string | null>(null)
   const [resetStep, setResetStep] = useState(0)
   const [quota, setQuota] = useState<string | null>(null)
-  // 마운트 때 한 번만 읽는다(저장 안 함). 설정 안에서 시트를 열어 한 겹 규칙이 탭바 흐림을 끄는 것은 반영하지 않는다
 
   useEffect(() => {
     void navigator.storage?.estimate?.().then((est) => {
