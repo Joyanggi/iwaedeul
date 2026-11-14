@@ -582,7 +582,7 @@ export default function ExerciseCard({
               <button
                 className="btn btn-sm"
                 onClick={onRequestSubstitute}
-                aria-label="자리 없음 — 대체운동 고르기"
+                aria-label="대체 — 자리 없음, 대체운동 고르기"
               >
                 대체
               </button>

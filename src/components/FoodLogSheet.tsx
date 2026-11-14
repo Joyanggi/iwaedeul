@@ -274,7 +274,6 @@ export default function FoodLogSheet({
                       className="diet-item"
                       disabled={noTime}
                       onClick={() => add(f)}
-                      aria-label={`${f.name} ${f.qty} 추가`}
                     >
                       <span>
                         {f.name} <span className="row-sub">{f.qty}</span>

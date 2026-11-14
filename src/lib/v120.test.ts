@@ -210,3 +210,26 @@ describe("v120 RR1 — 테마를 앱 뿌리에", () => {
     expect(html["/index.html"]).toContain('<meta name="color-scheme" content="light dark" />')
   })
 })
+
+describe("v120 RRM 보완 — 접근성 이름 둘과 종료 코드", () => {
+  const SRC = import.meta.glob(["/src/components/ExerciseCard.tsx", "/src/components/FoodLogSheet.tsx"], { query: "?raw", import: "default", eager: true }) as Record<string, string>
+
+  it("v120 RRM 보완: ExerciseCard에 옛 이름 '자리 없음 — 대체운동 고르기'로 시작하는 aria-label이 없다", () => {
+    expect(SRC["/src/components/ExerciseCard.tsx"]).not.toMatch(/aria-label="자리 없음 — 대체운동 고르기/)
+  })
+
+  it("v120 RRM 보완: FoodLogSheet의 .diet-item 버튼 여는 태그에 aria-label이 없다", () => {
+    const src = SRC["/src/components/FoodLogSheet.tsx"]
+    const tags = [...src.matchAll(/<button[^>]*className="diet-item"[^>]*>/g)]
+    expect(tags.length).toBeGreaterThan(0)
+    for (const m of tags) expect(m[0]).not.toContain("aria-label")
+  })
+
+  it("v120 RRM 보완: ui-check.mjs가 접근성 판정에서 규칙을 빼는 곳은 color-contrast 하나뿐이다", () => {
+    const t = text(SCRIPTS, "/scripts/ui-check.mjs")
+    expect(t.match(/v\.id !==/g)?.length).toBe(1)
+    expect(t).toContain("v.id !== 'color-contrast'")
+    expect(t).not.toContain("disableRules")
+    expect(t).not.toContain(".exclude(")
+  })
+})

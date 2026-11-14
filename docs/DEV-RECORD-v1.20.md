@@ -435,3 +435,7 @@ PLAN의 뜻("다크에서만 버튼이 면에 묻히는 일을 잡는다")은 �
 - 폰(라이트·다크)에서 띠 뒤로 지나가는 글자가 띠 글자와 겹쳐 지저분하던 것이 사라졌는지(`settings`·`history-detail`·`diet`을 스크롤하며)
 - 시트가 뜰 때 뒤 막이 라이트에서 눈부시지 않은지 — 막은 이제 테마 `--color-overlay`(라이트 50%·다크 80% 검정)다. 예전보다 진하다
 - iOS "대비 증가"를 켠 채 시트·탭바 (유리 끄기 규칙이 없어졌다 — 처음부터 불투명이라 변화가 없어야 한다)
+
+### RRM 보완 (개정 3 — 화면 검증 반려 반영)
+
+`1e5cb01`은 그대로 두고 둘째 커밋으로 더했다. `ExerciseCard` `대체` 버튼 이름 → `대체 — 자리 없음, 대체운동 고르기`, `FoodLogSheet` `.diet-item` 버튼의 `aria-label` 삭제, `ui-check.mjs` sheet-food의 찾는 이름 → `/(kcal|g|영양 미입력)$/`, `uiConsistency` X8 81줄을 새 이름으로. `v120.test.ts`에 보완 스캔 셋 추가. 판정 명령(`--layout-base`·`--same-layout` 21장면): **종료 코드 0**, 출력 `.reports/rrm-fix-uicheck.txt`. 접근성 네 칸 없어짐, 심각 위반 0건. 변이: 대상 없음.

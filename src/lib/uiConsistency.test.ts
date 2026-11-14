@@ -78,7 +78,7 @@ describe('X8 — 세트 행 버튼 라벨이 짧다', () => {
   it('줄인 라벨에 aria-label로 원래 뜻을 남겼다', () => {
     const src = raw('/src/components/ExerciseCard.tsx')
     expect(src).toMatch(/aria-label="워밍업 세트 추가"/)
-    expect(src).toMatch(/aria-label="자리 없음 — 대체운동 고르기"/)
+    expect(src).toMatch(/aria-label="대체 — 자리 없음, 대체운동 고르기"/)
   })
 })
 

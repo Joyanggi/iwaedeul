@@ -458,7 +458,7 @@ async function runScenes(browser, port, scheme) {
       await settle(page)
       await snap('sheet-food')
       // 시트에서 먹은 것을 하나 더해 두고 닫는다 — 아래 diet-log-open이 쓴다(장면마다 새 브라우저 문맥이라 다른 장면에 안 남는다)
-      await page.getByRole('dialog', { name: '먹은 것 추가' }).getByRole('button', { name: / 추가$/ }).first().click()
+      await page.getByRole('dialog', { name: '먹은 것 추가' }).getByRole('button', { name: /(kcal|g|영양 미입력)$/ }).first().click()
       await settle(page, 400)
       await closeSheet('먹은 것 추가')
     })
