@@ -3,7 +3,6 @@
  * 버전을 올릴 때 고칠 자리가 이 폴더뿐이다. `App`이 정적으로 읽고, 테마는 `AppRoot`가 앱 뿌리에 한 번 건다.
  */
 import '@astryxdesign/core/astryx.css'
-import '@astryxdesign/theme-neutral/theme.css'
 import './ax.css'
 
 import type { ReactNode } from 'react'

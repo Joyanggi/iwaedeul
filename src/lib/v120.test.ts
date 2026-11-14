@@ -182,20 +182,9 @@ describe("v120 RR1 — 테마를 앱 뿌리에", () => {
     expect(axRoot).not.toMatch(/Theme|SizeProvider/)
   })
 
-  it("v120 RR1: /built와 defineTheme을 import하는 파일은 theme.ts 하나이고 defineTheme은 0건이다", () => {
+  it("v120 RR1→RRT: /built와 defineTheme을 import하는 파일은 theme.ts 하나다 (RRT가 defineTheme 0건을 1건으로 뒤집었다)", () => {
     const hits = Object.keys(SRC).filter((p) => !p.endsWith(".test.ts") && /\/built['"]|defineTheme/.test(SRC[p].replace(/\/\*[\s\S]*?\*\//g, "")))
     expect(hits).toEqual(["/src/ax/theme.ts"])
-    expect(code("/src/ax/theme.ts")).not.toMatch(/defineTheme/)
-  })
-
-  it("v120 RR1: theme.ts가 내보내는 테마의 이름과 index.tsx가 읽는 theme-<이름>/theme.css의 이름이 같다 (어긋나면 정적 CSS가 조용히 안 걸린다)", () => {
-    const theme = code("/src/ax/theme.ts")
-    const built = theme.match(/import \{ (\w+) \} from '@astryxdesign\/theme-([\w-]+)\/built'/)
-    expect(built, "theme.ts가 빌드된 테마를 import한다").toBeTruthy()
-    expect(theme).toContain(`export const appTheme = ${built![1]}`)
-    const index = SRC["/src/ax/index.tsx"]
-    const css = [...index.matchAll(/import '@astryxdesign\/theme-([\w-]+)\/theme\.css'/g)].map((m) => m[1])
-    expect(css).toEqual([built![2]])
   })
 
   it("v120 RR1: main.tsx는 Astryx를 직접 읽지 않고 styles/index.css를 App보다 먼저 읽는다 (레이어 순서가 먼저 굳는다)", () => {
@@ -274,5 +263,35 @@ describe("v120 RR11 — 라이트/다크가 폰 설정을 따른다", () => {
     expect(t).toContain("--webkit")
     expect(t).toContain("Emulation.setSafeAreaInsetsOverride")
     expect(t).toContain("상태바 받침")
+  })
+})
+
+
+// ─── RRT — 테마 확정: Neutral + 파랑 강조 ─────────────────────────
+describe("v120 RRT — Neutral + 파랑 강조", () => {
+  it("v120 RRT: theme.ts에 #으로 시작하는 색 리터럴이 없다 (값은 팔레트 단계로 고른다)", () => {
+    expect(code("/src/ax/theme.ts")).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+  })
+
+  it("v120 RRT: 이름과 CSS의 짝 — theme.ts에 defineTheme이 있고 index.tsx에 theme-…/theme.css import가 없다", () => {
+    expect(code("/src/ax/theme.ts")).toMatch(/defineTheme\(\{\s*name: 'workout',\s*extends: neutralTheme/)
+    expect(SRC["/src/ax/index.tsx"]).not.toMatch(/@astryxdesign\/theme-[\w-]+\/theme\.css/)
+  })
+
+  it("v120 RRT: 덮는 토큰은 강조 다섯뿐이고 팔레트 blue의 단계다", () => {
+    const t = code("/src/ax/theme.ts")
+    const keys = [...t.matchAll(/'(--[\w-]+)':/g)].map((m) => m[1])
+    expect(keys).toEqual(["--color-accent", "--color-accent-muted", "--color-text-accent", "--color-icon-accent", "--color-on-accent"])
+    expect(t).toMatch(/'--color-accent': \[blue\.light\[50\], blue\.dark\[65\]\]/)
+  })
+
+  it("v120 RRT: 주입된 테마의 강조 토큰이 파랑이고 나머지 토큰은 Neutral과 같다", async () => {
+    const { appTheme } = await import("../ax/theme")
+    const { neutralTheme } = await import("@astryxdesign/theme-neutral/built")
+    const { generateThemeCSS } = await import("@astryxdesign/core/theme")
+    const css = JSON.stringify(generateThemeCSS(appTheme))
+    expect(css).toContain('data-astryx-theme=\\"workout\\"')
+    expect(JSON.stringify(neutralTheme.tokens?.["--color-accent"])).not.toEqual(JSON.stringify(appTheme.tokens?.["--color-accent"]))
+    expect(appTheme.tokens?.["--color-background-body"]).toEqual(neutralTheme.tokens?.["--color-background-body"])
   })
 })
