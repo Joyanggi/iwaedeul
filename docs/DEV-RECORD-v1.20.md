@@ -873,6 +873,7 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 | `Sheet` 안에 `startedRef`·`timerRef` | `closing` 상태 하나 + effect | `react-hooks/refs` 린트가 렌더 중 ref 읽기·쓰기를 막고 `SheetFrame`의 같은 패턴은 `eslint-suppressions.json`의 옛 위반이라 새 파일에 못 늘린다. `dismiss = () => setClosing(true)`는 두 번 불러도 같은 값이라 타이머가 하나이고, effect 정리 함수가 언마운트 때 타이머를 지운다 — PLAN의 세 요구(한 번만·정리·두 번 눌러도 하나)가 같다 |
 | 고르는 줄 설명 | `description`을 `<Text textWrap="wrap">`로 | `ListItem`은 설명을 한 줄에서 말줄임표로 잘랐다(`기록 없음`·며칠 전이 안 보임). 줄바꿈을 허용했다 |
 | `DayPickerSheet` 줄의 `endContent` = 마지막 수행 며칠 전 | 며칠 전은 `description`(부제 뒤), `endContent`는 `N종목`/`N세트`를 `VStack` 두 줄로 쌓음(문구 그대로) | 종목·세트 수를 둘 자리가 없고(문구 유지), 한 줄로 두니 오른쪽이 넓어져 390 폭에서 부제가 글자 중간에서 꺾였다(`기/록 없음`). 두 줄로 쌓아 오른쪽 폭을 예전처럼 줄이자 `after/sheet-home.png`에서 부제가 공백에서만 꺾인다. 375 폭 스크린샷은 `ui-check`에 그 장면이 없어 못 찍었다(실기기 확인 목록) — 리뷰 반영 |
+| 한글 줄바꿈(375 재검증) | `parts.css`에 `dialog[aria-label='Day 선택'] :is(p, span, div) { word-break: keep-all; overflow-wrap: anywhere }` | 375 폭에서 부제가 `없/음`·`기/록`, 시트 머리 설명이 `버튼으/로.`로 글자 중간에서 꺾였다. 한글은 기본이 음절 단위 줄바꿈이다. Astryx `Text`의 `wordBreak`는 `break-word`·`break-all`만 받아 `keep-all`을 못 넘기고 `Sheet`는 `className`을 안 받아서(`BottomSheet`에 className·style·xstyle 금지), Astryx 부품 안이라 앱 CSS를 시트 이름(`<dialog aria-label>`)으로 좁혀 걸었다. `anywhere`는 한 단어가 줄보다 길 때만 끊게 한다. 간격은 안 건드린다 |
 
 닫힘 대기 길이: **350ms**. `BottomSheet` 나가는 움직임이 `--motion-medium`(300ms) 대역이라 그보다 길게 잡았다(`SheetFrame`의 `SAFETY_MS`와 같은 값). 다이얼로그가 DOM에서 빠지는 시간을 `ui-check` 안에서 쟀더니 첫 눌림부터 **399~406ms**(타이머 350 + 눌림·프레임 오버헤드)였다. 보이는 것이 사라지는 시간은 화면 검증(`.reports/screen-check-RR5.md` 2절)이 봤다: 60·180ms에는 떠 있고 **약 300ms** 뒤 사라진다. 그래서 350 > 300이다.
 
@@ -912,6 +913,7 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 - `sheet-home` 다크·라이트: `접근성` 통과, `시트 버튼` 통과, `안쪽 대칭` 통과, `같은 역할 · 시트 좌우` 16(`sheet-finish`·`sheet-food`·`line-sheet`와 같다).
 - `sheet-food` `접근성` 통과, `session`·`session-375`·`session-open-b` 포함 RR0 전부터 있던 네 칸이 **다시 생기지 않았다**.
 - 흐름 통과: `줄 시트 막으로 닫고 같은 줄 다시 열기`(시트 1개·오류 0건).
+- **375 재검증 반영**: `sheet-home-375`에서 부제·머리 설명이 단어 사이에서만 꺾인다(`docs/screenshots/v1.20/after/sheet-home-375.png`). 새 흐름 `Day 선택 시트 375 글자 중간 꺾임 없음`이 글자마다 줄을 재서 공백 없이 이어진 두 글자 사이의 줄바꿈을 센다. 결함 복원 ⑫: `keep-all`을 `normal`로 → 그 흐름 실패(`버튼으/로.` · `록 없/음` · `기/록 없` 3건, 종료 코드 1)와 `scripts/rr5-wrap.test.mjs` 실패, 복구 후 `cmp` 같음. 테스트는 `v120.test.ts` 1개 + `rr5-wrap.test.mjs` 1개 늘었다.
 - **리뷰 반영**: 새 흐름 셋은 `guardedFlow` 안에 있어 예외가 나면 `흐름 실패`로 센다(장면 찍기만 `optional`). `v120 RR5` 스캔 1개 추가. `DayPickerSheet`의 `endContent`는 두 줄로 쌓음. `ui-check after --check --ver=v1.20` 종료 코드 0, 흐름 셋 통과. `scripts/ui-check.mjs`는 LF로 되돌림.
 - **`sheet-open-session`은 기본 예시 데이터에서는 열리지 않아 건너뛴다.** 진행 중 세션이 있을 때 이 시트로 가는 길은 디로드 권장 배너의 `디로드로 시작`뿐이고(운동 카드는 진행 중이면 `이어서 하기`로 세션에 들어간다) 예시 데이터는 디로드가 안 뜬다. 그래서 확인은 **임시로** `HomeScreen`의 `이어서 하기`를 `start(displayed)`로 바꿔 시트를 열어 했고(백업→복구, `git status`로 원상 확인) 결과: `접근성` 통과·`시트 버튼` 통과(이어하기 5.634, 취소 1.366, 버리기 1.638)·`안쪽 대칭` 통과, 흐름 `시트 닫기 두 번 누르기 진행 중 세션 처리` 통과(오류 0건, 사라짐 399~406ms), 흐름 `시트가 저장으로 먼저 사라진 뒤 진행 중 세션 처리`(버리기 2단계 → 세션 화면에서 800ms 뒤에도 그대로, 오류 0건) 통과. 그 임시 변경은 남기지 않았다. 스크린샷 `sheet-open-session(.png/-light.png)`은 이 임시 상태에서 찍은 것을 화면 검증자가 볼 수 있게 `docs/screenshots/v1.20/after/`에 넣었다(앱 코드는 임시 변경 없이 같다).
 

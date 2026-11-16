@@ -149,4 +149,14 @@
     outline: 1px solid var(--color-border-emphasized);
     outline-offset: 0;
   }
+  /*
+   * Day 선택 시트의 글은 단어(공백) 사이에서만 줄을 바꾼다 (RR5 재검증).
+   * 한글은 기본이 음절 단위 줄바꿈이라 375 폭에서 부제가 "기록 없/음"처럼 글자 중간에서 꺾였다.
+   * Astryx `Text`의 `wordBreak`는 `break-word`·`break-all`만 받아 `keep-all`을 못 넘기고, `Sheet`는 className을 안 받는다.
+   * 그래서 시트 이름(aria-label)으로 좁혀 여기서 건다. 한 단어가 줄보다 길 때만 `anywhere`로 끊어 넘치지 않게 한다.
+   */
+  dialog[aria-label='Day 선택'] :is(p, span, div) {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
 }

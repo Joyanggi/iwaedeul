@@ -663,6 +663,12 @@ describe("v120 RR5 — 홈의 시트 2개 + Sheet의 닫기", () => {
     expect(t).toMatch(/HOME_SHEET_SYMMETRY_KINDS = new Set\(\[\.\.\.SYMMETRY_KINDS, 'sheet'\]\)/)
   })
 
+  it("v120 RR5 재검증: ui-check가 375에서 Day 선택 시트의 글자 중간 꺾임을 흐름으로 잰다 (keep-all 규칙은 scripts/rr5-wrap.test.mjs)", () => {
+    const t = text(SCRIPTS, "/scripts/ui-check.mjs")
+    expect(t).toContain("Day 선택 시트 375 글자 중간 꺾임 없음")
+    expect(t).toContain("inPageMidWordBreaks")
+  })
+
   it("v120 RR5: 새 흐름 셋은 guardedFlow 안에 있어 예외가 나면 건너뜀이 아니라 흐름 실패로 센다", () => {
     const t = text(SCRIPTS, "/scripts/ui-check.mjs")
     expect(t).toMatch(/const guardedFlow = async \(names, fn\) => \{[\s\S]*?catch \(e\)[\s\S]*?ok: false/)

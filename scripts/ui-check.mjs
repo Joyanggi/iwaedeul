@@ -317,6 +317,33 @@ async function pressShot(page, scene, label) {
   await settle(page, 200)
 }
 
+/** 열려 있는 dialog 안 글자를 하나씩 재서, 공백 없이 이어진 두 글자 사이에서 줄이 바뀐 곳을 센다 (RR5 재검증) */
+function inPageMidWordBreaks() {
+  const dlg = document.querySelector('dialog[open]')
+  const out = { chars: 0, count: 0, samples: [] }
+  if (!dlg) return out
+  const walker = document.createTreeWalker(dlg, NodeFilter.SHOW_TEXT)
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const t = n.textContent ?? ''
+    const range = document.createRange()
+    let prevTop = null
+    for (let i = 0; i < t.length; i++) {
+      if (/\s/.test(t[i])) { prevTop = null; continue }
+      range.setStart(n, i)
+      range.setEnd(n, i + 1)
+      const rect = range.getClientRects()[0]
+      if (!rect) { prevTop = null; continue }
+      out.chars++
+      if (prevTop !== null && Math.abs(rect.top - prevTop) > rect.height / 2) {
+        out.count++
+        if (out.samples.length < 4) out.samples.push(`${t.slice(Math.max(0, i - 3), i)}/${t.slice(i, i + 3)}`)
+      }
+      prevTop = rect.top
+    }
+  }
+  return out
+}
+
 async function runScenes(browser, port, scheme) {
   const light = scheme === 'light'
   const ctx = await browser.newContext({ ...DEVICE, locale: 'ko-KR', colorScheme: scheme, serviceWorkers: 'block' })
@@ -389,6 +416,13 @@ async function runScenes(browser, port, scheme) {
       await page.setViewportSize({ width: 375, height: 812 })
       await settle(page, 500)
       await snap('sheet-home-375')
+      // RR5 재검증: 375 폭에서 한글이 글자 중간에서 꺾이지 않는다 (공백 없는 두 글자 사이에서 줄이 바뀌면 실패)
+      if (!light) {
+        await guardedFlow(['Day 선택 시트 375 글자 중간 꺾임 없음'], async () => {
+          const r = await page.evaluate(inPageMidWordBreaks)
+          flows.push(['Day 선택 시트 375 글자 중간 꺾임 없음', { ok: r.count === 0 && r.chars > 0, detail: r.chars === 0 ? '잰 글자 0개' : `글자 ${r.chars}개 · 중간 꺾임 ${r.count}건${r.count ? ': ' + r.samples.join(' | ') : ''}` }])
+        })
+      }
       await page.setViewportSize({ width: 390, height: 844 })
       await settle(page, 400)
     })
