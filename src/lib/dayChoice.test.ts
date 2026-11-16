@@ -142,11 +142,18 @@ describe('AA2 — 변경이 보이는 버튼이다', () => {
 
   it('카드 전체를 누르는 지름길은 없어졌다 — 같은 일은 카드 머리의 [변경]이 한다 (v1.20 RR4: 카드 안에 시작 버튼이 들어가 버튼 안에 버튼을 못 넣는다)', () => {
     const src = home()
-    const card = /다음 운동[\s\S]*?label=\{card\.cta\}/.exec(src)?.[0]
-    expect(card, '카드를 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
-    expect(card!.match(/setPicking\(true\)/g)).toHaveLength(1)
+    // 카드는 "다음 운동"보다 앞에서 열린 <Card>/<ClickableCard> 여는 태그부터 시작 버튼까지다.
+    const at = src.indexOf('다음 운동')
+    const start = Math.max(src.lastIndexOf('<Card', at), src.lastIndexOf('<ClickableCard', at))
+    const end = src.indexOf('label={card.cta}')
+    expect(at > -1 && start > -1 && end > start, '카드를 찾지 못했다 — 이 검사가 헛돌고 있다').toBe(true)
+    const card = src.slice(start, end)
+    // 여는 태그: 속성 안의 화살표 =>에서 끊기지 않게 읽는다 (옛 [^>]*는 onClick={() => …}에서 끊겼다)
+    const openTag = /^<(?:Clickable)?Card\b(?:=>|[^>])*>/.exec(card)?.[0]
+    expect(openTag, '카드 여는 태그를 찾지 못했다').toBeDefined()
+    expect(openTag).not.toMatch(/ClickableCard|onClick|setPicking/)
+    expect(card.match(/setPicking\(true\)/g)).toHaveLength(1)
     expect(card).toMatch(/onClick=\{\(\) => setPicking\(true\)\}\s+label="변경"/)
-    expect(src).not.toMatch(/<(Clickable)?Card[^>]*setPicking/)
   })
 })
 

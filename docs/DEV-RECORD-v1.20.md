@@ -822,6 +822,9 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 | `WeekDots`의 `Card`에 `padding={2}` | `v120 RR4: 세 파일에 …`·`v120 RR12: …` | ✓ |
 | 볼륨 막대 `value={bar.performed}`(목표 초과를 안 멈춤) | `v120 RR4: 볼륨은 부위 하나에 한 줄 …` | ✓ |
 | 홈 제목에 `className="card"` | `v120 RR4: 세 파일에 …` + `astryx-inventory --check`(447 → 448) | ✓ |
+| 운동 카드를 `<ClickableCard onClick={() => setPicking(true)}>`로 바꿔 지름길을 되살림 (리뷰 반려 1번) | `dayChoice.test.ts:카드 전체를 누르는 지름길은 없어졌다 …` (고치기 전 테스트는 23개 전부 통과했다) | ✓ (`cmp` 동일) |
+
+리뷰 반영(RR4 반려, 새 커밋): ① `dayChoice.test.ts` 지름길 테스트가 `<Card>`/`<ClickableCard>` 여는 태그부터 시작 버튼까지를 보고, 여는 태그를 화살표 `=>`에서 안 끊기는 정규식으로 읽어 `onClick`·`setPicking`·`ClickableCard`가 없는지 검사한다. 결함 복원 표에 한 줄 더했다(테스트 수는 그대로).
 
 ### 변이 테스트
 
