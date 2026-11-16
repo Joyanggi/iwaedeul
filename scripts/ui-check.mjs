@@ -46,6 +46,9 @@ import {
   inPageRects,
   inPageRowButtons,
   inPageSetNumber,
+  inPageTouchReach,
+  inPageSetTable,
+  inPageNumberFit,
   inPageSpacing,
   inPageTabHit,
   inPageThemeTokens,
@@ -101,7 +104,7 @@ const COLUMNS = ['접근성', '눌림 반응', '움직임 줄이기', '여백 �
  * 탭 누름·마지막 요소 = RR3, 세트 숫자·섬 버튼 = RR7, 테마 토큰 = RR1(그 전 `before`에서는 테마가 있는 editor 장면만).
  * 작업이 끝날 때 해당 값을 true로 바꾼다.
  */
-const JUDGED = { '탭 누름': true, '지금 탭': true, '마지막 요소': true, '세트 숫자': false, '섬 버튼': false, '테마 토큰': true }
+const JUDGED = { '탭 누름': true, '지금 탭': true, '마지막 요소': true, '세트 숫자': true, '섬 버튼': true, '테마 토큰': true }
 /**
  * `안쪽 대칭`(RR12)은 이미 Astryx 부품인 장면(루틴 편집)에서만 판정하고, 나머지는 기록만 한다(옮기기 전 장면은 실패로 세지 않는다).
  * 화면·띠를 옮기는 작업(RR3·RR4·RR5·RR6·RR7)이 자기 장면을 여기에 더한다.
@@ -110,12 +113,15 @@ const HOME_SCENES = ['home', 'home-end', 'home-375', 'home-banner', 'home-banner
 /** 홈이 여는 시트 둘(RR5). 시트 안 내용의 좌·우(`sheet` 쌍)도 판정한다 */
 const HOME_SHEET_SCENES = ['sheet-home', 'sheet-open-session']
 const SESSION_SCENES = ['session', 'session-375', 'session-rest']
-const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SCENES, 'home-safe', 'session-safe', 'settings'])
+/** 운동 카드가 보이는 장면(RR7) — 카드·뱃지·세트 행 쌍도 판정한다 */
+const CARD_SCENES = ['session', 'session-375', 'session-open-b', 'history-detail-edit']
+const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SCENES, 'session-open-b', 'history-detail-edit', 'home-safe', 'session-safe', 'settings'])
 /** 판정을 켠 쌍 종류. 나머지 종류는 장면이 Astryx여도 기록만 한다(card·badge = RR4, set-row = RR7, sheet = RR5 — 세션 장면은 RR6부터 button·bar를 판정하고, 운동 카드 안의 card·badge·set-row는 RR7 전까지 기록만) */
 const SYMMETRY_KINDS = new Set(['button', 'bar', 'tab-indicator', 'tab-content'])
 /** 홈(RR4)은 카드·뱃지 쌍도 판정한다 */
 const HOME_SYMMETRY_KINDS = new Set([...SYMMETRY_KINDS, 'card', 'badge'])
 const HOME_SHEET_SYMMETRY_KINDS = new Set([...SYMMETRY_KINDS, 'sheet'])
+const CARD_SYMMETRY_KINDS = new Set([...SYMMETRY_KINDS, 'card', 'badge', 'set-row'])
 /** `같은 역할`의 묶음 사이·카드 안쪽·가까움 순서는 홈을 옮기는 RR4부터 판정한다 */
 const ROLES_JUDGED = new Set(['묶음 사이', '카드 안쪽', '가까움 순서'])
 const THEME_SCENES_BEFORE = new Set(['editor', 'line-sheet'])
@@ -196,7 +202,7 @@ async function newColumns(page, scene, cells, light) {
   }
   if (scene === 'analyze') chartColors[scene] = { ...chartColors[scene], [light ? 'light' : 'dark']: await page.evaluate(inPageChartColors) }
   const pairs = await page.evaluate(inPageInsetSymmetry)
-  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : HOME_SHEET_SCENES.includes(scene) ? HOME_SHEET_SYMMETRY_KINDS : SYMMETRY_KINDS
+  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : HOME_SHEET_SCENES.includes(scene) ? HOME_SHEET_SYMMETRY_KINDS : CARD_SCENES.includes(scene) ? CARD_SYMMETRY_KINDS : SYMMETRY_KINDS
   const judgedPairs = pairs.filter((p) => kinds.has(p.kind))
   const sym = insetSymmetryVerdict(SYMMETRY_JUDGED.has(scene) ? judgedPairs : pairs, EXPECTED_PAIRS[scene] ?? [])
   const rest = SYMMETRY_JUDGED.has(scene) ? insetSymmetryVerdict(pairs.filter((p) => !kinds.has(p.kind)), []) : null
@@ -528,6 +534,11 @@ async function runScenes(browser, port, scheme) {
     await page.getByRole('timer').waitFor({ timeout: 5000 })
     await settle(page, 600)
     await snap('session-rest')
+    await guardedFlow(['RR7 1세트 완료 1탭 → 완료 표시 + 휴식 바'], async () => {
+      const pressed = await page.getByRole('button', { name: '1세트 완료', exact: true }).first().getAttribute('aria-pressed')
+      const timers = await page.getByRole('timer').count()
+      flows.push(['RR7 1세트 완료 1탭 → 완료 표시 + 휴식 바', { ok: pressed === 'true' && timers > 0, detail: `aria-pressed ${pressed} · 휴식 바 ${timers}개` }])
+    })
 
     // RR6 흐름 — 휴식 바. 흐름이 끝나면 2세트를 다시 체크해 휴식 바가 떠 있는 채로 뒤 장면으로 이어간다.
     // 흐름은 guardedFlow 안이라 예외가 나도 건너뜀으로 삼켜지지 않고 흐름 실패가 된다.
@@ -610,6 +621,82 @@ async function runScenes(browser, port, scheme) {
     await guardedFlow(['휴식 바 다시 띄우기 (닫기 뒤)'], async () => {
       await page.getByRole('button', { name: '2세트 완료', exact: true }).first().click()
       await restartRest()
+    })
+
+    // RR7 흐름 — 운동 카드·스테퍼. 값을 바꾸는 흐름은 원래 값으로 되돌린 뒤 다음으로 간다. 전부 guardedFlow라 예외가 흐름 실패로 센다.
+    const wInput = () => page.getByRole('textbox', { name: /1세트 무게$/ }).first()
+    const rInput = () => page.getByRole('textbox', { name: /1세트 횟수$/ }).first()
+    const retype = async (input, text) => {
+      await input.click()
+      await page.keyboard.press('Control+A')
+      await page.keyboard.type(text)
+    }
+    await guardedFlow(['RR7 무게 증가 1탭에 한 단계', 'RR7 버튼 위에서 시작해 세로로 끌면 값이 안 바뀐다'], async () => {
+      const step = Number((await page.getByText(/^무게 단위 · [\d.]+kg/).first().innerText()).match(/무게 단위 · ([\d.]+)kg/)[1])
+      const v0 = Number(await wInput().inputValue())
+      const up = page.getByRole('button', { name: /1세트 무게 증가$/ }).first()
+      await up.click()
+      await settle(page, 200)
+      const v1 = Number(await wInput().inputValue())
+      flows.push(['RR7 무게 증가 1탭에 한 단계', { ok: Math.abs(v1 - v0 - step) < 1e-9, detail: `${v1 - v0} (한 단계 ${step}) · ${v0} → ${v1}` }])
+      await page.getByRole('button', { name: /1세트 무게 감소$/ }).first().click()
+      await settle(page, 200)
+      const back = Number(await wInput().inputValue())
+      const box = await up.boundingBox()
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(box.x + box.width / 2, box.y - 60, { steps: 6 })
+      await page.mouse.up()
+      await settle(page, 200)
+      const dragged = Number(await wInput().inputValue())
+      flows.push(['RR7 버튼 위에서 시작해 세로로 끌면 값이 안 바뀐다', { ok: dragged === back && back === v0, detail: `감소로 ${back} · 끈 뒤 ${dragged}` }])
+    })
+    await guardedFlow(['RR7 숫자 칸 입력 패턴 (무게 소수 둘째까지, 횟수 소수점 없음)'], async () => {
+      const w0 = await wInput().inputValue()
+      const r0 = await rInput().inputValue()
+      await retype(wInput(), '40.123456')
+      const w = await wInput().inputValue()
+      await retype(rInput(), '12.5')
+      const r = await rInput().inputValue()
+      await retype(wInput(), w0)
+      await page.keyboard.press('Enter')
+      await retype(rInput(), r0)
+      await page.keyboard.press('Enter')
+      await settle(page, 200)
+      flows.push(['RR7 숫자 칸 입력 패턴 (무게 소수 둘째까지, 횟수 소수점 없음)', { ok: w === '40.12' && !r.includes('.'), detail: `무게 40.123456 → ${w} · 횟수 12.5 → ${r} (복원 ${await wInput().inputValue()}/${await rInput().inputValue()})` }])
+    })
+    for (const width of [390, 375]) {
+      await guardedFlow([`RR7 세트 행 ${width} 폭: 누르는 영역·머리 열·숫자 안 잘림`], async () => {
+        await page.setViewportSize({ width, height: width === 375 ? 812 : 844 })
+        await settle(page, 400)
+        const reach = await page.evaluate(inPageTouchReach)
+        const table = await page.evaluate(inPageSetTable)
+        // 가장 긴 값(142.5 · 12)을 넣어 본 뒤 되돌린다
+        const w0 = await wInput().inputValue()
+        const r0 = await rInput().inputValue()
+        await retype(wInput(), '142.5')
+        await page.keyboard.press('Enter')
+        await retype(rInput(), '12')
+        await page.keyboard.press('Enter')
+        await settle(page, 200)
+        const fit = await page.evaluate(inPageNumberFit)
+        await retype(wInput(), w0)
+        await page.keyboard.press('Enter')
+        await retype(rInput(), r0)
+        await page.keyboard.press('Enter')
+        await settle(page, 200)
+        flows.push([`RR7 세트 행 ${width} 폭: 누르는 영역·머리 열·숫자 안 잘림`, { ok: reach.ok && table.ok && fit.ok, detail: `누르는 영역: ${reach.detail} / 세트 표 머리: ${table.detail} / 142.5·12: ${fit.detail}` }])
+      })
+    }
+    await page.setViewportSize({ width: 390, height: 844 })
+    await settle(page, 300)
+    await guardedFlow(['RR7 타이핑 중 워밍업을 누르면 친 값이 원래 세트에 남는다'], async () => {
+      await retype(wInput(), '77')
+      await btn(page, '워밍업 세트 추가').click()
+      await settle(page, 300)
+      const original = await page.getByRole('textbox', { name: /2세트 무게$/ }).first().inputValue()
+      const warm = await wInput().inputValue()
+      flows.push(['RR7 타이핑 중 워밍업을 누르면 친 값이 원래 세트에 남는다', { ok: original === '77' && warm !== '77', detail: `원래 세트(이제 둘째 줄) ${original} · 새 워밍업 줄 ${warm}` }])
     })
 
     await btn(page, '종료').click()
@@ -710,6 +797,52 @@ async function runScenes(browser, port, scheme) {
       await settle(page, 400)
       await snap('diet-log-open')
     })
+    // RR7 — 식단 편집의 "먹은 개수" 스테퍼. 스테퍼가 스스로 섬이라 legacy 줄 안에서도 깨지지 않는가(390·375)
+    await guardedFlow(['RR7 식단 스테퍼: 1탭 0.5 단위·입력 패턴·글자 크기·삭제 버튼 44px·넘침 없음'], async () => {
+      const count = () => page.getByRole('textbox', { name: '먹은 개수' }).first()
+      const c0 = Number(await count().inputValue())
+      await btn(page, '먹은 개수 증가').first().click()
+      await settle(page, 200)
+      const c1 = Number(await count().inputValue())
+      await btn(page, '먹은 개수 감소').first().click()
+      await settle(page, 200)
+      const c2 = Number(await count().inputValue())
+      await count().click()
+      await page.keyboard.press('Control+A')
+      await page.keyboard.type('1.555')
+      const typed = await count().inputValue()
+      await page.keyboard.press('Control+A')
+      await page.keyboard.type(String(c0))
+      await page.keyboard.press('Enter')
+      await settle(page, 200)
+      const widths = []
+      for (const width of [390, 375]) {
+        await page.setViewportSize({ width, height: width === 375 ? 812 : 844 })
+        await settle(page, 300)
+        widths.push(await page.evaluate(({ width }) => {
+          const probe = document.createElement('span')
+          probe.style.fontSize = 'var(--text-heading-2-size)'
+          document.body.appendChild(probe)
+          const big = parseFloat(getComputedStyle(probe).fontSize)
+          probe.remove()
+          const input = [...document.querySelectorAll('.ax-scope input')].find((i) => window.__vis(i))
+          const del = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === '삭제' && window.__vis(b))
+          const sib = input.closest('.btn-row')
+          return {
+            width,
+            smaller: parseFloat(getComputedStyle(input).fontSize) < big,
+            delH: Math.round(del.getBoundingClientRect().height),
+            oneLine: sib ? [...sib.children].every((c) => Math.abs(c.getBoundingClientRect().top + c.getBoundingClientRect().height / 2 - (sib.children[0].getBoundingClientRect().top + sib.children[0].getBoundingClientRect().height / 2)) < 6) : false,
+            docOk: document.documentElement.scrollWidth <= innerWidth,
+          }
+        }, { width }))
+      }
+      await page.setViewportSize({ width: 390, height: 844 })
+      await settle(page, 300)
+      const ok = c1 - c0 === 0.5 && c2 === c0 && typed === '1.55' && widths.every((w) => w.smaller && w.delH >= 44 && w.oneLine && w.docOk)
+      flows.push(['RR7 식단 스테퍼: 1탭 0.5 단위·입력 패턴·글자 크기·삭제 버튼 44px·넘침 없음', { ok, detail: `+1탭 ${c0}→${c1} · −1탭 ${c2} · 1.555→${typed} · ${widths.map((w) => `${w.width}: 글자 작음 ${w.smaller} 삭제 ${w.delH}px 한 줄 ${w.oneLine} 넘침 없음 ${w.docOk}`).join(' / ')}` }])
+    })
+
 
     // 설정
     await page.getByRole('button', { name: '설정', exact: true }).click()

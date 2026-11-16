@@ -87,8 +87,9 @@ describe('BB3 — 세팅 진입 행이 점선이 아니다', () => {
 
   it('빈 상태와 채운 상태를 텍스트 색으로 구분한다 (테두리가 아니라)', () => {
     const src = file('/src/components/ExerciseCard.tsx')
-    expect(src).toMatch(/setupNote \? 'setup-value' : 'setup-empty'/)
-    expect(src).toMatch(/scaleIsCustom \? 'setup-value' : 'setup-empty'/)
+    // v1.20 RR7: 클래스 대신 `Text`의 색(채운 값은 기본, 빈 값은 secondary)으로 구분한다 — 뜻은 그대로
+    expect(src).toMatch(/setupNote \? <Text>\{setupNote\}<\/Text> : <Text color="secondary">머신 세팅 메모 추가<\/Text>/)
+    expect(src).toMatch(/scaleIsCustom \? \(\s*<Text>무게 단위[^]*?<Text color="secondary">무게 단위/)
   })
 })
 

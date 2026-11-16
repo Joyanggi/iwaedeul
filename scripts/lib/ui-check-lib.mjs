@@ -495,14 +495,21 @@ export const inPageLastVisible = () => {
   return out
 }
 
-/** `섬 버튼` (RR7부터 판정): `.ax-scope` 안 Astryx 버튼의 min-height가 legacy 값(44px)이 아닌가. 섬이 있는 장면에서만, 버튼 0개면 실패 */
+/**
+ * `섬 버튼` (RR7부터 판정): legacy 화면(.screen 등) 안의 Astryx 버튼의 min-height가 legacy 값(44px)이 아닌가.
+ * 섬(`.ax-scope`) 안의 버튼은 당연히 재고, **섬 밖인데 legacy 범위 안에 있는 Astryx 버튼**도 잰다 — 섬을 빠뜨리면 그 버튼이 legacy `button { min-height: 44px }`를 맞는다
+ * (카드가 섬을 잃어도 스테퍼가 스스로 섬이라 섬 안 버튼만 재면 못 잡는다 — RR7 결함 복원 ⑭에서 확인).
+ * 섬도 legacy 안 Astryx 버튼도 없는 장면은 건너뛴다. 있는데 버튼이 0개면 실패.
+ */
 export const inPageIslandButtons = () => {
+  const LEGACY = '.screen, .onboarding, .sheet-backdrop, .center-note, .banner'
   const islands = [...document.querySelectorAll('.ax-scope')].filter((el) => window.__vis(el))
-  if (islands.length === 0) return { skip: true, detail: '.ax-scope 섬이 없다' }
-  const btns = islands.flatMap((i) => [...i.querySelectorAll("button[class*='astryx-']")]).filter((b) => window.__vis(b))
-  if (btns.length === 0) return { ok: false, detail: '섬 안 Astryx 버튼이 0개 — 아무것도 안 쟀다' }
+  const inLegacy = [...document.querySelectorAll("button[class*='astryx-']")].filter((b) => window.__vis(b) && b.closest(LEGACY))
+  if (islands.length === 0 && inLegacy.length === 0) return { skip: true, detail: '.ax-scope 섬도 legacy 안 Astryx 버튼도 없다' }
+  const btns = [...new Set([...islands.flatMap((i) => [...i.querySelectorAll("button[class*='astryx-']")]).filter((b) => window.__vis(b)), ...inLegacy])]
+  if (btns.length === 0) return { ok: false, detail: '섬 안·legacy 안 Astryx 버튼이 0개 — 아무것도 안 쟀다' }
   const bad = btns.filter((b) => Number.parseFloat(getComputedStyle(b).minHeight) === 44)
-  return { ok: bad.length === 0, detail: bad.length ? `${bad.length}/${btns.length}개가 min-height 44px(legacy 값이 샜다)` : `${btns.length}개 legacy 값 아님` }
+  return { ok: bad.length === 0, detail: bad.length ? `${bad.length}/${btns.length}개가 min-height 44px(legacy 값이 샜다: ${[...new Set(bad.map((x) => (x.getAttribute('aria-label') || x.textContent || '').trim().slice(0, 10)))].slice(0, 4).join(', ')})` : `${btns.length}개 legacy 값 아님` }
 }
 
 /** `테마 토큰` 목록 — PLAN v1.20 RR2 표의 Astryx 토큰 전부 */
@@ -605,4 +612,82 @@ export function startSpotVerdict(spots) {
   const ok = sameTop && covered.length === 0
   const list = names.map((n) => `${n} ${spots[n].top}`).join(' · ')
   return { ok, detail: `위 끝 ${list}${sameTop ? '' : ' (다르다)'}${covered.length ? ` · 아래 띠에 가림: ${covered.join(', ')}` : ''}` }
+}
+
+/**
+ * `−`·`+`·`✓`의 누르는 영역 (RR7): 세트 행 버튼마다 중심에서 위·아래·왼쪽·오른쪽 21px 점에 elementFromPoint를 쏜다.
+ * 통과: 자기 자신이거나, 이웃 버튼이 나오되 그 점이 두 버튼 사이 **중간선을 넘은** 자리일 때(맞닿은 이웃이 나눠 갖는다).
+ * 실패: 빈 곳(버튼이 아닌 것)이 나오거나, 중간선 안쪽인데 이웃이 가져간 점. 버튼 0개면 실패(아무것도 안 쟀다).
+ */
+export const inPageTouchReach = () => {
+  const REACH = 21
+  // 위 띠 아래로 가려진 행은 점이 띠에 맞는다 — 첫 두 행을 화면 가운데로 올려 가려지지 않은 채로 잰다
+  const rows = [...document.querySelectorAll('.set-row')].filter((r) => window.__vis(r)).slice(0, 2)
+  if (rows.length === 0) return { ok: false, detail: '.set-row가 0개 — 아무것도 안 쟀다' }
+  const bad = []
+  let count = 0
+  for (const row of rows) {
+    row.scrollIntoView({ block: 'center' })
+    for (const b of row.querySelectorAll('button')) {
+      if (!window.__vis(b)) continue
+      count++
+      const r = b.getBoundingClientRect()
+      const cx = r.left + r.width / 2
+      const cy = r.top + r.height / 2
+      for (const [dir, dx, dy] of [['왼', -REACH, 0], ['오른', REACH, 0], ['위', 0, -REACH], ['아래', 0, REACH]]) {
+        const x = cx + dx
+        const y = cy + dy
+        const hit = document.elementFromPoint(x, y)
+        const hb = hit ? hit.closest('button') : null
+        if (hb === b) continue
+        const name = (b.getAttribute('aria-label') || b.textContent || '').trim().slice(-12)
+        if (!hb) {
+          bad.push(`${name} ${dir}쪽 ${REACH}px: 버튼이 아닌 곳(${hit ? hit.tagName : '없음'})`)
+          continue
+        }
+        // 이웃이 나왔다: 두 버튼의 마주 보는 변 사이 중간선을 넘은 점이어야 한다
+        const o = hb.getBoundingClientRect()
+        const own = dir === '왼' ? r.left : dir === '오른' ? r.right : dir === '위' ? r.top : r.bottom
+        const other = dir === '왼' ? o.right : dir === '오른' ? o.left : dir === '위' ? o.bottom : o.top
+        const mid = (own + other) / 2
+        const past = dir === '왼' ? x <= mid : dir === '오른' ? x >= mid : dir === '위' ? y <= mid : y >= mid
+        if (!past) bad.push(`${name} ${dir}쪽 ${REACH}px: 이웃(${(hb.getAttribute('aria-label') || '').trim().slice(-12)})이 중간선 안쪽을 가져감`)
+      }
+    }
+  }
+  if (count === 0) return { ok: false, detail: '.set-row 안 보이는 버튼이 0개 — 아무것도 안 쟀다' }
+  return { ok: bad.length === 0, detail: bad.length ? bad.slice(0, 4).join(' · ') : `행 ${rows.length}개 · 버튼 ${count}개 × 4방향 21px` }
+}
+
+/**
+ * 세트 표 (RR7): 머리의 세 글귀가 각각 한 줄이고(높이가 줄 높이의 1.5배 미만), 머리의 열 왼쪽 끝이 첫 세트 행의 같은 열(세트 번호·무게·횟수)과 같다.
+ * `.ax-set-head`·`.set-row`가 없으면 실패.
+ */
+export const inPageSetTable = () => {
+  const head = [...document.querySelectorAll('.ax-set-head')].find((h) => window.__vis(h))
+  const row = head ? head.parentElement.querySelector('.set-row') : null
+  if (!head || !row) return { ok: false, detail: '.ax-set-head 또는 .set-row가 없다 — 아무것도 안 쟀다' }
+  const cols = [...head.children]
+  const lh = parseFloat(getComputedStyle(cols[0]).lineHeight) || parseFloat(getComputedStyle(cols[0]).fontSize) * 1.5
+  const tall = cols.filter((c) => c.getBoundingClientRect().height >= lh * 1.5)
+  // 행의 열: 세트 번호(.ax-set-no), 무게·횟수 스테퍼(행의 직계 .ax-scope 둘)
+  const rowCols = [row.querySelector('.ax-set-no'), ...row.querySelectorAll(':scope > .ax-scope')]
+  const off = cols.map((c, i) => Math.abs(c.getBoundingClientRect().left - (rowCols[i] ? rowCols[i].getBoundingClientRect().left : 1e6))).map((v) => Math.round(v * 10) / 10)
+  const ok = tall.length === 0 && cols.length === 3 && rowCols.length === 3 && off.every((v) => v <= 0.5)
+  return { ok, detail: `머리 글귀 ${cols.length}개 · 두 줄 이상 ${tall.length}개 · 열 왼쪽 끝 차이 ${off.join('/')}px` }
+}
+
+/** 세트 행의 입력칸 (RR7): 행이 가로로 넘치지 않고, 보이는 모든 숫자 칸이 값을 안 자르는가(scrollWidth ≤ clientWidth). 0개면 실패 */
+export const inPageNumberFit = () => {
+  const inputs = [...document.querySelectorAll('.set-row input')].filter((i) => window.__vis(i))
+  if (inputs.length === 0) return { ok: false, detail: '.set-row 안 보이는 input이 0개 — 아무것도 안 쟀다' }
+  const cut = inputs.filter((i) => i.scrollWidth > i.clientWidth)
+  const rows = [...document.querySelectorAll('.set-row')].filter((r) => window.__vis(r))
+  // 행의 scrollWidth는 버튼의 안 보이는 누르는 영역(밖으로 4px)까지 세므로, 보이는 버튼·입력칸의 사각형이 행 안에 있는지로 잰다
+  const outside = (r) => [...r.querySelectorAll('button, input')].some((e) => { const b = e.getBoundingClientRect(); const rr = r.getBoundingClientRect(); return b.right > rr.right + 0.5 || b.left < rr.left - 0.5 })
+  const over = rows.filter(outside)
+  return {
+    ok: cut.length === 0 && over.length === 0 && document.documentElement.scrollWidth <= innerWidth,
+    detail: `잘린 칸 ${cut.length}개${cut[0] ? `(${cut[0].value}: ${cut[0].scrollWidth}>${cut[0].clientWidth})` : ''} · 넘친 행 ${over.length}개 · 문서 ${document.documentElement.scrollWidth}/${innerWidth}`,
+  }
 }

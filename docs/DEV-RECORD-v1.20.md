@@ -1014,3 +1014,94 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 ### 실기기 확인 목록
 
 - 끝난 휴식 바를 글자·빈 곳 어디서나 1탭으로 닫히는지(iOS Safari), 휴식 바 버튼 셋이 375 폭에서 안 잘리는지.
+
+## RR7. 운동 카드와 스테퍼
+
+### 범위
+
+| 파일 | 바뀐 것 |
+|---|---|
+| `src/components/NumberStepper.tsx` | 로직(`text`·`isAllowedInput`·`commitText`·`bump`·`release`·`abort`·`latest`·`ladder`) 그대로. 그리는 것만 `HStack className="ax-scope"` + `Button`(−·+, 같은 네 처리기, `onClick` 없음) + `TextField`. `pressed` 상태 삭제. `isProminent`·`status` 속성 추가 |
+| `src/components/ExerciseCard.tsx` | `Card`(스킵이면 `muted`, 뿌리 `ax-scope`) + `Collapsible`(머리 = `trigger`) + `Badge`·`Text`·`List`·`ListItem`·`ToggleButton`·`TextField`. 칩 줄을 본문 맨 위로. 세트 행은 직접 짓고 `setRowClass`·`zeroWeightHint`·로직 그대로. 시트 넷은 카드(섬) **밖**으로 뺌 |
+| `src/ax/index.tsx` | `TextField`에 `isNumeric`·`isProminent` 추가(입력칸에 `ax-num`·`ax-num-prominent`를 건다) |
+| `src/ax/parts.css` | 세트 표(`.ax-set-head`·`.set-row`가 열 정의 한 곳을 읽는다)·완료/워밍업 행·숫자 칸·스테퍼 줄 폭·`.ax-text-warning` |
+| `src/styles/global.css` | `.stepper*`·`.set-*`·`.setup-row/-value/-empty/-icon`·`.setting-rows`·`.ex-chips/-note/-cue/-body`·`.note-prev`·`.chip-tap`·`button.chip`·`.btn-warn`·`.ex-card-done/-skipped`·`.ex-count-done` 삭제 (−325줄: 341 삭제, 16 추가 — 대체 시트가 쓰는 `.setup-edit` 셋) |
+| `scripts/ui-check.mjs`·`scripts/lib/ui-check-lib.mjs` | `세트 숫자`·`섬 버튼` 판정 켬, 세트 행·식단 스테퍼 흐름(guardedFlow), `inPageTouchReach`·`inPageSetTable`·`inPageNumberFit`, `섬 버튼`이 legacy 범위 안 Astryx 버튼도 잼, `CARD_SCENES`의 카드·뱃지·세트 행 대칭 |
+| 테스트 | `src/lib/v120.test.ts`(+10), `scripts/rr7.test.mjs`(신규 6), 옮긴 스캔 둘(`polish`·`setRowState`) |
+| 기타 | `docs/ASTRYX-INVENTORY.md` 새로 씀(인라인 70→66, legacy 쓰임 404→363, Astryx 읽는 파일 15→17), `eslint-suppressions.json`에서 `ExerciseCard`의 `no-autofocus`(더 안 난다)와 이미 없는 `glass-check.mjs` 줄을 `--prune-suppressions`로 뺌 |
+
+### PLAN과 달라진 것·알아낸 것
+
+| 항목 | 내용 |
+|---|---|
+| `Text color="warning"` | 없다(`TextColorMap`은 primary·secondary·disabled·placeholder·accent·inherit). 경고 글자는 `parts.css`의 `.ax-text-warning`(`--color-text-warning`)으로 건다 |
+| `TextField`의 숫자 글자 | `controlStyle`은 입력칸이 아니라 **바깥 상자**에 붙어 글자 크기가 안 닿는다(실측 16px). 그래서 `controlClassName`으로 `.ax-num(-prominent) input`에 건다. 크게 켠 칸의 좌우 여백은 0(142.5가 375에서 잘렸다) |
+| `.setup-*` 전부 삭제 | 틀렸다 — `.setup-edit`(+`.field`·`.btn-sm`)를 `SubstituteSheet`가 쓴다. 그 셋은 `global.css` 끝에 남기고 이유를 적었다 |
+| 세트 열 | 번호 `--spacing-6` · 무게 1.2fr · 횟수 1fr, 스테퍼 안 간격 `--spacing-2`. Astryx는 터치에서 누르는 영역을 **이웃과의 간격 절반**까지만 넓혀서, `−`·`+`와 숫자 칸 사이가 4px이면 20px까지(21 미달), 8px이면 22px이다 |
+| 스테퍼 줄(식단 편집) | `.btn-row > .ax-scope`에 `min-width: 0`을 주면 폭 0으로 줄어 단추가 삭제 버튼 위에 겹쳤다(문서가 390→511로 넓어짐). 단추 둘+숫자 칸 최소 폭(`calc(2 * var(--spacing-9) + var(--spacing-12))`)을 둔다 |
+| `섬 버튼` | 섬 안 버튼만 재면 **카드가 섬을 잃어도 못 잡는다**(스테퍼가 스스로 섬). legacy 범위(`.screen` 등) 안의 Astryx 버튼도 같이 재도록 고쳤다 — 결함 복원 ⑭에서 발견 |
+| 앞 작업에서 넘어온 것 (1) 다크 칩·번호 동그라미 배경 | `Badge`로 바뀌어 사라졌다. 다크 `history-detail-edit`에서 순번 동그라미·그룹/휴식 칩 배경이 보인다 |
+| (2) `세/트` 꺾임 | 머리가 행과 열 정의를 공유하고 `nowrap`. 390·375 둘 다 한 줄(`세트 표 머리` 두 줄 이상 0개, 열 왼쪽 끝 차이 0px) |
+| (3) 카드 버튼 터치 영역 | `inPageTouchReach`(행 둘, 버튼 10개 × 4방향 중심 21px `elementFromPoint`) 390·375 통과. 카드 뿌리가 `ax-scope`이고 `섬 버튼` 통과(44px로 안 부푼다) |
+| (4) 식단 스테퍼 | 스스로 섬. `diet-log-open` `섬 버튼` 통과, 390·375 가로 넘침 없음, 삭제 버튼 44px |
+| 알려 둠 | `SessionScreen.tsx:132`의 `Unused eslint-disable directive` 경고 한 줄은 RR7 전부터 있다(손대지 않음). 감각 점수·통증 `ToggleButton`은 안 눌렸을 때 테두리가 없어 글자만 보인다 — 화면 검증자가 본다 |
+
+### 테스트 ↔ PLAN 검증
+
+| PLAN 검증 | 테스트 / 검사 |
+|---|---|
+| 카드 className·style·`<button`·`<input` | `v120 RR7: ExerciseCard의 className=…` |
+| 스테퍼 className·`<button`·`<input`·`onClick` 없음 | `v120 RR7: NumberStepper의 className=…` |
+| `global.css`에 `.stepper` 없음 | `scripts/rr7.test.mjs` `global.css에 .stepper·.set-*…`(fs) |
+| `DietDayEditor` 안 고침 | `v120 RR7: …식단 편집은 안 고친다` (`isProminent`·`ax-scope` 없음) |
+| 안 고치고 통과: v18·warmupInsert·guideFinish·inputProps·setRowState·uiConsistency·v111·v113·v114·NumberStepper | 전체 통과(스캔 둘만 옮김 — 아래) |
+| `inputProps`의 `<input` 검사가 비면 `TextField`만 | `v120 RR7: 입력은 TextField…만 쓴다` |
+| 탭 수(1탭 완료·1탭 한 단계·끌어도 안 바뀜·`40.123456`·횟수 소수점·워밍업) | 흐름 `RR7 1세트 완료 1탭`·`무게 증가 1탭에 한 단계`(0→2.5)·`세로로 끌면 안 바뀐다`·`숫자 칸 입력 패턴`(40.12·125)·`워밍업 …원래 세트에 남는다`(77) |
+| `세트 숫자` | `session`·`session-375`·`history-detail-edit` 통과(22px) |
+| `−`·`+`·`✓` 21px | 흐름 `RR7 세트 행 390/375 폭`의 누르는 영역 |
+| 접근성 칸·종료 코드 0 | `session`·`session-375`·`session-open-b` `접근성` 통과, 전체 실행 `종료 코드 0` |
+| 375 넘침·`142.5`·`12` | 같은 흐름의 `142.5·12`(잘린 칸 0, 넘친 행 0) |
+| 세트 표 머리 한 줄·열 정렬 | 같은 흐름의 `세트 표 머리` + `rr7.test.mjs` 머리·행 한 규칙 |
+| 순서(칩 줄 → 메모 → 자극 요령 → 세팅 → 무게 단위 → 표) | `v120 RR7: 순서 — 칩 줄이 본문의 맨 위다` |
+| 여백(`안쪽 대칭`·`가까움 순서`) | `session`·`session-375`·`session-open-b`·`history-detail-edit` `안쪽 대칭` 통과(카드·뱃지·세트 행·버튼), 같은 역할 `가까움 순서` 통과 |
+| 기록 편집 `섬 버튼` | `history-detail-edit` 통과 |
+| 식단 스테퍼(+0.5·1.555→1.55·글자 작음·삭제 44px·넘침 없음, 390·375) | 흐름 `RR7 식단 스테퍼…` 통과 |
+
+### 옮긴 스캔 (규칙 3)
+
+| 스캔 | 전 | 후 | 같은 뜻인 이유 |
+|---|---|---|---|
+| `polish.test.ts` BB3 "빈 상태와 채운 상태를 텍스트 색으로" | `setupNote ? 'setup-value' : 'setup-empty'` | `setupNote ? <Text>… : <Text color="secondary">…`(무게 단위 줄도) | 빈 값은 흐린 글자, 채운 값은 보통 글자 — 클래스에서 `Text`의 색으로 옮겼을 뿐 |
+| `setRowState.test.ts` "경고가 문구와 숫자 양쪽에" | `set-ghost set-ghost-warn` + `stepper-slot-warn` | `className="ax-text-warning"` + `status={zeroHint ? 'warning' : undefined}` | 문구와 숫자 양쪽에 경고가 걸린다 |
+| `v120.test.ts` RR0 "JUDGED" | `'세트 숫자': false, '섬 버튼': false` | 둘 다 `true` | PLAN: 작업이 끝날 때 true로 |
+
+### 결함 복원
+
+| 되살린 결함 | 잡은 것 | 원상복구 |
+|---|---|---|
+| ⑫ `+`에 `onClick={() => bump(1)}` | `v120 RR7` 2건 + 흐름 `무게 증가 1탭에 한 단계` 실패(0→5)·`끌면 안 바뀐다` 실패 | `cmp` 같음 |
+| ⑬ 카드에서 `isProminent` 뺌 | `v120 RR7` + `session` `세트 숫자` 실패(8/8개가 22px 미만) | `cmp` 같음 |
+| ⑭ 카드 `Card`의 `ax-scope` 뺌 | **처음엔 못 잡음**(스테퍼가 섬이라 `섬 버튼` 통과) → `섬 버튼`이 legacy 안 Astryx 버튼도 재게 고침 → `history-detail-edit` `섬 버튼` 실패(17/25개 44px), 종료 코드 1 | `cmp` 같음 |
+| ⑲ 스테퍼 뿌리의 `ax-scope` 뺌 | 전체 실행이 `diet-log-open` 뒤 `설정` 탭 클릭에서 **중단**(스테퍼 숫자 칸이 탭을 가림 — 줄이 넓어져 문서가 커진다), 종료 코드 1. `섬 버튼` 칸까지 못 가고 죽는다 | `cmp` 같음 |
+| `.ax-set-head,`를 `.ax-set-head-x,`로(머리가 열 정의를 따로) | `scripts/rr7.test.mjs` 머리·행 한 규칙 1건 | `cmp` 같음 |
+
+### 변이 테스트
+
+대상 없음(`src/lib`를 안 바꿨다).
+
+### ui-check (`node scripts/ui-check.mjs after --check --ver=v1.20` → **종료 코드 0**)
+
+- `session`·`session-375`·`session-open-b`·`history-detail-edit` 전 칸 통과(접근성 4칸, `세트 숫자`, `섬 버튼`, `안쪽 대칭`). `diet-log-open` `섬 버튼` 통과.
+- 접근성 이름: `워밍업` 버튼에 `aria-label="워밍업 세트 추가"`, `대체`에 `대체 — 자리 없음, 대체운동 고르기`를 그대로 넘겼다(`label-content-name-mismatch` 0건).
+
+### 하지 않은 것·실기기 확인 목록
+
+- 감각 점수·통증 토글, 자극 요령 카드의 모양은 화면 검증자가 본다. 팔 뻗은 거리(50%)와 `--press-shot`(`+`·`✓`)는 화면 검증 몫이다.
+- 실기기: 세트 `+`·`−`를 한 번 눌러 한 단계씩 오르는지, 땀 묻은 손으로 `✓`가 한 번에 눌리는지, 숫자 칸 탭 → iOS 키패드(소수점 키는 무게에만), 식단 편집의 개수 스테퍼.
+
+### 실행 결과
+
+- `npm test`: `Test Files  75 passed (75)` / `Tests  1753 passed (1753)`
+- `npm run check`: 전부 통과(빌드 포함)
+- `node scripts/ui-check.mjs after --check --ver=v1.20`: `종료 코드 0`
+- `git rev-list --count main..HEAD`: 커밋 전 40

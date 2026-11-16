@@ -20,7 +20,7 @@ import { lastPainChipText } from '../lib/pain'
 import { lastHoldChipText, modeSetNotice } from '../lib/progression'
 import type { RecordPrefill } from '../lib/prefill'
 import type { RecordKey, RoutineExercise, SessionEntry, SessionMode, SetRecord } from '../types'
-import { NO_AUTOFILL } from '../lib/inputProps'
+import { Badge, Button, Card, Collapsible, HStack, List, ListItem, Text, TextField, ToggleButton, VStack } from '../ax'
 
 /** 감각 점수 라벨 (루틴 문서: 목표 부위에 자극이 왔는지) */
 const SENSORY_LABELS: Record<0 | 1 | 2 | 3, string> = {
@@ -248,424 +248,440 @@ export default function ExerciseCard({
   }
 
   return (
-    <div
-      className={`ex-card${complete ? ' ex-card-done' : ''}${entry.skipped ? ' ex-card-skipped' : ''}`}
-    >
-      <button className="ex-head" onClick={onToggleOpen} aria-expanded={open}>
-        <span className="ex-order" aria-hidden="true">
-          {routineExercise.plannedOrder}
-        </span>
-        <span className="ex-head-main">
-          <span className="ex-name">
-            {name}
-            {substituteForName && (
-              <span className="chip chip-warn ml-inline">
-                대체
-              </span>
-            )}
-            {/* 계획에 없이 얹은 종목 (CC15) — 다음 세션에 자동으로 생기지 않는다는 사실도 담는다 */}
-            {isExtra && (
-              <span className="chip chip-accent ml-inline">
-                추가
-              </span>
-            )}
-            {entry.performedOrder !== null && (
-              <span className="chip ml-inline">
-                {entry.performedOrder}번째 수행
-              </span>
-            )}
-          </span>
-          <span className="ex-sub">
-            {entry.sets.length}세트 × {routineExercise.repMin}~{routineExercise.repMax} · {summary}
-          </span>
-          {substituteForName && <span className="ex-sub">{substituteForName} 대신 · 자리 없음</span>}
-          {(isB && entry.sensoryScore !== undefined) || hasCompensation(entry.compensation) || hasPain(entry) ? (
-            <span className="ex-sub">
-              {isB && entry.sensoryScore !== undefined && (
-                <span className="chip chip-accent">감각 {entry.sensoryScore}</span>
-              )}
-              {hasCompensation(entry.compensation) && (
-                <span className="chip chip-warn ml-inline">
-                  {compensationSummary(entry.compensation)}
-                </span>
-              )}
-              {hasPain(entry) && (
-                <span className="chip chip-warn ml-inline">
-                  통증
-                </span>
-              )}
-            </span>
-          ) : null}
-        </span>
-        <span className={`ex-count${complete ? ' ex-count-done' : ''}`}>
-          {entry.skipped ? '스킵' : `${done.length}/${entry.sets.length}`}
-        </span>
-      </button>
-
-      {open && (
-        <div className="ex-body">
-          {routineExercise.note && <p className="ex-note">{routineExercise.note}</p>}
-          {routineExercise.weightHint && (
-            <p className="ex-note">무게 기준: {routineExercise.weightHint}</p>
-          )}
-          {/*
-            자극 요령. 접지 않고 항상 노출한다 — B그룹은 감각 점수를 매겨야 하는데
-            무엇을 느껴야 하는지 모르면 점수 자체가 무의미해진다.
-          */}
-          {cueTip && <p className="ex-cue">💡 {cueTip}</p>}
-
-          {/*
-            머신 세팅 메모 (T4). 세션 기록이 아니라 종목에 붙는 고정값이라,
-            다음 세션에도 같은 값이 그대로 보인다 — 매번 세팅을 다시 찾지 않는 것이 목적이다.
-          */}
-          <div className="setting-rows">
-          {editingSetup ? (
-            <div className="setup-edit">
-              <input
-                {...NO_AUTOFILL}
-                /*
-                  X5 종결 — **iOS 연락처 제안은 웹으로 막을 수 없다** (README Limitations).
-                  실험대 6칸(대조군 포함)에서 전부 제안이 떴다. 그래서 이 필드만 달랐던
-                  두 처방(비표준 토큰 · readOnly 트릭)을 **둘 다 지웠다** — 무효가 실증된
-                  처방을 남기면 "왜 이 필드만 다르지"가 다음 사람의 조사 대상이 된다 (Y2).
-                  이제 전 입력이 `NO_AUTOFILL` 하나로 통일된다.
-                */
-                className="field"
-                value={setupNote ?? ''}
-                onChange={(e) => setSetupNote(e.target.value)}
-                placeholder="예: 시트 3칸, 등받이 2"
-                aria-label={`${name} 머신 세팅 메모`}
-                autoFocus
-              />
-              <button
-                className="btn btn-sm"
-                onClick={() => {
-                  void setExerciseNote(entry.recordKey, setupNote ?? '')
-                  setEditingSetup(false)
-                }}
-              >
-                저장
-              </button>
-            </div>
-          ) : (
-            <button className="setup-row" onClick={() => setEditingSetup(true)}>
-              <span className="setup-icon">
-                <IconSliders size={16} />
-              </span>
-              <span className={setupNote ? 'setup-value' : 'setup-empty'}>
-                {setupNote || '머신 세팅 메모 추가'}
-              </span>
-              <span aria-hidden="true" className="ml-auto" style={{ opacity: 0.5 }}>
-                ✎
-              </span>
-            </button>
-          )}
-
-          {/*
-            무게 단위 (T9). 루틴 문서 10장의 증량은 "머신 한 핀"인데 한 핀이 몇 kg인지는
-            머신마다 다르다. 미설정 종목은 루틴 전역값이라 표시를 흐리게 둔다.
-          */}
-          <button className="setup-row" onClick={() => setEditingScale(true)}>
-            <span className="setup-icon">
-              <IconScale size={16} />
-            </span>
-            <span className={scaleIsCustom ? 'setup-value' : 'setup-empty'}>
-              무게 단위 · {describeScale(weightScale)}
-            </span>
-            <span aria-hidden="true" className="ml-auto" style={{ opacity: 0.5 }}>
-              ✎
-            </span>
-          </button>
-          </div>
-          <div className="ex-chips">
-            {showPrefillHints && modeIntensity && <span className="chip">{modeIntensity}</span>}
-            <span className="chip">{routineExercise.group}그룹</span>
-            <span className="chip">휴식 {routineExercise.restSec}초</span>
-            {routineExercise.optional && <span className="chip chip-warn">컨디션 좋을 때만</span>}
-            {/*
-              B그룹 무게 회복/복귀 (T10, Phase 2+). 복귀는 프리필이 이미 내려간 상태이므로
-              칩은 "왜 내려갔는지"를 설명하는 역할이다.
-            */}
-            {prefill?.bGroup?.kind === 'recover' && (
-              <span className="chip chip-accent">
-                감각 3점 유지 + 상단 도달 — 무게 회복 시도 가능
-              </span>
-            )}
-            {prefill?.bGroup?.kind === 'revert' && (
-              <span className="chip chip-warn">
-                감각 {1}점 이하 — {prefill.bGroup.from} → {prefill.bGroup.to}kg 복귀 (문서 9장)
-              </span>
-            )}
-            {compensationWatch && (
-              <button className="chip chip-warn chip-tap" onClick={() => setShowingWatch(true)}>
-                보상작용 {compensationWatch.count}/{3}회 — 무게 하향 검토 ▸
-              </button>
-            )}
-            {firstExposure && !firstWork?.done && (
-              <span className="chip chip-warn">첫 세트는 {CALIBRATION_RIR}로</span>
-            )}
-            {showPrefillHints && painChip && <span className="chip chip-warn">{painChip}</span>}
-            {showPrefillHints && sessionMode === 'normal' && holdChip && (
-              <span className="chip">{holdChip}</span>
-            )}
-            {showPrefillHints && sessionMode !== 'normal' && modeNotice && (
-              <span className="chip">{modeNotice}</span>
-            )}
-            {showPrefillHints && sessionMode === 'normal' && prefill?.progression && (
-              <span className="chip chip-accent">
-                증량 제안 {prefill.progression.from} → {prefill.progression.to}kg
-              </span>
-            )}
-          </div>
-
-          <div className="set-head">
-            <span>세트</span>
-            <span>무게 (kg)</span>
-            <span>횟수</span>
-          </div>
-
-          {/*
-            워밍업은 번호를 받지 않는다(W) — 작업 세트가 1부터 시작해야 계획 세트 수와 맞는다.
-            라벨을 미리 계산해 map 안에서 누적 변수를 쓰지 않는다.
-          */}
-          {setLabels.map((label, i) => {
-            const set = entry.sets[i]
-            const zeroHint = zeroWeightHint(set, inverseWeight, allowZeroWeight)
-            return (
-            /*
-              체크 버튼을 고스트 줄로 올려 입력 행을 전폭으로 쓴다.
-              §9는 숫자 24px+와 터치 타깃 44pt를 동시에 요구하는데, 한 줄에 [스테퍼][스테퍼][체크]를
-              넣으면 375px에서 숫자 자리가 32px밖에 안 남아 24px 폰트의 "42.5"가 잘린다.
-              무게는 4자("42.5"), 횟수는 2자라 1.3:1로 배분한다.
-            */
-            /*
-              key={i}의 실제 위험 (v1.7 §3.2 — 이전 주석의 "끝에서만 제거하므로 안전"은
-              **거짓이었다**).
-
-              워밍업 추가는 `[set, ...entry.sets]`로 **앞에 삽입**하므로 이미 모든 인덱스가
-              밀린다. 중간 제거를 기다릴 필요가 없었다. 인덱스가 밀리면 NumberStepper의
-              편집 중 로컬 `text` 상태가 원래 세트를 떠나 옆 행의 숫자로 보인다
-              (실측: 화면 40 / DB 0).
-
-              **현재 방어선은 `commitPendingEdits()`다** — 워밍업 버튼이 배열을 바꾸기 전에
-              편집을 커밋시킨다. 방어선이지 근본 수정이 아니다: 인덱스를 미는 조작을 새로
-              추가하면 그 자리에도 같은 한 줄이 필요하고, 빠뜨리면 조용히 되돌아온다.
-              근본 수정은 SetRecord에 id를 두는 것이고, persist되는 타입이라 백업 스키마·
-              마이그레이션과 함께 봐야 한다 (다음 기능 라운드 백로그).
-            */
-            <div className={setRowClass(set)} key={i}>
-              <div className="set-no">{label}</div>
-              <div className="set-meta">
-                {/*
-                  고스트 텍스트 자리를 무게 미입력 경고가 쓴다 (BB6). 자리를 새로 만들지
-                  않는 이유: 프리필 힌트는 "무엇을 넣을지"이고 이 경고는 "안 넣었다"이므로
-                  같은 자리의 같은 역할이다. 두 줄로 두면 행 높이가 흔들려 옆 버튼의 탭
-                  위치가 밀린다 (X8에서 배운 것).
-                */}
-                {zeroHint ? (
-                  <span className="set-ghost set-ghost-warn">무게 미입력</span>
-                ) : (
-                  <span className="set-ghost">
-                    {showPrefillHints ? ghostText(prefill, i) || '기준 기록 없음' : ''}
-                  </span>
+    <>
+      <Card variant={entry.skipped ? 'muted' : undefined} className="ax-scope">
+        <Collapsible
+          isOpen={open}
+          onOpenChange={() => onToggleOpen()}
+          trigger={
+            <HStack gap={3} align="center">
+              <Badge variant="neutral" label={String(routineExercise.plannedOrder)} />
+              <VStack gap={1}>
+                <HStack gap={1} wrap="wrap">
+                  <Text weight="bold">{name}</Text>
+                  {substituteForName && <Badge variant="warning" label="대체" />}
+                  {/* 계획에 없이 얹은 종목 (CC15) — 다음 세션에 자동으로 생기지 않는다는 사실도 담는다 */}
+                  {isExtra && <Badge variant="info" label="추가" />}
+                  {entry.performedOrder !== null && (
+                    <Badge variant="neutral" label={`${entry.performedOrder}번째 수행`} />
+                  )}
+                </HStack>
+                <Text type="supporting" color="secondary">
+                  {entry.sets.length}세트 × {routineExercise.repMin}~{routineExercise.repMax} · {summary}
+                </Text>
+                {substituteForName && (
+                  <Text type="supporting" color="secondary">
+                    {substituteForName} 대신 · 자리 없음
+                  </Text>
                 )}
-                {/* 템포 가이드 (G7). 기본 꺼짐이라 켠 사람만 이 버튼을 본다 */}
-                {tempoGuide && (
-                  <button
-                    className="set-tempo"
-                    onClick={() => setGuideSet(i)}
-                    aria-label={`${i + 1}세트 템포 가이드`}
-                  >
-                    ♩
-                  </button>
-                )}
-                <button
-                  className={`set-check${set.done ? ' set-check-on' : ''}`}
-                  onClick={() => onCheck(i, set.done)}
-                  aria-pressed={set.done}
-                  aria-label={`${i + 1}세트 완료`}
-                >
-                  ✓
-                </button>
-              </div>
-              <div className="set-inputs">
-                {/* 경고는 숫자에도 입힌다 (BB6) — 문구만 있으면 어느 칸이 문제인지 모른다 */}
-                <div
-                  className={`stepper-slot stepper-slot-wide${zeroHint ? ' stepper-slot-warn' : ''}`}
-                >
-                  <NumberStepper
-                    value={set.weight}
-                    step={weightScale.step}
-                    ladder={weightScale.ladder}
-                    max={500}
-                    onChange={(weight) => actions.patchSet(entry.recordKey, i, { weight })}
-                    ariaLabel={`${name} ${i + 1}세트 무게`}
-                    decimals={2}
-                  />
-                </div>
-                <div className="stepper-slot">
-                  <NumberStepper
-                    value={set.reps}
-                    step={1}
-                    max={100}
-                    onChange={(reps) => actions.patchSet(entry.recordKey, i, { reps })}
-                    ariaLabel={`${name} ${i + 1}세트 횟수`}
-                    decimals={0}
-                  />
-                </div>
-              </div>
-            </div>
-            )
-          })}
-
-          {showCalibration && (
-            <button
-              className="btn btn-sm btn-warn mt-row"
-              
-              onClick={() =>
-                pending.forEach(({ i }) =>
-                  actions.patchSet(entry.recordKey, i, { weight: calibrated }),
-                )
-              }
-            >
-              첫 세트 결과로 남은 세트 {calibrated}kg 적용
-            </button>
-          )}
-
-          <div className="btn-row mt-row">
-            <button className="btn btn-sm" onClick={() => actions.addSet(entry.recordKey)}>
-              + 세트
-            </button>
-            {/*
-              워밍업 세트 (T7). 볼륨·증량·PR에서 제외된다.
-              계획서는 "+ 세트" 롱프레스를 제안했지만 롱프레스는 어포던스가 없어 존재를
-              모르게 된다. 작은 버튼으로 두되 앞에 내세우지 않는다.
-            */}
-            <button
-              className="btn btn-sm"
-              onClick={() => {
-                /*
-                  **커밋을 먼저.** 워밍업은 앞에 삽입되어 인덱스를 밀고, NumberStepper의
-                  편집 중 로컬 상태는 인덱스에 붙어 있다 (v1.7 §3.2에서 화면 40 / DB 0).
-                */
-                commitPendingEdits()
-                actions.addSet(entry.recordKey, { warmup: true })
-              }}
-              aria-label="워밍업 세트 추가"
-            >
-              워밍업
-            </button>
-            {entry.sets.length > 1 && (
-              <button
-                className="btn btn-sm"
-                onClick={() => actions.removeSet(entry.recordKey, entry.sets.length - 1)}
-              >
-                − 세트
-              </button>
-            )}
-            <button
-              className="btn btn-sm"
-              onClick={() => actions.setSkipped(entry.recordKey, !entry.skipped)}
-            >
-              {entry.skipped ? '스킵 해제' : '스킵'}
-            </button>
-            {/*
-              교체는 세트를 새로 만들므로 이미 체크한 기록이 사라진다. applySubstitute가
-              거부하지만 누를 수 있는 버튼을 두면 "왜 안 되지"가 된다 — 아예 감춘다.
-            */}
-            {onRequestSubstitute && done.length === 0 && (
-              /*
-                X8 — 라벨을 "대체"로 줄였다. "자리 없음 · 대체"가 375px에서 줄바꿈됐고,
-                줄바꿈된 버튼은 세트 행 높이를 흔들어 옆 버튼들의 탭 위치를 밀어낸다.
-                시트를 열면 "머신이 사용 중일 때" 설명이 나오므로 라벨에 사유까지 담지 않는다.
-              */
-              <button
-                className="btn btn-sm"
-                onClick={onRequestSubstitute}
-                aria-label="대체 — 자리 없음, 대체운동 고르기"
-              >
-                대체
-              </button>
-            )}
-          </div>
-
-          {/* B그룹 감각 점수 (§5.2). 목표 부위에 자극이 왔는지 — "계속 0인 종목" 탐지용 */}
-          {isB && (
-            <div className="sub-field">
-              <div className="card-label">감각 점수</div>
-              <div className="segment">
-                {([0, 1, 2, 3] as const).map((score) => (
-                  <button
-                    key={score}
-                    aria-pressed={entry.sensoryScore === score}
-                    onClick={() => actions.setSensoryScore(entry.recordKey, score)}
-                  >
-                    {score}
-                  </button>
-                ))}
-              </div>
-              <p className="row-sub">
-                {entry.sensoryScore === undefined
-                  ? '미입력 — 목표 부위에 자극이 왔는지'
-                  : SENSORY_LABELS[entry.sensoryScore]}
-              </p>
+                {(isB && entry.sensoryScore !== undefined) || hasCompensation(entry.compensation) || hasPain(entry) ? (
+                  <HStack gap={1} wrap="wrap">
+                    {isB && entry.sensoryScore !== undefined && (
+                      <Badge variant="info" label={`감각 ${entry.sensoryScore}`} />
+                    )}
+                    {hasCompensation(entry.compensation) && (
+                      <Badge variant="warning" label={compensationSummary(entry.compensation)} />
+                    )}
+                    {hasPain(entry) && <Badge variant="warning" label="통증" />}
+                  </HStack>
+                ) : null}
+              </VStack>
+              {entry.skipped ? (
+                <Badge variant="neutral" label="스킵" />
+              ) : complete ? (
+                <Badge variant="success" label={`${done.length}/${entry.sets.length}`} />
+              ) : (
+                <Text hasTabularNumbers>
+                  {done.length}/{entry.sets.length}
+                </Text>
+              )}
+            </HStack>
+          }
+        >
+          {open && (
+            <VStack gap={3}>
               {/*
-                직전 메모 (CC14). 데이터는 이미 쌓여 있었고 **보여주는 곳이 없었다** —
-                '리어델트에서 목에 긴장' 같은 기록이 내보내기·LLM을 한 바퀴 돌아
-                기억으로만 남던 것을, 그 종목을 펼치는 순간 화면이 말해 준다.
+                칩 줄이 본문의 맨 위다 (개정 2). 증량 제안·복귀 강도·경고는 "이번 세트를 몇 kg으로 할지"를
+                정하는 정보라, 카드를 펼치면 가장 먼저 읽혀야 한다.
               */}
-              {previousNote && (
-                <p className="row-sub note-prev">
-                  지난번({previousNote.date}): {noteLineText(previousNote)}
-                </p>
+              <HStack gap={1} wrap="wrap">
+                {showPrefillHints && modeIntensity && <Badge variant="neutral" label={modeIntensity} />}
+                <Badge variant="neutral" label={`${routineExercise.group}그룹`} />
+                <Badge variant="neutral" label={`휴식 ${routineExercise.restSec}초`} />
+                {routineExercise.optional && <Badge variant="warning" label="컨디션 좋을 때만" />}
+                {/*
+                  B그룹 무게 회복/복귀 (T10, Phase 2+). 복귀는 프리필이 이미 내려간 상태이므로
+                  칩은 "왜 내려갔는지"를 설명하는 역할이다.
+                */}
+                {prefill?.bGroup?.kind === 'recover' && (
+                  <Badge variant="info" label="감각 3점 유지 + 상단 도달 — 무게 회복 시도 가능" />
+                )}
+                {prefill?.bGroup?.kind === 'revert' && (
+                  <Badge
+                    variant="warning"
+                    label={`감각 ${1}점 이하 — ${prefill.bGroup.from} → ${prefill.bGroup.to}kg 복귀 (문서 9장)`}
+                  />
+                )}
+                {compensationWatch && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    label={`보상작용 ${compensationWatch.count}/${3}회 — 무게 하향 검토 ▸`}
+                    onClick={() => setShowingWatch(true)}
+                  />
+                )}
+                {firstExposure && !firstWork?.done && (
+                  <Badge variant="warning" label={`첫 세트는 ${CALIBRATION_RIR}로`} />
+                )}
+                {showPrefillHints && painChip && <Badge variant="warning" label={painChip} />}
+                {showPrefillHints && sessionMode === 'normal' && holdChip && (
+                  <Badge variant="neutral" label={holdChip} />
+                )}
+                {showPrefillHints && sessionMode !== 'normal' && modeNotice && (
+                  <Badge variant="neutral" label={modeNotice} />
+                )}
+                {showPrefillHints && sessionMode === 'normal' && prefill?.progression && (
+                  <Badge
+                    variant="info"
+                    label={`증량 제안 ${prefill.progression.from} → ${prefill.progression.to}kg`}
+                  />
+                )}
+              </HStack>
+
+              {routineExercise.note && <Text color="secondary">{routineExercise.note}</Text>}
+              {routineExercise.weightHint && (
+                <Text color="secondary">무게 기준: {routineExercise.weightHint}</Text>
               )}
-              <input
-                {...NO_AUTOFILL}
-                className="field"
-                value={entry.sensoryNote ?? ''}
-                onChange={(e) => actions.setSensoryNote(entry.recordKey, e.target.value)}
-                placeholder="어디에 어떻게 느껴졌는지 (선택)"
-                aria-label={`${name} 감각 메모`}
-              />
-            </div>
+              {/*
+                자극 요령. 접지 않고 항상 노출한다 — B그룹은 감각 점수를 매겨야 하는데
+                무엇을 느껴야 하는지 모르면 점수 자체가 무의미해진다.
+              */}
+              {cueTip && (
+                <Card variant="muted">
+                  <Text>💡 {cueTip}</Text>
+                </Card>
+              )}
+
+              {/*
+                머신 세팅 메모 (T4). 세션 기록이 아니라 종목에 붙는 고정값이라,
+                다음 세션에도 같은 값이 그대로 보인다 — 매번 세팅을 다시 찾지 않는 것이 목적이다.
+              */}
+              {editingSetup ? (
+                <HStack gap={2} align="center">
+                  {/*
+                    X5 종결 — **iOS 연락처 제안은 웹으로 막을 수 없다** (README Limitations).
+                    실험대 6칸(대조군 포함)에서 전부 제안이 떴다. 그래서 이 필드만 달랐던
+                    두 처방(비표준 토큰 · readOnly 트릭)을 **둘 다 지웠다** — 무효가 실증된
+                    처방을 남기면 "왜 이 필드만 다르지"가 다음 사람의 조사 대상이 된다 (Y2).
+                    이제 전 입력이 `TextField`(= `AX_NO_AUTOFILL`) 하나로 통일된다.
+                  */}
+                  <TextField
+                    label={`${name} 머신 세팅 메모`}
+                    isLabelHidden
+                    hasAutoFocus
+                    width="100%"
+                    value={setupNote ?? ''}
+                    onChange={(next) => setSetupNote(next)}
+                    placeholder="예: 시트 3칸, 등받이 2"
+                  />
+                  <Button
+                    variant="secondary"
+                    label="저장"
+                    onClick={() => {
+                      void setExerciseNote(entry.recordKey, setupNote ?? '')
+                      setEditingSetup(false)
+                    }}
+                  />
+                </HStack>
+              ) : (
+                <List>
+                  <ListItem
+                    startContent={<IconSliders size={16} />}
+                    label={
+                      setupNote ? <Text>{setupNote}</Text> : <Text color="secondary">머신 세팅 메모 추가</Text>
+                    }
+                    endContent={<Text color="secondary">✎</Text>}
+                    onClick={() => setEditingSetup(true)}
+                  />
+                  {/*
+                    무게 단위 (T9). 루틴 문서 10장의 증량은 "머신 한 핀"인데 한 핀이 몇 kg인지는
+                    머신마다 다르다. 미설정 종목은 루틴 전역값이라 표시를 흐리게 둔다.
+                  */}
+                  <ListItem
+                    startContent={<IconScale size={16} />}
+                    label={
+                      scaleIsCustom ? (
+                        <Text>무게 단위 · {describeScale(weightScale)}</Text>
+                      ) : (
+                        <Text color="secondary">무게 단위 · {describeScale(weightScale)}</Text>
+                      )
+                    }
+                    endContent={<Text color="secondary">✎</Text>}
+                    onClick={() => setEditingScale(true)}
+                  />
+                </List>
+              )}
+
+              <div>
+                <div className="ax-set-head">
+                  <Text type="supporting" color="secondary" justify="center">
+                    세트
+                  </Text>
+                  <Text type="supporting" color="secondary" justify="center">
+                    무게 (kg)
+                  </Text>
+                  <Text type="supporting" color="secondary" justify="center">
+                    횟수
+                  </Text>
+                </div>
+
+                {/*
+                  워밍업은 번호를 받지 않는다(W) — 작업 세트가 1부터 시작해야 계획 세트 수와 맞는다.
+                  라벨을 미리 계산해 map 안에서 누적 변수를 쓰지 않는다.
+                */}
+                {setLabels.map((label, i) => {
+                  const set = entry.sets[i]
+                  const zeroHint = zeroWeightHint(set, inverseWeight, allowZeroWeight)
+                  return (
+                    /*
+                      체크 버튼을 고스트 줄로 올려 입력 행을 전폭으로 쓴다.
+                      §9는 숫자 24px+와 터치 타깃 44pt를 동시에 요구하는데, 한 줄에 [스테퍼][스테퍼][체크]를
+                      넣으면 375px에서 숫자 자리가 32px밖에 안 남아 큰 숫자 "42.5"가 잘린다.
+                      머리와 행이 같은 열 격자(`parts.css`)를 읽어 "세트"가 두 줄로 꺾이지 않고 열이 맞는다.
+
+                      key={i}의 실제 위험 (v1.7 §3.2 — 이전 주석의 "끝에서만 제거하므로 안전"은
+                      **거짓이었다**).
+
+                      워밍업 추가는 `[set, ...entry.sets]`로 **앞에 삽입**하므로 이미 모든 인덱스가
+                      밀린다. 중간 제거를 기다릴 필요가 없었다. 인덱스가 밀리면 NumberStepper의
+                      편집 중 로컬 `text` 상태가 원래 세트를 떠나 옆 행의 숫자로 보인다
+                      (실측: 화면 40 / DB 0).
+
+                      **현재 방어선은 `commitPendingEdits()`다** — 워밍업 버튼이 배열을 바꾸기 전에
+                      편집을 커밋시킨다. 방어선이지 근본 수정이 아니다: 인덱스를 미는 조작을 새로
+                      추가하면 그 자리에도 같은 한 줄이 필요하고, 빠뜨리면 조용히 되돌아온다.
+                      근본 수정은 SetRecord에 id를 두는 것이고, persist되는 타입이라 백업 스키마·
+                      마이그레이션과 함께 봐야 한다 (다음 기능 라운드 백로그).
+                    */
+                    <div className={setRowClass(set)} key={i}>
+                      <div className="ax-set-no">
+                        <Text weight="bold" hasTabularNumbers>
+                          {label}
+                        </Text>
+                      </div>
+                      <div className="ax-set-meta">
+                        {/*
+                          고스트 텍스트 자리를 무게 미입력 경고가 쓴다 (BB6). 자리를 새로 만들지
+                          않는 이유: 프리필 힌트는 "무엇을 넣을지"이고 이 경고는 "안 넣었다"이므로
+                          같은 자리의 같은 역할이다. 두 줄로 두면 행 높이가 흔들려 옆 버튼의 탭
+                          위치가 밀린다 (X8에서 배운 것).
+                        */}
+                        {zeroHint ? (
+                          <Text type="supporting" className="ax-text-warning">
+                            무게 미입력
+                          </Text>
+                        ) : (
+                          <Text type="supporting" color="secondary" hasTabularNumbers>
+                            {showPrefillHints ? ghostText(prefill, i) || '기준 기록 없음' : ''}
+                          </Text>
+                        )}
+                        {/* 템포 가이드 (G7). 기본 꺼짐이라 켠 사람만 이 버튼을 본다 */}
+                        {tempoGuide && (
+                          <Button
+                            variant="ghost"
+                            isIconOnly
+                            icon={<span aria-hidden="true">♩</span>}
+                            label={`${i + 1}세트 템포 가이드`}
+                            onClick={() => setGuideSet(i)}
+                          />
+                        )}
+                        <ToggleButton
+                          isIconOnly
+                          size="lg"
+                          icon={<span aria-hidden="true">✓</span>}
+                          label={`${i + 1}세트 완료`}
+                          isPressed={set.done}
+                          onPressedChange={() => onCheck(i, set.done)}
+                        />
+                      </div>
+                      {/* 경고는 숫자에도 입힌다 (BB6) — 문구만 있으면 어느 칸이 문제인지 모른다 */}
+                      <NumberStepper
+                        value={set.weight}
+                        step={weightScale.step}
+                        ladder={weightScale.ladder}
+                        max={500}
+                        onChange={(weight) => actions.patchSet(entry.recordKey, i, { weight })}
+                        ariaLabel={`${name} ${i + 1}세트 무게`}
+                        decimals={2}
+                        isProminent
+                        status={zeroHint ? 'warning' : undefined}
+                      />
+                      <NumberStepper
+                        value={set.reps}
+                        step={1}
+                        max={100}
+                        onChange={(reps) => actions.patchSet(entry.recordKey, i, { reps })}
+                        ariaLabel={`${name} ${i + 1}세트 횟수`}
+                        decimals={0}
+                        isProminent
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+
+              {showCalibration && (
+                <Button
+                  variant="secondary"
+                  label={`첫 세트 결과로 남은 세트 ${calibrated}kg 적용`}
+                  onClick={() =>
+                    pending.forEach(({ i }) =>
+                      actions.patchSet(entry.recordKey, i, { weight: calibrated }),
+                    )
+                  }
+                />
+              )}
+
+              <HStack gap={2} wrap="wrap">
+                <Button variant="secondary" label="+ 세트" onClick={() => actions.addSet(entry.recordKey)} />
+                {/*
+                  워밍업 세트 (T7). 볼륨·증량·PR에서 제외된다.
+                  계획서는 "+ 세트" 롱프레스를 제안했지만 롱프레스는 어포던스가 없어 존재를
+                  모르게 된다. 작은 버튼으로 두되 앞에 내세우지 않는다.
+                */}
+                <Button
+                  variant="secondary"
+                  label="워밍업"
+                  aria-label="워밍업 세트 추가"
+                  onClick={() => {
+                    /*
+                      **커밋을 먼저.** 워밍업은 앞에 삽입되어 인덱스를 밀고, NumberStepper의
+                      편집 중 로컬 상태는 인덱스에 붙어 있다 (v1.7 §3.2에서 화면 40 / DB 0).
+                    */
+                    commitPendingEdits()
+                    actions.addSet(entry.recordKey, { warmup: true })
+                  }}
+                />
+                {entry.sets.length > 1 && (
+                  <Button
+                    variant="secondary"
+                    label="− 세트"
+                    onClick={() => actions.removeSet(entry.recordKey, entry.sets.length - 1)}
+                  />
+                )}
+                <Button
+                  variant="secondary"
+                  label={entry.skipped ? '스킵 해제' : '스킵'}
+                  onClick={() => actions.setSkipped(entry.recordKey, !entry.skipped)}
+                />
+                {/*
+                  교체는 세트를 새로 만들므로 이미 체크한 기록이 사라진다. applySubstitute가
+                  거부하지만 누를 수 있는 버튼을 두면 "왜 안 되지"가 된다 — 아예 감춘다.
+                */}
+                {onRequestSubstitute && done.length === 0 && (
+                  /*
+                    X8 — 라벨을 "대체"로 줄였다. "자리 없음 · 대체"가 375px에서 줄바꿈됐고,
+                    줄바꿈된 버튼은 세트 행 높이를 흔들어 옆 버튼들의 탭 위치를 밀어낸다.
+                    시트를 열면 "머신이 사용 중일 때" 설명이 나오므로 라벨에 사유까지 담지 않는다.
+                  */
+                  <Button
+                    variant="secondary"
+                    label="대체"
+                    aria-label="대체 — 자리 없음, 대체운동 고르기"
+                    onClick={onRequestSubstitute}
+                  />
+                )}
+              </HStack>
+
+              {/* B그룹 감각 점수 (§5.2). 목표 부위에 자극이 왔는지 — "계속 0인 종목" 탐지용 */}
+              {isB && (
+                <VStack gap={2}>
+                  <Text type="supporting" color="secondary">
+                    감각 점수
+                  </Text>
+                  <HStack gap={2}>
+                    {([0, 1, 2, 3] as const).map((score) => (
+                      <ToggleButton
+                        key={score}
+                        label={String(score)}
+                        isPressed={entry.sensoryScore === score}
+                        onPressedChange={() => actions.setSensoryScore(entry.recordKey, score)}
+                      />
+                    ))}
+                  </HStack>
+                  <Text type="supporting" color="secondary">
+                    {entry.sensoryScore === undefined
+                      ? '미입력 — 목표 부위에 자극이 왔는지'
+                      : SENSORY_LABELS[entry.sensoryScore]}
+                  </Text>
+                  {/*
+                    직전 메모 (CC14). 데이터는 이미 쌓여 있었고 **보여주는 곳이 없었다** —
+                    '리어델트에서 목에 긴장' 같은 기록이 내보내기·LLM을 한 바퀴 돌아
+                    기억으로만 남던 것을, 그 종목을 펼치는 순간 화면이 말해 준다.
+                  */}
+                  {previousNote && (
+                    <Text type="supporting" color="secondary">
+                      지난번({previousNote.date}): {noteLineText(previousNote)}
+                    </Text>
+                  )}
+                  <TextField
+                    label={`${name} 감각 메모`}
+                    isLabelHidden
+                    value={entry.sensoryNote ?? ''}
+                    onChange={(next) => actions.setSensoryNote(entry.recordKey, next)}
+                    placeholder="어디에 어떻게 느껴졌는지 (선택)"
+                  />
+                </VStack>
+              )}
+
+              {/* 보상작용 — 기본값 "없음". 빈칸으로 둘 수 없다 (루틴 문서 규칙) */}
+              <VStack gap={2}>
+                <Text type="supporting" color="secondary">
+                  보상작용
+                </Text>
+                <List>
+                  <ListItem
+                    label={
+                      hasCompensation(entry.compensation) ? (
+                        <Text className="ax-text-warning">{entry.compensation}</Text>
+                      ) : (
+                        <Text>{entry.compensation}</Text>
+                      )
+                    }
+                    endContent={<Text color="secondary">▸</Text>}
+                    onClick={() => setEditingCompensation(true)}
+                  />
+                </List>
+              </VStack>
+
+              {/* 통증 (LL2) — 기본값 없음. 있음일 때만 메모 칸이 열린다 */}
+              <VStack gap={2}>
+                <Text type="supporting" color="secondary">
+                  통증
+                </Text>
+                <HStack gap={2}>
+                  <ToggleButton
+                    label={hasPain(entry) ? '있음' : '없음'}
+                    isPressed={hasPain(entry)}
+                    onPressedChange={() =>
+                      actions.setPain(entry.recordKey, hasPain(entry) ? undefined : { note: '' })
+                    }
+                  />
+                </HStack>
+                {entry.pain && (
+                  <TextField
+                    label={`${name} 통증 메모`}
+                    isLabelHidden
+                    value={entry.pain.note}
+                    onChange={(next) => actions.setPain(entry.recordKey, { note: next })}
+                    placeholder="부위·상황 (예: 왼쪽 발목 찌릿)"
+                  />
+                )}
+              </VStack>
+            </VStack>
           )}
-
-          {/* 보상작용 — 기본값 "없음". 빈칸으로 둘 수 없다 (루틴 문서 규칙) */}
-          <div className="sub-field">
-            <div className="card-label">보상작용</div>
-            <button
-              className={`btn btn-sm${hasCompensation(entry.compensation) ? ' btn-warn' : ''}`}
-              onClick={() => setEditingCompensation(true)}
-              style={{ justifyContent: 'space-between' }}
-            >
-              <span style={{ textAlign: 'left' }}>{entry.compensation}</span>
-              <span aria-hidden="true">▸</span>
-            </button>
-          </div>
-
-          {/* 통증 (LL2) — 기본값 없음. 있음일 때만 메모 칸이 열린다 */}
-          <div className="sub-field">
-            <div className="card-label">통증</div>
-            <button
-              className={`btn btn-sm${hasPain(entry) ? ' btn-warn' : ''}`}
-              aria-pressed={hasPain(entry)}
-              onClick={() => actions.setPain(entry.recordKey, hasPain(entry) ? undefined : { note: '' })}
-            >
-              {hasPain(entry) ? '있음' : '없음'}
-            </button>
-            {entry.pain && (
-              <input
-                {...NO_AUTOFILL}
-                className="field"
-                value={entry.pain.note}
-                onChange={(e) => actions.setPain(entry.recordKey, { note: e.target.value })}
-                placeholder="부위·상황 (예: 왼쪽 발목 찌릿)"
-                aria-label={`${name} 통증 메모`}
-              />
-            )}
-          </div>
-        </div>
-      )}
+        </Collapsible>
+      </Card>
 
       {guideSet !== null && (
         <TempoGuideSheet
@@ -731,6 +747,6 @@ export default function ExerciseCard({
           onClose={() => setEditingCompensation(false)}
         />
       )}
-    </div>
+    </>
   )
 }

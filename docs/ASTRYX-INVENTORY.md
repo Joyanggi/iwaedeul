@@ -1,6 +1,6 @@
 # Astryx 적용 현황
 
-> 2026-11-16, 커밋 a65b04a. `node scripts/astryx-inventory.mjs --write`가 만든다. `--check`가 맨 아래 합계 줄을 기준으로 뒷걸음을 막는다.
+> 2026-11-16, 커밋 97fac34. `node scripts/astryx-inventory.mjs --write`가 만든다. `--check`가 맨 아래 합계 줄을 기준으로 뒷걸음을 막는다.
 
 | 파일 | Astryx | 인라인 | 인라인 여백 | legacy 클래스 |
 |---|---|---|---|---|
@@ -15,7 +15,7 @@
 | src/components/DietPlanSheet.tsx | — | 1 | 0 | 10 |
 | src/components/DietSlotSheet.tsx | — | 0 | 0 | 11 |
 | src/components/DietVariantSheet.tsx | — | 3 | 0 | 7 |
-| src/components/ExerciseCard.tsx | — | 4 | 0 | 39 |
+| src/components/ExerciseCard.tsx | 예 | 0 | 0 | 0 |
 | src/components/ExercisePickerSheet.tsx | 예 | 0 | 0 | 0 |
 | src/components/ExportPanel.tsx | — | 1 | 0 | 10 |
 | src/components/FinishSheet.tsx | — | 1 | 0 | 10 |
@@ -26,7 +26,7 @@
 | src/components/MealReminderPanel.tsx | — | 2 | 0 | 5 |
 | src/components/MonthCalendar.tsx | — | 0 | 0 | 11 |
 | src/components/MuscleVolumeBars.tsx | 예 | 0 | 0 | 0 |
-| src/components/NumberStepper.tsx | — | 0 | 0 | 2 |
+| src/components/NumberStepper.tsx | 예 | 0 | 0 | 0 |
 | src/components/OpenSessionSheet.tsx | 예 | 0 | 0 | 0 |
 | src/components/RestTimerBar.tsx | 예 | 0 | 0 | 0 |
 | src/components/RoutineIoPanel.tsx | — | 2 | 0 | 14 |
@@ -54,4 +54,4 @@
 | src/screens/SettingsScreen.tsx | — | 7 | 0 | 20 |
 | src/screens/SummaryScreen.tsx | — | 4 | 0 | 18 |
 
-합계: `.tsx` 49개 가운데 Astryx를 읽는 것 15개, 인라인 스타일 70곳(여백 0), legacy 클래스 쓰임 404곳, 안 쓰는 legacy 선택자 2개.
+합계: `.tsx` 49개 가운데 Astryx를 읽는 것 17개, 인라인 스타일 66곳(여백 0), legacy 클래스 쓰임 363곳, 안 쓰는 legacy 선택자 2개.

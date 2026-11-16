@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { stepDown, stepUp } from '../lib/weightScale'
 import { isTap, type TapPoint } from '../lib/tapJudge'
-import { NO_AUTOFILL } from '../lib/inputProps'
+import { Button, HStack, TextField } from '../ax'
 
 /**
  * 입력 중 허용 패턴 (T2).
@@ -45,6 +45,10 @@ export default function NumberStepper({
    * 직접 입력은 여전히 자유다 — 사다리는 ± 버튼에만 적용된다.
    */
   ladder,
+  /** 숫자를 제목 글자 크기로 키운다. 세트 행만 켠다 — 식단 편집의 "먹은 개수"는 폭이 좁아 끈다 */
+  isProminent = false,
+  /** 무게 0 경고 같은 상태 표시 */
+  status,
 }: {
   value: number
   step: number
@@ -54,11 +58,12 @@ export default function NumberStepper({
   ariaLabel: string
   decimals?: 0 | 2
   ladder?: number[]
+  isProminent?: boolean
+  status?: 'warning'
 }) {
   const [text, setText] = useState<string | null>(null)
   /** pointerdown 좌표 — pointerup에서 탭인지 판정한다 (CC12) */
   const down = useRef<TapPoint | null>(null)
-  const [pressed, setPressed] = useState<-1 | 1 | null>(null)
   const latest = useRef({ value, step, min, max, onChange, decimals, ladder })
   latest.current = { value, step, min, max, onChange, decimals, ladder }
 
@@ -76,13 +81,11 @@ export default function NumberStepper({
   const release = (dir: 1 | -1, e: React.PointerEvent) => {
     const started = down.current
     down.current = null
-    setPressed(null)
     if (isTap(started, { x: e.clientX, y: e.clientY })) bump(dir)
   }
 
   const abort = () => {
     down.current = null
-    setPressed(null)
   }
 
   const commitText = () => {
@@ -94,55 +97,55 @@ export default function NumberStepper({
     onChange(clamp(Math.round(parsed * factor) / factor))
   }
 
+
   return (
-    <div className="stepper">
-      <button
-        type="button"
-        className={pressed === -1 ? 'stepper-btn-pressed' : undefined}
-        aria-label={`${ariaLabel} 감소`}
+    <HStack gap={2} className="ax-scope">
+      <Button
+        variant="secondary"
+        isIconOnly
+        icon={<span aria-hidden="true">−</span>}
+        label={`${ariaLabel} 감소`}
         onPointerDown={(e) => {
           e.preventDefault()
           down.current = { x: e.clientX, y: e.clientY }
-          setPressed(-1)
         }}
         onPointerUp={(e) => release(-1, e)}
         onPointerCancel={abort}
         onPointerLeave={abort}
-      >
-        −
-      </button>
+      />
       {/* 정수 필드는 inputMode=numeric — iOS 키패드에서 소수점 키 자체가 사라진다 */}
-      <input
-        {...NO_AUTOFILL}
-        className="stepper-value"
+      <TextField
+        isNumeric
+        isProminent={isProminent}
+        status={status === 'warning' ? { type: 'warning' } : undefined}
+        width="100%"
         inputMode={decimals === 2 ? 'decimal' : 'numeric'}
-        aria-label={ariaLabel}
+        label={ariaLabel}
+        isLabelHidden
         value={text ?? String(value)}
-        onChange={(e) => {
+        onChange={(next) => {
           // 패턴을 통과하지 못하면 이전 값을 유지한다 — 타이핑 자체가 안 된다
-          if (isAllowedInput(e.target.value, decimals)) setText(e.target.value)
+          if (isAllowedInput(next, decimals)) setText(next)
         }}
-        onFocus={(e) => e.currentTarget.select()}
+        onFocus={(e) => (e.currentTarget as HTMLInputElement).select()}
         onBlur={commitText}
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur()
         }}
       />
-      <button
-        type="button"
-        className={pressed === 1 ? 'stepper-btn-pressed' : undefined}
-        aria-label={`${ariaLabel} 증가`}
+      <Button
+        variant="secondary"
+        isIconOnly
+        icon={<span aria-hidden="true">+</span>}
+        label={`${ariaLabel} 증가`}
         onPointerDown={(e) => {
           e.preventDefault()
           down.current = { x: e.clientX, y: e.clientY }
-          setPressed(1)
         }}
         onPointerUp={(e) => release(1, e)}
         onPointerCancel={abort}
         onPointerLeave={abort}
-      >
-        +
-      </button>
-    </div>
+      />
+    </HStack>
   )
 }

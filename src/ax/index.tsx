@@ -125,9 +125,24 @@ export function StickyTop({ children }: { children: ReactNode }) {
   return <div className="ax-sticky-top">{children}</div>
 }
 
+/**
+ * 숫자 칸의 글자(가운데·표 숫자, 크게 켜면 테마의 제목 글자 단계)는 `parts.css`의 두 클래스가 입력칸에 건다.
+ * `controlStyle`은 입력칸이 아니라 바깥 상자에 붙어 글자 크기가 안 닿는다(실측). 16px 하한은 그 CSS에도 있다.
+ */
+/** 크게 켠 숫자 칸은 바깥 상자의 좌우 안쪽 여백을 없앤다 — 세트 행의 좁은 열에서 142.5가 잘리지 않게 */
+const PROMINENT_STYLE = { ...CONTROL_STYLE, paddingInline: 0 } as const
+
+interface TextFieldProps extends TextInputProps {
+  /** 숫자 칸 — 글자를 가운데에 놓고 표 숫자로 맞춘다 */
+  isNumeric?: boolean
+  /** 숫자를 제목 글자 크기로 키운다(세트 행의 무게·횟수). 가운데·표 숫자도 함께 켠다 */
+  isProminent?: boolean
+}
+
 /** 텍스트 입력. 자동완성 억제(G5)와 16px 하한을 빠뜨릴 수 없게 한다. */
-export function TextField(props: TextInputProps) {
-  return <TextInput {...AX_NO_AUTOFILL} controlStyle={CONTROL_STYLE} {...props} />
+export function TextField({ isNumeric = false, isProminent = false, ...props }: TextFieldProps) {
+  const numeric = isProminent ? 'ax-num-prominent' : isNumeric ? 'ax-num' : undefined
+  return <TextInput {...AX_NO_AUTOFILL} controlStyle={isProminent ? PROMINENT_STYLE : CONTROL_STYLE} controlClassName={numeric} {...props} />
 }
 
 interface StepperProps {

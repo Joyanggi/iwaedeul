@@ -105,7 +105,7 @@ describe("v120 RR0 — 검사 도구가 화면 클래스에 안 묶인다", () =
 
   it("v120 RR0: 새 칸은 before(와 판정을 안 켠 칸)에서는 기록만 하고 실패로 세지 않는다", () => {
     const t = text(SCRIPTS, "/scripts/ui-check.mjs")
-    expect(t).toMatch(/const JUDGED = \{ '탭 누름': true, '지금 탭': true, '마지막 요소': true, '세트 숫자': false, '섬 버튼': false, '테마 토큰': true \}/) // RR1이 '테마 토큰'을, RR3이 '탭 누름'·'마지막 요소'와 새 칸 '지금 탭'을 켰다(PLAN: 작업이 끝날 때 해당 값을 true로)
+    expect(t).toMatch(/const JUDGED = \{ '탭 누름': true, '지금 탭': true, '마지막 요소': true, '세트 숫자': true, '섬 버튼': true, '테마 토큰': true \}/) // RR7이 '세트 숫자'·'섬 버튼'을 켰다(작업이 끝날 때 true). RR1이 '테마 토큰'을, RR3이 '탭 누름'·'마지막 요소'와 새 칸 '지금 탭'을 켰다(PLAN: 작업이 끝날 때 해당 값을 true로)
     expect(t).toContain("status: '기록'")
   })
 
@@ -739,5 +739,128 @@ describe("v120 RR6 — 세션 화면 틀과 휴식 바", () => {
     expect(t).toMatch(/'session-rest': 2/)
     const lib = text(LIB, "/scripts/lib/ui-check-lib.mjs")
     expect(lib).toContain("위 띠 아래")
+  })
+})
+
+describe("v120 RR7 — 운동 카드와 스테퍼", () => {
+  const CARD = "/src/components/ExerciseCard.tsx"
+  const STEP = "/src/components/NumberStepper.tsx"
+  const classNames = (s: string) => [...s.matchAll(/className=("[^"]*"|\{[^}]*\})/g)].map((m) => m[1])
+
+  it("v120 RR7: ExerciseCard의 className=은 ax-scope·{setRowClass(set)}·ax- 이름뿐이고 style=·<button·<input 0건이다", () => {
+    const s = code(CARD)
+    for (const c of classNames(s)) {
+      expect(c, c).toMatch(/^"ax-[\w-]+"$|^\{setRowClass\(set\)\}$/)
+    }
+    expect(classNames(s)).toContain('"ax-scope"')
+    expect(classNames(s)).toContain("{setRowClass(set)}")
+    expect(s).not.toMatch(/style=|<button|<input|<textarea/)
+  })
+
+  it("v120 RR7: NumberStepper의 className=은 ax-scope 하나뿐이고 <button·<input·onClick이 없다 (처리기는 뗄 때 한 번만 센다)", () => {
+    const s = code(STEP)
+    expect(classNames(s)).toEqual(['"ax-scope"'])
+    expect(s).not.toMatch(/<button|<input|onClick/)
+    expect(s).toMatch(/<TextField\b/)
+  })
+
+  it("v120 RR7: 입력은 TextField(자동완성 억제를 품은 부품)만 쓴다 — 카드·스테퍼에 <input·NO_AUTOFILL 직접 사용이 없다", () => {
+    for (const f of [CARD, STEP]) {
+      expect(code(f), f).not.toMatch(/<input|<textarea|NO_AUTOFILL/)
+      expect(code(f), f).toMatch(/from '\.\.\/ax'/)
+      expect(code(f), f).not.toMatch(/@astryxdesign/)
+    }
+  })
+
+  it("v120 RR7: 스테퍼 — 로직 그대로: 두 단추가 같은 네 처리기(pointerdown의 preventDefault·up은 release·cancel·leave는 abort)를 쓰고 pressed 상태가 없다", () => {
+    const s = code(STEP)
+    expect(s.match(/onPointerDown=\{\(e\) => \{\s*e\.preventDefault\(\)/g) ?? []).toHaveLength(2)
+    expect(s).toMatch(/onPointerUp=\{\(e\) => release\(-1, e\)\}/)
+    expect(s).toMatch(/onPointerUp=\{\(e\) => release\(1, e\)\}/)
+    expect(s.match(/onPointerCancel=\{abort\}/g) ?? []).toHaveLength(2)
+    expect(s.match(/onPointerLeave=\{abort\}/g) ?? []).toHaveLength(2)
+    expect(s).not.toMatch(/setPressed|pressed/)
+    expect(s).toMatch(/label=\{`\$\{ariaLabel\} 감소`\}/)
+    expect(s).toMatch(/label=\{`\$\{ariaLabel\} 증가`\}/)
+  })
+
+  it("v120 RR7: 스테퍼 — isProminent·status를 받아 TextField로 넘기고, 카드는 세트 행에서만 isProminent를 켜며 무게 0 경고를 status로 준다. 식단 편집은 안 고친다", () => {
+    const s = code(STEP)
+    expect(s).toMatch(/isProminent = false/)
+    expect(s).toMatch(/isProminent=\{isProminent\}/)
+    expect(s).toMatch(/status=\{status === 'warning' \? \{ type: 'warning' \} : undefined\}/)
+    const card = code(CARD)
+    expect(card.match(/\bisProminent\b/g) ?? []).toHaveLength(2)
+    expect(code("/src/components/DietDayEditor.tsx")).not.toMatch(/isProminent|ax-scope/)
+  })
+
+  it("v120 RR7: 순서 — 칩 줄이 본문의 맨 위다: 칩 줄 < 메모·무게 기준 < 자극 요령 < 세팅 메모 줄 < 무게 단위 줄 < 세트 표 머리", () => {
+    const s = code(CARD)
+    const at = (needle: string) => {
+      const i = s.indexOf(needle)
+      expect(i, `${needle}를 못 찾았다`).toBeGreaterThan(-1)
+      return i
+    }
+    const order = [
+      at("label={`${routineExercise.group}그룹`}"),
+      at("{routineExercise.note &&"),
+      at("{cueTip &&"),
+      at("머신 세팅 메모 추가"),
+      at("무게 단위 · {describeScale(weightScale)}"),
+      at('className="ax-set-head"'),
+    ]
+    expect(order).toEqual([...order].sort((a, b) => a - b))
+    // 칩 줄이 본문 맨 위: `open &&` 바로 뒤 첫 요소다
+    expect(s).toMatch(/\{open && \(\s*<VStack gap=\{3\}>\s*(?:\{\}\s*)?<HStack gap=\{1\} wrap="wrap">\s*\{showPrefillHints && modeIntensity/)
+  })
+
+  it("v120 RR7: 머리는 Collapsible의 trigger이고 본문은 open일 때만 그린다 (닫힌 카드의 스테퍼를 그리지 않는다)", () => {
+    const s = code(CARD)
+    expect(s).toMatch(/<Collapsible\s+isOpen=\{open\}\s+onOpenChange=\{\(\) => onToggleOpen\(\)\}\s+trigger=\{/)
+    expect(s).toMatch(/\{open && \(\s*<VStack/)
+    expect(s).toMatch(/<Card variant=\{entry\.skipped \? 'muted' : undefined\} className="ax-scope">/)
+  })
+
+  it("v120 RR7: 세트 행 — 완료는 ToggleButton(이름 `n세트 완료`)이고 템포·워밍업 커밋 순서가 그대로다. 스킵하면 개수 자리가 스킵 뱃지다", () => {
+    const s = code(CARD)
+    expect(s).toMatch(/<ToggleButton[\s\S]*?label=\{`\$\{i \+ 1\}세트 완료`\}[\s\S]*?isPressed=\{set\.done\}[\s\S]*?onPressedChange=\{\(\) => onCheck\(i, set\.done\)\}/)
+    expect(s).toMatch(/label=\{`\$\{i \+ 1\}세트 템포 가이드`\}/)
+    expect(s).toMatch(/entry\.skipped \? \(\s*<Badge variant="neutral" label="스킵" \/>/)
+    expect(s).toMatch(/commitPendingEdits\(\)\s*\n\s*actions\.addSet\(entry\.recordKey, \{ warmup: true \}\)/)
+  })
+
+  it("v120 RR7: 시트 넷(템포·보상작용 관찰·무게 단위·보상작용)은 카드(.ax-scope) 밖에 그려진다 — 섬 안에서는 legacy 시트 규칙이 꺼진다", () => {
+    const s = code(CARD)
+    const cardEnd = s.indexOf("</Card>")
+    expect(cardEnd).toBeGreaterThan(-1)
+    for (const sheet of ["<TempoGuideSheet", "<CompensationWatchSheet", "<WeightScaleSheet", "<CompensationSheet"]) {
+      expect(s.indexOf(sheet), sheet).toBeGreaterThan(cardEnd)
+    }
+  })
+
+  it("v120 RR7: ui-check — 세트 숫자·섬 버튼을 판정하고, 세트 행 흐름(탭 수·끌기·입력 패턴·워밍업·누르는 영역)과 식단 스테퍼 흐름이 guardedFlow 안에 있다", () => {
+    const t = text(SCRIPTS, "/scripts/ui-check.mjs")
+    expect(t).toMatch(/'세트 숫자': true, '섬 버튼': true/)
+    for (const name of [
+      "RR7 무게 증가 1탭에 한 단계",
+      "RR7 숫자 칸 입력 패턴 (무게 소수 둘째까지, 횟수 소수점 없음)",
+      "RR7 타이핑 중 워밍업을 누르면 친 값이 원래 세트에 남는다",
+      "RR7 1세트 완료 1탭 → 완료 표시 + 휴식 바",
+      "RR7 식단 스테퍼: 1탭 0.5 단위·입력 패턴·글자 크기·삭제 버튼 44px·넘침 없음",
+    ]) {
+      expect(t, name).toContain("guardedFlow(['" + name + "'")
+    }
+    expect(t).toContain("RR7 세트 행 ${width} 폭: 누르는 영역·머리 열·숫자 안 잘림")
+    expect(t).toMatch(/for \(const width of \[390, 375\]\)/)
+    expect(t).toMatch(/CARD_SCENES = \['session', 'session-375', 'session-open-b', 'history-detail-edit'\]/)
+    const lib = text(LIB, "/scripts/lib/ui-check-lib.mjs")
+    expect(lib).toContain("export const inPageTouchReach")
+    expect(lib).toContain("export const inPageSetTable")
+    expect(lib).toContain("export const inPageNumberFit")
+    // 누르는 영역은 중심에서 21px 네 방향이다
+    expect(lib).toMatch(/const REACH = 21/)
+    // `섬 버튼`은 섬 안만이 아니라 legacy 범위 안의 Astryx 버튼도 잰다 — 카드가 섬을 잃어도 스테퍼가 스스로 섬이라 섬 안만 재면 못 잡는다(결함 복원 ⑭)
+    expect(lib).toContain("const LEGACY = '.screen, .onboarding, .sheet-backdrop, .center-note, .banner'")
+    expect(lib).toMatch(/b\.closest\(LEGACY\)/)
   })
 })
