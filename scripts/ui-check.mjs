@@ -457,6 +457,34 @@ async function runScenes(browser, port, scheme) {
         await settle(page, 400)
         const found = (await page.getByText('감각 점수', { exact: true }).count()) > 0
         if (found) await snap('session-open-b')
+        if (found && !light && !ONLY?.has('__skip')) {
+          // RR7 화면 검증(참고, 판정 없음): 감각 점수·통증을 눌러 켠 상태 한 장 + 44px 미만 버튼의 실제 터치 영역(중심에서 위·아래 22px, 왼·오른 22px에 무엇이 있나)
+          await guardedFlow(['RR7 카드 버튼 눌린 상태 한 장 + 터치 영역 참고'], async () => {
+            await page.getByRole('button', { name: '2', exact: true }).first().click()
+            const pain = page.getByRole('button', { name: '없음', exact: true }).last()
+            await pain.click()
+            await settle(page, 500)
+            shots.push({ name: 'session-open-b-pressed', buf: await page.screenshot() })
+            const r = await page.evaluate(() => {
+              const out = []
+              for (const b of document.querySelectorAll('button')) {
+                const rc = b.getBoundingClientRect()
+                if (rc.width === 0 || rc.height === 0 || rc.top < 60 || rc.bottom > innerHeight || rc.height >= 44) continue
+                const cx = rc.left + rc.width / 2
+                const cy = rc.top + rc.height / 2
+                const own = (el) => el && (el === b || b.contains(el))
+                const lab = (b.getAttribute('aria-label') || b.textContent || '').trim().slice(0, 14)
+                const hits = [[0, -22, '위'], [0, 22, '아래']].map(([dx, dy, n]) => {
+                  const h = document.elementFromPoint(cx + dx, cy + dy)
+                  return own(h) ? `${n}✓` : `${n}✗(${(h?.closest('button')?.getAttribute('aria-label') || h?.closest('button')?.textContent || h?.tagName || '').trim().slice(0, 10)})`
+                })
+                out.push(`${lab}=${Math.round(rc.width)}x${Math.round(rc.height)} ${hits.join(' ')}`)
+              }
+              return out
+            })
+            flows.push(['RR7 카드 버튼 눌린 상태 한 장 + 터치 영역 참고', { ok: true, detail: `44px 미만 ${r.length}개: ${r.join(', ')}` }])
+          })
+        }
         if (!wasOpen) await head.click()
         if (found) return
       }
