@@ -384,6 +384,14 @@ async function runScenes(browser, port, scheme) {
     await page.getByRole('dialog', { name: 'Day 선택' }).waitFor()
     await settle(page)
     await snap('sheet-home')
+    // RR5 재검증: 375 폭에서도 Day 선택 줄 부제가 글자 중간에서 꺾이지 않는지
+    await optional('sheet-home-375', async () => {
+      await page.setViewportSize({ width: 375, height: 812 })
+      await settle(page, 500)
+      await snap('sheet-home-375')
+      await page.setViewportSize({ width: 390, height: 844 })
+      await settle(page, 400)
+    })
     await closeSheet('Day 선택')
 
     await page.getByRole('button', { name: /시작$|이어서 하기/ }).first().click()
