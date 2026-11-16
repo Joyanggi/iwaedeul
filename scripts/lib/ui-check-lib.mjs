@@ -184,6 +184,10 @@ export const inPageCurrentTab = () => {
     const differs = others.every((t) => color(t) !== color(current[0]) || mark(t) !== mark(current[0]))
     parts.push({ name: '지금 탭이 다르게 보인다', ok: differs, detail: `글자색 ${color(current[0])} · 선택 표시 ${mark(current[0])}개` })
   }
+  // 고침(화면 검증 반려 1): 탭 줄이 가로로 넘치거나 탭이 줄 밖으로 나가면 375에서 설정 글자가 잘린다
+  const nr = nav.getBoundingClientRect()
+  const outside = tabs.filter((t) => { const r = t.getBoundingClientRect(); return r.right > nr.right + 0.5 || r.left < nr.left - 0.5 })
+  parts.push({ name: '탭이 줄 안', ok: nav.scrollWidth <= nav.clientWidth && outside.length === 0, detail: `scrollWidth ${nav.scrollWidth} · clientWidth ${nav.clientWidth} · 밖 ${outside.length}개` })
   const bar = nav.closest('.ax-bar')
   if (!bar) parts.push({ name: '띠 안', ok: false, detail: '.ax-bar 밖' })
   else {

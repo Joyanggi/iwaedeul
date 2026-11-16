@@ -754,3 +754,9 @@ editor·line-sheet: 통과 (button 쌍 판정; card 쌍은 "기록만"에 위 16
 ### 실기기 확인 목록
 
 - 탭의 눌림 반응(Astryx 눌림은 이 Chromium에서 `mouse.down`으로 안 칠해진다), 홈 화면 앱(PWA)에서 아래 띠가 홈 바 위에 알맞게 놓이는지, 업데이트 알림이 위 안전 영역 아래에 붙는지.
+
+### RR3 보완 (화면 검증 반려 반영)
+
+리뷰 반영: ① `src/ax/parts.css` 아래 탭 버튼을 `flex: 1 1 0; min-width: 0`, 좌우 안쪽 여백·아이콘-글자 간격 `--spacing-1`로 줄어들게 해 다섯 탭이 줄 폭을 균등하게 나눈다. ② `ui-check`의 `지금 탭`에 `탭이 줄 안`(nav `scrollWidth ≤ clientWidth`, 모든 탭 `left ≥ nav.left`·`right ≤ nav.right`)을 더했다. 결과: `home`·`home-375`(다크·라이트) 통과, 스크린샷 `home-375-light.png`에서 설정 글자가 안 잘린다.
+결함 복원: `parts.css`를 고치기 전 것으로 되돌리면 `지금 탭`이 실패(`scrollWidth 372 · clientWidth 343(375)/358(390) · 밖 1개`), 고친 것으로 되돌리면 통과(`cmp` 동일).
+실행: `npm run check` 통과(Test Files 73 · Tests 1701), `ui-check after --check` 실패 칸 없음.

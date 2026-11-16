@@ -40,8 +40,13 @@
    * 탭은 눌리는 영역이 띠의 높이 전체여야 한다(보이는 높이만 눌리면 띠의 위·아래 끝에서 안 눌린다).
    * 레이아웃은 그대로 두고 눌림 영역만 띠의 안쪽 여백만큼 위·아래로 늘린다.
    */
+  /* 탭 다섯이 줄 폭을 균등하게 나눈다. 줄어들 수 있어야(min-width 0) 375에서 설정이 안 잘린다 */
   .ax-bar nav[aria-label='화면'] button {
     position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: var(--spacing-1);
+    gap: var(--spacing-1);
   }
 
   .ax-bar nav[aria-label='화면'] button::after {
