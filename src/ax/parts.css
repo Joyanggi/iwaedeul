@@ -285,4 +285,47 @@
   .ax-set-head > * {
     text-align: center;
   }
+
+  /*
+   * 자극 요령 카드(RR7 재검증). 한글은 단어(공백) 사이에서만 줄을 바꾼다 — 375 폭에서 "상/태"로 꺾였다.
+   * 다크에서는 muted 카드가 바탕과 같은 색이라 카드 모양이 안 보여, 라이트와 한 벌로 테두리를 더한다.
+   */
+  .ax-tip {
+    border: 1px solid var(--color-border-emphasized);
+  }
+
+  .ax-tip :is(p, span, div) {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  /*
+   * 켜고 끄는 글자 버튼(감각 점수·통증, RR7 재검증). 안 눌렸을 때도 "+ 세트" 알약처럼 바탕과 테두리가 보이고,
+   * 눌리면 더 진한 바탕과 굵은 글씨로 구분한다. 높이는 36px 이상.
+   */
+  .ax-toggle {
+    min-height: var(--spacing-9);
+    min-width: var(--spacing-9);
+    /* 안쪽 여백을 보상작용 줄(ListItem)과 맞춰 두 줄의 글자가 같은 자리에서 시작한다 */
+    padding-inline: var(--spacing-2);
+    background: var(--color-background-muted);
+    border: 1px solid var(--color-border-emphasized);
+  }
+
+  .ax-toggle[aria-pressed='true'] {
+    background: var(--color-accent-muted);
+    border-color: var(--color-accent);
+    font-weight: 700;
+  }
+
+  /* 식단 편집 줄: 시각 칸이 줄어들 수 있어야 삭제 버튼이 카드 안쪽 폭을 넘지 않는다 */
+  .btn-row:has(> .ax-scope) > input[type='time'] {
+    flex: 0 1 8rem;
+    min-width: 0;
+  }
+
+  .btn-row:has(> .ax-scope) > .btn-danger {
+    width: auto;
+    flex: 0 0 auto;
+  }
 }

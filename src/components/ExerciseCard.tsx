@@ -357,7 +357,7 @@ export default function ExerciseCard({
                 무엇을 느껴야 하는지 모르면 점수 자체가 무의미해진다.
               */}
               {cueTip && (
-                <Card variant="muted">
+                <Card variant="muted" className="ax-tip">
                   <Text>💡 {cueTip}</Text>
                 </Card>
               )}
@@ -603,6 +603,7 @@ export default function ExerciseCard({
                     {([0, 1, 2, 3] as const).map((score) => (
                       <ToggleButton
                         key={score}
+                        className="ax-toggle"
                         label={String(score)}
                         isPressed={entry.sensoryScore === score}
                         onPressedChange={() => actions.setSensoryScore(entry.recordKey, score)}
@@ -661,6 +662,7 @@ export default function ExerciseCard({
                 </Text>
                 <HStack gap={2}>
                   <ToggleButton
+                    className="ax-toggle"
                     label={hasPain(entry) ? '있음' : '없음'}
                     isPressed={hasPain(entry)}
                     onPressedChange={() =>

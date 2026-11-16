@@ -325,8 +325,8 @@ async function pressShot(page, scene, label) {
 }
 
 /** 열려 있는 dialog 안 글자를 하나씩 재서, 공백 없이 이어진 두 글자 사이에서 줄이 바뀐 곳을 센다 (RR5 재검증) */
-function inPageMidWordBreaks() {
-  const dlg = document.querySelector('dialog[open]')
+function inPageMidWordBreaks(rootSelector = 'dialog[open]') {
+  const dlg = document.querySelector(rootSelector)
   const out = { chars: 0, count: 0, samples: [] }
   if (!dlg) return out
   const walker = document.createTreeWalker(dlg, NodeFilter.SHOW_TEXT)
@@ -426,7 +426,7 @@ async function runScenes(browser, port, scheme) {
       // RR5 재검증: 375 폭에서 한글이 글자 중간에서 꺾이지 않는다 (공백 없는 두 글자 사이에서 줄이 바뀌면 실패)
       if (!light) {
         await guardedFlow(['Day 선택 시트 375 글자 중간 꺾임 없음'], async () => {
-          const r = await page.evaluate(inPageMidWordBreaks)
+          const r = await page.evaluate(inPageMidWordBreaks, 'dialog[open]')
           flows.push(['Day 선택 시트 375 글자 중간 꺾임 없음', { ok: r.count === 0 && r.chars > 0, detail: r.chars === 0 ? '잰 글자 0개' : `글자 ${r.chars}개 · 중간 꺾임 ${r.count}건${r.count ? ': ' + r.samples.join(' | ') : ''}` }])
         })
       }
@@ -443,6 +443,13 @@ async function runScenes(browser, port, scheme) {
       await page.setViewportSize({ width: 375, height: 812 })
       await settle(page, 500)
       await snap('session-375')
+      // RR7 재검증: 펼친 카드의 팁 글이 375 폭에서 글자 중간에서 꺾이지 않는다(이전엔 '상/태')
+      if (!light) {
+        await guardedFlow(['RR7 팁 카드 375 글자 중간 꺾임 없음'], async () => {
+          const r = await page.evaluate(inPageMidWordBreaks, '.ax-tip')
+          flows.push(['RR7 팁 카드 375 글자 중간 꺾임 없음', { ok: r.count === 0 && r.chars > 0, detail: r.chars === 0 ? '잰 글자 0개' : `글자 ${r.chars}개 · 중간 꺾임 ${r.count}건${r.count ? ': ' + r.samples.join(' | ') : ''}` }])
+        })
+      }
       await page.setViewportSize({ width: 390, height: 844 })
       await settle(page, 400)
     })
@@ -860,6 +867,7 @@ async function runScenes(browser, port, scheme) {
             width,
             smaller: parseFloat(getComputedStyle(input).fontSize) < big,
             delH: Math.round(del.getBoundingClientRect().height),
+            delInside: (() => { const memo = document.querySelector('[aria-label="식단 메모"]'); return memo ? Math.round(del.getBoundingClientRect().right) <= Math.round(memo.getBoundingClientRect().right) : false })(),
             oneLine: sib ? [...sib.children].every((c) => Math.abs(c.getBoundingClientRect().top + c.getBoundingClientRect().height / 2 - (sib.children[0].getBoundingClientRect().top + sib.children[0].getBoundingClientRect().height / 2)) < 6) : false,
             docOk: document.documentElement.scrollWidth <= innerWidth,
           }
@@ -867,8 +875,8 @@ async function runScenes(browser, port, scheme) {
       }
       await page.setViewportSize({ width: 390, height: 844 })
       await settle(page, 300)
-      const ok = c1 - c0 === 0.5 && c2 === c0 && typed === '1.55' && widths.every((w) => w.smaller && w.delH >= 44 && w.oneLine && w.docOk)
-      flows.push(['RR7 식단 스테퍼: 1탭 0.5 단위·입력 패턴·글자 크기·삭제 버튼 44px·넘침 없음', { ok, detail: `+1탭 ${c0}→${c1} · −1탭 ${c2} · 1.555→${typed} · ${widths.map((w) => `${w.width}: 글자 작음 ${w.smaller} 삭제 ${w.delH}px 한 줄 ${w.oneLine} 넘침 없음 ${w.docOk}`).join(' / ')}` }])
+      const ok = c1 - c0 === 0.5 && c2 === c0 && typed === '1.55' && widths.every((w) => w.smaller && w.delH >= 44 && w.delInside && w.oneLine && w.docOk)
+      flows.push(['RR7 식단 스테퍼: 1탭 0.5 단위·입력 패턴·글자 크기·삭제 버튼 44px·넘침 없음', { ok, detail: `+1탭 ${c0}→${c1} · −1탭 ${c2} · 1.555→${typed} · ${widths.map((w) => `${w.width}: 글자 작음 ${w.smaller} 삭제 ${w.delH}px 삭제 오른쪽 끝≤메모 칸 ${w.delInside} 한 줄 ${w.oneLine} 넘침 없음 ${w.docOk}`).join(' / ')}` }])
     })
 
 
