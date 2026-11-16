@@ -1,7 +1,7 @@
 /*
  * 이 앱만의 부품(띠, 요일 점, 세트 행, 템포 무대)의 CSS를 두는 한 곳 (v1.20 RR3).
  * 색 리터럴 0건. 길이는 Astryx 토큰(`--spacing-*`)·`%`·`1px`(선)·`0`·`env()`·`rem`·`100dvh`만 쓴다 — v120 스캔이 지킨다.
- * 클래스 이름은 `ax-`로 시작한다(예외: RR7의 `set-row*`).
+ * 클래스 이름은 `ax-`로 시작한다(예외: RR7의 `set-row*`, 식단 편집 줄의 legacy 요소 둘 `.btn-row:has(> .ax-scope) > input[type='time']`·`> .btn-danger`).
  */
 @layer astryx-theme {
   /*

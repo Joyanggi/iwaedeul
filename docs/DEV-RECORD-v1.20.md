@@ -1040,6 +1040,11 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 | 세트 열 | 번호 `--spacing-6` · 무게 1.2fr · 횟수 1fr, 스테퍼 안 간격 `--spacing-2`. Astryx는 터치에서 누르는 영역을 **이웃과의 간격 절반**까지만 넓혀서, `−`·`+`와 숫자 칸 사이가 4px이면 20px까지(21 미달), 8px이면 22px이다 |
 | 스테퍼 줄(식단 편집) | `.btn-row > .ax-scope`에 `min-width: 0`을 주면 폭 0으로 줄어 단추가 삭제 버튼 위에 겹쳤다(문서가 390→511로 넓어짐). 단추 둘+숫자 칸 최소 폭(`calc(2 * var(--spacing-9) + var(--spacing-12))`)을 둔다 |
 | `섬 버튼` | 섬 안 버튼만 재면 **카드가 섬을 잃어도 못 잡는다**(스테퍼가 스스로 섬). legacy 범위(`.screen` 등) 안의 Astryx 버튼도 같이 재도록 고쳤다 — 결함 복원 ⑭에서 발견 |
+| 수정 커밋 `2a8d5cd`(화면 검증 반려) — `parts.css` 규칙 넷 | `.ax-tip`(자극 요령 카드 테두리 + `word-break: keep-all`, 375에서 `상/태` 꺾임), `.ax-toggle`(감각 점수·통증 토글), 식단 줄 둘 `.btn-row:has(> .ax-scope) > input[type='time']`·`> .btn-danger`. 흐름 둘 추가: `RR7 팁 카드 375 글자 중간 꺾임 없음`, 식단 스테퍼 흐름의 `삭제 오른쪽 끝≤메모 칸`(390·375). `ExerciseCard.tsx`는 클래스를 거는 4줄 |
+| **편차: 식단 편집 legacy 요소에 `parts.css`로 `flex`/`width`** | 시각 칸(`input[type='time']`)에 `flex: 0 1 8rem; min-width: 0`, 삭제 버튼(`.btn-danger`)에 `width: auto; flex: 0 0 auto`. PLAN 범위 제외("시각 입력칸·삭제 버튼·줄 배치는 옮기지 않는다")와 `parts.css` 머리 규칙(`ax-` 이름)에서 벗어난다. 머리 주석의 예외 목록에 두 선택자를 적었다. **이유:** 스테퍼가 들어오며 삭제 버튼 오른쪽 끝이 메모 칸보다 약 11px 밖(카드 테두리 5px 앞)으로 나갔다(화면 검증 고칠 것 3). `DietDayEditor.tsx`를 안 고치는 PLAN에서 줄을 맞추려면 legacy 두 요소의 폭을 건드릴 수밖에 없었다. `:has(> .ax-scope)`로 스테퍼가 든 줄에만 걸어 다른 `.btn-row`는 안 바뀐다 |
+| 왜 스테퍼 폭으로 못 맞췄나 | 화면 검증자가 먼저 낸 길(식단 스테퍼 폭 줄이기)은 이미 한계다 — 식단 스테퍼는 `isProminent`가 꺼져 있고, 단추 둘+숫자 칸 최소 폭(`calc(2 * var(--spacing-9) + var(--spacing-12))`)을 더 줄이면 위 "스테퍼 줄" 행처럼 폭 0으로 겹친다. 남은 여유는 시각 칸과 삭제 버튼뿐이다 |
+| 삭제 버튼 `before` 대비 | 전: `.btn`의 `width: 100%`가 flex 줄에서 줄어 남는 폭을 나눠 가졌다(스테퍼가 최소 폭을 지키자 카드 밖으로 밀림). 후: 내용 폭(`btn-sm` 좌우 12px + 글자)으로 고정. **높이 44px 그대로**(흐름 `삭제 44px` 통과). 폭의 픽셀 값은 따로 재어 두지 않았다 |
+| `.ax-toggle`가 `ToggleButton` 모양을 덮어쓰는 이유 | Astryx `ToggleButton`(`ToggleButton.d.ts`)에 `variant`가 없어 안 눌렸을 때 바탕·테두리 없는 맨 글자가 된다(화면 검증 고칠 것 2). 속성으로 못 고쳐 `.ax-toggle`가 `--color-background-muted`·`--color-border-emphasized`로 알약 모양을 주고, 눌림(`aria-pressed='true'`)은 `--color-accent-muted`·굵은 글씨로 구분한다. 세트 행 `✓`에는 안 건다(리뷰가 실기기 목록에 올림) |
 | 앞 작업에서 넘어온 것 (1) 다크 칩·번호 동그라미 배경 | `Badge`로 바뀌어 사라졌다. 다크 `history-detail-edit`에서 순번 동그라미·그룹/휴식 칩 배경이 보인다 |
 | (2) `세/트` 꺾임 | 머리가 행과 열 정의를 공유하고 `nowrap`. 390·375 둘 다 한 줄(`세트 표 머리` 두 줄 이상 0개, 열 왼쪽 끝 차이 0px) |
 | (3) 카드 버튼 터치 영역 | `inPageTouchReach`(행 둘, 버튼 10개 × 4방향 중심 21px `elementFromPoint`) 390·375 통과. 카드 뿌리가 `ax-scope`이고 `섬 버튼` 통과(44px로 안 부푼다) |
@@ -1079,7 +1084,7 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 
 | 되살린 결함 | 잡은 것 | 원상복구 |
 |---|---|---|
-| ⑫ `+`에 `onClick={() => bump(1)}` | `v120 RR7` 2건 + 흐름 `무게 증가 1탭에 한 단계` 실패(0→5)·`끌면 안 바뀐다` 실패 | `cmp` 같음 |
+| ⑫ `+`에 `onClick={() => bump(1)}` | `v120 RR7` 1건(`NumberStepper의 className=…onClick이 없다`) + 흐름 `무게 증가 1탭에 한 단계` 실패(0→5)·`끌면 안 바뀐다` 실패 | `cmp` 같음 |
 | ⑬ 카드에서 `isProminent` 뺌 | `v120 RR7` + `session` `세트 숫자` 실패(8/8개가 22px 미만) | `cmp` 같음 |
 | ⑭ 카드 `Card`의 `ax-scope` 뺌 | **처음엔 못 잡음**(스테퍼가 섬이라 `섬 버튼` 통과) → `섬 버튼`이 legacy 안 Astryx 버튼도 재게 고침 → `history-detail-edit` `섬 버튼` 실패(17/25개 44px), 종료 코드 1 | `cmp` 같음 |
 | ⑲ 스테퍼 뿌리의 `ax-scope` 뺌 | 전체 실행이 `diet-log-open` 뒤 `설정` 탭 클릭에서 **중단**(스테퍼 숫자 칸이 탭을 가림 — 줄이 넓어져 문서가 커진다), 종료 코드 1. `섬 버튼` 칸까지 못 가고 죽는다 | `cmp` 같음 |
