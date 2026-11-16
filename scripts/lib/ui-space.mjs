@@ -116,7 +116,7 @@ export const inPageLayout = () => {
  */
 export function spaceRoleVerdicts(layouts, judged = new Set()) {
   const same = (xs) => xs.every((x) => Math.abs(x - xs[0]) < 0.5)
-  const SCREENS = ['home', 'session', 'summary', 'history', 'analyze', 'diet', 'settings', 'editor']
+  const SCREENS = ['home', 'home-375', 'home-banner', 'session', 'summary', 'history', 'analyze', 'diet', 'settings', 'editor']
   const SHEETS = ['sheet-finish', 'sheet-home', 'sheet-food', 'line-sheet']
   const fmt = (pairs) => pairs.map(([k, v]) => `${k} ${v}`).join(' · ')
   const x = SCREENS.filter((s) => layouts[s]?.screenX != null).map((s) => [s, layouts[s].screenX])
@@ -125,7 +125,9 @@ export function spaceRoleVerdicts(layouts, judged = new Set()) {
   const sh = SHEETS.filter((s) => layouts[s]?.sheetInset != null).map((s) => [s, layouts[s].sheetInset])
   const sections = SCREENS.flatMap((s) => (layouts[s]?.sectionGaps ?? []).map((g) => [s, g]))
   const sectionSet = [...new Set(sections.map((p) => p[1]))]
-  const inset = SCREENS.filter((s) => layouts[s]?.cardInset != null).map((s) => [s, layouts[s].cardInset])
+  // 카드 안쪽은 Astryx `Card`를 쓰는 장면끼리만 견준다(홈 RR4 · 루틴 편집). 안 옮긴 화면은 legacy `.card`라 값이 다르고, 옮기는 작업(RR5~RR9)이 이 목록에 더한다
+  const INSET_SCENES = new Set(['home', 'home-375', 'home-banner', 'editor'])
+  const inset = SCREENS.filter((s) => INSET_SCENES.has(s) && layouts[s]?.cardInset != null).map((s) => [s, layouts[s].cardInset])
   const insetScenes = new Set(inset.map((p) => p[0]))
   const sectionScenes = new Set(sections.map((p) => p[0]))
   const role = (name, key, scenes, ok, detail) => ({ name, ok: judged.has(key) ? scenes >= 2 && ok : true, record: !judged.has(key), detail: `${judged.has(key) ? '' : '기록만 — '}${detail}` })
@@ -176,6 +178,8 @@ export const inPageInsetSymmetry = () => {
       add(range.getBoundingClientRect())
     }
     for (const el of root.querySelectorAll('svg, img, input, textarea')) if (vis(el) && !el.parentElement.closest('svg')) add(el.getBoundingClientRect())
+    // 버튼·진행 막대는 글자만이 아니라 상자가 내용이다(카드가 버튼으로 끝나면 안쪽은 버튼 상자 기준이다 — RR4)
+    for (const el of root.querySelectorAll('button, [role="progressbar"]')) if (vis(el)) add(el.getBoundingClientRect())
     return box
   }
   const out = []
@@ -193,7 +197,7 @@ export const inPageInsetSymmetry = () => {
       if (o.top <= 1) top -= safeTop
       if (o.bottom >= innerHeight - 1) bottom -= safeBottom
     }
-    const label = `${el.tagName.toLowerCase()}.${el.className.toString().split(' ')[0] || '-'}${el.getAttribute('aria-label') ? `[${el.getAttribute('aria-label')}]` : ''}`
+    const label = `${el.tagName.toLowerCase()}.${el.className.toString().split(' ')[0] || '-'}${el.getAttribute('aria-label') ? `[${el.getAttribute('aria-label')}]` : ''}${kind === 'card' || kind === 'badge' ? ` "${el.textContent.trim().slice(0, 10)}"` : ''}`
     out.push({ kind, label, axes, top, bottom, left: inner.left - o.left - b.left, right: o.right - inner.right - b.right })
   }
   // 띠(.ax-bar): 보이는 자식들의 상자를 합친 것이 안이다. 위·아래
@@ -210,7 +214,8 @@ export const inPageInsetSymmetry = () => {
     push('tab-content', tab, content(tab), 'both')
   }
   // 버튼: 글자·아이콘. 아이콘만 있는 버튼은 좌·우도
-  for (const btn of [...document.querySelectorAll('button[class*="astryx-"]')].filter(vis)) {
+  // (`Collapsible`의 펼침 줄은 Astryx가 줄 높이를 정하는 한 줄짜리 부품이라 글자가 상자를 1px 넘는다. 그 줄이 든 카드의 안쪽이 대신 잰다 — RR4)
+  for (const btn of [...document.querySelectorAll('button[class*="astryx-"]:not(.astryx-collapsible-trigger)')].filter(vis)) {
     const w = document.createTreeWalker(btn, NodeFilter.SHOW_TEXT)
     let hasText = false
     for (let n = w.nextNode(); n; n = w.nextNode()) if (n.nodeValue.trim()) hasText = true
@@ -231,8 +236,11 @@ export const inPageInsetSymmetry = () => {
 /** 장면마다 기대하는 쌍 종류. 하나라도 0개면 `안쪽 대칭`이 실패다 — 선택자를 놓쳐 아무것도 안 재고 지나가지 않게. 쌍 종류를 더하는 작업(RR3~RR7)이 이 표를 채운다 */
 export const EXPECTED_PAIRS = {
   // RR3: 아래 띠와 탭(Astryx `TabList`). 띠 ↔ 탭 줄, 탭 ↔ 선택 표시, 탭 ↔ 아이콘 + 글자
-  home: ['bar', 'tab-indicator', 'tab-content'],
-  'home-375': ['bar', 'tab-indicator', 'tab-content'],
+  // RR4: 홈은 카드·뱃지·버튼 쌍도 기대한다(운동 카드의 시작 버튼, 이번 주 카드, 루틴 이름 뱃지)
+  home: ['bar', 'tab-indicator', 'tab-content', 'button', 'card', 'badge'],
+  'home-end': ['bar', 'card', 'badge'],
+  'home-375': ['bar', 'tab-indicator', 'tab-content', 'button', 'card', 'badge'],
+  'home-banner': ['bar', 'tab-indicator', 'tab-content', 'button', 'card'],
   'home-resume': ['bar', 'tab-indicator', 'tab-content'],
   'home-safe': ['bar', 'tab-indicator', 'tab-content'],
   settings: ['bar', 'tab-indicator', 'tab-content'],

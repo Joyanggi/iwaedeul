@@ -147,23 +147,6 @@ body {
   margin-bottom: var(--space-row);
 }
 
-.today-card {
-  background: linear-gradient(160deg, color-mix(in srgb, var(--color-accent) 8%, var(--surface)) 0%, var(--surface) 60%);
-  border-color: color-mix(in srgb, var(--color-accent) 25%, var(--line));
-}
-
-.today-day {
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.today-sub {
-  color: var(--text-dim);
-  font-size: 14px;
-  margin-top: 2px;
-}
-
 /* ─── 버튼 ─────────────────────────────────────────────── */
 
 .btn {
@@ -315,23 +298,6 @@ body {
   color: var(--danger);
 }
 
-/*
-  접힌 배너를 펼치는 줄 (BB4). 배너처럼 보이면 안 된다 — 이것은 알림이 아니라 **조작**이다.
-  배경 없이 헤어라인만 두고 배너보다 낮은 높이로 둔다.
-*/
-.banner-more {
-  width: 100%;
-  padding: 8px 12px;
-  margin-bottom: 12px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--text-dim);
-  font-size: 13px;
-  font-weight: 600;
-  text-align: center;
-}
-
 .banner button {
   margin-left: auto;
   flex-shrink: 0;
@@ -345,40 +311,6 @@ body {
 }
 
 .banner button > span {
-  color: var(--bg);
-}
-
-/*
-  배너 안의 2지 선택 (EE3).
-
-  한 칸 토글("적용됨"↔"무시")은 상태와 동작을 번갈아 말해서 **어느 쪽이 켜져 있는지**
-  읽을 수 없었다. 두 답을 나란히 두면 선택은 비교로 읽힌다 — 채워진 쪽이 현재값이고,
-  다른 쪽은 누르면 갈 곳이다. 색은 배너가 정한 currentColor를 그대로 쓴다.
-*/
-.banner-choice {
-  margin-left: auto;
-  flex-shrink: 0;
-  display: flex;
-  gap: 6px;
-}
-
-.banner-choice button {
-  margin-left: 0;
-  /* 고르지 않은 쪽은 테두리만 — 채운 쪽 하나만 "지금 값"으로 읽혀야 한다 */
-  background: transparent;
-  border: 1px solid currentColor;
-  padding: 6px 12px;
-}
-
-.banner-choice button > span {
-  color: currentColor;
-}
-
-.banner-choice button[aria-pressed='true'] {
-  background: currentColor;
-}
-
-.banner-choice button[aria-pressed='true'] > span {
   color: var(--bg);
 }
 
@@ -505,35 +437,6 @@ body {
 /* 시트·막이 들어오는 움직임은 motion.css */
 
 /* ─── 홈 오늘 카드 ─────────────────────────────────────── */
-
-.today-card-btn {
-  display: block;
-  width: 100%;
-  text-align: left;
-  min-height: 0;
-}
-
-.today-reason {
-  margin-top: 8px;
-  color: var(--accent);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-/*
-  시작 버튼 행 (AA2) — 시작이 주 동작이고 [변경]은 곁이다.
-  .btn이 width:100%라 flex-basis가 같아지므로 비율을 여기서 정한다.
-  "변경"은 두 글자이므로 고정 폭으로 두고 시작 버튼이 남는 폭을 갖는다.
-*/
-.start-row .btn-start {
-  flex: 1 1 auto;
-  width: auto;
-}
-
-.start-row .btn-change {
-  flex: 0 0 84px;
-  width: auto;
-}
 
 /* ─── 세션 화면 ────────────────────────────────────────── */
 
@@ -1105,119 +1008,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.week-dots {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  margin-top: 12px;
-}
-
-.week-day {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.week-dot {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1;
-  max-width: 40px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--surface-2);
-  font-size: 18px;
-  line-height: 1;
-}
-
-.week-dot-done {
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
-}
-
-/* 오늘은 링으로 표시 (§5.1) */
-.week-dot-today {
-  box-shadow: inset 0 0 0 2px var(--accent);
-}
-
-.week-dot-future {
-  opacity: 0.4;
-}
-
-.week-dot-multi {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--accent);
-  background: var(--surface);
-  border-radius: 999px;
-  padding: 0 4px;
-}
-
-.week-day-label {
-  font-size: 11px;
-  color: var(--text-faint);
-}
-
 /* ─── 부위별 볼륨 바 (§5.1) ────────────────────────────── */
-
-.mbar {
-  margin-bottom: 12px;
-}
-
-.mbar:last-of-type {
-  margin-bottom: 0;
-}
-
-.mbar-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
-}
 
 .mbar-name {
   font-size: 14px;
   font-weight: 500;
-}
-
-.mbar-num {
-  margin-left: auto;
-  font-size: 13px;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-}
-
-.mbar-num-met {
-  color: var(--ok);
-  font-weight: 600;
-}
-
-.mbar-track {
-  height: 8px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  overflow: hidden;
-}
-
-/* width가 아니라 scaleX — 레이아웃 재계산 없이 애니메이션된다 */
-.mbar-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--color-accent);
-  transform-origin: left center;
-  transition: transform 0.3s ease-out;
-}
-
-.mbar-fill-met {
-  background: var(--color-success);
-}
-
-.mbar-fill-warn {
-  background: var(--color-warning);
 }
 
 .banner-warn {
@@ -1472,11 +1267,6 @@ button.chip {
   color: var(--color-text-accent);
   font-size: 13px;
   line-height: 1.5;
-}
-
-.banner-ok {
-  background: color-mix(in srgb, var(--color-success) 12%, transparent);
-  color: var(--ok);
 }
 
 /*
@@ -1847,33 +1637,6 @@ textarea.field {
 /* 선택된 셀은 배경이 오렌지라 점 테두리를 줘서 묻히지 않게 한다 */
 .cal-cell-selected .cal-diet-dot {
   box-shadow: 0 0 0 1.5px var(--color-on-accent);
-}
-
-/*
-  홈의 식단 한 줄 칩 (D5). 카드가 아니라 슬림 스트립이다 — 홈이 이미 뷰포트 1.7배라
-  블록을 늘리지 않고 진입점만 둔다.
-*/
-.diet-chip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 12px;
-  margin-bottom: 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--text-dim);
-  font-size: 13px;
-  text-align: left;
-}
-
-.diet-chip-value {
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
 }
 
 .diet-plan-btn {

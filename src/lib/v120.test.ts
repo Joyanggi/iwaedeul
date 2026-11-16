@@ -424,3 +424,149 @@ describe("v120 RR3 — 앱 틀과 아래 탭", () => {
     expect(text(LIB, "/scripts/lib/ui-check-lib.mjs")).toMatch(/export const inPageCurrentTab/)
   })
 })
+
+
+describe("v120 RR4 — 홈: 배치를 다시 짠다", () => {
+  const FILES = ["/src/screens/HomeScreen.tsx", "/src/components/WeekDots.tsx", "/src/components/MuscleVolumeBars.tsx"]
+  const home = () => code("/src/screens/HomeScreen.tsx")
+
+  it("v120 RR4: 세 파일에 className=은 ax-week-*·ax-vol-* 뿐이고 style=·<button·<details·var(--·padding=이 0건이다", () => {
+    for (const f of FILES) {
+      const s = code(f)
+      const names = [...s.matchAll(/className="([^"]*)"/g)].flatMap((m) => m[1].split(/\s+/))
+      for (const n of names) expect(n, `${f}의 ${n}`).toMatch(/^ax-(week|vol)-/)
+      expect(s, f).not.toMatch(/style=|<button|<details|var\(--|padding=/)
+      expect(s, f).not.toContain("@astryxdesign")
+      expect(s, f).toMatch(/from '\.\.\/ax'/)
+    }
+  })
+
+  it("v120 RR4 — 순서: 저장소 위험 < 다음 운동 < 시작 버튼 < 백업 미설정 < 알림 큐 < 식단 줄 < 이번 주 < 부위별 볼륨 < 디로드 카운터 < 제안 근거", () => {
+    const s = home()
+    // 화면 JSX(마지막 return)만 본다 — BANNER_VIEW나 ProgressBar 라벨의 같은 글자가 앞서지 않게
+    const body = s.slice(s.lastIndexOf("<AxRoot>"))
+    const order = ["storageAtRisk() && (", "다음 운동", "label={card.cta}", "!reminder.configured &&", "queue.slice(", "dietChip && (", "<WeekDots", "<MuscleVolumeBars", "디로드 카운터", "제안 근거"]
+    let prev = -1
+    for (const needle of order) {
+      const i = body.indexOf(needle)
+      expect(i, `${needle}의 자리`).toBeGreaterThan(prev)
+      prev = i
+    }
+  })
+
+  it("v120 RR4: 묶음 넷(머리·오늘·이번 주·주기)이 Group이고 저장소 위험 Banner가 Groups의 첫 자식이다", () => {
+    const s = home()
+    expect(s).toMatch(/<Groups>\s*\{storageAtRisk\(\) && \(\s*<Banner\s+status="error"/)
+    expect((s.match(/<Group>/g) ?? []).length).toBe(4)
+  })
+
+  it("v120 RR4: 시작 버튼은 운동 카드 안의 마지막 자식이고 primary·lg·전체 폭이며 진행 중이면 onEnterSession이다", () => {
+    const s = home()
+    const card = /다음 운동[\s\S]*?<\/Card>/.exec(s)?.[0]
+    expect(card, "카드를 못 찾았다").toBeDefined()
+    expect(card).toMatch(/<Button\s+variant="primary"\s+size="lg"\s+width="100%"\s+label=\{card\.cta\}\s+onClick=\{\(\) => \(card\.resuming \? onEnterSession\(\) : start\(displayed\)\)\}\s+\/>\s*<\/VStack>\s*<\/Card>/)
+  })
+
+  it("v120 RR4: 알림과 식단 줄은 카드 뒤에 오고 큐는 첫 번째만 펼친다 (queue.slice 그대로)", () => {
+    const s = home()
+    expect(s).toContain("queue.slice(0, bannersOpen ? queue.length : 1)")
+    expect(s).toMatch(/<ClickableCard onClick=\{onOpenDiet\} label=\{`\$\{dietLabel\} \$\{dietValue\}`\}>/)
+  })
+
+  it("v120 RR4: 배너 큐 여섯 종류는 Banner collapsible=false이고 status가 정해진 대로다 (복귀 info·디로드·백업·보상작용 warning·Phase success·증량 info)", () => {
+    const s = home()
+    const view = /const BANNER_VIEW[\s\S]*?\n {2}\}\n/.exec(s)?.[0] ?? ""
+    const statusOf = (key: string): string | undefined => new RegExp(`key="${key}"\\s+status="(\\w+)"`).exec(view)?.[1]
+    expect(statusOf("return")).toBe("info")
+    expect(statusOf("deload")).toBe("warning")
+    expect(statusOf("backup")).toBe("warning")
+    expect(statusOf("phase")).toBe("success")
+    expect(statusOf("compensation")).toBe("warning")
+    expect(statusOf("progression")).toBe("info")
+    expect((view.match(/<Banner\b/g) ?? []).length).toBe(6)
+    expect((view.match(/collapsible=\{false\}/g) ?? []).length).toBe(6)
+  })
+
+  it("v120 RR4: 복귀 적용/안 함은 ToggleButton 둘이고 묶음에 role=group·aria-label이 그대로다", () => {
+    const s = home()
+    expect(s).toContain('<HStack gap={2} role="group" aria-label="복귀 프로토콜 적용 여부">')
+    expect(s).toContain('<ToggleButton label="적용" isPressed={applyReturn} onPressedChange={() => setApplyReturn(true)} />')
+    expect(s).toContain('<ToggleButton label="안 함" isPressed={!applyReturn} onPressedChange={() => setApplyReturn(false)} />')
+  })
+
+  it("v120 RR4: Phase 0 진행과 디로드 카운터는 카드 하나(Divider로 가른다)이고 Phase 0이 아니면 디로드 줄만 그려진다", () => {
+    const s = home()
+    expect(/currentPhase === 0 && \([\s\S]*?<Divider \/>[\s\S]*?디로드 카운터/.test(s), "주기 카드를 못 찾았다").toBe(true)
+    expect((s.match(/<Divider \/>/g) ?? []).length).toBe(1)
+    expect(s).toContain("variant={deload.due ? 'warning' : 'accent'}")
+    expect(s).toContain("variant={phase0.achieved ? 'success' : 'accent'}")
+  })
+
+  it("v120 RR4: 볼륨은 부위 하나에 한 줄(이름·막대·n/m·빈도 뱃지)이고 목표를 넘기면 막대가 끝에서 멈춘다(value=min)", () => {
+    const s = code("/src/components/MuscleVolumeBars.tsx")
+    expect(s).toContain('<div className="ax-vol-row" key={bar.muscle}>')
+    expect(s).toContain("value={Math.min(bar.performed, bar.target)}")
+    expect(s).toContain("max={bar.target}")
+    expect(s).toContain("variant={met ? 'success' : 'accent'}")
+    expect(s).toContain("isLabelHidden")
+    expect(s).toContain("title={`기대 ${bar.expectedExposures}회 / 실제 ${bar.exposures}회`}")
+    expect(s).toContain("variant={bar.underFrequency ? 'warning' : 'neutral'}")
+  })
+
+  it("v120 RR4: 요일 점은 data-state(done·today·future·empty)로 상태를 말하고 🔥와 ×2가 그대로다", () => {
+    const s = code("/src/components/WeekDots.tsx")
+    expect(s).toContain("data-state={dot.isToday ? 'today' : dot.count > 0 ? 'done' : dot.isFuture ? 'future' : 'empty'}")
+    expect(s).toContain("🔥")
+    expect(s).toContain("×{dot.count}")
+  })
+
+  it("v120 RR4: 화면 문구가 그대로다 (배너 제목, 버튼, 머리글)", () => {
+    const all = FILES.map((f) => code(f)).join("\n")
+    for (const t of [
+      "홈 화면에 추가하지 않으면 기록이 삭제될 수 있어요",
+      "백업이 설정되지 않았어요",
+      "복귀할까요?",
+      "디로드 권장 — 세트 50%, 무게 유지",
+      "마지막 백업이",
+      "조건을 모두 충족했어요",
+      "보상작용 반복 — 무게 하향 검토",
+      "증량 제안",
+      "나중에",
+      "디로드로 시작",
+      "변경",
+      "다음 운동",
+      "이번 주",
+      "주간 부위별 볼륨",
+      "Phase 0 진행",
+      "디로드 카운터",
+      "제안 근거 (부족분 점수)",
+    ]) {
+      expect(all, t).toContain(t)
+    }
+  })
+
+  it("v120 RR4: ax/index.tsx가 Divider·ProgressBar·Collapsible·List·ListItem을 내보낸다", () => {
+    const s = code("/src/ax/index.tsx")
+    for (const n of ["Divider", "ProgressBar", "Collapsible", "List, ListItem"]) expect(s).toMatch(new RegExp(`export \\{ ${n} \\} from '@astryxdesign`))
+  })
+
+  it("v120 RR4: ui-check에 시작 자리 칸(inPageStartSpot·startSpotVerdict)과 홈 알림 장면 둘이 있고 홈 장면에서 카드·뱃지 쌍을 판정한다", () => {
+    const t = text(SCRIPTS, "/scripts/ui-check.mjs")
+    expect(t).toContain("inPageStartSpot")
+    expect(t).toContain("startSpotVerdict")
+    expect(t).toContain("snap('home-banner')")
+    expect(t).toContain("snap('home-banners-open')")
+    expect(t).toMatch(/HOME_SYMMETRY_KINDS = new Set\(\[\.\.\.SYMMETRY_KINDS, 'card', 'badge'\]\)/)
+    expect(t).toMatch(/ROLES_JUDGED = new Set\(\['묶음 사이', '카드 안쪽', '가까움 순서'\]\)/)
+    const lib = text(LIB, "/scripts/lib/ui-check-lib.mjs")
+    expect(lib).toMatch(/export const inPageStartSpot/)
+    expect(lib).toMatch(/export function startSpotVerdict/)
+  })
+
+  it("v120 RR4: 시작 자리 판정 — 위 끝이 다르면 실패, 아래 띠에 가리면 실패, 장면이 하나뿐이면 실패", () => {
+    const lib = text(LIB, "/scripts/lib/ui-check-lib.mjs")
+    expect(lib).toMatch(/sameTop = tops\.every\(\(t\) => Math\.abs\(t - tops\[0\]\) <= 1\)/)
+    expect(lib).toMatch(/spots\[n\]\.bottom > spots\[n\]\.barTop/)
+    expect(lib).toMatch(/names\.length < 2/)
+  })
+})

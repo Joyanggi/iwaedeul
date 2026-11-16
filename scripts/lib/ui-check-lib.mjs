@@ -563,3 +563,36 @@ export function chartColorVerdict(c) {
   }
   return { ok: true, detail: `선 ${c.dark.line} → ${c.light.line} · 축 ${c.dark.tick} → ${c.light.tick}` }
 }
+
+/**
+ * `시작 자리` (v1.20 RR4): 홈의 시작 버튼(운동 카드의 첫 `시작`·`이어서 하기` 버튼 — 알림 배너의 `디로드로 시작`은 카드 뒤에 있어 안 잡힌다)의
+ * 문서 위 끝·아래 끝, 스크롤 0에서 그 아래 끝과 아래 띠의 위 끝을 돌려준다. 같은 장면 묶음에서 위 끝이 같은지는 Node(`startSpotVerdict`)가 본다.
+ */
+export const inPageStartSpot = () => {
+  const y0 = window.scrollY
+  window.scrollTo(0, 0)
+  const btn = [...document.querySelectorAll('.ax-screen button')].find((b) => window.__vis(b) && /시작$|이어서 하기/.test(b.textContent.trim()))
+  if (!btn) {
+    window.scrollTo(0, y0)
+    return { found: false }
+  }
+  const r = btn.getBoundingClientRect()
+  const bars = [...document.querySelectorAll(window.__ui.BARS)].filter((b) => window.__vis(b) && b.getBoundingClientRect().bottom >= innerHeight - 1)
+  const barTop = bars.length ? Math.min(...bars.map((b) => b.getBoundingClientRect().top)) : innerHeight
+  window.scrollTo(0, y0)
+  return { found: true, top: Math.round(r.top), bottom: Math.round(r.bottom), width: Math.round(r.width), barTop: Math.round(barTop) }
+}
+
+/** 시작 자리 판정: spots = { 장면: inPageStartSpot() }. 장면이 둘 이상이어야 하고, 위 끝이 모두 같고, 아래 끝이 아래 띠 위 끝보다 위여야 한다 */
+export function startSpotVerdict(spots) {
+  const names = Object.keys(spots)
+  const missing = names.filter((n) => !spots[n].found)
+  if (missing.length) return { ok: false, detail: `시작 버튼을 못 찾은 장면: ${missing.join(', ')}` }
+  if (names.length < 2) return { ok: false, detail: `잰 장면이 ${names.length}개 — 둘 이상이어야 견준다` }
+  const tops = names.map((n) => spots[n].top)
+  const sameTop = tops.every((t) => Math.abs(t - tops[0]) <= 1)
+  const covered = names.filter((n) => spots[n].bottom > spots[n].barTop)
+  const ok = sameTop && covered.length === 0
+  const list = names.map((n) => `${n} ${spots[n].top}`).join(' · ')
+  return { ok, detail: `위 끝 ${list}${sameTop ? '' : ' (다르다)'}${covered.length ? ` · 아래 띠에 가림: ${covered.join(', ')}` : ''}` }
+}

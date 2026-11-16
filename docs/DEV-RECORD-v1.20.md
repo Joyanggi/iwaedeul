@@ -760,3 +760,88 @@ editor·line-sheet: 통과 (button 쌍 판정; card 쌍은 "기록만"에 위 16
 리뷰 반영: ① `src/ax/parts.css` 아래 탭 버튼을 `flex: 1 1 0; min-width: 0`, 좌우 안쪽 여백·아이콘-글자 간격 `--spacing-1`로 줄어들게 해 다섯 탭이 줄 폭을 균등하게 나눈다. ② `ui-check`의 `지금 탭`에 `탭이 줄 안`(nav `scrollWidth ≤ clientWidth`, 모든 탭 `left ≥ nav.left`·`right ≤ nav.right`)을 더했다. 결과: `home`·`home-375`(다크·라이트) 통과, 스크린샷 `home-375-light.png`에서 설정 글자가 안 잘린다.
 결함 복원: `parts.css`를 고치기 전 것으로 되돌리면 `지금 탭`이 실패(`scrollWidth 372 · clientWidth 343(375)/358(390) · 밖 1개`), 고친 것으로 되돌리면 통과(`cmp` 동일).
 실행: `npm run check` 통과(Test Files 73 · Tests 1701), `ui-check after --check` 실패 칸 없음.
+
+
+## RR4. 홈 — 배치를 다시 짠다
+
+### 범위
+
+| 바뀐 것 | 내용 |
+|---|---|
+| `src/screens/HomeScreen.tsx` | `AxRoot`+`Groups`+`Group` 넷(머리·오늘·이번 주·주기). 순서: 저장소 위험 → 머리 → 운동 카드(안에 [변경]·전체 폭 [시작]) → 백업 미설정 → 알림 큐 → 식단 줄 → 이번 주 → 주기 → 제안 근거. 배너는 `Banner collapsible={false}`, 복귀 적용/안 함은 `ToggleButton`. 로직(`dash`·`create`·`start`·`homeCardState`·`bannerQueue`·`queue.slice`)은 안 바꿨다 |
+| `WeekDots.tsx`·`MuscleVolumeBars.tsx` | `Card`+`Text`·`ProgressBar`·`Badge`. 볼륨은 부위 하나에 한 줄(이름·막대·n/m·빈도) |
+| `src/ax/index.tsx` | `Divider`·`ProgressBar`·`Collapsible`·`List`·`ListItem` 내보내기 |
+| `src/ax/parts.css` | `.ax-week-*`(요일 점), `.ax-vol-rows`·`.ax-vol-row`(subgrid — 열 폭이 `auto`·`1fr`이라 막대가 줄마다 같은 자리에서 시작한다) |
+| `src/styles/global.css` | 홈만 쓰던 선택자 33개 삭제(−218줄). 안 쓰는 legacy 선택자 2 → 2, 쓰임 504 → 447, 인라인 94 → 72, 화면 파일 41 → 38 |
+| `scripts/` | `ui-check`: `시작 자리` 칸(`inPageStartSpot`·`startSpotVerdict`), 장면 `home-banner`·`home-banner-375`, 홈 장면에서 카드·뱃지 대칭과 `같은 역할`(묶음 사이·카드 안쪽·가까움 순서) 판정 켜기. `ui-space.mjs`: `content()`가 버튼·진행 막대의 상자도 내용으로 센다, 쌍 라벨에 카드·뱃지 글자 10자, Collapsible 펼침 줄은 `button` 쌍에서 뺌 |
+| 테스트 | `v120.test.ts`에 RR4 14개 |
+
+### 다크 홈의 묻힘 (넘어온 메모)
+
+빈 요일 점은 `--color-background-muted` 면에 1px `--color-border-emphasized` 테두리(미래는 점선, 오늘은 `--color-accent` 링, 완료는 `--color-accent-muted` 면+accent 테두리)로 그린다. 볼륨 막대 바닥은 `.ax-vol-row [role='progressbar']`에 같은 면+1px 외곽선을 준다(Phase·디로드 막대는 카드 안 단독이라 Astryx 기본 바닥 그대로 — 스크린샷 `after/home-end.png`에서 카드 면과 구분된다). 직접 `home`·`home-end` 스크린샷으로 확인했다.
+
+### 여백(RR12) — 관계로 잰다
+
+카드 안쪽은 일률 값이 아니라 **카드의 첫 내용과 마지막 내용이 안쪽에서 대칭**인가로 쟀다. 처음에 운동 카드가 위 18·아래 23이었다 — 측정기가 카드 맨 아래 버튼을 글자 상자로만 세어 버튼 안쪽 여백이 카드 여백으로 오인됐다. 앱이 아니라 측정기의 결함이라 `content()`가 버튼·진행 막대의 상자를 세게 고쳤다(`ui-space.mjs`). 제안 근거 카드는 펼침 줄 머리글을 다른 카드와 같은 `supporting`·`secondary`로 맞추자 대칭이 됐다(위 14.1·아래 16 → 통과). `카드 안쪽`의 `같은 역할` 비교는 Astryx `Card`를 쓰는 장면(`home`·`home-375`·`home-banner`·`editor` — 모두 15)끼리만 한다 — 안 옮긴 화면(summary 60·history 35·diet 135)은 legacy `.card`라 값이 다르다. 옮기는 작업(RR5~RR9)이 `INSET_SCENES`에 더한다.
+
+### PLAN 검증 항목 ↔ 테스트·확인
+
+| PLAN | 확인 |
+|---|---|
+| 세 파일 `className`·`style`·`<button`·`<details`·`var(--`·`padding=` | `v120 RR4: 세 파일에 className=은 ax-week-*·ax-vol-* 뿐이고 …` |
+| 순서 | `v120 RR4 — 순서: …` |
+| 묶음 넷, 저장소 위험이 첫 자식 | `v120 RR4: 묶음 넷(…)이 Group이고 …` |
+| 시작 버튼 위치·속성 | `v120 RR4: 시작 버튼은 운동 카드 안의 마지막 자식이고 …` |
+| 알림은 카드 뒤, 큐는 첫 번째만 | `v120 RR4: 알림과 식단 줄은 카드 뒤에 오고 …` |
+| 배너 status·collapsible | `v120 RR4: 배너 큐 여섯 종류는 …` |
+| 복귀 적용/안 함 | `v120 RR4: 복귀 적용/안 함은 ToggleButton 둘이고 …` + `dayChoice.test.ts` 옮긴 것 |
+| 주기 카드 하나 | `v120 RR4: Phase 0 진행과 디로드 카운터는 카드 하나 …` |
+| 볼륨 한 줄·목표 초과 | `v120 RR4: 볼륨은 부위 하나에 한 줄 …` |
+| 요일 점 상태 | `v120 RR4: 요일 점은 data-state …` |
+| 문구 그대로 | `v120 RR4: 화면 문구가 그대로다 …` |
+| `Divider` 등 내보내기 | `v120 RR4: ax/index.tsx가 …` |
+| `ui-check` 시작 자리 | `v120 RR4: ui-check에 시작 자리 칸 …`, `… 시작 자리 판정 …` + 실행(아래) |
+| `ui-check` 여백 | 실행: `home`·`home-375`·`home-banner` `안쪽 대칭` 통과, `같은 역할`·`가까움 순서` 통과 |
+| 흐름(시작 1탭, [변경]→시트, 식단 줄) | `ui-check`의 기존 흐름(`변경` 클릭 → `Day 선택` 시트, `시작$` 클릭 → 세션)이 그대로 통과 |
+| 속성 테스트 | 판정·계산 함수를 안 건드려 없음 |
+
+### 옮긴 기존 테스트
+
+PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 상태를 쓴다`(블록 정규식만 옮김), `두 버튼이 각각 적용 / 안 함을 고르고…`(`isPressed`). 안 고치고 통과: `bannerQueue.test.ts` 나머지, `v18`·`v113`·`v111`·`timerOwnership`.
+
+**수정표 밖** (PLAN 변경의 기계적 결과):
+- `dayChoice.test.ts:카드 탭 지름길은 남아 있다` → `카드 전체를 누르는 지름길은 없어졌다 …` — PLAN이 "운동 카드 전체를 누르는 지름길은 없어진다"고 했다. 이제 [변경] 버튼이 `setPicking(true)`를 한 번 부르고 카드 감싸개에는 `setPicking`이 없다는 것을 본다.
+- `bannerQueue.test.ts:큐의 백업 배너 문구가 한 가지만 말한다` — 정규식이 JSX 글자(`{reminder.daysSince`)에서 템플릿 글자(`${reminder.daysSince`)로 바뀐 것뿐.
+- `scripts/ui-space.test.mjs:EXPECTED_PAIRS…` — 홈 장면 기대 쌍이 늘었다(버튼·카드·뱃지).
+
+### 결함 복원 (`cp` 백업 → 결함 → 테스트 → 복구 → `cmp`)
+
+| 되살린 결함 | 실패한 것 | 원상복구 |
+|---|---|---|
+| 알림 큐 줄을 운동 카드 위에 더한다 | `v120 RR4 — 순서` | ✓ |
+| `WeekDots`의 `Card`에 `padding={2}` | `v120 RR4: 세 파일에 …`·`v120 RR12: …` | ✓ |
+| 볼륨 막대 `value={bar.performed}`(목표 초과를 안 멈춤) | `v120 RR4: 볼륨은 부위 하나에 한 줄 …` | ✓ |
+| 홈 제목에 `className="card"` | `v120 RR4: 세 파일에 …` + `astryx-inventory --check`(447 → 448) | ✓ |
+
+### 변이 테스트
+
+대상 없음(`src/lib`의 판정 파일을 안 바꿨다. 새 파일은 테스트뿐).
+
+### ui-check (`node scripts/ui-check.mjs after --check --ver=v1.20`)
+
+- `시작 자리`: 390 폭 `home` 384 · `home-banner` 384 · `home-resume` 384 통과, 375 폭 `home-375` 408 · `home-banner-375` 408 통과(버튼 아래 끝은 모두 아래 띠 위).
+- `같은 역할`: 화면 좌우 16, 카드 사이 12, 묶음 사이 20(홈 세 장면), 카드 안쪽 15(`home`·`home-375`·`home-banner`·`editor`), 가까움 순서 `12 ≤ 12 < 20` 통과.
+
+### 과거 판정 불변
+
+`git diff --stat main..HEAD -- src/db src/store`가 비어 있다. `src/lib`는 테스트 두 개와 `v120.test.ts`만 바뀌었다.
+
+### 하지 않은 것
+
+- **`home-banners-open`(알림을 펼친 장면)은 못 찍는다.** 예시 데이터로 큐를 둘 이상 채우려면 IndexedDB를 심어야 하는데 이 라운드에서는 하지 않았다. 세션을 하나 마친 홈에서 큐가 한 개뿐이라 `다른 알림 N개` 버튼이 없어 장면이 `건너뜀`이다(ui-check 코드는 있고, 큐가 둘 이상이면 찍는다). 그래서 시작 자리는 390 폭에서 세 장면을 견준다.
+- 알림 3개 이상·14일 공백·유산소만 한 날 경계는 화면으로 못 봤다(소스 스캔으로 큐·`dayGapNotice` 로직이 안 바뀐 것만 잠겼다) — 화면 검증자에게 맡긴다.
+- 인벤토리 표(`docs/ASTRYX-INVENTORY.md`)는 `--write`로 새로 썼다.
+
+### 실기기 확인 목록
+
+- iOS Safari의 CSS `subgrid`(막대 열 정렬 — 16+ 필요), 다크에서 빈 요일 점 테두리·막대 바닥이 눈에 보이는지.

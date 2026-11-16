@@ -1,6 +1,6 @@
 # Astryx 적용 현황
 
-> 2026-11-16, 커밋 e12d6a9. `node scripts/astryx-inventory.mjs --write`가 만든다. `--check`가 맨 아래 합계 줄을 기준으로 뒷걸음을 막는다.
+> 2026-11-16, 커밋 baece7c. `node scripts/astryx-inventory.mjs --write`가 만든다. `--check`가 맨 아래 합계 줄을 기준으로 뒷걸음을 막는다.
 
 | 파일 | Astryx | 인라인 | 인라인 여백 | legacy 클래스 |
 |---|---|---|---|---|
@@ -25,7 +25,7 @@
 | src/components/ManualTimerSheet.tsx | — | 2 | 0 | 6 |
 | src/components/MealReminderPanel.tsx | — | 2 | 0 | 5 |
 | src/components/MonthCalendar.tsx | — | 0 | 0 | 11 |
-| src/components/MuscleVolumeBars.tsx | — | 1 | 0 | 10 |
+| src/components/MuscleVolumeBars.tsx | 예 | 0 | 0 | 0 |
 | src/components/NumberStepper.tsx | — | 0 | 0 | 2 |
 | src/components/OpenSessionSheet.tsx | — | 1 | 0 | 10 |
 | src/components/RestTimerBar.tsx | — | 1 | 0 | 9 |
@@ -38,7 +38,7 @@
 | src/components/TabBar.tsx | 예 | 0 | 0 | 0 |
 | src/components/TempoGuideSheet.tsx | — | 2 | 0 | 12 |
 | src/components/UpdatePrompt.tsx | 예 | 0 | 0 | 0 |
-| src/components/WeekDots.tsx | — | 1 | 0 | 9 |
+| src/components/WeekDots.tsx | 예 | 0 | 0 | 0 |
 | src/components/WeightScaleSheet.tsx | — | 1 | 0 | 10 |
 | src/components/icons.tsx | — | 0 | 0 | 0 |
 | src/main.tsx | — | 0 | 0 | 0 |
@@ -46,7 +46,7 @@
 | src/screens/DietScreen.tsx | — | 0 | 0 | 3 |
 | src/screens/ExerciseHistoryScreen.tsx | — | 3 | 0 | 13 |
 | src/screens/HistoryScreen.tsx | — | 3 | 0 | 14 |
-| src/screens/HomeScreen.tsx | — | 20 | 0 | 38 |
+| src/screens/HomeScreen.tsx | 예 | 0 | 0 | 0 |
 | src/screens/Onboarding.tsx | — | 3 | 0 | 11 |
 | src/screens/RoutineEditorScreen.tsx | 예 | 5 | 0 | 0 |
 | src/screens/SessionDetailScreen.tsx | — | 2 | 0 | 31 |
@@ -54,4 +54,4 @@
 | src/screens/SettingsScreen.tsx | — | 7 | 0 | 20 |
 | src/screens/SummaryScreen.tsx | — | 4 | 0 | 18 |
 
-합계: `.tsx` 49개 가운데 Astryx를 읽는 것 8개, 인라인 스타일 94곳(여백 0), legacy 클래스 쓰임 504곳, 안 쓰는 legacy 선택자 2개.
+합계: `.tsx` 49개 가운데 Astryx를 읽는 것 11개, 인라인 스타일 72곳(여백 0), legacy 클래스 쓰임 447곳, 안 쓰는 legacy 선택자 2개.

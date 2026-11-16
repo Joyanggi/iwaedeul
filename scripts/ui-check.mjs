@@ -33,6 +33,8 @@ import {
   freePort,
   inPageBars,
   inPageOverflow,
+  inPageStartSpot,
+  startSpotVerdict,
   inPageSheetButtons,
   inPageCurrentTab,
   installScript,
@@ -104,15 +106,18 @@ const JUDGED = { '탭 누름': true, '지금 탭': true, '마지막 요소': tru
  * `안쪽 대칭`(RR12)은 이미 Astryx 부품인 장면(루틴 편집)에서만 판정하고, 나머지는 기록만 한다(옮기기 전 장면은 실패로 세지 않는다).
  * 화면·띠를 옮기는 작업(RR3·RR4·RR5·RR6·RR7)이 자기 장면을 여기에 더한다.
  */
-const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', 'home', 'home-375', 'home-resume', 'home-safe', 'settings'])
+const HOME_SCENES = ['home', 'home-end', 'home-375', 'home-banner', 'home-banner-375', 'home-banners-open', 'home-resume']
+const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...HOME_SCENES, 'home-safe', 'settings'])
 /** 판정을 켠 쌍 종류. 나머지 종류는 장면이 Astryx여도 기록만 한다(card·badge = RR4, 위 띠 = RR6, set-row = RR7, sheet = RR5) */
 const SYMMETRY_KINDS = new Set(['button', 'bar', 'tab-indicator', 'tab-content'])
+/** 홈(RR4)은 카드·뱃지 쌍도 판정한다 */
+const HOME_SYMMETRY_KINDS = new Set([...SYMMETRY_KINDS, 'card', 'badge'])
 /** `같은 역할`의 묶음 사이·카드 안쪽·가까움 순서는 홈을 옮기는 RR4부터 판정한다 */
-const ROLES_JUDGED = new Set()
+const ROLES_JUDGED = new Set(['묶음 사이', '카드 안쪽', '가까움 순서'])
 const THEME_SCENES_BEFORE = new Set(['editor', 'line-sheet'])
 /** 장면마다 기대하는 띠·시트 수의 최소값. 모자라면 `띠` 칸을 실패로 낸다 — 아무것도 안 재고 지나가지 않게 (RR0) */
 /** 아래 탭 띠가 있는 장면(재개 줄이 붙는 `home-resume`·`settings-open`은 따로 2) */
-const TAB_BAR_SCENES = ['home', 'home-end', 'home-375', 'history', 'history-detail', 'history-detail-edit', 'analyze', 'diet', 'diet-log-open', 'settings', 'settings-end', 'settings-375', 'settings-routines', 'settings-routines-375', 'settings-routines-confirm-375']
+const TAB_BAR_SCENES = ['home', 'home-end', 'home-375', 'home-banner', 'home-banner-375', 'home-banners-open', 'history', 'history-detail', 'history-detail-edit', 'analyze', 'diet', 'diet-log-open', 'settings', 'settings-end', 'settings-375', 'settings-routines', 'settings-routines-375', 'settings-routines-confirm-375']
 const EXPECTED_BARS = {
   // 탭 장면: 아래 탭 띠 1 (재개 줄이 있으면 2)
   ...Object.fromEntries(TAB_BAR_SCENES.map((n) => [n, 1])),
@@ -128,10 +133,13 @@ const EXPECTED_BARS = {
   ...Object.fromEntries(['sheet-home', 'sheet-finish', 'sheet-timer', 'sheet-food', 'line-sheet'].map((n) => [n, 1])),
 }
 const SET_SCENES = new Set(['session', 'session-375', 'history-detail-edit'])
+/** 시작 자리를 재는 장면 (RR4). 390 폭 넷, 375 폭 둘 */
+const START_SPOT_SCENES = new Set(['home', 'home-banner', 'home-banners-open', 'home-resume', 'home-375', 'home-banner-375'])
 const LAST_SCENES = new Set(['home', 'home-end', 'home-resume', 'home-resume-end', 'diet', 'history', 'analyze', 'settings-end'])
 const sheetBtns = {} // 장면 -> { dark, light } 시트 버튼의 대비 (RRM)
 const chartColors = {} // 장면 -> { dark, light } 차트 선·축의 계산된 색 (RR2)
 const themeBg = {} // 장면 -> { dark, light } 문서 배경 (테마 토큰 칸의 라이트·다크 견줌)
+const startSpots = { 390: {}, 375: {} } // 폭 -> 장면 -> inPageStartSpot() (RR4 시작 자리)
 const rects = {} // 장면 -> inPageRects() (배치 기록)
 const rows = []
 const axeInfo = []
@@ -184,9 +192,10 @@ async function newColumns(page, scene, cells, light) {
   }
   if (scene === 'analyze') chartColors[scene] = { ...chartColors[scene], [light ? 'light' : 'dark']: await page.evaluate(inPageChartColors) }
   const pairs = await page.evaluate(inPageInsetSymmetry)
-  const judgedPairs = pairs.filter((p) => SYMMETRY_KINDS.has(p.kind))
+  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : SYMMETRY_KINDS
+  const judgedPairs = pairs.filter((p) => kinds.has(p.kind))
   const sym = insetSymmetryVerdict(SYMMETRY_JUDGED.has(scene) ? judgedPairs : pairs, EXPECTED_PAIRS[scene] ?? [])
-  const rest = SYMMETRY_JUDGED.has(scene) ? insetSymmetryVerdict(pairs.filter((p) => !SYMMETRY_KINDS.has(p.kind)), []) : null
+  const rest = SYMMETRY_JUDGED.has(scene) ? insetSymmetryVerdict(pairs.filter((p) => !kinds.has(p.kind)), []) : null
   if (rest) sym.detail += ` · (기록만: ${rest.ok ? '나머지 쌍 대칭' : rest.detail})`
   cells['안쪽 대칭'] = softVerdict('안쪽 대칭', sym, SYMMETRY_JUDGED.has(scene) && phase === 'after')
   if (light) return name
@@ -319,6 +328,7 @@ async function runScenes(browser, port, scheme) {
     await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
     shots.push({ name, buf: await page.screenshot() })
     if (!light) rects[scene] = await page.evaluate(inPageRects)
+    if (!light && START_SPOT_SCENES.has(scene)) startSpots[scene.endsWith('-375') ? 375 : 390][scene] = await page.evaluate(inPageStartSpot)
     if (PRESS_SHOT && !light && PRESS_SHOT[0] === scene) await pressShot(page, scene, PRESS_SHOT[1])
     if (CHECK) {
       if (!light) await runChecks(page, scene)
@@ -444,6 +454,27 @@ async function runScenes(browser, port, scheme) {
     await btn(page, '홈으로').click()
     await page.getByRole('button', { name: '기록', exact: true }).waitFor()
     await settle(page, 600)
+
+    // 홈 알림 (RR4): 세션을 하나 마친 홈 — 백업 미설정 배너가 뜬다. 시작 버튼의 자리가 알림 유무와 상관없이 같은지 본다
+    await optional('home-banner', async () => {
+      await page.getByRole('button', { name: '홈', exact: true }).click()
+      await page.getByText('백업이 설정되지 않았어요', { exact: true }).waitFor({ timeout: 3000 })
+      await settle(page, 500)
+      await snap('home-banner')
+      await optional('home-banner-375', async () => {
+        await page.setViewportSize({ width: 375, height: 812 })
+        await settle(page, 500)
+        await snap('home-banner-375')
+        await page.setViewportSize({ width: 390, height: 844 })
+        await settle(page, 400)
+      })
+      // 큐의 알림을 펼친 모습: "다른 알림 N개"가 있을 때만(예시 데이터에 따라 없을 수 있다 — 그러면 이 장면은 건너뛴다)
+      await optional('home-banners-open', async () => {
+        await page.getByRole('button', { name: /^다른 알림 \d+개/ }).click({ timeout: 2000 })
+        await settle(page, 500)
+        await snap('home-banners-open')
+      })
+    })
 
     // 기록
     await page.getByRole('button', { name: '기록', exact: true }).click()
@@ -823,6 +854,16 @@ function printResults() {
       const r = sheetButtonVerdict(v.dark, v.light)
       if (!r.ok) failed++
       console.log(`- ${r.ok ? '통과' : '실패'} ${scene}: ${r.detail}`)
+    }
+  }
+  if (Object.keys(startSpots[390]).length || Object.keys(startSpots[375]).length) {
+    console.log('\n시작 자리 (홈 알림 수와 상관없이 시작 버튼이 같은 자리, 아래 띠 위):')
+    for (const width of [390, 375]) {
+      if (!Object.keys(startSpots[width]).length) continue
+      // 375 폭은 장면이 둘이어야 견준다. --only 실행이라 일부만 찍었으면 값만 보인다
+      const v = startSpotVerdict(startSpots[width])
+      if (!v.ok && !ONLY) failed++
+      console.log(`- ${v.ok ? '통과' : ONLY ? '기록' : '실패'} ${width} 폭: ${v.detail}`)
     }
   }
   if (chartColors.analyze) {

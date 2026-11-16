@@ -190,7 +190,7 @@ describe('백업 미설정은 큐 밖 (후속 2)', () => {
   it('큐의 백업 배너 문구가 한 가지만 말한다', () => {
     // 두 상태를 삼항으로 겸하던 문구를 갈랐다 — 각 배너가 자기 상태만 말한다
     const src = home()
-    expect(src).toMatch(/마지막 백업이 \{reminder\.daysSince/)
+    expect(src).toMatch(/마지막 백업이 \$\{reminder\.daysSince/)
     expect(src).not.toMatch(/reminder\.configured\s*\n?\s*\?/)
   })
 
