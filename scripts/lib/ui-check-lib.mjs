@@ -691,3 +691,19 @@ export const inPageNumberFit = () => {
     detail: `잘린 칸 ${cut.length}개${cut[0] ? `(${cut[0].value}: ${cut[0].scrollWidth}>${cut[0].clientWidth})` : ''} · 넘친 행 ${over.length}개 · 문서 ${document.documentElement.scrollWidth}/${innerWidth}`,
   }
 }
+
+/**
+ * 경고 글자색 (RR8 화면 검증 반려): 선택자로 찾은 첫 요소의 계산된 color가 `--color-text-warning`을 풀어 쓴 색과 같은가.
+ * 클래스가 붙었는지만 세면 Astryx `Text`의 `[data-color]` 규칙에 져서 일반 글자색으로 보이는 결함을 못 잡는다.
+ */
+export const inPageWarnColor = (sel) => {
+  const el = document.querySelector(sel)
+  if (!el) return { found: false, same: false, actual: '', token: '' }
+  const probe = document.createElement('span')
+  probe.style.color = 'var(--color-text-warning)'
+  document.body.appendChild(probe)
+  const token = getComputedStyle(probe).color
+  probe.remove()
+  const actual = getComputedStyle(el).color
+  return { found: true, same: actual === token && token !== '', actual, token }
+}

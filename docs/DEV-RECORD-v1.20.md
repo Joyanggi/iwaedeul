@@ -1186,3 +1186,15 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 - `npm run check`: 전부 통과(빌드 포함)
 - `node scripts/ui-check.mjs after --check --ver=v1.20`: `종료 코드 0`
 - `git rev-list --count main..HEAD`: 커밋 전 45
+
+### RR8 화면 검증 반려 반영 (경고 글자색)
+
+| 고친 것 | 내용 |
+|---|---|
+| 원인(실측) | 시트 안 `.ax-text-warning`(0,1,0)이 같은 `astryx-theme` 층의 `.astryx-text[data-color="primary"]`(0,2,0)에 졌다. 계산된 color가 제목과 같은 흰색/검정 |
+| 고침 | `parts.css`의 선택자를 `.ax-text-warning.ax-text-warning.ax-text-warning`(0,3,0)으로. 같은 클래스를 쓰는 RR7 세션 카드(`ExerciseCard`)도 같은 규칙이라 함께 고쳐진다 |
+| 새 검사 | `ui-check`의 보상작용·무게 단위 흐름이 시트 안 경고 글자의 계산된 `color`가 `--color-text-warning`과 같은지 다크·라이트 둘 다 잰다(`inPageWarnColor`, `emulateMedia`로 체계 전환) |
+| 결함 복원 | 선택자를 클래스 하나로 되돌리면 두 흐름이 실패(`rgb(255,255,255) / rgb(0,0,0)` ≠ 토큰 `rgb(238,196,72) / rgb(131,103,0)`) → 복구 후 통과, `cmp` 확인 |
+| 사진 | `sheet-comp-picked`·`sheet-scale-error`(다크·라이트) 다시 찍음 |
+
+하지 않은 것: 보상작용 징후 0개로 통과·대체 후보 1탭 건너뜀·`sheet-watch` 장면 없음은 남은 일이다. 시드로 Day 1을 세 번 끝낸 상태를 만들어 셋을 함께 돌려야 하는데 ui-check 시드 흐름을 새로 짜야 해서 이번 반려 범위 밖으로 뒀다.

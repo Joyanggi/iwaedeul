@@ -52,6 +52,7 @@ import {
   inPageSpacing,
   inPageTabHit,
   inPageThemeTokens,
+  inPageWarnColor,
   inPageChartColors,
   rgbLuminance,
   chartColorVerdict,
@@ -391,6 +392,17 @@ async function runScenes(browser, port, scheme) {
       const detail = `예외: ${String(e.message).split('\n')[0]}`
       for (const n of names) if (!flows.some((f) => f[0] === n)) flows.push([n, { ok: false, detail }])
     }
+  }
+  // 경고 글자색: 지금 체계와 반대 체계 둘 다 계산된 color가 --color-text-warning과 같은가 (흐름은 한 체계로만 돌아서 emulateMedia로 바꿔 잰다)
+  const warnColorBothSchemes = async () => {
+    const sel = ':is(dialog,[role=dialog],[aria-modal=true]) .ax-text-warning'
+    const now = await page.evaluate(inPageWarnColor, sel)
+    await page.emulateMedia({ colorScheme: light ? 'dark' : 'light' })
+    await settle(page, 200)
+    const other = await page.evaluate(inPageWarnColor, sel)
+    await page.emulateMedia({ colorScheme: scheme })
+    await settle(page, 200)
+    return { same: now.same && other.same, actual: `${now.actual} / ${other.actual}`, token: `${now.token} / ${other.token}` }
   }
   const toEnd = () => page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
   const toTop = () => page.evaluate(() => window.scrollTo(0, 0))
@@ -909,11 +921,12 @@ async function runScenes(browser, port, scheme) {
       await guardedFlow(['RR8 보상작용: 징후 둘 고르기 → 저장 → 카드의 보상작용 줄이 바뀐다'], async () => {
         const pressed = await pressedCount(dlg)
         const warnLine = await dlg.locator('.ax-text-warning').count()
+        const warnColor = await warnColorBothSchemes()
         await dlg.getByRole('button', { name: '저장', exact: true }).click()
         const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
         await settle(page, 400)
         const shown = await page.locator('li .ax-text-warning').count()
-        flows.push(['RR8 보상작용: 징후 둘 고르기 → 저장 → 카드의 보상작용 줄이 바뀐다', { ok: pressed === Math.min(2, nSigns) && warnLine === 1 && shown > 0 && gone && shown > 0, detail: `징후 목록 ${nSigns}개 · 눌린 징후 ${pressed}개 · 저장될 값 경고 줄 ${warnLine} · 시트 닫힘 ${gone} · 카드의 경고 줄 ${shown}` }])
+        flows.push(['RR8 보상작용: 징후 둘 고르기 → 저장 → 카드의 보상작용 줄이 바뀐다', { ok: pressed === Math.min(2, nSigns) && warnLine === 1 && warnColor.same && shown > 0 && gone, detail: `저장될 값 계산된 색 ${warnColor.actual} (토큰 ${warnColor.token}) · 징후 목록 ${nSigns}개 · 눌린 징후 ${pressed}개 · 저장될 값 경고 줄 ${warnLine} · 시트 닫힘 ${gone} · 카드의 경고 줄 ${shown}` }])
       })
     })
     await optional('sheet-scale', async () => {
@@ -931,8 +944,9 @@ async function runScenes(browser, port, scheme) {
       await snap('sheet-scale-error')
       await guardedFlow(['RR8 무게 단위 핀 목록 잘못된 형식 → 오류 문구가 보이고 저장이 막힌다'], async () => {
         const err = await dlg.locator('.ax-text-warning').count()
+        const warnColor = await warnColorBothSchemes()
         const disabled = await dlg.getByRole('button', { name: '저장', exact: true }).isDisabled()
-        flows.push(['RR8 무게 단위 핀 목록 잘못된 형식 → 오류 문구가 보이고 저장이 막힌다', { ok: err === 1 && disabled, detail: `오류 문구 ${err}개 · 저장 막힘 ${disabled}` }])
+        flows.push(['RR8 무게 단위 핀 목록 잘못된 형식 → 오류 문구가 보이고 저장이 막힌다', { ok: err === 1 && warnColor.same && disabled, detail: `오류 문구 계산된 색 ${warnColor.actual} (토큰 ${warnColor.token}) · 오류 문구 ${err}개 · 저장 막힘 ${disabled}` }])
       })
       // 올바른 핀 목록을 넣고 저장하면 카드의 + 가 다음 핀으로 간다
       await guardedFlow(['RR8 무게 단위 핀 목록 입력 → 저장 → + 가 다음 핀으로 간다'], async () => {
