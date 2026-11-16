@@ -868,6 +868,7 @@ async function runScenes(browser, port, scheme) {
             smaller: parseFloat(getComputedStyle(input).fontSize) < big,
             delH: Math.round(del.getBoundingClientRect().height),
             delInside: (() => { const memo = document.querySelector('[aria-label="식단 메모"]'); return memo ? Math.round(del.getBoundingClientRect().right) <= Math.round(memo.getBoundingClientRect().right) : false })(),
+            timeClip: (() => { const t = sib && sib.querySelector('input[type="time"]'); if (!t) return 'time 칸 없음'; const r = t.getBoundingClientRect(); return `${Math.round(r.width)}px · 안쪽 ${t.scrollWidth}/${t.clientWidth}`; })(),
             oneLine: sib ? [...sib.children].every((c) => Math.abs(c.getBoundingClientRect().top + c.getBoundingClientRect().height / 2 - (sib.children[0].getBoundingClientRect().top + sib.children[0].getBoundingClientRect().height / 2)) < 6) : false,
             docOk: document.documentElement.scrollWidth <= innerWidth,
           }
@@ -876,7 +877,7 @@ async function runScenes(browser, port, scheme) {
       await page.setViewportSize({ width: 390, height: 844 })
       await settle(page, 300)
       const ok = c1 - c0 === 0.5 && c2 === c0 && typed === '1.55' && widths.every((w) => w.smaller && w.delH >= 44 && w.delInside && w.oneLine && w.docOk)
-      flows.push(['RR7 식단 스테퍼: 1탭 0.5 단위·입력 패턴·글자 크기·삭제 버튼 44px·넘침 없음', { ok, detail: `+1탭 ${c0}→${c1} · −1탭 ${c2} · 1.555→${typed} · ${widths.map((w) => `${w.width}: 글자 작음 ${w.smaller} 삭제 ${w.delH}px 삭제 오른쪽 끝≤메모 칸 ${w.delInside} 한 줄 ${w.oneLine} 넘침 없음 ${w.docOk}`).join(' / ')}` }])
+      flows.push(['RR7 식단 스테퍼: 1탭 0.5 단위·입력 패턴·글자 크기·삭제 버튼 44px·넘침 없음', { ok, detail: `+1탭 ${c0}→${c1} · −1탭 ${c2} · 1.555→${typed} · ${widths.map((w) => `${w.width}: 글자 작음 ${w.smaller} 삭제 ${w.delH}px 삭제 오른쪽 끝≤메모 칸 ${w.delInside} 시각 칸 ${w.timeClip} 한 줄 ${w.oneLine} 넘침 없음 ${w.docOk}`).join(' / ')}` }])
     })
 
 
