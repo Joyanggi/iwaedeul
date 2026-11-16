@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { mmss } from '../lib/dates'
+import { Badge, Item, Text } from '../ax'
 import type { RestTimer } from '../lib/useRestTimer'
 
 /**
@@ -38,16 +39,21 @@ export default function SessionResumeStrip({
   }, [startedAt])
 
   return (
-    <button className="resume-strip" onClick={onResume}>
-      <span className="resume-main">
-        <span aria-hidden="true">🏋️</span> {dayName} 진행 중 · {elapsedMin}분
-      </span>
-      {timer.running && (
-        <span className="resume-rest">휴식 {mmss(timer.remainingSec)}</span>
-      )}
-      {timer.finished && <span className="resume-rest resume-rest-done">휴식 완료</span>}
-      <span className="resume-cta">이어서 ›</span>
-    </button>
+    <Item
+      onClick={onResume}
+      label={
+        <>
+          <span aria-hidden="true">🏋️</span> {dayName} 진행 중 · {elapsedMin}분
+        </>
+      }
+      endContent={
+        <>
+          {timer.running && <Badge variant="neutral" label={`휴식 ${mmss(timer.remainingSec)}`} />}
+          {timer.finished && <Badge variant="success" label="휴식 완료" />}
+          <Text>이어서 ›</Text>
+        </>
+      }
+    />
   )
 }
 

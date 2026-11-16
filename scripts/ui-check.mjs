@@ -34,7 +34,7 @@ import {
   inPageBars,
   inPageOverflow,
   inPageSheetButtons,
-  inPageTabbarSpot,
+  inPageCurrentTab,
   installScript,
   sheetButtonVerdict,
   compareRects,
@@ -93,29 +93,32 @@ const DEVICE = { ...IPHONE, viewport: { width: 390, height: 844 } }
 const settle = (page, ms = 600) => page.waitForTimeout(ms)
 const btn = (page, name) => page.getByRole('button', { name, exact: true })
 
-const COLUMNS = ['접근성', '눌림 반응', '움직임 줄이기', '여백 격자', '가로 넘침', '줄 안 버튼', '띠', '시트 버튼', '탭 누름', '마지막 요소', '세트 숫자', '섬 버튼', '테마 토큰', '안쪽 대칭']
+const COLUMNS = ['접근성', '눌림 반응', '움직임 줄이기', '여백 격자', '가로 넘침', '줄 안 버튼', '띠', '시트 버튼', '탭 누름', '지금 탭', '마지막 요소', '세트 숫자', '섬 버튼', '테마 토큰', '안쪽 대칭']
 /**
  * RR0이 더한 칸은 `before`에서는 기록만 한다(실패로 세지 않는다). `after --check`에서 판정하기 시작하는 작업:
  * 탭 누름·마지막 요소 = RR3, 세트 숫자·섬 버튼 = RR7, 테마 토큰 = RR1(그 전 `before`에서는 테마가 있는 editor 장면만).
  * 작업이 끝날 때 해당 값을 true로 바꾼다.
  */
-const JUDGED = { '탭 누름': false, '마지막 요소': false, '세트 숫자': false, '섬 버튼': false, '테마 토큰': true }
+const JUDGED = { '탭 누름': true, '지금 탭': true, '마지막 요소': true, '세트 숫자': false, '섬 버튼': false, '테마 토큰': true }
 /**
  * `안쪽 대칭`(RR12)은 이미 Astryx 부품인 장면(루틴 편집)에서만 판정하고, 나머지는 기록만 한다(옮기기 전 장면은 실패로 세지 않는다).
  * 화면·띠를 옮기는 작업(RR3·RR4·RR5·RR6·RR7)이 자기 장면을 여기에 더한다.
  */
-const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet'])
-/** 판정을 켠 쌍 종류. 나머지 종류는 장면이 Astryx여도 기록만 한다(card·badge = RR4, bar·tab-* = RR3, 위 띠 = RR6, set-row = RR7, sheet = RR5) */
-const SYMMETRY_KINDS = new Set(['button'])
+const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', 'home', 'home-375', 'home-resume', 'home-safe', 'settings'])
+/** 판정을 켠 쌍 종류. 나머지 종류는 장면이 Astryx여도 기록만 한다(card·badge = RR4, 위 띠 = RR6, set-row = RR7, sheet = RR5) */
+const SYMMETRY_KINDS = new Set(['button', 'bar', 'tab-indicator', 'tab-content'])
 /** `같은 역할`의 묶음 사이·카드 안쪽·가까움 순서는 홈을 옮기는 RR4부터 판정한다 */
 const ROLES_JUDGED = new Set()
 const THEME_SCENES_BEFORE = new Set(['editor', 'line-sheet'])
 /** 장면마다 기대하는 띠·시트 수의 최소값. 모자라면 `띠` 칸을 실패로 낸다 — 아무것도 안 재고 지나가지 않게 (RR0) */
+/** 아래 탭 띠가 있는 장면(재개 줄이 붙는 `home-resume`·`settings-open`은 따로 2) */
+const TAB_BAR_SCENES = ['home', 'home-end', 'home-375', 'history', 'history-detail', 'history-detail-edit', 'analyze', 'diet', 'diet-log-open', 'settings', 'settings-end', 'settings-375', 'settings-routines', 'settings-routines-375', 'settings-routines-confirm-375']
 const EXPECTED_BARS = {
   // 탭 장면: 아래 탭 띠 1 (재개 줄이 있으면 2)
-  ...Object.fromEntries(['home', 'home-end', 'home-375', 'history', 'history-detail', 'history-detail-edit', 'analyze', 'diet', 'diet-log-open', 'settings', 'settings-end', 'settings-375', 'settings-routines', 'settings-routines-375', 'settings-routines-confirm-375'].map((n) => [n, 1])),
-  'home-resume': 2,
-  'settings-open': 2,
+  ...Object.fromEntries(TAB_BAR_SCENES.map((n) => [n, 1])),
+  // 재개 줄은 아래 탭과 한 띠(.ax-bar) 안에 쌓인다(RR3) — 띠는 1개다
+  'home-resume': 1,
+  'settings-open': 1,
   // 세션 장면: 위 띠 1, 휴식 중이면 휴식 바까지 2
   session: 1,
   'session-375': 1,
@@ -138,8 +141,7 @@ const layouts = {} // 장면 -> inPageLayout() (QQ4 여백 한 벌)
 
 const verdict = (r) => (r.skip ? { status: '건너뜀', detail: r.detail } : { status: r.ok ? '통과' : '실패', detail: r.detail })
 
-const TAB_SCENES = new Set(['home', 'home-end', 'home-resume', 'home-resume-end'])
-const COVER_SCENES = new Set(['home-end', 'home-resume-end'])
+const TAB_NAV_SCENES = new Set([...TAB_BAR_SCENES, 'home-resume', 'home-resume-end', 'settings-open', 'home-safe'])
 
 async function barsVerdict(page, scene) {
   const bars = await page.evaluate(inPageBars)
@@ -148,7 +150,6 @@ async function barsVerdict(page, scene) {
   if (bars.count < expected) return { status: '실패', detail: `띠 ${bars.count}개 — 기대 ${expected}개`, marks: [`띠 ${bars.count}개 — 기대 ${expected}개`] }
   if (bars.count === 0) return null
   const parts = [['띠·시트 불투명·흐림 없음', bars]]
-  if (TAB_SCENES.has(scene)) parts.push(['탭바 자리', await page.evaluate(inPageTabbarSpot, COVER_SCENES.has(scene))])
   const bad = parts.filter(([, r]) => !r.skip && !r.ok).map(([n, r]) => `${n}: ${r.detail}`)
   const marks = [`층 ${bars.count}개(기대 ${expected} 이상)`, ...parts.map(([n, r]) => `${n} ${r.skip ? '건너뜀' : r.ok ? '통과' : '실패'}`), bars.detail]
   return { status: bad.length ? '실패' : '통과', detail: bad.join(' / ') || `${bars.count}개 통과`, marks }
@@ -190,6 +191,7 @@ async function newColumns(page, scene, cells, light) {
   cells['안쪽 대칭'] = softVerdict('안쪽 대칭', sym, SYMMETRY_JUDGED.has(scene) && phase === 'after')
   if (light) return name
   cells['탭 누름'] = softVerdict('탭 누름', await page.evaluate(inPageTabHit))
+  cells['지금 탭'] = TAB_NAV_SCENES.has(scene) ? verdict(await page.evaluate(inPageCurrentTab)) : { status: '건너뜀', detail: '아래 탭이 없는 장면' }
   cells['마지막 요소'] = LAST_SCENES.has(scene) ? softVerdict('마지막 요소', await page.evaluate(inPageLastVisible)) : { status: '건너뜀', detail: '이 장면은 재지 않는다' }
   cells['세트 숫자'] = SET_SCENES.has(scene) ? softVerdict('세트 숫자', await page.evaluate(inPageSetNumber)) : { status: '건너뜀', detail: '세트 행이 있는 장면만' }
   cells['섬 버튼'] = softVerdict('섬 버튼', await page.evaluate(inPageIslandButtons))
@@ -712,11 +714,16 @@ async function runSafeArea(browser, port) {
         if (r.bottom === null) bad.push(`${bottomSel}를 못 찾았다`)
         else if (r.bottom > r.h - 34 + 0.5) bad.push(`아래 끝 ${r.bottom} > ${r.h - 34} (홈 바 자리를 침범)`)
       }
+      // RR3·RR12: 안전 영역이 있는 홈에서도 띠 ↔ 탭 줄·탭 ↔ 선택 표시·탭 ↔ 아이콘 + 글자가 대칭이다(아래 안전 영역은 뺀다)
+      if (name === 'home-safe') {
+        const sym = insetSymmetryVerdict(await page.evaluate(inPageInsetSymmetry), EXPECTED_PAIRS[name] ?? [])
+        flows.push([`안쪽 대칭 ${name}${light ? '-light' : ''}`, { ok: sym.ok, detail: sym.detail }])
+      }
       flows.push([`상태바 받침 ${name}${light ? '-light' : ''}`, { ok: bad.length === 0, detail: bad.join(' / ') || (light ? `받침 ${r.height} ${r.bg} · 픽셀 rgb(${px.bar[0]})` : '받침 없음') + (r.bottom !== null ? ` · 아래 끝 ${r.bottom}/${r.h - 34}` : '') }])
     }
     await page.getByRole('button', { name: /^(시작하기|확인했어요, 그래도 계속)$/ }).click()
     await page.getByRole('button', { name: '설정', exact: true }).waitFor()
-    await scene('home-safe', '.tabbar')
+    await scene('home-safe', 'nav[aria-label="화면"]')
     await page.getByRole('button', { name: /시작$|이어서 하기/ }).first().click()
     await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor()
     await scene('session-safe', null)

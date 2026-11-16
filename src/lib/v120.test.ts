@@ -104,7 +104,7 @@ describe("v120 RR0 — 검사 도구가 화면 클래스에 안 묶인다", () =
 
   it("v120 RR0: 새 칸은 before(와 판정을 안 켠 칸)에서는 기록만 하고 실패로 세지 않는다", () => {
     const t = text(SCRIPTS, "/scripts/ui-check.mjs")
-    expect(t).toMatch(/const JUDGED = \{ '탭 누름': false, '마지막 요소': false, '세트 숫자': false, '섬 버튼': false, '테마 토큰': true \}/) // RR1이 '테마 토큰'만 켰다(PLAN: 작업이 끝날 때 해당 값을 true로)
+    expect(t).toMatch(/const JUDGED = \{ '탭 누름': true, '지금 탭': true, '마지막 요소': true, '세트 숫자': false, '섬 버튼': false, '테마 토큰': true \}/) // RR1이 '테마 토큰'을, RR3이 '탭 누름'·'마지막 요소'와 새 칸 '지금 탭'을 켰다(PLAN: 작업이 끝날 때 해당 값을 true로)
     expect(t).toContain("status: '기록'")
   })
 
@@ -164,7 +164,7 @@ const code = (path: string): string => {
 describe("v120 RR1 — 테마를 앱 뿌리에", () => {
   it("v120 RR1: App.tsx가 ./ax에서 AppRoot를 정적으로 import하고, <AppRoot 밖에서 화면을 반환하는 갈래가 없다", () => {
     const app = code("/src/App.tsx")
-    expect(app).toMatch(/import \{ AppRoot \} from '\.\/ax'/)
+    expect(app).toMatch(/import \{ AppRoot[^}]*\} from '\.\/ax'/)
     // 화면 반환은 AppBody 한 곳이고, 그 함수를 <AppRoot> 안에서만 쓴다
     const exported = app.slice(app.indexOf("export default function App()"))
     expect(exported).toMatch(/<AppRoot>\s*<AppBody \/>\s*<\/AppRoot>/)
@@ -333,5 +333,94 @@ describe("v120 RR12 — 여백: 맞물림 기준과 검사", () => {
     expect(s).toMatch(/Omit<CardProps, 'padding'>/)
     expect(s).toMatch(/Omit<ClickableCardProps, 'padding'>/)
     expect(s).toMatch(/<AstryxCard padding=\{CARD_PADDING\} \{\.\.\.props\} \/>/)
+  })
+})
+
+
+describe("v120 RR3 — 앱 틀과 아래 탭", () => {
+  const FRAME = ["/src/App.tsx", "/src/components/TabBar.tsx", "/src/components/SessionResumeStrip.tsx", "/src/components/UpdatePrompt.tsx"]
+
+  it("v120 RR3: App·TabBar·SessionResumeStrip·UpdatePrompt에 className=·style=·<button이 0건이고 ../ax(또는 ./ax)만 쓴다", () => {
+    for (const f of FRAME) {
+      const s = code(f)
+      expect(s, f).not.toMatch(/className=|style=|<button/)
+      expect(s, f).not.toContain("@astryxdesign")
+    }
+    expect(code("/src/App.tsx")).toMatch(/from '\.\/ax'/)
+    for (const f of FRAME.slice(1)) expect(code(f), f).toMatch(/from '\.\.\/ax'/)
+  })
+
+  it("v120 RR3: 탭은 TabList layout=fill size=md aria-label=화면 + Tab 다섯이고 TABS 배열과 <Icon />을 그대로 둔다", () => {
+    const s = code("/src/components/TabBar.tsx")
+    expect(s).toMatch(/<TabList[\s\S]*layout="fill"[\s\S]*size="md"[\s\S]*aria-label="화면"/)
+    expect(s).not.toMatch(/role=/)
+    expect(s).toContain("<Tab key={id} value={id} label={label} icon={<Icon />} />")
+    expect(s).toContain("onChange={(v) => onChange(v as TabId)}")
+  })
+
+  it("v120 RR3: 아래 띠 하나(<Bar position=bottom>)에 [재개 줄, 탭] 순서로 들어가고 .app 감싸개가 없다", () => {
+    const s = code("/src/App.tsx")
+    expect(s).toMatch(/<Bar position="bottom">[\s\S]*<SessionResumeStrip[\s\S]*<TabBar active=\{tab\} onChange=\{setTab\} \/>[\s\S]*<\/Bar>/)
+    expect(s).not.toContain('className="app"')
+  })
+
+  it("v120 RR3: 재개 줄은 Item onClick이고 휴식 배지(neutral·success)와 이어서 ›를 끝에 둔다", () => {
+    const s = code("/src/components/SessionResumeStrip.tsx")
+    expect(s).toContain("<Item")
+    expect(s).toContain("onClick={onResume}")
+    expect(s).toContain('<Badge variant="neutral"')
+    expect(s).toContain('<Badge variant="success" label="휴식 완료" />')
+    expect(s).toContain("이어서 ›")
+  })
+
+  it("v120 RR3: 업데이트 알림은 Banner status=info collapsible=false에 업데이트·나중에 버튼이다", () => {
+    const s = code("/src/components/UpdatePrompt.tsx")
+    expect(s).toContain("<Banner")
+    expect(s).toContain('status="info"')
+    expect(s).toContain("collapsible={false}")
+    expect(s).toContain('label="업데이트"')
+    expect(s).toContain('variant="ghost" label="나중에"')
+    expect(s).toContain("<StickyTop>")
+  })
+
+  it("v120 RR3: 불러오는 중·시작 실패는 Astryx 부품이고 문구가 그대로다", () => {
+    const s = code("/src/App.tsx")
+    expect(s).toContain("<Spinner />")
+    expect(s).toContain('<Loading text="차트를 불러오는 중…" />')
+    expect(s).toContain('<Loading text="불러오는 중…" />')
+    expect(s).toContain("<Banner status=\"error\" title={bootError} collapsible={false} />")
+    expect(s).toContain("사파리 프라이빗 브라우징에서는 IndexedDB를 쓸 수 없습니다. 일반 탭에서 열어 주세요.")
+  })
+
+  it("v120 RR3: Bar는 ax/index.tsx 안에 있고 자기 높이를 --ax-bar-top·--ax-bar-bottom으로 알린다 (새 .tsx 파일 없음)", () => {
+    const s = code("/src/ax/index.tsx")
+    expect(s).toMatch(/export function Bar\(/)
+    expect(s).toContain("'--ax-bar-top'")
+    expect(s).toContain("'--ax-bar-bottom'")
+    expect(s).toContain("ResizeObserver")
+    expect(s).toMatch(/import '\.\/parts\.css'/)
+    for (const n of ["TabList", "Tab", "Center", "Spinner"]) expect(s).toMatch(new RegExp(`export \\{[^}]*\\b${n}\\b[^}]*\\} from '@astryxdesign`))
+    expect(Object.keys(SRC).filter((p) => p.startsWith("/src/ax/") && p.endsWith(".tsx"))).toEqual(["/src/ax/index.tsx"])
+  })
+
+  it("v120 RR3: scripts/에 aria-current=page·inPagePillSeparation·inPageTabbarSpot 글자가 없고 BAR_SELECTOR 줄에 .tabbar·.resume-strip이 없다", () => {
+    for (const files of [SCRIPTS, LIB]) {
+      for (const [p, t] of Object.entries(files)) {
+        if (p.endsWith(".test.mjs")) continue
+        expect(t, p).not.toMatch(/aria-current=["']page["']|inPagePillSeparation|inPageTabbarSpot/)
+      }
+    }
+    const line = text(LIB, "/scripts/lib/ui-check-lib.mjs").split("\n").find((l) => l.includes("export const BAR_SELECTOR"))
+    expect(line).toBeTruthy()
+    expect(line).not.toMatch(/\.tabbar|\.resume-strip/)
+    expect(line).toContain(".ax-bar")
+  })
+
+  it("v120 RR3: ui-check.mjs에 지금 탭 칸(inPageCurrentTab)과 판정 켜기(탭 누름·지금 탭·마지막 요소)가 있고 재개 줄 장면의 띠 기대는 1이다", () => {
+    const t = text(SCRIPTS, "/scripts/ui-check.mjs")
+    expect(t).toContain("inPageCurrentTab")
+    expect(t).toMatch(/'탭 누름', '지금 탭', '마지막 요소'/)
+    expect(t).toMatch(/'home-resume': 1,/)
+    expect(text(LIB, "/scripts/lib/ui-check-lib.mjs")).toMatch(/export const inPageCurrentTab/)
   })
 })

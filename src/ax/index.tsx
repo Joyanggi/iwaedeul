@@ -4,8 +4,9 @@
  */
 import '@astryxdesign/core/astryx.css'
 import './ax.css'
+import './parts.css'
 
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { Theme } from '@astryxdesign/core/theme'
 import { SizeProvider } from '@astryxdesign/core/SizeContext'
 import { Button } from '@astryxdesign/core/Button'
@@ -75,6 +76,50 @@ export function Card(props: Omit<CardProps, 'padding'>) {
 /** 눌리는 카드. `Card`와 같은 안쪽 여백. */
 export function ClickableCard(props: Omit<ClickableCardProps, 'padding'>) {
   return <AstryxClickableCard padding={CARD_PADDING} {...props} />
+}
+
+/**
+ * 화면 위나 아래에 붙어 있는 띠(Astryx에 없는 부품 — Layout은 iOS의 문서 스크롤을 잃게 해서 안 쓴다).
+ * 재질은 `parts.css`의 `.ax-bar` 한 곳. 자기 높이를 `--ax-bar-top`·`--ax-bar-bottom`으로 문서에 알려
+ * 화면 틀(`.ax-screen`)과 안 옮긴 화면(`.screen`)이 그만큼 비운다. 안전 영역은 띠가 스스로 띄운다.
+ */
+export function Bar({
+  position,
+  children,
+  role,
+  'aria-label': ariaLabel,
+}: {
+  position: 'top' | 'bottom'
+  children: ReactNode
+  role?: string
+  'aria-label'?: string
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const name = position === 'top' ? '--ax-bar-top' : '--ax-bar-bottom'
+    const root = document.documentElement
+    // 짝수로 올린다: 띠 높이가 홀수면 비워 둔 자리가 2px 격자에서 어긋난다
+    const publish = () => root.style.setProperty(name, `${Math.ceil(el.offsetHeight / 2) * 2}px`)
+    publish()
+    const observer = new ResizeObserver(publish)
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      root.style.removeProperty(name)
+    }
+  }, [position])
+  return (
+    <div ref={ref} className={`ax-bar ax-bar-${position}`} role={role} aria-label={ariaLabel}>
+      {children}
+    </div>
+  )
+}
+
+/** 화면 위에 붙어 있는 알림 자리(업데이트 알림). 스타일은 `parts.css`. */
+export function StickyTop({ children }: { children: ReactNode }) {
+  return <div className="ax-sticky-top">{children}</div>
 }
 
 /** 텍스트 입력. 자동완성 억제(G5)와 16px 하한을 빠뜨릴 수 없게 한다. */
@@ -154,6 +199,9 @@ export function Sheet({ label, purpose = 'info', height = 'hug', onClose, childr
   )
 }
 
+export { TabList, Tab } from '@astryxdesign/core/TabList'
+export { Center } from '@astryxdesign/core/Center'
+export { Spinner } from '@astryxdesign/core/Spinner'
 export { Button } from '@astryxdesign/core/Button'
 export { Banner } from '@astryxdesign/core/Banner'
 export { Badge } from '@astryxdesign/core/Badge'

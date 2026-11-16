@@ -22,11 +22,6 @@
   --r-md: 14px;
   --r-lg: 20px;
 
-  /* 하단 탭바 높이 + 홈 인디케이터 */
-  --tabbar-h: 56px;
-  --tabbar-inset: 12px;
-  --tabbar-bottom: max(var(--safe-b), 8px);
-  --resume-strip-h: 44px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
 
@@ -63,7 +58,7 @@ body {
  * 맨 요소 규칙은 legacy 화면 안에만 건다. 그 안의 Astryx 섬(`.ax-scope`)과 옮긴 화면은 벗어난다.
  * 뿌리 목록은 `src/ax/ax.css`의 리셋 범위와 글자 그대로 같아야 한다(v120 스캔).
  */
-@scope (.app, .screen, .session, .onboarding, .sheet-backdrop, .center-note, .banner) to (.ax-scope) {
+@scope (.screen, .session, .onboarding, .sheet-backdrop, .center-note, .banner) to (.ax-scope) {
   /*
    * `Theme`이 앱 전체를 감싸는 요소(display: contents)에 글꼴·글자색을 건다(Figtree, 흰색). 안 옮긴 화면은 예전 값으로 돌려놓는다.
    * 명시도 0이라 뿌리 클래스가 따로 정한 색·글꼴이 이긴다.
@@ -112,15 +107,9 @@ body {
 
 /* ─── 레이아웃 ─────────────────────────────────────────── */
 
-.app {
-  display: flex;
-  flex-direction: column;
-  min-height: 100dvh;
-}
-
 .screen {
   flex: 1;
-  padding: calc(var(--safe-t) + 12px) var(--inset-screen) calc(var(--tabbar-h) + var(--tabbar-bottom) + 32px);
+  padding: calc(var(--safe-t) + 12px) var(--inset-screen) calc(max(var(--safe-b), var(--ax-bar-bottom, 0px)) + 32px);
   max-width: 640px;
   width: 100%;
   margin: 0 auto;
@@ -302,69 +291,6 @@ body {
 .segment button[aria-pressed='true'] {
   background: var(--color-accent);
   color: var(--color-on-accent);
-}
-
-/* ─── 하단 탭바 ────────────────────────────────────────── */
-
-.tabbar {
-  position: fixed;
-  bottom: var(--tabbar-bottom);
-  left: var(--tabbar-inset);
-  right: var(--tabbar-inset);
-  max-width: 616px;
-  margin: 0 auto;
-  height: var(--tabbar-h);
-  z-index: 20;
-  display: flex;
-  isolation: isolate;
-  overflow: hidden;
-  border-radius: calc(var(--tabbar-h) / 2);
-  background: var(--color-background-surface);
-  border: 1px solid var(--color-border);
-}
-
-.tabbar button {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  height: var(--tabbar-h);
-  position: relative;
-  color: var(--text-dim);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.tabbar button[aria-current='page'] {
-  color: var(--accent);
-}
-
-/* 지금 탭 뒤의 알약. 버튼 높이는 그대로라 탭 영역이 줄지 않는다 */
-.tabbar button[aria-current='page']::before {
-  content: '';
-  position: absolute;
-  inset: 6px 2px;
-  border-radius: 22px;
-  background: var(--color-background-muted);
-  border: 1px solid var(--color-border-emphasized);
-  z-index: -1;
-}
-
-/* 재개 스트립이 떠 있으면 그 자리(8 + 44)만큼 더 비워 마지막 내용을 안 덮게 한다 */
-.app:has(.resume-strip) .screen {
-  padding-bottom: calc(var(--tabbar-h) + var(--tabbar-bottom) + 8px + var(--resume-strip-h) + 32px);
-}
-
-/*
-  SVG 아이콘 자리 (BB1). 이모지였을 때는 font-size로 크기를 정했지만 SVG는 width/height를
-  갖고 오므로, 여기서는 **줄 높이만 끊는다** — flex로 두지 않으면 인라인 baseline 여백이
-  붙어 라벨과의 간격이 2px 어긋난다.
-*/
-.tabbar .tab-icon {
-  display: flex;
-  line-height: 1;
 }
 
 /* ─── 배너 ─────────────────────────────────────────────── */
@@ -980,57 +906,6 @@ body {
     라벨을 짧게 유지하는 것이 1차 방어이고, 이건 2차 방어다.
   */
   white-space: nowrap;
-}
-
-/*
-  재개 스트립 (Z5) — 탭바 바로 위. 세션이 열려 있는 동안 어느 탭에서든 보인다.
-  파괴적 동작이 아니므로 accent 배경을 쓰지 않고 정보 톤으로 둔다 (종료·버리기와 구분).
-  휴식 타이머 바(z-index 30)보다 아래에 둬서 휴식 중에는 타이머가 우선 보이게 한다.
-*/
-.resume-strip {
-  position: fixed;
-  bottom: calc(var(--tabbar-h) + var(--tabbar-bottom) + 8px);
-  left: var(--tabbar-inset);
-  right: var(--tabbar-inset);
-  max-width: 616px;
-  margin: 0 auto;
-  z-index: 25;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: auto;
-  min-height: var(--resume-strip-h);
-  padding: 8px 12px;
-  background: var(--color-background-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 22px;
-  font-size: 13px;
-  text-align: left;
-}
-
-.resume-main {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 600;
-}
-
-.resume-rest {
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-dim);
-}
-
-.resume-rest-done {
-  color: var(--ok);
-}
-
-.resume-cta {
-  flex-shrink: 0;
-  color: var(--accent);
-  font-weight: 600;
 }
 
 /* 최소화 (Z5) — 종료(파괴적)와 시각적으로 구분한다 */

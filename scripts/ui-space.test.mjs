@@ -38,10 +38,10 @@ describe('v120 RR12: 안쪽 대칭', () => {
     expect(insetSymmetryVerdict([], []).ok).toBe(true)
   })
 
-  it('v120 RR12: EXPECTED_PAIRS는 이미 Astryx인 장면의 버튼 쌍과 옮기기 전 홈의 legacy 알약을 적는다', () => {
+  it('v120 RR12: EXPECTED_PAIRS는 Astryx인 장면의 버튼 쌍과 아래 탭 장면의 띠·선택 표시·탭 내용 쌍을 적는다 (RR3이 legacy 알약을 바꿨다)', () => {
     expect(EXPECTED_PAIRS.editor).toContain('button')
     expect(EXPECTED_PAIRS['line-sheet']).toContain('button')
-    expect(EXPECTED_PAIRS.home).toContain('legacy-pill')
+    for (const scene of ['home', 'home-375', 'home-resume', 'home-safe', 'settings']) expect(EXPECTED_PAIRS[scene]).toEqual(['bar', 'tab-indicator', 'tab-content'])
   })
 
   it('v120 RR12 속성: 위·아래(좌·우)가 같은 쌍은 어떤 값에서도 통과하고, 허용(1px)을 넘기면 실패한다', () => {

@@ -12,7 +12,7 @@
  * (문서 단위는 `global.css`와 아래 "문서 바탕"이 맡는다. 이유는 DEV-RECORD OO2 "PLAN과 다르게 한 것").
  */
 @layer reset {
-  @scope (html, .ax-scope) to (.app, .screen, .session, .onboarding, .sheet-backdrop, .center-note, .banner) {
+  @scope (html, .ax-scope) to (.screen, .session, .onboarding, .sheet-backdrop, .center-note, .banner) {
     :where(*),
     :where(*)::before,
     :where(*)::after {
@@ -174,7 +174,8 @@
     min-height: 100dvh;
     max-width: 640px;
     margin: 0 auto;
-    padding: calc(env(safe-area-inset-top) + 12px) var(--inset-screen) calc(env(safe-area-inset-bottom) + 24px);
+    /* 띠(`Bar`)가 자기 높이를 --ax-bar-top·--ax-bar-bottom으로 알린다. 띠 높이는 안전 영역을 이미 품고 있다 */
+    padding: calc(max(env(safe-area-inset-top), var(--ax-bar-top, 0px)) + 12px) var(--inset-screen) calc(max(env(safe-area-inset-bottom), var(--ax-bar-bottom, 0px)) + 24px);
   }
 
   /* 홈 화면 앱의 상태바 글자는 항상 흰색이라, 라이트에서만 상태바 자리를 어둡게 받친다 (전 화면 — v1.20 RR2) */

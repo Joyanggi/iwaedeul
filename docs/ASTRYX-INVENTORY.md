@@ -1,10 +1,10 @@
 # Astryx 적용 현황
 
-> 2026-11-13, 커밋 2a925a4. `node scripts/astryx-inventory.mjs --write`가 만든다. `--check`가 맨 아래 합계 줄을 기준으로 뒷걸음을 막는다.
+> 2026-11-16, 커밋 e12d6a9. `node scripts/astryx-inventory.mjs --write`가 만든다. `--check`가 맨 아래 합계 줄을 기준으로 뒷걸음을 막는다.
 
 | 파일 | Astryx | 인라인 | 인라인 여백 | legacy 클래스 |
 |---|---|---|---|---|
-| src/App.tsx | 예 | 0 | 0 | 7 |
+| src/App.tsx | 예 | 0 | 0 | 0 |
 | src/ax/index.tsx | 예 | 0 | 0 | 0 |
 | src/components/AddExerciseSheet.tsx | — | 1 | 0 | 9 |
 | src/components/CompensationSheet.tsx | — | 1 | 0 | 9 |
@@ -32,12 +32,12 @@
 | src/components/RoutineIoPanel.tsx | — | 2 | 0 | 14 |
 | src/components/RoutineLineSheet.tsx | 예 | 0 | 0 | 0 |
 | src/components/RoutineListPanel.tsx | — | 2 | 0 | 8 |
-| src/components/SessionResumeStrip.tsx | — | 0 | 0 | 5 |
+| src/components/SessionResumeStrip.tsx | 예 | 0 | 0 | 0 |
 | src/components/SheetFrame.tsx | — | 0 | 0 | 1 |
 | src/components/SubstituteSheet.tsx | — | 2 | 0 | 11 |
-| src/components/TabBar.tsx | — | 0 | 0 | 2 |
+| src/components/TabBar.tsx | 예 | 0 | 0 | 0 |
 | src/components/TempoGuideSheet.tsx | — | 2 | 0 | 12 |
-| src/components/UpdatePrompt.tsx | — | 3 | 0 | 2 |
+| src/components/UpdatePrompt.tsx | 예 | 0 | 0 | 0 |
 | src/components/WeekDots.tsx | — | 1 | 0 | 9 |
 | src/components/WeightScaleSheet.tsx | — | 1 | 0 | 10 |
 | src/components/icons.tsx | — | 0 | 0 | 0 |
@@ -54,4 +54,4 @@
 | src/screens/SettingsScreen.tsx | — | 7 | 0 | 20 |
 | src/screens/SummaryScreen.tsx | — | 4 | 0 | 18 |
 
-합계: `.tsx` 49개 가운데 Astryx를 읽는 것 5개, 인라인 스타일 97곳(여백 0), legacy 클래스 쓰임 520곳, 안 쓰는 legacy 선택자 2개.
+합계: `.tsx` 49개 가운데 Astryx를 읽는 것 8개, 인라인 스타일 94곳(여백 0), legacy 클래스 쓰임 504곳, 안 쓰는 legacy 선택자 2개.

@@ -7,7 +7,7 @@
 import { createServer } from 'node:net'
 
 /** 띠 선택자 — 이 한 줄이 유일한 출처다. 페이지에는 window.__ui.BARS로 한 번 깔린다 (v1.20 RR0, RRM에서 RRM에서 옮김). 시트는 따로 */
-export const BAR_SELECTOR = '.tabbar, .resume-strip, .session-header, .rest-bar, .ax-bar'
+export const BAR_SELECTOR = '.session-header, .rest-bar, .ax-bar'
 export const SHEET_SELECTOR = '.sheet, .astryx-bottom-sheet'
 
 /** 보이는 요소만 (크기 1px 이하·display none·visibility hidden은 뺀다). 판정은 여기 한 곳. 페이지에는 window.__vis로 깔린다 */
@@ -164,35 +164,35 @@ export function barStaticChecks(allCss) {
   return [{ name: 'src/**/*.css에 backdrop-filter 0건', ok: hits.length === 0, detail: hits.length ? hits.map(([f]) => f).join(', ') : `${Object.keys(allCss).length}개 파일 0건` }]
 }
 
-/** 탭바 자리 (하위 항목, RR3이 지운다 — RRM에서 옮김). measureCover는 'home-end' 계열만 가림을 잰다 */
-export const inPageTabbarSpot = (measureCover) => {
-  const bar = document.querySelector('.tabbar')
-  if (!bar) return { skip: true, detail: '탭바가 없다' }
-  const strip = document.querySelector('.resume-strip')
-  const r = bar.getBoundingClientRect()
+/**
+ * 지금 탭 (RR3): `nav[aria-label="화면"]` 안에 탭이 정확히 5개이고 `[aria-current="true"]`가 정확히 1개이며,
+ * 그 탭이 다른 탭과 다르게 보인다(글자색이나 선택 표시 요소). 띠 안 순서는 [재개 줄(있으면), 탭 줄]이다.
+ * 탭이 없는 장면은 skip.
+ */
+export const inPageCurrentTab = () => {
+  const nav = document.querySelector('nav[aria-label="화면"]')
+  if (!nav) return { skip: true, detail: '아래 탭이 없다' }
+  const tabs = [...nav.querySelectorAll('button')]
+  const current = tabs.filter((t) => t.getAttribute('aria-current') === 'true')
   const parts = []
-  const gaps = { 좌: r.left, 우: innerWidth - r.right, 아래: innerHeight - r.bottom }
-  const tight = Object.entries(gaps).filter(([, v]) => v < 8)
-  parts.push({ name: '좌·우·아래 8px', ok: tight.length === 0, detail: `좌 ${Math.round(gaps.좌)} · 우 ${Math.round(gaps.우)} · 아래 ${Math.round(gaps.아래)}` })
-  const small = [...bar.querySelectorAll('button')].map((b) => b.getBoundingClientRect()).filter((x) => x.width < 44 || x.height < 44)
-  const count = bar.querySelectorAll('button').length
-  parts.push({ name: '탭 버튼 44px', ok: count === 5 && small.length === 0, detail: `${count}개 · 작은 것 ${small.map((x) => `${Math.round(x.width)}×${Math.round(x.height)}`).join(',') || '없음'}` })
-  if (strip) {
-    const s = strip.getBoundingClientRect()
-    const apart = s.bottom <= r.top + 0.5 || r.bottom <= s.top + 0.5 || s.right <= r.left + 0.5 || r.right <= s.left + 0.5
-    parts.push({ name: '스트립·탭바 안 겹침', ok: apart, detail: `스트립 아래 ${Math.round(s.bottom)} · 탭바 위 ${Math.round(r.top)}` })
+  parts.push({ name: '탭 5개', ok: tabs.length === 5, detail: `${tabs.length}개` })
+  parts.push({ name: 'aria-current="true" 1개', ok: current.length === 1, detail: `${current.length}개` })
+  if (current.length === 1) {
+    const color = (t) => getComputedStyle(t).color
+    const mark = (t) => [...t.querySelectorAll('[class*="indicator" i], [class*="underline" i]')].filter((e) => window.__vis(e)).length
+    const others = tabs.filter((t) => t !== current[0])
+    const differs = others.every((t) => color(t) !== color(current[0]) || mark(t) !== mark(current[0]))
+    parts.push({ name: '지금 탭이 다르게 보인다', ok: differs, detail: `글자색 ${color(current[0])} · 선택 표시 ${mark(current[0])}개` })
   }
-  if (measureCover) {
-    const last = document.querySelector('.screen')?.lastElementChild
-    if (!last) parts.push({ name: '가림', ok: false, detail: '.screen의 마지막 자식을 못 찾았다' })
-    else {
-      const top = (strip ?? bar).getBoundingClientRect().top
-      const bottom = last.getBoundingClientRect().bottom
-      parts.push({ name: '가림', ok: bottom < top, detail: `마지막 내용 아래 ${Math.round(bottom)} · ${strip ? '스트립' : '탭바'} 위 ${Math.round(top)}${bottom >= top ? ` (${Math.round(bottom - top)}px 가림)` : ''}` })
-    }
+  const bar = nav.closest('.ax-bar')
+  if (!bar) parts.push({ name: '띠 안', ok: false, detail: '.ax-bar 밖' })
+  else {
+    const strip = [...bar.children].filter((k) => window.__vis(k))
+    const last = strip[strip.length - 1]
+    parts.push({ name: '탭 줄이 띠의 마지막', ok: last === nav || last?.contains(nav), detail: `띠 안 ${strip.length}줄` })
   }
   const bad = parts.filter((p) => !p.ok)
-  return { ok: bad.length === 0, detail: parts.map((p) => `${p.name} ${p.ok ? '✓' : '✗'}(${p.detail})`).join(' · '), parts }
+  return { ok: bad.length === 0, detail: parts.map((p) => `${p.name} ${p.ok ? '✓' : '✗'}(${p.detail})`).join(' · ') }
 }
 
 /** 눌림 반응을 재는 요소 선택자 */
@@ -423,6 +423,8 @@ export function motionStaticChecks(allCss) {
 export const inPageTabHit = () => {
   const bar = [...document.querySelectorAll('.ax-bar')].find((b) => window.__vis(b) && b.querySelector('nav'))
   if (!bar) return { skip: true, detail: 'Astryx 탭 띠(.ax-bar > nav)가 없다' }
+  // 시트가 떠 있으면 막이 띠 위를 덮는다 — 그때 탭은 눌리지 않는 것이 맞다
+  if (window.__ui.sheetOf()) return { skip: true, detail: '시트가 떠 있어 막이 띠를 덮는다' }
   const tabs = [...bar.querySelectorAll("nav button, nav a, [role='tab']")].filter((t) => window.__vis(t))
   if (tabs.length === 0) return { ok: false, detail: '띠 안에 탭이 0개 — 아무것도 안 쟀다' }
   const r = bar.getBoundingClientRect()
@@ -430,7 +432,10 @@ export const inPageTabHit = () => {
   for (const t of tabs) {
     const tr = t.getBoundingClientRect()
     const x = tr.left + tr.width / 2
-    for (const [label, y] of [['위', r.top + 2], ['아래', r.bottom - 2]]) {
+    // 위 끝: 띠 안 탭 줄 바로 위에 재개 줄이 있으면 그 줄의 아래 끝이 이 탭의 위 끝이다(탭 줄과 재개 줄 사이의 틈이 탭의 눌림 영역이다)
+    const above = [...bar.children].filter((k) => window.__vis(k) && k.getBoundingClientRect().bottom <= tr.top + 1 && !k.contains(t))
+    const topEdge = above.length ? Math.max(...above.map((k) => k.getBoundingClientRect().bottom)) : r.top
+    for (const [label, y] of [['위', topEdge + 2], ['아래', r.bottom - 2]]) {
       const hit = document.elementFromPoint(x, y)
       if (!hit || !(t === hit || t.contains(hit))) bad.push(`${(t.textContent ?? '').trim().slice(0, 8)} ${label} 끝`)
     }
@@ -462,7 +467,7 @@ export const inPageLastVisible = () => {
   if (!root) return { skip: true, detail: '본문(.ax-screen·.screen)이 없다' }
   const y0 = window.scrollY
   window.scrollTo(0, document.documentElement.scrollHeight)
-  const kids = [...root.children].filter((el) => window.__vis(el) && !el.matches('.ax-bar, .tabbar, .resume-strip'))
+  const kids = [...root.children].filter((el) => window.__vis(el) && !el.matches('.ax-bar'))
   const bars = [...document.querySelectorAll(window.__ui.BARS)].filter((b) => window.__vis(b) && b.getBoundingClientRect().bottom >= innerHeight - 1)
   let out
   if (kids.length === 0) out = { ok: false, detail: '본문에 보이는 자식이 0개 — 아무것도 안 쟀다' }

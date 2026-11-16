@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
-import { AppRoot } from './ax'
+import { AppRoot, AxRoot, Banner, Bar, Center, Heading, Spinner, Text, VStack } from './ax'
 import TabBar, { type TabId } from './components/TabBar'
 import SessionResumeStrip from './components/SessionResumeStrip'
 import UpdatePrompt from './components/UpdatePrompt'
@@ -101,15 +101,15 @@ function AppBody() {
     return (
       <>
         {banner}
-        <div className="screen">
-          <h1 className="screen-title">시작 실패</h1>
-          <div className="banner banner-danger">
-            <span>{bootError}</span>
-          </div>
-          <p className="row-sub">
-            사파리 프라이빗 브라우징에서는 IndexedDB를 쓸 수 없습니다. 일반 탭에서 열어 주세요.
-          </p>
-        </div>
+        <AxRoot>
+          <VStack gap={3}>
+            <Heading level={1}>시작 실패</Heading>
+            <Banner status="error" title={bootError} collapsible={false} />
+            <Text color="secondary">
+              사파리 프라이빗 브라우징에서는 IndexedDB를 쓸 수 없습니다. 일반 탭에서 열어 주세요.
+            </Text>
+          </VStack>
+        </AxRoot>
       </>
     )
   }
@@ -118,7 +118,7 @@ function AppBody() {
     return (
       <>
         {banner}
-        <div className="center-note">불러오는 중…</div>
+        <Loading text="불러오는 중…" />
       </>
     )
   }
@@ -151,28 +151,28 @@ function AppBody() {
 
   if (view === 'routineEdit' && bundle) {
     return (
-      <Suspense fallback={<div className="center-note">불러오는 중…</div>}>
+      <Suspense fallback={<Loading text="불러오는 중…" />}>
         <RoutineEditorScreen bundle={bundle} target={editTarget} onDone={() => setView('tabs')} />
       </Suspense>
     )
   }
 
   return (
-    <div className="app">
+    <>
       {banner}
       {tab === 'home' && (
         <HomeScreen onEnterSession={() => setView('session')} onOpenDiet={() => setTab('diet')} />
       )}
       {tab === 'diet' && <DietScreen />}
       {tab === 'history' &&
-        (bundle ? <HistoryScreen bundle={bundle} /> : <p className="center-note">불러오는 중…</p>)}
+        (bundle ? <HistoryScreen bundle={bundle} /> : <Loading text="불러오는 중…" />)}
       {tab === 'analyze' &&
         (bundle ? (
-          <Suspense fallback={<p className="center-note">차트를 불러오는 중…</p>}>
+          <Suspense fallback={<Loading text="차트를 불러오는 중…" />}>
             <AnalyzeScreen bundle={bundle} />
           </Suspense>
         ) : (
-          <p className="center-note">불러오는 중…</p>
+          <Loading text="불러오는 중…" />
         ))}
       {tab === 'settings' && (
         <SettingsScreen
@@ -183,20 +183,34 @@ function AppBody() {
           }}
         />
       )}
-      {/*
-        최소화된 세션의 재개 스트립 (Z5) — 어느 탭에 있든 보인다.
-        홈의 "진행 중" 배너를 이것으로 통합했다 (같은 정보가 두 줄 뜨지 않게).
-      */}
-      {openSession && bundle && (
-        <SessionResumeStrip
-          dayName={findDay(bundle.routine, openSession.dayId)?.name ?? openSession.dayId}
-          startedAt={openSession.startedAt}
-          timer={timer}
-          onResume={() => setView('session')}
-        />
-      )}
-      <TabBar active={tab} onChange={setTab} />
-    </div>
+      <Bar position="bottom">
+        {/*
+          최소화된 세션의 재개 스트립 (Z5) — 어느 탭에 있든 보인다.
+          홈의 "진행 중" 배너를 이것으로 통합했다 (같은 정보가 두 줄 뜨지 않게).
+        */}
+        {openSession && bundle && (
+          <SessionResumeStrip
+            dayName={findDay(bundle.routine, openSession.dayId)?.name ?? openSession.dayId}
+            startedAt={openSession.startedAt}
+            timer={timer}
+            onResume={() => setView('session')}
+          />
+        )}
+        <TabBar active={tab} onChange={setTab} />
+      </Bar>
+    </>
+  )
+}
+
+/** 불러오는 중 표시. 화면 가운데에 Spinner와 문구. */
+function Loading({ text }: { text: string }) {
+  return (
+    <Center>
+      <VStack gap={2}>
+        <Spinner />
+        <Text color="secondary">{text}</Text>
+      </VStack>
+    </Center>
   )
 }
 

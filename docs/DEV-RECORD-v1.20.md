@@ -688,3 +688,69 @@ editor·line-sheet: 통과 (button 쌍 판정; card 쌍은 "기록만"에 위 16
 
 - 안 옮긴 화면의 대칭 고치기(범위 제외). 판정을 켠 쌍은 `button`뿐이다 — `bar`·`tab-*`는 RR3, `card`·`badge`는 RR4, `sheet`는 RR5, 위 띠는 RR6, `set-row`는 RR7이 켠다(`SYMMETRY_KINDS`·`ROLES_JUDGED`)
 - `tab-indicator`의 선택자(`[class*="indicator"]`)는 Astryx 탭이 아직 화면에 없어 확인하지 못했다 — RR3이 확인한다
+
+
+---
+
+## RR3. 앱 틀과 아래 탭
+
+### 범위
+
+| 바뀐 파일 | 내용 |
+|---|---|
+| `src/ax/index.tsx`·`src/ax/parts.css`(새) | `Bar`(위·아래 띠, 높이를 `--ax-bar-top/bottom`으로 알림 — 2px 단위로 올림)·`StickyTop`, `TabList`·`Tab`·`Center`·`Spinner` 내보내기. 띠 재질은 `parts.css`의 `.ax-bar` 한 곳 |
+| `src/components/TabBar.tsx`·`SessionResumeStrip.tsx`·`UpdatePrompt.tsx`·`src/App.tsx` | Astryx `TabList`/`Tab`·`Item`+`Badge`·`Banner`·`Center`+`Spinner`. `<div className="app">`은 Fragment로. 로직은 한 줄도 안 바꿈 |
+| `src/styles/global.css`·`motion.css`·`space.css`·`src/ax/ax.css` | `.app`·`.tabbar`·`.tab-icon`·`.resume-*`·`.update-prompt`·`--tabbar-*`·`--resume-strip-h`와 눌림 규칙 삭제. 뿌리 목록 두 곳에서 `.app` 삭제. `.screen`·`.ax-screen` 아래 여백은 `--ax-bar-bottom` |
+| `scripts/ui-check.mjs`·`lib/ui-check-lib.mjs`·`lib/ui-space.mjs` | `inPageCurrentTab`(`지금 탭` 칸) 추가·`inPageTabbarSpot` 삭제, `BAR_SELECTOR`에서 옛 띠 삭제, `탭 누름`·`지금 탭`·`마지막 요소` 판정 켬, `안쪽 대칭`을 탭 장면(`home`·`home-375`·`home-resume`·`home-safe`·`settings`)에서 판정(`bar`·`tab-*`), `home-safe`의 안쪽 대칭 흐름, 시트가 띠를 덮는 장면은 `탭 누름`을 건너뜀 |
+| `scripts/rr3.test.mjs`(새)·`src/lib/v120.test.ts` | RR3 테스트 15개(CSS 스캔 6 + 소스 스캔 9) |
+| `README.md`·`docs/ASTRYX-INVENTORY.md` | "모양은 테마 한 벌이 정한다" 끝 문장(`parts.css`), 인벤토리 새로 씀 |
+| `docs/screenshots/v1.20/after/*` | 다크·라이트 장면 갱신 |
+
+세 숫자: Astryx 안 읽는 `.tsx` 44→41 · 인라인 스타일 97→94 · legacy 클래스 쓰임 520→504(PLAN의 515→499와 같은 −16; 기준선이 520이었다) · 안 쓰는 legacy 선택자 2→2.
+
+**수정표 밖:** `src/lib/v117.test.ts: main.tsx는 Astryx를 직접 읽지 않고 …`·`src/lib/v120.test.ts: v120 RR1: App.tsx가 ./ax에서 AppRoot를 정적으로 import …`(import 줄에 이름이 더 들어갔다 — 정규식만 넓힘) · `src/lib/v120.test.ts: v120 RR0: 새 칸은 before …`(`JUDGED` 값 — PLAN이 RR3에서 켜라고 한 것) · `scripts/legacy-scope.test.mjs: 두 파일의 legacy 뿌리 목록 …`(`.app` 삭제)·`v120 RRM: 띠 …`(`.tabbar`·`.resume-strip` 규칙 삭제, 알약 규칙 확인 삭제) · `scripts/ui-space.test.mjs: EXPECTED_PAIRS …`(`legacy-pill` → 띠·탭 쌍).
+
+### PLAN 검증 ↔ 테스트·명령
+
+| PLAN 검증 | 테스트·명령 |
+|---|---|
+| 네 파일에 `className=`·`style=`·`<button` 0건, `../ax`만 | `v120 RR3: App·TabBar·SessionResumeStrip·UpdatePrompt에 …` |
+| `parts.css` 색 리터럴 0·px는 1px뿐·흐림 없음, `.ax-bar` 재질은 한 곳 | `scripts/rr3.test.mjs`: `parts.css에 색 리터럴 …`, `.ax-bar의 배경을 정하는 규칙이 parts.css에만 있다` |
+| `global.css`에 옛 선택자·변수 없음 | `scripts/rr3.test.mjs`: `global.css에 .app·.tabbar …`, `어느 CSS에도 옛 탭바·재개 줄 선택자가 남지 않는다` |
+| `polish.test.ts` BB1·`timerOwnership.test.ts` 안 고치고 통과 | `npm test` 통과(두 파일 수정 없음) |
+| `scripts/`에 `aria-current="page"`·`inPagePillSeparation`·`inPageTabbarSpot` 0, `BAR_SELECTOR`에 옛 띠 0 | `v120 RR3: scripts/에 aria-current=page …` |
+| `띠` 칸이 `.ax-bar`를 쟀고 `지금 탭` 통과 | 아래 출력, `v120 RR3: ui-check.mjs에 지금 탭 칸 …` |
+| `안쪽 대칭`(띠↔탭 줄, 탭↔선택 표시, 탭↔아이콘+글자, 버튼↔글자; `home-safe` 포함) | 아래 출력 |
+| `탭 누름`·`마지막 요소` | 아래 출력 |
+| 탭 다섯 한 줄(`home-375`), 아래 띠 안 버튼 5 + 재개 줄 | `지금 탭`의 `탭 5개`와 `home-375` 장면 통과 |
+| 탭 다섯 차례 누름·세션 최소화 뒤 재개 줄 | 자동 테스트 없음(RTL이 없다). `ui-check`가 탭을 눌러 장면(`diet`·`history`·`analyze`·`settings`)에 도착하고 최소화 뒤 재개 줄(`home-resume`)을 찍는다 — 화면 검증자·실기기 확인으로 본다 |
+
+### `ui-check after --check --safe-area` (출력 `.reports/rr3-full.txt`)
+
+종료 코드 0. 탭 장면 다크·라이트 전부 `띠` 통과(`.ax-bar` 1개 불투명, 재개 줄이 있는 `home-resume`도 1개 — 재개 줄은 같은 띠 안에 쌓인다), `지금 탭` 통과, `탭 누름`·`마지막 요소` 통과(시트가 띠를 덮는 `sheet-home`·`sheet-food`는 건너뜀 — 막이 덮는 것이 맞다), `안쪽 대칭` `home`·`home-375`·`home-resume`·`settings` 통과, 나머지 탭 장면은 기록(`통과였을 것 — 쌍 12개 대칭 (bar 1 · tab-indicator 1 · tab-content 5 · button 5)`). `--safe-area`: `안쪽 대칭 home-safe`·`-light` 통과(쌍 12개), `상태바 받침 home-safe` 아래 끝 802/810 통과(옛 떠 있는 탭바 기준이던 "띠 아래 끝"은 안전 영역을 품은 띠에서는 뜻이 없어 탭 줄 `nav[aria-label="화면"]`의 아래 끝으로 바꿨다).
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 검사 | 원상복구 |
+|---|---|---|
+| ⑧ `parts.css`에 `color: #ff7a1a`와 `gap: 12px` | `scripts/rr3.test.mjs: parts.css에 색 리터럴 …` | `cmp` 같음 |
+| ㉔ `.ax-bar`의 아래 안쪽 여백만 `--spacing-3` | `home · 안쪽 대칭: bar div.ax-bar 위 8·아래 12(차이 4)` + `탭 누름: … 아래 끝` | 같음 |
+| ⑱ `BAR_SELECTOR`에서 `.ax-bar` 삭제 | `home · 띠: 띠 0개 — 기대 1개` | 같음 |
+| 탭 눌림 영역 확장(`::after`의 `inset-block`)을 0으로 | `home · 탭 누름: 홈 위 끝 · 아래 끝 …` | 같음 |
+
+### 실행 결과
+
+- `npm run check`: 전부 통과(흔적·Astryx 뒷걸음 `44 → 41`·`97 → 94`·`520 → 504`·`2 → 2`·린트·knip·테스트·빌드)
+- `npm test`: Test Files 73 passed (73) · Tests 1701 passed (1701) (RR12 때 72·1686)
+- 변이 테스트: 대상 없음(`src/lib` 변경 없음)
+- 과거 판정 불변: `src/db`·`src/store`·`src/lib` 판정 파일 변경 없음(`src/lib`의 두 파일은 테스트뿐)
+- Argos: `Argos 건너뜀: ARGOS_TOKEN 없음`
+
+### 하지 않은 것
+
+- `--same-layout`: 띠·탭이 바뀐 작업이라 요소 위치가 달라지는 것이 정상이다. 안 옮긴 화면은 `--check`의 `여백 격자`·`같은 역할`이 본다.
+- `set-row`·`card`·`badge`·`sheet`·위 띠 대칭 판정(RR4~RR7이 켠다). 탭 아이콘과 글자가 한 줄(가로)로 놓이는 것은 Astryx `Tab size="md"`의 모양이다.
+
+### 실기기 확인 목록
+
+- 탭의 눌림 반응(Astryx 눌림은 이 Chromium에서 `mouse.down`으로 안 칠해진다), 홈 화면 앱(PWA)에서 아래 띠가 홈 바 위에 알맞게 놓이는지, 업데이트 알림이 위 안전 영역 아래에 붙는지.

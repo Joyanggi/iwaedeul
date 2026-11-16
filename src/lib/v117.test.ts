@@ -100,7 +100,7 @@ describe("OO2 — Astryx 바탕", () => {
     expect(raw("src/main.tsx")).not.toContain("global.css")
     const app = src("src/App.tsx")
     expect(app).not.toContain("@astryxdesign")
-    expect(app).toMatch(/import \{ AppRoot \} from ['"]\.\/ax['"]/)
+    expect(app).toMatch(/import \{ AppRoot[^}]*\} from ['"]\.\/ax['"]/)
   })
 
   it("AppRoot는 mode=system만 쓰고 reset.css·fonts.css를 읽지 않는다 (v1.20 RR1: 테마가 AxRoot에서 AppRoot로 옮겨 감)", () => {

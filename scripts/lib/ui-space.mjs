@@ -202,19 +202,11 @@ export const inPageInsetSymmetry = () => {
     if (!rects.length) continue
     push('bar', bar, { top: Math.min(...rects.map((r) => r.top)), bottom: Math.max(...rects.map((r) => r.bottom)), left: 0, right: 0 }, 'tb', true)
   }
-  // legacy 탭바(.tabbar): 지금 탭의 알약(::before의 inset)이 안이다 — 옮기기 전의 모습을 "기록"하려고 잰다
-  for (const bar of [...document.querySelectorAll('.tabbar')].filter(vis)) {
-    const cur = bar.querySelector('button[aria-current="page"]')
-    if (!cur) continue
-    const cs = getComputedStyle(cur, '::before')
-    const r = cur.getBoundingClientRect()
-    const px = (v) => Number.parseFloat(v) || 0
-    push('legacy-pill', bar, { top: r.top + px(cs.top), bottom: r.bottom - px(cs.bottom), left: r.left + px(cs.left), right: r.right - px(cs.right) }, 'tb', true)
-  }
-  // 탭 하나(role=tab): 선택 표시와 아이콘 + 글자
-  for (const tab of [...document.querySelectorAll('[role="tab"]')].filter(vis)) {
+  // 탭 하나(role=tab, 또는 아래 띠 `nav[aria-label="화면"]`의 버튼 — role이 없으면 Astryx는 aria-current="true"를 단다): 선택 표시와 아이콘 + 글자
+  for (const tab of [...document.querySelectorAll('[role="tab"], nav[aria-label="화면"] button')].filter(vis)) {
     const ind = [...tab.querySelectorAll('[class*="indicator" i], [class*="underline" i]')].find(vis)
-    if (ind && tab.getAttribute('aria-selected') === 'true') push('tab-indicator', tab, ind.getBoundingClientRect(), 'lr')
+    const selected = tab.getAttribute('aria-selected') === 'true' || tab.getAttribute('aria-current') === 'true'
+    if (ind && selected) push('tab-indicator', tab, ind.getBoundingClientRect(), 'lr')
     push('tab-content', tab, content(tab), 'both')
   }
   // 버튼: 글자·아이콘. 아이콘만 있는 버튼은 좌·우도
@@ -238,7 +230,12 @@ export const inPageInsetSymmetry = () => {
 
 /** 장면마다 기대하는 쌍 종류. 하나라도 0개면 `안쪽 대칭`이 실패다 — 선택자를 놓쳐 아무것도 안 재고 지나가지 않게. 쌍 종류를 더하는 작업(RR3~RR7)이 이 표를 채운다 */
 export const EXPECTED_PAIRS = {
-  home: ['legacy-pill'], // RR3이 'bar'·'tab-indicator'·'tab-content'로 바꾼다
+  // RR3: 아래 띠와 탭(Astryx `TabList`). 띠 ↔ 탭 줄, 탭 ↔ 선택 표시, 탭 ↔ 아이콘 + 글자
+  home: ['bar', 'tab-indicator', 'tab-content'],
+  'home-375': ['bar', 'tab-indicator', 'tab-content'],
+  'home-resume': ['bar', 'tab-indicator', 'tab-content'],
+  'home-safe': ['bar', 'tab-indicator', 'tab-content'],
+  settings: ['bar', 'tab-indicator', 'tab-content'],
   editor: ['button'],
   'line-sheet': ['button'],
 }

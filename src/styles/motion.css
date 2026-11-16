@@ -29,8 +29,6 @@
         [class*='astryx-'],
         [class*='astryx-'] *,
         .stepper button,
-        .tabbar button,
-        .resume-strip,
         .rest-dismiss,
         .session-minimize,
         .back-link
@@ -55,16 +53,6 @@
   transition: none;
 }
 
-/* 띠 안 (덮어씀): 덮개 없이 아이콘·글자만 옅게. 뗄 때만 돌아온다 */
-.tabbar button > *,
-.resume-strip > * {
-  transition: opacity var(--motion-fast) var(--ease-leave);
-}
-.tabbar button:active:not(:disabled) > *,
-.resume-strip:active:not(:disabled) > * {
-  opacity: 0.55;
-  transition: none;
-}
 .session-minimize,
 .back-link {
   transition: opacity var(--motion-fast) var(--ease-leave);
@@ -110,8 +98,6 @@
   .rest-btn,
   .session-end,
   .segment button,
-  .tabbar button > *,
-  .resume-strip > *,
   .session-minimize,
   .back-link {
     transition-duration: 0.01ms;

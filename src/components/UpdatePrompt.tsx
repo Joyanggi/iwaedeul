@@ -1,3 +1,4 @@
+import { Banner, Button, StickyTop } from '../ax'
 import type { PwaUpdate } from '../lib/usePwaUpdate'
 
 /**
@@ -8,17 +9,18 @@ export default function UpdatePrompt({ needRefresh, update, dismiss }: PwaUpdate
   if (!needRefresh) return null
 
   return (
-    <div
-      className="banner banner-info update-prompt"
-      style={{ position: 'sticky', top: 'var(--safe-t)', zIndex: 30 }}
-    >
-      <span>새 버전이 준비됐어요</span>
-      <button onClick={update}>
-        <span>업데이트</span>
-      </button>
-      <button onClick={dismiss} className="banner-dismiss" style={{ background: 'transparent' }}>
-        <span style={{ color: 'var(--accent)' }}>나중에</span>
-      </button>
-    </div>
+    <StickyTop>
+      <Banner
+        status="info"
+        title="새 버전이 준비됐어요"
+        collapsible={false}
+        endContent={
+          <>
+            <Button label="업데이트" onClick={update} />
+            <Button variant="ghost" label="나중에" onClick={dismiss} />
+          </>
+        }
+      />
+    </StickyTop>
   )
 }

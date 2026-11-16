@@ -1,0 +1,64 @@
+/*
+ * 이 앱만의 부품(띠, 요일 점, 세트 행, 템포 무대)의 CSS를 두는 한 곳 (v1.20 RR3).
+ * 색 리터럴 0건. 길이는 Astryx 토큰(`--spacing-*`)·`%`·`1px`(선)·`0`·`env()`·`rem`·`100dvh`만 쓴다 — v120 스캔이 지킨다.
+ * 클래스 이름은 `ax-`로 시작한다(예외: RR7의 `set-row*`).
+ */
+@layer astryx-theme {
+  /*
+   * 띠 — 화면 위나 아래에 붙어 있는 줄들. 재질은 여기 한 곳이다(불투명 면 + 본문과 맞닿는 쪽의 선).
+   * 안쪽 여백은 위·아래가 같은 단계이고, 아래 안전 영역은 그 바깥에 더한다. 좌우는 화면 좌우와 같다.
+   */
+  .ax-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    box-sizing: border-box;
+    max-width: 40rem;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    padding-block: var(--spacing-2);
+    padding-inline: var(--spacing-4);
+    background: var(--color-background-surface);
+  }
+
+  .ax-bar-bottom {
+    bottom: 0;
+    padding-bottom: calc(var(--spacing-2) + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--color-border);
+  }
+
+  .ax-bar-top {
+    top: 0;
+    padding-top: calc(var(--spacing-2) + env(safe-area-inset-top));
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  /*
+   * 탭은 눌리는 영역이 띠의 높이 전체여야 한다(보이는 높이만 눌리면 띠의 위·아래 끝에서 안 눌린다).
+   * 레이아웃은 그대로 두고 눌림 영역만 띠의 안쪽 여백만큼 위·아래로 늘린다.
+   */
+  .ax-bar nav[aria-label='화면'] button {
+    position: relative;
+  }
+
+  .ax-bar nav[aria-label='화면'] button::after {
+    content: '';
+    position: absolute;
+    inset-block: calc(-1 * var(--spacing-2));
+    inset-inline: 0;
+  }
+
+  /* 화면 위에 붙어 있는 알림(업데이트 알림). 화면 좌우와 같은 값을 쓴다 */
+  .ax-sticky-top {
+    position: sticky;
+    top: env(safe-area-inset-top);
+    z-index: 30;
+    width: calc(100% - 2 * var(--spacing-4));
+    max-width: calc(40rem - 2 * var(--spacing-4));
+    margin-block: var(--spacing-3);
+    margin-inline: auto;
+  }
+}

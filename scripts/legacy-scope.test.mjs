@@ -57,11 +57,11 @@ describe('v120 RR1 — legacy 규칙의 범위', () => {
     expect(resetBlock).not.toContain(':where([data-astryx-theme])')
   })
 
-  it('v120 RR1: 두 파일의 legacy 뿌리 목록이 글자 그대로 같고 필요한 뿌리를 다 담는다', () => {
+  it('v120 RR1: 두 파일의 legacy 뿌리 목록이 글자 그대로 같고 필요한 뿌리를 다 담는다 (RR3이 .app을 지움)', () => {
     const g = rootsOf(globalCss, GLOBAL_SCOPE)
     const a = rootsOf(axCss, AX_SCOPE)
     expect(g).toBe(a)
-    for (const root of ['.app', '.screen', '.session', '.onboarding', '.sheet-backdrop', '.center-note', '.banner']) {
+    for (const root of ['.screen', '.session', '.onboarding', '.sheet-backdrop', '.center-note', '.banner']) {
       expect(g.split(',').map((x) => x.trim()), root).toContain(root)
     }
   })
@@ -139,18 +139,17 @@ describe('v120 RRM — 유리를 걷는다', () => {
     expect(t).toContain('오디오')
   })
 
-  it('v120 RRM: 띠(.tabbar·.resume-strip·.session-header·.rest-bar)와 시트(.sheet)와 막은 테마 표면·테두리·막 색이다', () => {
+  it('v120 RRM: 띠(.session-header·.rest-bar, 아래 띠 .ax-bar는 parts.css)와 시트(.sheet)와 막은 테마 표면·테두리·막 색이다', () => {
     const rule = (sel) => {
       const at = globalCss.indexOf('\n' + sel + ' {')
       return at < 0 ? '' : globalCss.slice(at, globalCss.indexOf('}', at))
     }
-    for (const sel of ['.tabbar', '.resume-strip', '.session-header', '.rest-bar', '.sheet']) {
+    for (const sel of ['.session-header', '.rest-bar', '.sheet']) {
       expect(rule(sel), sel).toContain('background: var(--color-background-surface);')
       expect(rule(sel), sel).toMatch(/border(-top|-bottom)?: 1px solid var\(--color-border\);/)
     }
     expect(rule('.sheet-backdrop')).toContain('background: var(--color-overlay);')
     expect(rule('.rest-bar-done')).toContain('var(--color-background-surface);')
-    expect(globalCss).toMatch(/\[aria-current='page'\]::before \{[^}]*background: var\(--color-background-muted\);[^}]*border: 1px solid var\(--color-border-emphasized\);/)
   })
 
   it('v120 RRM: ax.css에 Astryx 시트를 덧칠하는 규칙이 없다 (Astryx가 정한 표면과 막을 그대로 쓴다)', () => {
