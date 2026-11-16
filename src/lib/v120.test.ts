@@ -730,14 +730,6 @@ describe("v120 RR6 — 세션 화면 틀과 휴식 바", () => {
     expect(s).toMatch(/<Heading level=\{2\}>/)
   })
 
-  it("v120 RR6: 옛 세션·휴식 클래스(.session-*·.rest-*)가 CSS에 하나도 안 남고 legacy 뿌리 목록에 .session이 없다", () => {
-    const css = Object.entries(import.meta.glob("/src/**/*.css", { query: "?raw", import: "default", eager: true }) as Record<string, string>)
-    for (const [f, t] of css) {
-      expect(t, f).not.toMatch(/\.session(-[a-z]+)?\b(?!-)/)
-      expect(t, f).not.toMatch(/\.rest-(bar|progress|dismiss|content|main|time|label|btn)/)
-    }
-  })
-
   it("v120 RR6: ui-check — 세션 장면의 마지막 요소 칸과 휴식 바 흐름 넷이 guardedFlow 안에 있고, 띠 기대 개수가 그대로다", () => {
     const t = text(SCRIPTS, "/scripts/ui-check.mjs")
     expect(t).toMatch(/LAST_SCENES = new Set\(\['session', 'session-375', 'session-rest'/)

@@ -109,8 +109,9 @@ const JUDGED = { '탭 누름': true, '지금 탭': true, '마지막 요소': tru
 const HOME_SCENES = ['home', 'home-end', 'home-375', 'home-banner', 'home-banner-375', 'home-banners-open', 'home-resume']
 /** 홈이 여는 시트 둘(RR5). 시트 안 내용의 좌·우(`sheet` 쌍)도 판정한다 */
 const HOME_SHEET_SCENES = ['sheet-home', 'sheet-open-session']
-const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...HOME_SCENES, ...HOME_SHEET_SCENES, 'home-safe', 'settings'])
-/** 판정을 켠 쌍 종류. 나머지 종류는 장면이 Astryx여도 기록만 한다(card·badge = RR4, 위 띠 = RR6, set-row = RR7, sheet = RR5) */
+const SESSION_SCENES = ['session', 'session-375', 'session-rest']
+const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SCENES, 'home-safe', 'session-safe', 'settings'])
+/** 판정을 켠 쌍 종류. 나머지 종류는 장면이 Astryx여도 기록만 한다(card·badge = RR4, set-row = RR7, sheet = RR5 — 세션 장면은 RR6부터 button·bar를 판정하고, 운동 카드 안의 card·badge·set-row는 RR7 전까지 기록만) */
 const SYMMETRY_KINDS = new Set(['button', 'bar', 'tab-indicator', 'tab-content'])
 /** 홈(RR4)은 카드·뱃지 쌍도 판정한다 */
 const HOME_SYMMETRY_KINDS = new Set([...SYMMETRY_KINDS, 'card', 'badge'])
@@ -550,8 +551,9 @@ async function runScenes(browser, port, scheme) {
       await restBar().waitFor({ state: 'detached', timeout: 2000 }).catch(() => {})
       const gone = (await restBar().count()) === 0
       flows.push(['휴식 바 +30초 건너뛰기', { ok: after > before + 20 && gone, detail: `남은 ${before}초 → +30초 뒤 ${after}초 · 건너뛰기 뒤 바 ${gone ? '사라짐' : '남음'}` }])
-      await restartRest()
     })
+    // 정리(휴식 바 다시 띄우기)는 판정과 따로 guardedFlow에 둔다 — flows.push 뒤에서 던지면 예외가 삼켜진다 (RR6 반려)
+    await guardedFlow(['휴식 바 다시 띄우기 (건너뛰기 뒤)'], restartRest)
     await guardedFlow(['움직임 줄이기에서 휴식 진행 막대'], async () => {
       await page.emulateMedia({ reducedMotion: 'reduce' })
       try {
@@ -604,6 +606,8 @@ async function runScenes(browser, port, scheme) {
       await restBar().waitFor({ state: 'detached', timeout: 1500 }).catch(() => {})
       const gone = (await restBar().count()) === 0
       flows.push(['끝난 휴식 바 1탭 닫기', { ok: gone, detail: `글자 위 1탭 뒤 바 ${gone ? '사라짐(자동 닫힘 3초보다 빠르다)' : '남음'}` }])
+    })
+    await guardedFlow(['휴식 바 다시 띄우기 (닫기 뒤)'], async () => {
       await page.getByRole('button', { name: '2세트 완료', exact: true }).first().click()
       await restartRest()
     })
@@ -947,8 +951,8 @@ async function runSafeArea(browser, port) {
         if (r.bottom === null) bad.push(`${bottomSel}를 못 찾았다`)
         else if (r.bottom > r.h - 34 + 0.5) bad.push(`아래 끝 ${r.bottom} > ${r.h - 34} (홈 바 자리를 침범)`)
       }
-      // RR3·RR12: 안전 영역이 있는 홈에서도 띠 ↔ 탭 줄·탭 ↔ 선택 표시·탭 ↔ 아이콘 + 글자가 대칭이다(아래 안전 영역은 뺀다)
-      if (name === 'home-safe') {
+      // RR3·RR6·RR12: 안전 영역이 있는 홈·세션에서도 띠 ↔ 탭 줄·탭 ↔ 선택 표시·탭 ↔ 아이콘 + 글자가 대칭이다(아래 안전 영역은 뺀다)
+      if (name === 'home-safe' || name === 'session-safe') {
         const sym = insetSymmetryVerdict(await page.evaluate(inPageInsetSymmetry), EXPECTED_PAIRS[name] ?? [])
         flows.push([`안쪽 대칭 ${name}${light ? '-light' : ''}`, { ok: sym.ok, detail: sym.detail }])
       }

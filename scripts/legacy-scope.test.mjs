@@ -156,3 +156,27 @@ describe('v120 RRM — 유리를 걷는다', () => {
     expect(axCss).not.toContain('::backdrop')
   })
 })
+
+// PLAN v1.20 RR6 — 옛 세션·휴식 클래스가 CSS에 안 남는다 (v120.test.ts에서 옮김: vitest ?raw는 CSS를 빈 글자로 줘서 거기서는 실패할 수 없었다)
+const walkCss = (dir) =>
+  readdirSync(new URL(`../${dir}`, import.meta.url), { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? walkCss(`${dir}/${e.name}`) : e.name.endsWith('.css') ? [`${dir}/${e.name}`] : [],
+  )
+describe('v120 RR6 — 옛 세션·휴식 CSS', () => {
+  it('v120 RR6: src/**/*.css에 옛 세션·휴식 선택자(.session-*·.rest-*, 하이픈 여럿 포함)가 하나도 없다', () => {
+    const files = walkCss('src')
+    expect(files.length, 'CSS를 못 찾았다').toBeGreaterThan(3)
+    expect(read('src/styles/global.css').length, 'global.css가 비어 읽혔다').toBeGreaterThan(1000)
+    for (const f of files) {
+      const t = read(f)
+      expect(t, f).not.toMatch(/\.session(-[\w-]+)?(?![\w-])/)
+      expect(t, f).not.toMatch(/\.rest-(bar|progress|dismiss|content|main|time|label|btn)/)
+    }
+  })
+
+  it('v120 RR6: global.css·ax.css의 legacy 뿌리 목록에 .session이 없다', () => {
+    for (const roots of [rootsOf(globalCss, GLOBAL_SCOPE), rootsOf(axCss, AX_SCOPE)]) {
+      expect(roots.split(',').map((x) => x.trim())).not.toContain('.session')
+    }
+  })
+})

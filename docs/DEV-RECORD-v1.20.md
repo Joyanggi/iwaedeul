@@ -980,6 +980,21 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 | `.ax-bar-dismiss ~ *`의 `pointer-events: none` 뺌 | 흐름 `끝난 휴식 바 1탭 닫기` 실패(바 남음) | `cmp` 같음 |
 | `.ax-screen` 위 여백에서 `--ax-bar-top` 뺌 | `마지막 요소` 칸 `session`·`session-rest` 실패, 종료 코드 1 | `cmp` 같음 |
 | 흐름 안 `2세트 완료`를 없는 이름으로 | 흐름 셋이 `예외: …`로 **흐름 실패**, 종료 코드 1(건너뜀으로 안 삼켜짐) | `cmp` 같음 |
+| (리뷰 반영) `global.css` 끝에 `.session-header {}`·`.session-day-name {…}` | 새 `legacy-scope` 옛 세션 CSS 스캔 실패 | `cmp` 같음 |
+| (리뷰 반영) 두 파일 뿌리 목록에 `.session`을 같이 되살림 | 새 스캔 둘 다 실패 | `cmp` 같음 |
+| (리뷰 반영, ㉔의 세션판) `parts.css` `.ax-bar-bottom`의 아래 안쪽 여백만 `--spacing-2`→`--spacing-4` | `session-rest`의 `안쪽 대칭` 칸 **실패**, 종료 코드 1 | `cmp` 같음 |
+| (리뷰 반영) `restartRest`의 `2세트 완료`를 없는 이름으로 | 새 흐름 `휴식 바 다시 띄우기 (건너뛰기 뒤)`가 `예외: …`로 실패 | `cmp` 같음 |
+
+### 옮긴 스캔 (RR6 리뷰 반영 — 규칙 3)
+
+| 스캔 | 전 | 후 | 같은 뜻인 이유 |
+|---|---|---|---|
+| `legacy-scope.test.mjs` "v120 RR1: 두 파일의 legacy 뿌리 목록이…" | 필요한 뿌리 `.screen`·`.session`·`.onboarding`·… | `.session` 뺌 | RR6이 `.session`을 뿌리에서 뺀 PLAN 변경의 기계적 결과. 빠졌다는 검사는 아래 새 테스트가 맡는다 |
+| `legacy-scope.test.mjs` "v120 RRM: 띠(.session-header·.rest-bar…)와 시트(.sheet)…" → "시트(.sheet) — …" | `.session-header`·`.rest-bar`·`.sheet`의 면·테두리, `.rest-bar-done` 면 | `.sheet`만 | 두 띠 클래스가 RR6에서 지워졌다. 띠의 면은 `parts.css`의 `.ax-bar`와 `ui-check` `띠` 칸이 본다 |
+| `v120.test.ts` "v120 RR0: ui-check-lib.mjs에 띠 선택자 글자(.session-header)가…" → "v120 RR0·RR6: …BAR_SELECTOR 줄이 '.ax-bar'뿐이다" | `.session-header` 글자가 `BAR_SELECTOR` 한 줄에만, 그 줄에 `.ax-bar` | `BAR_SELECTOR = '.ax-bar'` 한 줄, `.session-header`·`.rest-bar` 글자 0건 | 선택자가 `.ax-bar` 하나로 줄어든 PLAN 변경. 목적(띠 선택자가 한 곳)은 같고 옛 클래스가 없다는 것까지 본다 |
+| `v120.test.ts` "v120 RR6: 옛 세션·휴식 클래스(.session-*·.rest-*)가 CSS에 하나도 안 남고…" → `legacy-scope.test.mjs` 2개 | vitest `?raw`로 읽음 — CSS가 빈 글자라 **실패할 수 없었다**(`.session-header`를 되살려도 통과) | fs로 `src/**/*.css` 전부를 읽는다. 정규식 `/\.session(-[\w-]+)?(?![\w-])/`(하이픈 여럿 포함), 읽은 글자가 비지 않았는지 확인, 두 뿌리 목록에 `.session` 없음 | 같은 뜻을 일하게 옮김. 테스트 수: `v120.test.ts` −1, `legacy-scope.test.mjs` +2 |
+
+리뷰 반영(RR6 반려): ① CSS 스캔을 fs로 옮김(위 표) ② `SYMMETRY_JUDGED`에 `session`·`session-375`·`session-rest`·`session-safe`를 더함(`button`·`bar` 종류만, 운동 카드 안의 card·badge·set-row는 RR7 전까지 기록만). `session-safe`(다크·라이트)에 `안쪽 대칭` 흐름 추가 — 쌍 9개 대칭. 세션 세 장면 `안쪽 대칭` 통과, `after --check --safe-area` 종료 코드 0. `같은 역할` 카드 사이 12px는 홈·요약·기록 등 8장면의 값이고 세션 장면은 카드 사이 값을 재지 않는다(세션 카드는 RR7이 옮길 때 잰다). ③ 휴식 바 흐름 둘의 정리(다시 띄우기)를 판정과 따로 `guardedFlow`로 뺐다. ④ 위 표. ⑤ `scripts/ui-check.mjs` 작업 트리 CRLF를 LF로.
 
 ### 변이 테스트
 
