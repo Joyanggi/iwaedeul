@@ -382,7 +382,7 @@ flowchart TB
 - UI: React 19 (라우터 없음 — 탭 4개라 상태로 충분)
 - 상태: zustand (설정 · 진행 중 세션 · 휘발성 UI 상태만. 나머지는 `dexie-react-hooks` live query로 직접 읽음)
 - 저장: Dexie (IndexedDB, 스키마 v3) + localStorage (비밀값·휴식 타이머·백업 대기 플래그)
-- UI 부품: Astryx 0.7.13 (@astryxdesign/core, 베타 — 버전 고정. 지금은 루틴 편집 화면만)
+- UI 부품: Astryx 0.7.13 (@astryxdesign/core, 베타 — 버전 고정. 앱 틀·홈·세션·요약·루틴 편집)
 - 차트: recharts (분석 탭만 `React.lazy`로 지연 로딩)
 - PWA: vite-plugin-pwa (manifest + Workbox SW), iOS 스플래시 8종
 - 테스트: Vitest (알고리즘·파생 계산 단위 테스트, CI에서 배포 전 실행). 개수는 `npm test`가 말해줍니다
@@ -402,6 +402,7 @@ src/
   store/        zustand (settings · 진행 중 세션 · 배너 dismiss)
   screens/      탭 화면 + 세션/상세/요약
   components/   운동 카드 · 스테퍼 · 바텀시트 · 차트 위젯
+  ax/           Astryx를 쓰는 한 곳 — 테마(`theme.ts`), 앱 뿌리, 띠, 시트, 이 앱만의 부품 CSS(`parts.css`)
   data/         routine-v2.4.json · exercises.json (교체 가능한 시드)
 ```
 

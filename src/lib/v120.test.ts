@@ -319,7 +319,8 @@ describe("v120 RR12 — 여백: 맞물림 기준과 검사", () => {
     expect(s).toMatch(/const GROUP_GAP = 5/)
     expect(s).toMatch(/const CARD_GAP = 3/)
     expect(s).toMatch(/const CARD_PADDING = 4/)
-    expect(s).toMatch(/<VStack gap=\{GROUP_GAP\} className="ax-groups">/)
+    // RR9: 화면이 className을 더할 수 있게 됐다(요약의 한글 줄바꿈 범위) — ax-groups는 늘 붙는다
+    expect(s).toContain("<VStack gap={GROUP_GAP} className={className ? `ax-groups ${className}` : 'ax-groups'}>")
     expect(s).toMatch(/<VStack gap=\{CARD_GAP\} className="ax-group">/)
     // 화면은 클래스 이름을 직접 쓰거나 카드에 padding을 주지 않는다(숫자는 이 파일에만)
     const screens = Object.entries(SRC).filter(([p]) => !p.endsWith(".test.ts") && !p.startsWith("/src/ax/"))
@@ -1039,5 +1040,112 @@ describe("v120 RR8 — 세션의 시트 8개", () => {
     const fn = t.slice(t.indexOf("async function closeFlows(page)"), t.indexOf("/** 라이트 장면"))
     expect(fn).toContain("getByRole('dialog', { name: '세션 종료' })")
     expect(fn).not.toMatch(/sheet-backdrop|is-closing/)
+  })
+})
+
+describe("v120 RR9 — 요약", () => {
+  const SUMMARY = "/src/screens/SummaryScreen.tsx"
+  const ui = () => text(SCRIPTS, "/scripts/ui-check.mjs")
+
+  it("v120 RR9: SummaryScreen.tsx에 style=·<button·var(--·@astryxdesign이 0건이고 className=은 ax-text-warning(경고 글자색)·ax-summary(한글 줄바꿈)뿐이다", () => {
+    const s = code(SUMMARY)
+    expect(s).toMatch(/from '\.\.\/ax'/)
+    expect(s).not.toMatch(/style=|<button|var\(--|@astryxdesign/)
+    // PLAN은 className= 0건이었으나 Text의 색 이름에 경고가 없어(RR8과 같은 이유) ax-text-warning 하나는 남는다
+    const classes = [...s.matchAll(/className=("[^"]*"|\{[^}]*\})/g)].map((m) => m[1])
+    expect(classes.length).toBeGreaterThan(0)
+    for (const c of classes) expect(['"ax-text-warning"', '"ax-summary"']).toContain(c)
+  })
+
+  it("v120 RR9 — 순서: 글자의 자리가 개인 기록 < 다음 세션 무게 < 감각 저하 < 감각이 약했던 종목 < 수행 순서 < 홈으로 순이다", () => {
+    const s = code(SUMMARY)
+    const at = ["개인 기록 🎉", "다음 세션 무게 (A그룹)", "감각 저하 — 이전 무게로 복귀", "감각이 약했던 종목", "수행 순서", 'label="홈으로" width="100%"'].map((t) => s.indexOf(t))
+    for (const i of at) expect(i).toBeGreaterThan(-1)
+    expect([...at].sort((a, b) => a - b)).toEqual(at)
+  })
+
+  it("v120 RR9: 카드는 묶음(Group) 셋 + 맨 아래 홈으로 버튼이고, 숫자 셋은 Grid columns={3}이다", () => {
+    const s = code(SUMMARY)
+    expect(s.match(/<Group>/g)).toHaveLength(3)
+    expect(s).toContain("<Groups className=\"ax-summary\">")
+    expect(s).toMatch(/<Grid columns=\{3\}/)
+    // 묶음 순서: 이번 세션(제목·숫자·PR) → 다음에 할 것 → 되돌아보기, 홈으로는 마지막 묶음 밖
+    const groups = [...s.matchAll(/<Group>/g)].map((m) => m.index!)
+    expect(s.indexOf("수고했어요")).toBeGreaterThan(groups[0])
+    expect(s.indexOf("수고했어요")).toBeLessThan(groups[1])
+    expect(s.indexOf("다음 세션 무게 (A그룹)")).toBeGreaterThan(groups[1])
+    expect(s.indexOf("다음 세션 무게 (A그룹)")).toBeLessThan(groups[2])
+    expect(s.indexOf("감각 저하 — 이전 무게로 복귀")).toBeLessThan(groups[2])
+    expect(s.indexOf("감각이 약했던 종목")).toBeGreaterThan(groups[2])
+    expect(s.indexOf("수행 순서")).toBeGreaterThan(s.indexOf("감각이 약했던 종목"))
+    expect(s.indexOf('label="홈으로" width="100%"')).toBeGreaterThan(s.indexOf("수행 순서"))
+  })
+
+  it("v120 RR9: 줄(Row)의 label·description은 노드이고 ListItem은 안 쓴다 — ListItem은 줄마다 안쪽 여백 8px이라 카드 아래가 제목 위보다 9px 넓었다(안쪽 대칭 실측)", () => {
+    const s = code(SUMMARY)
+    // label="…" 문자열은 Button(홈으로)뿐이다. 정규식이 onClick의 =>·>에서 끊기지 않게 태그 몸통이 아니라 전체에서 센다
+    expect([...s.matchAll(/\blabel="([^"]*)"/g)].map((m) => m[1]).filter((v) => v !== "홈으로")).toEqual([])
+    expect(s).not.toMatch(/\bdescription="/)
+    expect(s).not.toMatch(/labelLines=|descriptionLines=/)
+    // 세션 메모는 Text 노드로 넘긴다
+    expect(s).not.toMatch(/ListItem|<List>/)
+    expect(s).toMatch(/<Row label=\{<Text>\{session\.sessionNote\}<\/Text>\}/)
+  })
+
+  it("v120 RR9: 뱃지는 PR 종류 info·앞당김 info·미룸 neutral, 경고색은 ax-text-warning, 증량은 Text color=\"accent\"다", () => {
+    const s = code(SUMMARY)
+    expect(s).toContain('<Badge variant="info" label={PR_LABEL[pr.kind]} />')
+    expect(s).toContain('<Badge variant="info" label={`${-shift}칸 앞당김`} />')
+    expect(s).toContain('<Badge variant="neutral" label={`${shift}칸 미룸`} />')
+    expect(s).toMatch(/<Text color="accent">\{formatProgression\(/)
+    expect(s.match(/className="ax-text-warning"/g)).toHaveLength(2) // 복귀 줄·감각 점수
+  })
+
+  it("v120 RR9: 세션 없음은 Center + Text + Button secondary(홈으로)다", () => {
+    const s = code(SUMMARY)
+    expect(s).toMatch(/<Center>[\s\S]*표시할 세션이 없습니다\.[\s\S]*<Button variant="secondary" label="홈으로"/)
+  })
+
+  it("v120 RR9: ax/index.tsx가 Grid를 내보낸다", () => {
+    expect(code("/src/ax/index.tsx")).toContain("export { Grid } from '@astryxdesign/core/Grid'")
+  })
+
+  it("v120 RR9 — ui-check: 안쪽 폭 넘침(inPageInnerOverflow)이 가로 넘침 칸에 들어 있고 시트·카드 상자를 비교한다", () => {
+    expect(ui()).toMatch(/const innerOver = await page\.evaluate\(inPageInnerOverflow\)/)
+    expect(ui()).toMatch(/cells\['가로 넘침'\] = verdict\(\{ ok: docOver\.ok && innerOver\.ok/)
+    const lib = text(LIB, "/scripts/lib/ui-check-lib.mjs")
+    expect(lib).toContain("export const inPageInnerOverflow")
+    expect(lib).toMatch(/rect\.right > r\.right \+ 0\.5 \|\| rect\.left < r\.left - 0\.5/)
+  })
+
+  it("v120 RR9 — ui-check: 경계 장면 넷(0세트·PR 셋·어시스트만·긴 메모)과 summary 장면이 있고, 흐름은 판정 0개로 통과하지 않는다", () => {
+    const t = ui()
+    for (const n of ["summary-zero", "summary-pr", "summary-assist", "summary-memo"]) expect(t, n).toContain(`'${n}'`)
+    expect(t).toMatch(/const SUMMARY_SCENES = \['summary', 'summary-zero', 'summary-pr', 'summary-assist', 'summary-memo'\]/)
+    // 시드는 판정과 따로 정리한다(finally) — 던져도 다음 장면이 깨끗한 홈에서 시작한다
+    expect(t).toMatch(/finally \{[\s\S]*inPageDropSessionsExcept, keep/)
+    // 예외는 건너뜀이 아니라 흐름 실패
+    expect(t).toMatch(/flows\.push\(\[SUM\[kind\], \{ ok: false, detail: `예외:/)
+    // PR 셋 이상·앞당김·미룸·볼륨 0·메모 줄 수·계산된 경고색을 실제로 센다
+    expect(t).toContain("prRows >= 3 && ord.ok && ahead >= 1 && behind >= 1")
+    expect(t).toContain("vol === '0'")
+    expect(t).toContain("memo.lines >= 3")
+    expect(t).toMatch(/warnColorBothSchemes\('\.ax-text-warning'\)/)
+    expect(t).toMatch(/r390\.chars > 0 && r375\.chars > 0/)
+  })
+
+  it("v120 RR9 — ui-check: 카드 순서 흐름은 보이는 제목이 PLAN 순서이고 홈으로가 마지막일 때만 통과한다", () => {
+    const t = ui()
+    expect(t).toContain("order.at(-1) === '홈으로'")
+    expect(t).toContain("order.join('|') === want.join('|')")
+    expect(t).toMatch(/guardedFlow\(\['RR9 요약 카드 순서'\]/)
+  })
+
+  it("v120 RR9 — ui-check: 요약 장면은 안쪽 대칭(카드·뱃지·버튼)과 카드 안쪽 같은 역할 비교에 들어간다", () => {
+    expect(ui()).toMatch(/SYMMETRY_JUDGED = new Set\([^)]*\.\.\.SUMMARY_SCENES/)
+    const space = text(LIB, "/scripts/lib/ui-space.mjs")
+    expect(space).toMatch(/INSET_SCENES = new Set\(\[[^\]]*'summary'/)
+    expect(space).toMatch(/summary: \['button', 'card'\]/)
+    expect(space).toMatch(/'summary-pr': \['button', 'card', 'badge'\]/)
   })
 })

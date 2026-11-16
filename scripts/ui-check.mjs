@@ -33,6 +33,9 @@ import {
   freePort,
   inPageBars,
   inPageOverflow,
+  inPageInnerOverflow,
+  inPageTextOrder,
+  inPageNotClipped,
   inPageStartSpot,
   startSpotVerdict,
   inPageSheetButtons,
@@ -117,8 +120,10 @@ const HOME_SHEET_SCENES = ['sheet-home', 'sheet-open-session']
 const SESSION_SHEET_SCENES = ['sheet-finish', 'sheet-finish-cardio', 'sheet-finish-end', 'sheet-timer', 'sheet-timer-picked', 'sheet-add', 'sheet-substitute', 'sheet-comp', 'sheet-comp-picked', 'sheet-scale', 'sheet-scale-error', 'sheet-tempo', 'sheet-watch', 'sheet-watch-end']
 const SESSION_SCENES = ['session', 'session-375', 'session-rest']
 /** 운동 카드가 보이는 장면(RR7) — 카드·뱃지·세트 행 쌍도 판정한다 */
+/** 요약(RR9) — 기본 장면과 경계 장면 넷(0세트·PR 셋·어시스트만·긴 메모). 카드·뱃지·버튼 쌍을 판정한다 */
+const SUMMARY_SCENES = ['summary', 'summary-zero', 'summary-pr', 'summary-assist', 'summary-memo']
 const CARD_SCENES = ['session', 'session-375', 'session-open-b', 'history-detail-edit']
-const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SHEET_SCENES, ...SESSION_SCENES, 'session-open-b', 'history-detail-edit', 'home-safe', 'session-safe', 'settings'])
+const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SHEET_SCENES, ...SESSION_SCENES, ...SUMMARY_SCENES, 'session-open-b', 'history-detail-edit', 'home-safe', 'session-safe', 'settings'])
 /** 판정을 켠 쌍 종류. 나머지 종류는 장면이 Astryx여도 기록만 한다(card·badge = RR4, set-row = RR7, sheet = RR5 — 세션 장면은 RR6부터 button·bar를 판정하고, 운동 카드 안의 card·badge·set-row는 RR7 전까지 기록만) */
 const SYMMETRY_KINDS = new Set(['button', 'bar', 'tab-indicator', 'tab-content'])
 /** 홈(RR4)은 카드·뱃지 쌍도 판정한다 */
@@ -205,7 +210,7 @@ async function newColumns(page, scene, cells, light) {
   }
   if (scene === 'analyze') chartColors[scene] = { ...chartColors[scene], [light ? 'light' : 'dark']: await page.evaluate(inPageChartColors) }
   const pairs = await page.evaluate(inPageInsetSymmetry)
-  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : (HOME_SHEET_SCENES.includes(scene) || SESSION_SHEET_SCENES.includes(scene)) ? HOME_SHEET_SYMMETRY_KINDS : CARD_SCENES.includes(scene) ? CARD_SYMMETRY_KINDS : SYMMETRY_KINDS
+  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : (HOME_SHEET_SCENES.includes(scene) || SESSION_SHEET_SCENES.includes(scene)) ? HOME_SHEET_SYMMETRY_KINDS : (CARD_SCENES.includes(scene) || SUMMARY_SCENES.includes(scene)) ? CARD_SYMMETRY_KINDS : SYMMETRY_KINDS
   const judgedPairs = pairs.filter((p) => kinds.has(p.kind))
   const sym = insetSymmetryVerdict(SYMMETRY_JUDGED.has(scene) ? judgedPairs : pairs, EXPECTED_PAIRS[scene] ?? [])
   const rest = SYMMETRY_JUDGED.has(scene) ? insetSymmetryVerdict(pairs.filter((p) => !kinds.has(p.kind)), []) : null
@@ -251,7 +256,10 @@ async function runChecks(page, scene) {
   // 여백 격자·가로 넘침
   cells['여백 격자'] = verdict(await page.evaluate(inPageSpacing))
   layouts[scene] = await page.evaluate(inPageLayout)
-  cells['가로 넘침'] = verdict(await page.evaluate(inPageOverflow))
+  // 문서 폭만이 아니라 시트·카드 안쪽 폭 안에 요소가 있는지도 잰다 (RR9)
+  const docOver = await page.evaluate(inPageOverflow)
+  const innerOver = await page.evaluate(inPageInnerOverflow)
+  cells['가로 넘침'] = verdict({ ok: docOver.ok && innerOver.ok, detail: `${docOver.detail} · ${innerOver.detail}` })
   // 줄 안 버튼은 .row > .btn이 있는 장면(settings)에서만 잰다. 그 장면에서 0개면 실패
   const rowBtns = await page.evaluate(() => document.querySelectorAll('.row > .btn').length)
   cells['줄 안 버튼'] = rowBtns || scene === 'settings' ? verdict(await page.evaluate(inPageRowButtons)) : { status: '건너뜀', detail: '이 장면에 줄 안 버튼이 없다' }
@@ -356,6 +364,107 @@ function inPageMidWordBreaks(rootSelector = 'dialog[open]') {
   return out
 }
 
+/**
+ * RR9 요약 장면 시드 (page.evaluate용 — 바깥 변수를 못 본다). 진행 중인 세션(endedAt 없음)을 IndexedDB에서 고쳐 쓴다.
+ * kind: zero(손대지 않음 — 0세트) · pr(전 종목 최고 기록, 앞 기록은 가벼운 세션 하나, 수행 순서 앞 둘을 맞바꿈) ·
+ *       assist(어시스트 종목만 한 세션) · memo(감각 0점·긴 메모·유산소). 돌려주는 값은 시드 설명.
+ */
+function inPageSummarySeed(kind) {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open('workout-tracker')
+    open.onerror = () => reject(open.error)
+    open.onsuccess = () => {
+      const idb = open.result
+      const tx = idb.transaction('sessions', 'readwrite')
+      const store = tx.objectStore('sessions')
+      const all = store.getAll()
+      let out = null
+      tx.oncomplete = () => {
+        idb.close()
+        if (out) resolve(out)
+        else reject(new Error('시드 실패: 진행 중 세션이 없다'))
+      }
+      tx.onerror = () => reject(tx.error)
+      all.onsuccess = () => {
+        const cur = all.result.find((x) => !x.endedAt)
+        if (!cur) return
+        const now = Date.now()
+        const at = (i) => new Date(now + i * 1000).toISOString()
+        const fill = (e, weight, reps, order, i) => ({
+          ...e,
+          performedOrder: order,
+          firstSetAt: at(i),
+          sets: e.sets.map((x) => ({ ...x, weight, reps, done: true, doneAt: at(i) })),
+        })
+        const live = cur.entries.filter((e) => !e.skipped)
+        if (kind === 'pr') {
+          const prev = {
+            ...cur,
+            id: 'ui-check-sum-prev',
+            startedAt: new Date(now - 2 * 86400000).toISOString(),
+            endedAt: new Date(now - 2 * 86400000 + 1800000).toISOString(),
+            date: new Date(now - 2 * 86400000).toISOString().slice(0, 10),
+            mode: 'normal',
+            entries: cur.entries.map((e) => ({ ...e, sets: e.sets.map((x) => ({ ...x, weight: 20, reps: 5, done: true })) })),
+          }
+          store.put(prev)
+          // 수행 순서: 계획의 앞 둘을 맞바꿔 "앞당김·미룸" 뱃지가 둘 다 생기게
+          const order = (e) => { const k = live.indexOf(e); return k === 0 ? 2 : k === 1 ? 1 : k + 1 }
+          cur.entries = cur.entries.map((e) => (e.skipped ? e : fill(e, 150, 30, order(e), live.indexOf(e))))
+          out = { kind, detail: `종목 ${live.length}개 전부 150kg×30 (앞 기록 20kg×5)` }
+        } else if (kind === 'assist') {
+          const key = 'assisted-pullup@' + cur.dayId
+          cur.entries = [
+            ...cur.entries,
+            { recordKey: key, plannedOrder: cur.entries.length, performedOrder: 1, firstSetAt: at(0), compensation: '없음', skipped: false, extra: true, sets: [0, 1, 2].map(() => ({ weight: 30, reps: 8, done: true, doneAt: at(0) })) },
+          ]
+          out = { kind, detail: '어시스트 종목(assisted-pullup)만 3세트 완료' }
+        } else if (kind === 'memo') {
+          const e0 = live[0]
+          cur.entries = cur.entries.map((e) => (e === e0 || e.recordKey === e0.recordKey ? { ...fill(e, 40, 8, 1, 0), sensoryScore: 0, sensoryNote: '목표 부위보다 팔과 어깨 앞쪽에만 자극이 와서 그립 너비와 팔꿈치 각도를 바꿔 봤지만 끝까지 등 바깥쪽에 느낌이 오지 않았다' } : e))
+          cur.sessionNote = '오늘은 컨디션이 좋지 않아 첫 종목부터 감각이 약했고 마지막까지 무게를 올리지 못했다. 어깨 앞쪽이 뻐근해서 두 번째 종목은 가볍게만 했다. 다음 주에는 그립 너비와 의자 높이를 먼저 바꿔 보고, 수면 시간이 짧았던 날은 무게를 욕심내지 않기로 했다.'
+          cur.cardio = { type: '걷기', minutes: 20, note: '경사 8 · 속도 5.5 · 마지막 5분은 속도를 6.0으로' }
+          out = { kind, detail: '첫 종목 감각 0점+긴 메모 + 긴 세션 메모 + 유산소' }
+        } else {
+          out = { kind, detail: '체크한 세트 0개' }
+        }
+        store.put(cur)
+      }
+    }
+  })
+}
+
+/** RR9: 지금 기록에 있는 세션 id (시드 전 목록 — 끝난 뒤 이 밖의 세션을 지운다) */
+function inPageSessionIds() {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open('workout-tracker')
+    open.onerror = () => reject(open.error)
+    open.onsuccess = () => {
+      const idb = open.result
+      const r = idb.transaction('sessions').objectStore('sessions').getAllKeys()
+      r.onsuccess = () => { idb.close(); resolve(r.result) }
+      r.onerror = () => reject(r.error)
+    }
+  })
+}
+
+/** RR9: keep에 없는 세션(시드·시드로 끝낸 세션)을 지운다 */
+function inPageDropSessionsExcept(keep) {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open('workout-tracker')
+    open.onerror = () => reject(open.error)
+    open.onsuccess = () => {
+      const idb = open.result
+      const tx = idb.transaction('sessions', 'readwrite')
+      const store = tx.objectStore('sessions')
+      const keys = store.getAllKeys()
+      keys.onsuccess = () => keys.result.filter((k) => !keep.includes(k)).forEach((k) => store.delete(k))
+      tx.oncomplete = () => { idb.close(); resolve(null) }
+      tx.onerror = () => reject(tx.error)
+    }
+  })
+}
+
 async function runScenes(browser, port, scheme) {
   const light = scheme === 'light'
   const ctx = await browser.newContext({ ...DEVICE, locale: 'ko-KR', colorScheme: scheme, serviceWorkers: 'block' })
@@ -394,8 +503,7 @@ async function runScenes(browser, port, scheme) {
     }
   }
   // 경고 글자색: 지금 체계와 반대 체계 둘 다 계산된 color가 --color-text-warning과 같은가 (흐름은 한 체계로만 돌아서 emulateMedia로 바꿔 잰다)
-  const warnColorBothSchemes = async () => {
-    const sel = ':is(dialog,[role=dialog],[aria-modal=true]) .ax-text-warning'
+  const warnColorBothSchemes = async (sel = ':is(dialog,[role=dialog],[aria-modal=true]) .ax-text-warning') => {
     const now = await page.evaluate(inPageWarnColor, sel)
     await page.emulateMedia({ colorScheme: light ? 'dark' : 'light' })
     await settle(page, 200)
@@ -963,9 +1071,124 @@ async function runScenes(browser, port, scheme) {
     await btn(page, '홈으로').waitFor({ timeout: 8000 })
     await settle(page, 800)
     await snap('summary')
+    // RR9 요약 흐름 — 전부 guardedFlow라 예외가 건너뜀으로 삼켜지지 않고 흐름 실패가 된다. 다크에서만(라이트는 같은 화면)
+    const SUMMARY_TITLES = ['개인 기록 🎉', '다음 세션 무게 (A그룹)', '감각 저하 — 이전 무게로 복귀', '감각이 약했던 종목', '수행 순서', '홈으로']
+    /** 화면에 보이는 카드 제목이 PLAN의 순서(개인 기록 < 다음 세션 무게 < 감각 저하 < 감각이 약했던 종목 < 수행 순서 < 홈으로)로 늘어서 있나 */
+    const orderFlow = async (scene) => {
+      const order = await page.evaluate(inPageTextOrder, SUMMARY_TITLES)
+      const want = SUMMARY_TITLES.filter((t) => order.includes(t))
+      return { ok: order.length >= 2 && order.join('|') === want.join('|') && order.at(-1) === '홈으로', detail: `${scene}: ${order.join(' < ')}` }
+    }
+    const wrapSummary = async (scene) => {
+      const name = `RR9 ${scene} 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안`
+      await guardedFlow([name], async () => {
+        const r390 = await page.evaluate(inPageMidWordBreaks, '.ax-screen')
+        const i390 = await page.evaluate(inPageInnerOverflow, '.ax-screen')
+        await page.setViewportSize({ width: 375, height: 812 })
+        await settle(page, 400)
+        const r375 = await page.evaluate(inPageMidWordBreaks, '.ax-screen')
+        const i375 = await page.evaluate(inPageInnerOverflow, '.ax-screen')
+        await page.setViewportSize({ width: 390, height: 844 })
+        await settle(page, 400)
+        flows.push([name, { ok: r390.chars > 0 && r375.chars > 0 && r390.count === 0 && r375.count === 0 && i390.ok && i375.ok, detail: `390: 글자 ${r390.chars}개·꺾임 ${r390.count}건 ${r390.samples.join(',')} · ${i390.detail} / 375: 글자 ${r375.chars}개·꺾임 ${r375.count}건 ${r375.samples.join(',')} · ${i375.detail}` }])
+      })
+    }
+    if (!light) {
+      await guardedFlow(['RR9 요약 카드 순서'], async () => {
+        flows.push(['RR9 요약 카드 순서', await orderFlow('summary')])
+      })
+      await wrapSummary('summary')
+    }
     await btn(page, '홈으로').click()
     await page.getByRole('button', { name: '기록', exact: true }).waitFor()
     await settle(page, 600)
+
+    // RR9 경계 장면 넷 — 진행 중 세션을 IndexedDB에서 고쳐 쓰고 다시 열어 끝낸다. 시드는 끝에 지운다(finally). 흐름 이름은 아래 한 곳에서 정한다
+    if (!light) {
+      const SUM = {
+        zero: 'RR9 요약 0세트로 종료: 체크된 세트 없음 문구·증량·PR 카드 없음',
+        pr: 'RR9 요약 PR 셋 이상: 개인 기록 카드 줄 3개 이상·카드 순서·앞당김과 미룸 뱃지',
+        assist: 'RR9 요약 어시스트 종목만: 볼륨 0 + 제외 안내',
+        memo: 'RR9 요약 긴 메모·감각 약함: 메모가 안 잘림·경고 글자색(다크·라이트)·유산소 줄',
+      }
+      const finishToSummary = async (kind) => {
+        await page.getByRole('button', { name: '홈', exact: true }).click()
+        await settle(page, 500)
+        await page.getByRole('button', { name: /시작$|이어서 하기/ }).first().click()
+        await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor()
+        await settle(page, 500)
+        const seed = await page.evaluate(inPageSummarySeed, kind)
+        await page.reload()
+        await page.getByRole('button', { name: '설정', exact: true }).waitFor()
+        await settle(page, 800)
+        await page.getByRole('button', { name: /시작$|이어서 하기/ }).first().click()
+        await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor()
+        await settle(page, 500)
+        await btn(page, '종료').click()
+        await page.getByRole('dialog', { name: '세션 종료' }).waitFor()
+        await btn(page, '기록 마치기').click()
+        await btn(page, '홈으로').waitFor({ timeout: 8000 })
+        await settle(page, 800)
+        return seed
+      }
+      const scene = async (kind, sceneName, check) => {
+        const keep = await page.evaluate(inPageSessionIds)
+        try {
+          const seed = await finishToSummary(kind)
+          await snap(sceneName)
+          const r = await check(seed)
+          flows.push([SUM[kind], { ok: r.ok, detail: `${seed.detail} · ${r.detail}` }])
+          await wrapSummary(sceneName)
+        } catch (e) {
+          if (!flows.some((f) => f[0] === SUM[kind])) flows.push([SUM[kind], { ok: false, detail: `예외: ${String(e.message).split('\n')[0]}` }])
+        } finally {
+          // 정리는 판정과 따로: 던져도 다음 장면이 깨끗한 홈에서 시작하게 한다
+          await page.evaluate(inPageDropSessionsExcept, keep).catch(() => {})
+          await page.reload()
+          await page.getByRole('button', { name: '설정', exact: true }).waitFor({ timeout: 8000 }).catch(() => {})
+          await settle(page, 600)
+        }
+      }
+      const has = (text) => page.getByText(text, { exact: true }).count()
+      await scene('zero', 'summary-zero', async () => {
+        const none = await has('체크된 세트가 없습니다.')
+        const next = await has('다음 세션 무게 (A그룹)')
+        const pr = await has('개인 기록 🎉')
+        const weak = await has('감각이 약했던 종목')
+        const home = await btn(page, '홈으로').count()
+        return { ok: none === 1 && next === 0 && pr === 0 && weak === 0 && home === 1, detail: `"체크된 세트가 없습니다." ${none}개 · 증량 카드 ${next}개 · PR 카드 ${pr}개 · 감각 약함 카드 ${weak}개 · 홈으로 ${home}개` }
+      })
+      await scene('pr', 'summary-pr', async () => {
+        const prRows = await page.evaluate(() => {
+          const title = [...document.querySelectorAll('body *')].find((el) => el.children.length === 0 && el.textContent.trim() === '개인 기록 🎉')
+          let card = title
+          while (card && card.querySelectorAll('[role=listitem]').length === 0) card = card.parentElement
+          return card ? card.querySelectorAll('[role=listitem]').length : 0
+        })
+        const ord = await orderFlow('summary-pr')
+        const ahead = await page.getByText(/칸 앞당김$/).count()
+        const behind = await page.getByText(/칸 미룸$/).count()
+        const next = await has('다음 세션 무게 (A그룹)')
+        return { ok: prRows >= 3 && ord.ok && ahead >= 1 && behind >= 1, detail: `PR 카드 줄 ${prRows}개 · ${ord.detail} · 앞당김 ${ahead}개 · 미룸 ${behind}개 · 증량 카드 ${next}개` }
+      })
+      await scene('assist', 'summary-assist', async () => {
+        const note = await page.getByText(/어시스트 종목 제외/).count()
+        const vol = await page.evaluate(() => {
+          const label = [...document.querySelectorAll('body *')].find((el) => el.children.length === 0 && /^총 볼륨/.test(el.textContent.trim()))
+          const value = label?.previousElementSibling
+          return value ? value.textContent.trim() : null
+        })
+        const best = await page.getByText(/^최고 세트:/).count()
+        return { ok: note === 1 && vol === '0' && best === 0, detail: `제외 안내 ${note}개 · 볼륨 값 ${vol} · 최고 세트 줄 ${best}개(어시스트는 최고 세트에서도 뺀다)` }
+      })
+      await scene('memo', 'summary-memo', async () => {
+        const memo = await page.evaluate(inPageNotClipped, '오늘은 컨디션이 좋지 않아')
+        const note = await page.evaluate(inPageNotClipped, '목표 부위보다 팔과 어깨')
+        const warn = await warnColorBothSchemes('.ax-text-warning')
+        const cardio = await page.getByText(/걷기/).count()
+        return { ok: memo.ok && memo.lines >= 3 && note.ok && warn.same && cardio >= 1, detail: `세션 메모 ${memo.detail} · 감각 메모 ${note.detail} · 경고 글자 계산된 색 ${warn.actual} (토큰 ${warn.token}) · 유산소 줄 ${cardio}개` }
+      })
+    }
 
     // 홈 알림 (RR4): 세션을 하나 마친 홈 — 백업 미설정 배너가 뜬다. 시작 버튼의 자리가 알림 유무와 상관없이 같은지 본다
     await optional('home-banner', async () => {

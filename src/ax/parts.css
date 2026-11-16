@@ -316,6 +316,12 @@
     border: 1px solid var(--color-border-emphasized);
   }
 
+  /* 요약(RR9): 한글이 "0세/트"처럼 글자 중간에서 꺾이던 것(375 폭)을 단어 사이에서만 꺾는다. 한 단어가 줄보다 길 때만 anywhere */
+  .ax-summary :is(p, span, div, h1, h2) {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
   .ax-tip :is(p, span, div) {
     word-break: keep-all;
     overflow-wrap: anywhere;

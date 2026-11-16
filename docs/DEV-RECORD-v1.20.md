@@ -1209,3 +1209,72 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 | 같이 | 예시 세션의 `sheet-comp` 장면은 판정 흐름을 시드 세션으로 옮기고 저장 대신 `취소`로 닫는다 |
 
 결함 복원: `CompensationSheet`의 `ToggleButton` `onPressedChange`를 `() => void toggle`로(컴파일은 되게) 바꾸자 보상작용 흐름이 다크·라이트 둘 다 실패(눌린 징후 0개) → 복구, `cmp` 확인. 시드 `evaluate`가 던진 처음 실행에서는 넷이 모두 `흐름 실패`로 셌다(건너뜀 없음). 테스트: `v120` RR8에 "0개로 통과하지 않는다" 하나를 더했고 장면·이름 목록을 고쳤다.
+
+## RR9. 요약
+
+### 범위
+
+| 파일 | 바뀐 것 |
+|---|---|
+| `src/screens/SummaryScreen.tsx` | legacy 18·인라인 4 → `AxRoot`+`Groups`/`Group` 셋(이번 세션 → 다음에 할 것 → 되돌아보기, 홈으로는 맨 아래). 숫자 셋 `Grid columns={3}`, 줄은 `Row`(HStack·VStack·Text), 뱃지 PR info·앞당김 info·미룸 neutral, 경고색 `ax-text-warning`, 증량 `Text color="accent"`. 계산·카드 내용·보이는 조건은 그대로 |
+| `src/ax/index.tsx` | `Grid` 내보내기, `Groups`가 `className`을 더 받는다 |
+| `src/ax/parts.css` | `.ax-summary` — 한글을 단어 사이에서만 꺾는다(375 폭에서 "보상작/용"이 꺾이던 것) |
+| `scripts/ui-check.mjs`·`scripts/lib/*.mjs` | 장면 4개(`summary-zero`·`-pr`·`-assist`·`-memo`)와 `summary` 판정(안쪽 대칭 card·badge·button, 카드 안쪽 같은 역할), 안쪽 폭 넘침(`inPageInnerOverflow`, 가로 넘침 칸에 합침), 카드 순서·긴 글 안 잘림·390·375 꺾임 흐름 — 전부 `guardedFlow`/`try-finally`, 시드는 끝에 지움 |
+| `README.md` | Tech Stack 줄, 프로젝트 구조에 `ax/` 줄(PLAN 문구) |
+| 테스트 | `src/lib/v120.test.ts`(+10, RR12 한 건 문구만 수정), `scripts/rr9.test.mjs`(신규 2, CSS는 fs로) |
+| 기타 | `docs/ASTRYX-INVENTORY.md`, 스크린샷 `summary`(다크·라이트)·`summary-zero|pr|assist|memo`·`layout.json`. 무관한 스크린샷은 `git show HEAD:`로 되돌림 |
+
+세 숫자: Astryx 안 읽는 파일 24→**23**, 인라인 55→**51**, legacy 쓰임 288→**270**(RR8 몫 PLAN 대비 +5 차이가 그대로 넘어옴, RR9 몫은 −18로 예상과 같다), 안 쓰는 선택자 2→**2**.
+
+### PLAN과 달라진 것·알아낸 것
+
+| 항목 | 내용 |
+|---|---|
+| `List`/`ListItem` 대신 `Row` | `ListItem`은 줄마다 위·아래 안쪽 여백 8px이라 줄 목록 카드의 아래가 제목 위보다 **9px 넓었다**(`안쪽 대칭` 실측: 위 15·아래 24 — "확인한 것" 9의 비대칭). 그래서 `HStack`/`VStack`/`Text`로 줄을 짓고 `role="list"/"listitem"`을 단다. `ListItem`의 문자열 label·description이 한 줄로 잘리는 것(Item.js)도 함께 피한다 |
+| `className=` | PLAN은 0건이나 `Text`에 경고색 이름이 없어(RR8과 같다) `ax-text-warning`, 줄바꿈 범위 `ax-summary` 둘이 남는다 |
+| 최고 세트 줄 | `Text color="secondary"`→`type="supporting"`: 본문 크기 글자의 줄 높이 때문에 숫자 카드 아래가 2px 넓었다 |
+| 유산소 줄 | 값이 길면(`걷기 · 강도 …` 503px) 카드 밖으로 나가 안쪽 폭 검사가 잡았다. 값을 설명 줄로 내렸다 |
+| 안쪽 폭 검사 | 처음엔 진행 막대 채움(움직이는 transform)을 상자 밖으로 잡아 홈 6장면·템포 시트가 실패 → 가로 스크롤·`hidden`·`clip` 칸 안은 뺐다(글 잘림은 `inPageNotClipped`가 따로 본다) |
+| 못 만든 장면 | `감각 저하 — 이전 무게로 복귀` 카드는 Phase 2+의 증량 이력이 필요해 ui-check 시드로 못 만들었다 — 소스 스캔과 `bGroupGuide` 테스트가 맡는다 |
+
+### 테스트 ↔ PLAN 검증
+
+| PLAN 검증 | 테스트·흐름 |
+|---|---|
+| `className=`·`style=`·`<button`·`var(--` 0건 | `v120 RR9: SummaryScreen.tsx에 …` |
+| v111·v114 스캔 그대로 통과 | `v111.test.ts` GG1, `v114.test.ts` LL3 (안 고침) |
+| 세션 종료 → 요약 → 홈으로 → 홈 | ui-check 기본 흐름(`summary` 뒤 `홈으로` 1탭, 기록 탭 확인) |
+| 경계: 0세트 | 흐름 `RR9 요약 0세트로 종료` |
+| 경계: PR 셋 이상·수행 순서 뱃지 | 흐름 `RR9 요약 PR 셋 이상`(PR 줄 7, 앞당김 1·미룸 1) |
+| 경계: 증량 대상 없음 | 0세트 흐름의 `증량 카드 0개` (증량 카드가 있는 쪽은 PR 장면 1개) |
+| 경계: 어시스트만 | 흐름 `RR9 요약 어시스트 종목만`(볼륨 0, 제외 안내 1, 최고 세트 0) |
+| 경계: 긴 메모 3줄 이상 | 흐름 `RR9 요약 긴 메모·감각 약함`(세션 메모 6줄, 감각 메모 3줄, 안 잘림, 경고색 계산값 = 토큰 다크·라이트) |
+| 경계: 유산소만·디로드 | 소스 스캔(`cardioText(` v114)과 기존 화면 — 시드로는 안 만들었다 |
+| `summary`·`summary-light` 넘침 없음 | `가로 넘침` 칸(문서 폭 + 안쪽 폭) |
+| 순서 | `v120 RR9 — 순서` + 흐름 `RR9 요약 카드 순서`(화면에서 잰 순서) |
+| 여백(RR12) | `안쪽 대칭`·`같은 역할`(카드 안쪽 summary 15)·`가까움 순서` 통과 |
+| 390·375 꺾임 | 흐름 `RR9 <장면> 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안`(장면 5개) + `scripts/rr9.test.mjs` |
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 것 | 복구 |
+|---|---|---|
+| 홈으로 버튼 이름을 바꿔 순서·묶음 관계를 깸 | `v120 RR9` 3건 | `cmp` 같음 |
+| `.ax-summary` 선택자 이름을 틀리게 | `scripts/rr9.test.mjs` 1건 | `cmp` 같음 |
+| (ui-check 실측) `ListItem`을 쓴 첫 구현 | `안쪽 대칭` 실패(위 15·아래 24), 375 꺾임 3건 | `Row`로 바꿔 통과 |
+
+### 변이 테스트
+
+`src/lib`을 바꾸지 않아 대상 없음.
+
+### ui-check (`node scripts/ui-check.mjs after --check --ver=v1.20` → **종료 코드 0**)
+
+접근성(axe) 장면 5개 모두 serious·critical 0건. 새 흐름 12개 통과, 전체 흐름 88개 통과.
+
+### 실행 결과
+
+- `npm test`: `Test Files  77 passed (77)` / `Tests  1786 passed (1786)`
+- `npm run check`: 전부 통과(빌드 포함)
+- `node scripts/ui-check.mjs after --check --ver=v1.20`: `종료 코드 0`
+- `git rev-list --count main..HEAD`: 커밋 전 51(이 커밋 뒤 52)
+- 실기기 확인: 없음(요약은 흉내로 다 볼 수 있다)

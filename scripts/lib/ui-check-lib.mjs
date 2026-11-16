@@ -707,3 +707,101 @@ export const inPageWarnColor = (sel) => {
   const actual = getComputedStyle(el).color
   return { found: true, same: actual === token && token !== '', actual, token }
 }
+
+/**
+ * 안쪽 폭 넘침 (RR9): 문서 폭만 보면 카드·시트 안에서 밖으로 삐져나온 요소를 못 잡는다.
+ * root 안의 보이는 요소(와 글자)마다, 가까운 "눈에 보이는 상자"(배경색이나 테두리가 있는 조상 — 카드·시트·알림)의 좌우를 벗어났는지 잰다.
+ * 가로 스크롤 칸·자르는 칸(overflow-x auto·scroll·hidden·clip) 안의 것은 뺀다. root가 없으면 dialog[open], 아니면 화면 틀.
+ */
+export const inPageInnerOverflow = (rootSelector) => {
+  const root = (rootSelector && document.querySelector(rootSelector)) ?? document.querySelector('dialog[open], [role=dialog]') ?? document.querySelector('.ax-screen, .screen') ?? document.body
+  const vis = (el) => window.__vis(el)
+  const solid = (el) => {
+    const cs = getComputedStyle(el)
+    const bg = window.__ui ? window.__ui.parse(cs.backgroundColor) : { a: cs.backgroundColor === 'rgba(0, 0, 0, 0)' ? 0 : 1 }
+    const border = ['Left', 'Right'].some((s) => Number.parseFloat(cs[`border${s}Width`]) > 0 && cs[`border${s}Style`] !== 'none')
+    return bg.a > 0.05 || border
+  }
+  const scrollsX = (el) => ['auto', 'scroll', 'hidden', 'clip'].includes(getComputedStyle(el).overflowX) // 스크롤 칸·자르는 칸(진행 막대의 움직이는 채움) 안은 상자 밖이 아니다. 글이 잘리는지는 inPageNotClipped가 따로 본다
+  const bad = []
+  let checked = 0
+  const test = (rect, from, label) => {
+    let skip = false
+    for (let a = from; a && a !== document.body && a !== document.documentElement; a = a.parentElement) {
+      if (a !== root && scrollsX(a)) { skip = true; break }
+      if (solid(a)) {
+        checked++
+        const r = a.getBoundingClientRect()
+        if (rect.right > r.right + 0.5 || rect.left < r.left - 0.5) bad.push(`${label} ${Math.round(rect.left)}~${Math.round(rect.right)} / 상자 ${Math.round(r.left)}~${Math.round(r.right)}`)
+        break
+      }
+      if (a === root) break
+    }
+    return skip
+  }
+  for (const el of root.querySelectorAll('*')) {
+    if (!vis(el) || getComputedStyle(el).position === 'fixed') continue
+    test(el.getBoundingClientRect(), el.parentElement, `<${el.tagName.toLowerCase()}${(el.getAttribute('class') ?? '').split(' ')[0] ? '.' + el.getAttribute('class').split(' ')[0] : ''}>`)
+  }
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  for (let n = w.nextNode(); n; n = w.nextNode()) {
+    if (!n.nodeValue.trim() || !n.parentElement || !vis(n.parentElement)) continue
+    const range = document.createRange()
+    range.selectNodeContents(n)
+    const r = range.getBoundingClientRect()
+    if (r.width < 1) continue
+    test(r, n.parentElement, `글자 "${n.nodeValue.trim().slice(0, 8)}"`)
+  }
+  return { ok: bad.length === 0, detail: bad.length ? `상자 밖 ${bad.length}개: ${bad.slice(0, 3).join(' / ')}` : `안쪽 폭 안 (상자 비교 ${checked}회)` }
+}
+
+/**
+ * 화면 글자의 자리 (RR9): labels 가운데 화면에 보이는 것을 위에서 아래로 늘어놓은 이름 목록. 순서 판정은 Node가 한다.
+ * 같은 글자가 여러 곳이면 가장 위의 것을 쓴다(제목 줄만 보려고 글자가 정확히 같은 요소를 찾는다).
+ */
+export const inPageTextOrder = (labels) => {
+  const vis = (el) => window.__vis(el)
+  const found = []
+  for (const label of labels) {
+    const hit = [...document.querySelectorAll('body *')].filter((el) => vis(el) && el.children.length === 0 && (el.textContent ?? '').trim() === label)
+    if (hit.length) found.push({ label, top: Math.min(...hit.map((el) => el.getBoundingClientRect().top + window.scrollY)) })
+  }
+  found.sort((a, b) => a.top - b.top)
+  return found.map((f) => f.label)
+}
+
+/**
+ * 긴 글이 잘리지 않는가 (RR9): needle이 든 글자 요소의 줄 수, 그 요소와 조상이 글을 자르는지(overflow hidden/clip + 넘침, line-clamp),
+ * 마지막 글자가 가까운 눈에 보이는 상자 안에 있는지.
+ */
+export const inPageNotClipped = (needle) => {
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+  let node = null
+  for (let n = w.nextNode(); n; n = w.nextNode()) if (n.nodeValue.includes(needle) && n.parentElement && window.__vis(n.parentElement)) { node = n; break }
+  if (!node) return { found: false, ok: false, lines: 0, detail: `"${needle.slice(0, 10)}…" 글자를 못 찾았다` }
+  const el = node.parentElement
+  const range = document.createRange()
+  range.selectNodeContents(node)
+  const rects = [...range.getClientRects()]
+  const tops = [...new Set(rects.map((r) => Math.round(r.top)))]
+  const lines = tops.length
+  const bad = []
+  for (let a = el; a && a !== document.body; a = a.parentElement) {
+    const cs = getComputedStyle(a)
+    if (cs.webkitLineClamp && cs.webkitLineClamp !== 'none') bad.push(`line-clamp ${cs.webkitLineClamp}`)
+    if (['hidden', 'clip'].includes(cs.overflowY) && a.scrollHeight > a.clientHeight + 1) bad.push(`세로 잘림 ${a.scrollHeight}>${a.clientHeight}`)
+    if (['hidden', 'clip'].includes(cs.overflowX) && a.scrollWidth > a.clientWidth + 1) bad.push(`가로 잘림 ${a.scrollWidth}>${a.clientWidth}`)
+    if (cs.textOverflow === 'ellipsis' && a.scrollWidth > a.clientWidth + 1) bad.push('말줄임')
+  }
+  const last = rects[rects.length - 1]
+  let boxOk = true
+  for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+    const bg = getComputedStyle(a).backgroundColor
+    if (bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+      const r = a.getBoundingClientRect()
+      boxOk = last.bottom <= r.bottom + 0.5 && last.right <= r.right + 0.5
+      break
+    }
+  }
+  return { found: true, ok: bad.length === 0 && boxOk, lines, detail: `${lines}줄 · ${bad.join(', ') || '자르는 조상 없음'} · 마지막 글자가 상자 안 ${boxOk}` }
+}

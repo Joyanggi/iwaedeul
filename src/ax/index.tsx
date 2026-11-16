@@ -53,9 +53,9 @@ const CARD_GAP = 3
 const CARD_PADDING = 4
 
 /** 화면 안의 묶음들을 세로로 쌓는다. 화면은 `AxRoot` 안에 `Groups` 하나를 둔다. */
-export function Groups({ children }: { children: ReactNode }) {
+export function Groups({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <VStack gap={GROUP_GAP} className="ax-groups">
+    <VStack gap={GROUP_GAP} className={className ? `ax-groups ${className}` : 'ax-groups'}>
       {children}
     </VStack>
   )
@@ -258,6 +258,7 @@ export function Sheet({ label, purpose = 'info', height = 'hug', onClose, childr
 
 export { TabList, Tab } from '@astryxdesign/core/TabList'
 export { Center } from '@astryxdesign/core/Center'
+export { Grid } from '@astryxdesign/core/Grid'
 export { Spinner } from '@astryxdesign/core/Spinner'
 export { Icon } from '@astryxdesign/core/Icon'
 export { Button } from '@astryxdesign/core/Button'
