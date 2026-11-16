@@ -31,7 +31,8 @@ function Row({ label, description, end }: { label: ReactNode; description?: Reac
         {label}
         {description}
       </VStack>
-      {end}
+      {/* 오른쪽 값은 접히지 않고 칸 폭을 지킨다 — 줄어드는 쪽은 설명 글이다 (RR9 화면 검증 반려: "0점"이 "0/점"으로 꺾임) */}
+      {end && <span className="ax-row-end">{end}</span>}
     </HStack>
   )
 }

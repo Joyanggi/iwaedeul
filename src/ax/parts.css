@@ -322,6 +322,14 @@
     overflow-wrap: anywhere;
   }
 
+  /* 요약 줄 오른쪽 값("0점"·"150 → 152.5kg"): 안 접히고 칸 폭을 지킨다. 설명 글(왼쪽)이 줄어든다. anywhere가 최소 폭을 한 글자로 만들던 것을 푼다 */
+  .ax-summary .ax-row-end,
+  .ax-summary .ax-row-end :is(p, span, div) {
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+
   .ax-tip :is(p, span, div) {
     word-break: keep-all;
     overflow-wrap: anywhere;

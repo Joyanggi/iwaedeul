@@ -1047,14 +1047,19 @@ describe("v120 RR9 — 요약", () => {
   const SUMMARY = "/src/screens/SummaryScreen.tsx"
   const ui = () => text(SCRIPTS, "/scripts/ui-check.mjs")
 
-  it("v120 RR9: SummaryScreen.tsx에 style=·<button·var(--·@astryxdesign이 0건이고 className=은 ax-text-warning(경고 글자색)·ax-summary(한글 줄바꿈)뿐이다", () => {
+  it("v120 RR9: SummaryScreen.tsx에 style=·<button·var(--·@astryxdesign이 0건이고 className=은 ax-text-warning(경고 글자색)·ax-summary(한글 줄바꿈)·ax-row-end(오른쪽 값 안 접힘)뿐이다", () => {
     const s = code(SUMMARY)
     expect(s).toMatch(/from '\.\.\/ax'/)
     expect(s).not.toMatch(/style=|<button|var\(--|@astryxdesign/)
     // PLAN은 className= 0건이었으나 Text의 색 이름에 경고가 없어(RR8과 같은 이유) ax-text-warning 하나는 남는다
     const classes = [...s.matchAll(/className=("[^"]*"|\{[^}]*\})/g)].map((m) => m[1])
     expect(classes.length).toBeGreaterThan(0)
-    for (const c of classes) expect(['"ax-text-warning"', '"ax-summary"']).toContain(c)
+    for (const c of classes) expect(['"ax-text-warning"', '"ax-summary"', '"ax-row-end"']).toContain(c)
+  })
+
+  it("v120 RR9 반려: 줄 오른쪽 값은 ax-row-end 칸에 담긴다(CSS는 scripts/rr9.test.mjs) · inPageMidWordBreaks는 이웃 글자 노드(\"0\"+\"점\")를 한 덩어리로 잰다", () => {
+    expect(code(SUMMARY)).toMatch(/<span className="ax-row-end">\{end\}<\/span>/)
+    expect(ui()).toMatch(/if \(n\.parentNode !== prevParent\) prevTop = null/)
   })
 
   it("v120 RR9 — 순서: 글자의 자리가 개인 기록 < 다음 세션 무게 < 감각 저하 < 감각이 약했던 종목 < 수행 순서 < 홈으로 순이다", () => {

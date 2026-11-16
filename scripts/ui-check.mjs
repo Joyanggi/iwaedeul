@@ -343,10 +343,14 @@ function inPageMidWordBreaks(rootSelector = 'dialog[open]') {
   const out = { chars: 0, count: 0, samples: [] }
   if (!dlg) return out
   const walker = document.createTreeWalker(dlg, NodeFilter.SHOW_TEXT)
+  // React는 `{score}점`을 글자 노드 둘("0"·"점")로 낸다. 같은 부모 안의 이웃 글자 노드는 공백이 없으면 한 덩어리라 prevTop을 이어 간다
+  let prevTop = null
+  let prevParent = null
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
     const t = n.textContent ?? ''
     const range = document.createRange()
-    let prevTop = null
+    if (n.parentNode !== prevParent) prevTop = null
+    prevParent = n.parentNode
     for (let i = 0; i < t.length; i++) {
       if (/\s/.test(t[i])) { prevTop = null; continue }
       range.setStart(n, i)
