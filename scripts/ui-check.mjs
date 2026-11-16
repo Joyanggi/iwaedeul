@@ -345,6 +345,15 @@ async function runScenes(browser, port, scheme) {
       console.log(`장면 건너뜀: ${label} — ${String(e.message).split('\n')[0]}`)
     }
   }
+  // 흐름(검사)은 optional에 넣지 않는다: 예외가 나면 건너뜀이 아니라 흐름 실패로 센다 (RR5 반려)
+  const guardedFlow = async (names, fn) => {
+    try {
+      await fn()
+    } catch (e) {
+      const detail = `예외: ${String(e.message).split('\n')[0]}`
+      for (const n of names) if (!flows.some((f) => f[0] === n)) flows.push([n, { ok: false, detail }])
+    }
+  }
   const toEnd = () => page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
   const toTop = () => page.evaluate(() => window.scrollTo(0, 0))
   const closeSheet = async (name, button = '닫기') => {
@@ -427,6 +436,7 @@ async function runScenes(browser, port, scheme) {
       await page.getByRole('dialog', { name: '진행 중 세션 처리' }).waitFor({ timeout: 3000 })
       await settle(page)
       await snap('sheet-open-session')
+      await guardedFlow(['시트 닫기 두 번 누르기 진행 중 세션 처리', '시트가 저장으로 먼저 사라진 뒤 진행 중 세션 처리'], async () => {
       const dlg = page.getByRole('dialog', { name: '진행 중 세션 처리' })
       const errs = []
       const onErr = (e) => errs.push(String(e))
@@ -457,6 +467,7 @@ async function runScenes(browser, port, scheme) {
       await btn(page, '세션 최소화').click()
       await page.getByRole('button', { name: /진행 중/ }).last().waitFor({ timeout: 3000 })
       await settle(page, 600)
+      })
     })
     // QQ6: 세션이 열려 있을 때 설정 (`편집` 비활성 + 안내 문구)
     await optional('settings-open', async () => {
@@ -640,6 +651,7 @@ async function runScenes(browser, port, scheme) {
   await snap('line-sheet')
   // RR5 기존 사용처: 막을 눌러 닫으면 시트가 사라지고, 같은 줄을 다시 열 수 있다(늦은 onClose가 새로 연 시트를 닫지 않는다)
   if (!light) await optional('line-sheet-reopen', async () => {
+   await guardedFlow(['줄 시트 막으로 닫고 같은 줄 다시 열기'], async () => {
     const errs = []
     const onErr = (e) => errs.push(String(e))
     page.on('pageerror', onErr)
@@ -652,6 +664,7 @@ async function runScenes(browser, port, scheme) {
     const still = await dlg.count()
     page.off('pageerror', onErr)
     flows.push(['줄 시트 막으로 닫고 같은 줄 다시 열기', { ok: gone && still === 1 && errs.length === 0, detail: `사라짐 ${gone} · 다시 연 뒤 시트 ${still}개 · 오류 ${errs.length}건` }])
+   })
   })
   await ctx.close()
 }

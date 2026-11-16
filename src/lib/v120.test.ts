@@ -662,4 +662,12 @@ describe("v120 RR5 — 홈의 시트 2개 + Sheet의 닫기", () => {
     expect(t).toContain("줄 시트 막으로 닫고 같은 줄 다시 열기")
     expect(t).toMatch(/HOME_SHEET_SYMMETRY_KINDS = new Set\(\[\.\.\.SYMMETRY_KINDS, 'sheet'\]\)/)
   })
+
+  it("v120 RR5: 새 흐름 셋은 guardedFlow 안에 있어 예외가 나면 건너뜀이 아니라 흐름 실패로 센다", () => {
+    const t = text(SCRIPTS, "/scripts/ui-check.mjs")
+    expect(t).toMatch(/const guardedFlow = async \(names, fn\) => \{[\s\S]*?catch \(e\)[\s\S]*?ok: false/)
+    for (const name of ["시트 닫기 두 번 누르기 진행 중 세션 처리", "시트가 저장으로 먼저 사라진 뒤 진행 중 세션 처리", "줄 시트 막으로 닫고 같은 줄 다시 열기"]) {
+      expect(t, name).toMatch(new RegExp("guardedFlow\\(\\[[^\\]]*'" + name + "'"))
+    }
+  })
 })

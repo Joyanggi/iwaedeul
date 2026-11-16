@@ -861,7 +861,7 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 | `src/components/DayPickerSheet.tsx` | `SheetFrame` → `Sheet`. `List`+`ListItem`(Day 이름 + 제안·선택·완충 `Badge`, 부제·며칠 전, 종목·세트 수), 제목 `Heading`, 설명 `Text`, 닫기 `Button` |
 | `src/components/OpenSessionSheet.tsx` | `SheetFrame` → `Sheet`. `Item` 한 줄 + `Button` 넷 + 버리기 2단계(`destructive`) |
 | `src/lib/v119.test.ts` | QQ3 legacy 시트 14 → 12개(홈 둘이 `../ax`로 옮김) — PLAN 수정표대로 |
-| `src/lib/v120.test.ts` | `v120 RR5` 묶음 10개 |
+| `src/lib/v120.test.ts` | `v120 RR5` 묶음 11개 |
 | `scripts/ui-check.mjs`, `scripts/lib/ui-space.mjs` | 홈 시트 둘의 `안쪽 대칭`(`sheet` 쌍)·`같은 역할` 시트 좌우 판정, `sheet-open-session` 장면, 흐름 셋 |
 | `docs/ASTRYX-INVENTORY.md` | `--write`: legacy 클래스 쓰임 447 → 426 (PLAN의 442→421과 같은 21 줄어듦, 기준선만 다름) |
 
@@ -872,8 +872,9 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 | 위험 문구 `Text color="error"` | `Banner status="error" collapsible={false} title=…` | `Text`에는 `error` 색이 없다(`BuiltinTextColor` = primary·secondary·disabled·placeholder·accent·inherit — 빌드가 거부). 루틴 편집의 오류 줄(`RoutineEditorScreen.tsx:237`)과 같은 부품 |
 | `Sheet` 안에 `startedRef`·`timerRef` | `closing` 상태 하나 + effect | `react-hooks/refs` 린트가 렌더 중 ref 읽기·쓰기를 막고 `SheetFrame`의 같은 패턴은 `eslint-suppressions.json`의 옛 위반이라 새 파일에 못 늘린다. `dismiss = () => setClosing(true)`는 두 번 불러도 같은 값이라 타이머가 하나이고, effect 정리 함수가 언마운트 때 타이머를 지운다 — PLAN의 세 요구(한 번만·정리·두 번 눌러도 하나)가 같다 |
 | 고르는 줄 설명 | `description`을 `<Text textWrap="wrap">`로 | `ListItem`은 설명을 한 줄에서 말줄임표로 잘랐다(`기록 없음`·며칠 전이 안 보임). 줄바꿈을 허용했다 |
+| `DayPickerSheet` 줄의 `endContent` = 마지막 수행 며칠 전 | 며칠 전은 `description`(부제 뒤), `endContent`는 `N종목`/`N세트`를 `VStack` 두 줄로 쌓음(문구 그대로) | 종목·세트 수를 둘 자리가 없고(문구 유지), 한 줄로 두니 오른쪽이 넓어져 390 폭에서 부제가 글자 중간에서 꺾였다(`기/록 없음`). 두 줄로 쌓아 오른쪽 폭을 예전처럼 줄이자 `after/sheet-home.png`에서 부제가 공백에서만 꺾인다. 375 폭 스크린샷은 `ui-check`에 그 장면이 없어 못 찍었다(실기기 확인 목록) — 리뷰 반영 |
 
-닫힘 대기 길이: **350ms**. `BottomSheet` 나가는 움직임이 `--motion-medium`(300ms) 대역이라 그보다 길게 잡았다(`SheetFrame`의 `SAFETY_MS`와 같은 값). 다이얼로그가 DOM에서 빠지는 시간을 `ui-check` 안에서 쟀더니 첫 눌림부터 **399~406ms**(타이머 350 + 눌림·프레임 오버헤드)였다. `BottomSheet`가 시각적으로 사라지는 시점만 따로 잰 값은 없다(닫힘 끝 콜백이 없고 `dialog.open` 관찰은 이 라운드에서 못 했다).
+닫힘 대기 길이: **350ms**. `BottomSheet` 나가는 움직임이 `--motion-medium`(300ms) 대역이라 그보다 길게 잡았다(`SheetFrame`의 `SAFETY_MS`와 같은 값). 다이얼로그가 DOM에서 빠지는 시간을 `ui-check` 안에서 쟀더니 첫 눌림부터 **399~406ms**(타이머 350 + 눌림·프레임 오버헤드)였다. 보이는 것이 사라지는 시간은 화면 검증(`.reports/screen-check-RR5.md` 2절)이 봤다: 60·180ms에는 떠 있고 **약 300ms** 뒤 사라진다. 그래서 350 > 300이다.
 
 ### 테스트 ↔ PLAN 검증 항목
 
@@ -898,7 +899,9 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 | 되살린 결함 | 실패한 테스트 | 원상복구 |
 |---|---|---|
 | ⑩ `DayPickerSheet`의 닫기를 `onClick={onClose}`로 | `v120 RR5: 옮긴 시트의 닫기 버튼은 dismiss를 부른다 …` | `cmp` 같음 |
-| ㉑ `Sheet` 정리 함수(`return () => clearTimeout(timer)`)를 뺀다 (effect 형태로 바꾼 뒤 다시 확인) | `v120 RR5: Sheet에 clearTimeout이 useEffect의 정리 함수 안에 있다 …` | `cmp` 같음 |
+| ㉑ `Sheet` 정리 함수(`return () => clearTimeout(timer)`)를 뺀다 (effect 형태로 바꾼 뒤 다시 확인) | `v120 RR5: Sheet에 clearTimeout이 useEffect의 정리 함수 안에 있다 …`. **흐름으로는 못 잡는다** — 그 흐름(버리기 → 세션)은 `dismiss`를 부르지 않아 타이머가 안 걸린다. 스캔만 잡는다 | `cmp` 같음 |
+| ⑪ `Sheet`의 `once`를 뺀다(`const finish = () => onCloseRef.current()`) | `v120 RR5: Sheet의 children은 … once를 거친다 …` 스캔 1건. **흐름 `시트 닫기 두 번 누르기`는 실패하지 않는다** — `closing` 상태가 `false→true` 한 번이라 effect 한 번에 `finish`가 한 번 불려 `once`가 막는 것이 없다. 이 구조에서는 스캔만 잡고 흐름은 못 잡는다 | `cmp` 같음 |
+| ⑫(리뷰) 줄 시트 `onClose={() => setLineAt(null)}`를 `onClose={() => {}}`로 (`ui-check after --check --only=line-sheet`) | 흐름 `줄 시트 막으로 닫고 같은 줄 다시 열기`가 예외 → `흐름 실패`, **종료 코드 1** (고치기 전에는 건너뜀으로 삼켜져 0). 되돌리면 0 | `cmp` 같음 |
 
 ### 변이 테스트
 
@@ -909,6 +912,7 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 - `sheet-home` 다크·라이트: `접근성` 통과, `시트 버튼` 통과, `안쪽 대칭` 통과, `같은 역할 · 시트 좌우` 16(`sheet-finish`·`sheet-food`·`line-sheet`와 같다).
 - `sheet-food` `접근성` 통과, `session`·`session-375`·`session-open-b` 포함 RR0 전부터 있던 네 칸이 **다시 생기지 않았다**.
 - 흐름 통과: `줄 시트 막으로 닫고 같은 줄 다시 열기`(시트 1개·오류 0건).
+- **리뷰 반영**: 새 흐름 셋은 `guardedFlow` 안에 있어 예외가 나면 `흐름 실패`로 센다(장면 찍기만 `optional`). `v120 RR5` 스캔 1개 추가. `DayPickerSheet`의 `endContent`는 두 줄로 쌓음. `ui-check after --check --ver=v1.20` 종료 코드 0, 흐름 셋 통과. `scripts/ui-check.mjs`는 LF로 되돌림.
 - **`sheet-open-session`은 기본 예시 데이터에서는 열리지 않아 건너뛴다.** 진행 중 세션이 있을 때 이 시트로 가는 길은 디로드 권장 배너의 `디로드로 시작`뿐이고(운동 카드는 진행 중이면 `이어서 하기`로 세션에 들어간다) 예시 데이터는 디로드가 안 뜬다. 그래서 확인은 **임시로** `HomeScreen`의 `이어서 하기`를 `start(displayed)`로 바꿔 시트를 열어 했고(백업→복구, `git status`로 원상 확인) 결과: `접근성` 통과·`시트 버튼` 통과(이어하기 5.634, 취소 1.366, 버리기 1.638)·`안쪽 대칭` 통과, 흐름 `시트 닫기 두 번 누르기 진행 중 세션 처리` 통과(오류 0건, 사라짐 399~406ms), 흐름 `시트가 저장으로 먼저 사라진 뒤 진행 중 세션 처리`(버리기 2단계 → 세션 화면에서 800ms 뒤에도 그대로, 오류 0건) 통과. 그 임시 변경은 남기지 않았다. 스크린샷 `sheet-open-session(.png/-light.png)`은 이 임시 상태에서 찍은 것을 화면 검증자가 볼 수 있게 `docs/screenshots/v1.20/after/`에 넣었다(앱 코드는 임시 변경 없이 같다).
 
 ### 실행 결과

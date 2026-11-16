@@ -49,9 +49,11 @@ export default function DayPickerSheet({
         </Text>
       }
       endContent={
-        <Text color="secondary">
-          {day.exercises.length}종목 · {dayTotalSets(day)}세트
-        </Text>
+        // 두 줄로 쌓아 오른쪽 폭을 줄인다(한 줄이면 부제가 글자 중간에서 꺾인다)
+        <VStack gap={0} align="end">
+          <Text color="secondary">{day.exercises.length}종목</Text>
+          <Text color="secondary">{dayTotalSets(day)}세트</Text>
+        </VStack>
       }
       onClick={() => onPick(day)}
     />
