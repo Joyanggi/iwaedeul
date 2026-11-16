@@ -138,7 +138,7 @@ const EXPECTED_BARS = {
 const SET_SCENES = new Set(['session', 'session-375', 'history-detail-edit'])
 /** 시작 자리를 재는 장면 (RR4). 390 폭 넷, 375 폭 둘 */
 const START_SPOT_SCENES = new Set(['home', 'home-banner', 'home-banners-open', 'home-resume', 'home-375', 'home-banner-375'])
-const LAST_SCENES = new Set(['home', 'home-end', 'home-resume', 'home-resume-end', 'diet', 'history', 'analyze', 'settings-end'])
+const LAST_SCENES = new Set(['session', 'session-375', 'session-rest', 'home', 'home-end', 'home-resume', 'home-resume-end', 'diet', 'history', 'analyze', 'settings-end'])
 const sheetBtns = {} // 장면 -> { dark, light } 시트 버튼의 대비 (RRM)
 const chartColors = {} // 장면 -> { dark, light } 차트 선·축의 계산된 색 (RR2)
 const themeBg = {} // 장면 -> { dark, light } 문서 배경 (테마 토큰 칸의 라이트·다크 견줌)
@@ -528,6 +528,70 @@ async function runScenes(browser, port, scheme) {
     await settle(page, 600)
     await snap('session-rest')
 
+    // RR6 흐름 — 휴식 바. 흐름이 끝나면 2세트를 다시 체크해 휴식 바가 떠 있는 채로 뒤 장면으로 이어간다.
+    // 흐름은 guardedFlow 안이라 예외가 나도 건너뜀으로 삼켜지지 않고 흐름 실패가 된다.
+    const restBar = () => page.getByRole('timer')
+    const restSec = async () => {
+      const [m, sec] = (await restBar().getByRole('heading').innerText()).split(':').map(Number)
+      return m * 60 + sec
+    }
+    const restBtn = (name) => restBar().getByRole('button', { name, exact: true })
+    const restartRest = async () => {
+      await page.getByRole('button', { name: '2세트 완료', exact: true }).first().click()
+      await restBar().waitFor({ timeout: 5000 })
+      await settle(page, 400)
+    }
+    await guardedFlow(['휴식 바 +30초 건너뛰기'], async () => {
+      const before = await restSec()
+      await restBtn('+30초').click()
+      await settle(page, 300)
+      const after = await restSec()
+      await restBtn('건너뛰기').click()
+      await restBar().waitFor({ state: 'detached', timeout: 2000 }).catch(() => {})
+      const gone = (await restBar().count()) === 0
+      flows.push(['휴식 바 +30초 건너뛰기', { ok: after > before + 20 && gone, detail: `남은 ${before}초 → +30초 뒤 ${after}초 · 건너뛰기 뒤 바 ${gone ? '사라짐' : '남음'}` }])
+      await restartRest()
+    })
+    await guardedFlow(['움직임 줄이기에서 휴식 진행 막대'], async () => {
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      try {
+        // ProgressBar의 채움은 폭이 아니라 CSS 변수(--_progress-bar-fill)로 그린다 — 채워진 부분(첫 자손)의 그 값을 읽는다 (PLAN은 폭이라 했으나 요소 폭은 늘 트랙 전체다)
+        const fill = () => page.evaluate(() => document.querySelector('[role="timer"] [role="progressbar"]')?.firstElementChild?.style.getPropertyValue('--_progress-bar-fill') || null)
+        const a = await fill()
+        await settle(page, 2000)
+        const b = await fill()
+        flows.push(['움직임 줄이기에서 휴식 진행 막대', { ok: a !== null && b !== null && a !== b, detail: `채움 ${a} → ${b} (2초 간격, 달라야 한다)` }])
+      } finally {
+        await page.emulateMedia({ reducedMotion: null })
+      }
+    })
+    await guardedFlow(['최소화하면 재개 줄에 남은 휴식'], async () => {
+      const before = await restSec()
+      await btn(page, '세션 최소화').click()
+      const badge = page.getByText(/^휴식 \d+:\d\d$/)
+      await badge.first().waitFor({ timeout: 3000 })
+      const [m, sec] = (await badge.first().innerText()).replace('휴식 ', '').split(':').map(Number)
+      const stripSec = m * 60 + sec
+      await page.getByRole('button', { name: /진행 중/ }).last().click()
+      await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor()
+      await restBar().waitFor({ timeout: 3000 })
+      const back = await restSec()
+      flows.push(['최소화하면 재개 줄에 남은 휴식', { ok: stripSec <= before && stripSec > 0 && back <= stripSec, detail: `세션 ${before}초 → 재개 줄 ${stripSec}초 → 돌아온 세션 ${back}초(같은 타이머라 줄어들기만 한다)` }])
+    })
+    await guardedFlow(['끝난 휴식 바 1탭 닫기'], async () => {
+      await restBtn('−30초').click()
+      await restBtn('−30초').click()
+      await restBar().getByRole('heading', { name: '휴식 완료' }).waitFor({ timeout: 3000 })
+      const box = await restBar().getByRole('heading', { name: '휴식 완료' }).boundingBox()
+      // 글자 위를 누른다 — 글자는 눌림을 안 받고 뒤에 깔린 닫기 버튼이 받는다
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+      await restBar().waitFor({ state: 'detached', timeout: 1500 }).catch(() => {})
+      const gone = (await restBar().count()) === 0
+      flows.push(['끝난 휴식 바 1탭 닫기', { ok: gone, detail: `글자 위 1탭 뒤 바 ${gone ? '사라짐(자동 닫힘 3초보다 빠르다)' : '남음'}` }])
+      await page.getByRole('button', { name: '2세트 완료', exact: true }).first().click()
+      await restartRest()
+    })
+
     await btn(page, '종료').click()
     await page.getByRole('dialog', { name: '세션 종료' }).waitFor()
     await settle(page)
@@ -756,8 +820,8 @@ async function schemeProbe(page, scene) {
   const m = await page.evaluate(() => {
     const bg = getComputedStyle(document.body).backgroundColor
     // 앱의 색은 AppRoot(mode)가 정한다. body 배경은 mode와 무관하게 뒤집히므로, 앱 안의 제목 글자색을 잰다.
-    // 세션 장면은 h1이 없어 세션 머리의 루틴 이름(.session-day)을 쓴다 (RR11 리뷰 3)
-    const h = document.querySelector('h1') ?? document.querySelector('.session-day')
+    // 세션 장면은 h1이 없어 상단 띠의 루틴 이름을 쓴다 (RR6: .session-day가 Astryx `Text`로 옮겨 띠 안 첫 글자 요소) (RR11 리뷰 3)
+    const h = document.querySelector('h1') ?? document.querySelector('.ax-bar-top :is(p, span, div):not(:has(*))')
     return { bg, h1: h ? getComputedStyle(h).color : null }
   })
   const res = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
@@ -801,7 +865,7 @@ async function runSchemeFlow(type, port, shotDir) {
       const bad = []
       if (!(rgbLuminance(lit.bg) > rgbLuminance(dark.bg))) bad.push(`배경이 밝아지지 않았다 ${dark.bg}→${lit.bg}`)
       if (back.bg !== dark.bg) bad.push(`다크로 돌아오지 않았다 ${back.bg}`)
-      if (dark.h1 === null) bad.push('제목 요소(h1·.session-day)를 못 찾았다')
+      if (dark.h1 === null) bad.push('제목 요소(h1·상단 띠 제목)를 못 찾았다')
       else if (dark.h1 === lit.h1 || back.h1 !== dark.h1) bad.push(`제목 글자색이 안 뒤집혔다 ${dark.h1}→${lit.h1}→${back.h1}`)
       if (lit.bg !== b.bg) bad.push(`라이트 배경이 처음부터 라이트와 다르다 ${lit.bg} ≠ ${b.bg}`)
       if (lit.contrast > b.contrast) bad.push(`라이트 대비 위반 ${lit.contrast}건 > 처음부터 라이트 ${b.contrast}건`)

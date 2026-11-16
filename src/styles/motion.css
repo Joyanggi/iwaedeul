@@ -29,8 +29,6 @@
         [class*='astryx-'],
         [class*='astryx-'] *,
         .stepper button,
-        .rest-dismiss,
-        .session-minimize,
         .back-link
       )
   ) {
@@ -43,21 +41,17 @@
 .chip,
 .chip-btn,
 .diet-chip,
-.rest-btn,
-.session-end,
 .segment button {
   transition: transform var(--motion-fast) var(--ease-leave);
 }
-:is(.btn, .pill, .chip, .chip-btn, .diet-chip, .rest-btn, .session-end, .segment button):active:not(:disabled):not([aria-disabled='true']) {
+:is(.btn, .pill, .chip, .chip-btn, .diet-chip, .segment button):active:not(:disabled):not([aria-disabled='true']) {
   transform: scale(var(--press-scale));
   transition: none;
 }
 
-.session-minimize,
 .back-link {
   transition: opacity var(--motion-fast) var(--ease-leave);
 }
-.session-minimize:active:not(:disabled),
 .back-link:active:not(:disabled) {
   opacity: 0.55;
   transition: none;
@@ -83,7 +77,7 @@
   html:root {
     --press-scale: 1;
   }
-  :is(.btn, .pill, .chip, .chip-btn, .diet-chip, .rest-btn, .session-end, .segment button):active:not(:disabled):not([aria-disabled='true']) {
+  :is(.btn, .pill, .chip, .chip-btn, .diet-chip, .segment button):active:not(:disabled):not([aria-disabled='true']) {
     transform: none;
   }
   .sheet,
@@ -95,10 +89,7 @@
   .chip,
   .chip-btn,
   .diet-chip,
-  .rest-btn,
-  .session-end,
   .segment button,
-  .session-minimize,
   .back-link {
     transition-duration: 0.01ms;
   }

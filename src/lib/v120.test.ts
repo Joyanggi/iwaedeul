@@ -50,12 +50,13 @@ describe("v120 RR0 — 검사 도구가 화면 클래스에 안 묶인다", () =
     expect(fn).toContain("el.closest(\"[class*='astryx-'], .ax-screen, .ax-bar, .ax-scope\")")
   })
 
-  it("v120 RR0: ui-check-lib.mjs에 띠 선택자 글자(.session-header)가 BAR_SELECTOR 한 줄에만 있고, 그 줄에 .ax-bar가 있다 (RRM: glass-check.mjs에서 옮김)", () => {
+  it("v120 RR0·RR6: ui-check-lib.mjs의 BAR_SELECTOR 줄이 '.ax-bar'뿐이다 (RR6이 .session-header·.rest-bar를 뺐다 — 옛 클래스 글자는 어디에도 없다)", () => {
     const t = text(LIB, "/scripts/lib/ui-check-lib.mjs")
-    const hits = t.split("\n").filter((l) => l.includes(".session-header"))
+    const hits = t.split("\n").filter((l) => l.includes("BAR_SELECTOR ="))
     expect(hits).toHaveLength(1)
-    expect(hits[0]).toContain("BAR_SELECTOR")
-    expect(hits[0]).toContain(".ax-bar")
+    expect(hits[0]).toMatch(/BAR_SELECTOR = '\.ax-bar'/)
+    expect(t).not.toContain(".session-header")
+    expect(t).not.toContain(".rest-bar")
   })
 
   it("v120 RR0: 띠 선택자 사본은 설치 때 깔린 window.__ui.BARS를 읽는다 (RRM: window.__glass.BARS에서 이름을 바꿨다. cssVar 스캔은 쓰는 검사(알약 구별)가 지워져 같이 지웠다)", () => {
@@ -675,5 +676,76 @@ describe("v120 RR5 — 홈의 시트 2개 + Sheet의 닫기", () => {
     for (const name of ["시트 닫기 두 번 누르기 진행 중 세션 처리", "시트가 저장으로 먼저 사라진 뒤 진행 중 세션 처리", "줄 시트 막으로 닫고 같은 줄 다시 열기"]) {
       expect(t, name).toMatch(new RegExp("guardedFlow\\(\\[[^\\]]*'" + name + "'"))
     }
+  })
+})
+
+describe("v120 RR6 — 세션 화면 틀과 휴식 바", () => {
+  const FILES = ["/src/screens/SessionScreen.tsx", "/src/components/RestTimerBar.tsx"]
+
+  it("v120 RR6: 두 파일의 className=은 ax-bar-dismiss뿐이고 style= 0건, <button은 그 닫기 버튼 하나다", () => {
+    const all = FILES.map((f) => code(f)).join("\n")
+    const classNames = [...all.matchAll(/className=("[^"]*"|\{[^}]*\})/g)].map((m) => m[1])
+    expect(classNames).toEqual(['"ax-bar-dismiss"'])
+    expect(all).not.toMatch(/style=/)
+    expect(all.match(/<button/g) ?? []).toHaveLength(1)
+    expect(code("/src/components/RestTimerBar.tsx")).toMatch(/<button className="ax-bar-dismiss"/)
+  })
+
+  it("v120 RR6: 두 파일은 ../ax에서만 가져온다 (@astryxdesign 직접 import 0건)", () => {
+    for (const f of FILES) {
+      expect(code(f), f).toMatch(/from '\.\.\/ax'/)
+      expect(code(f), f).not.toMatch(/@astryxdesign/)
+    }
+  })
+
+  it("v120 RR6: 상단 바는 Bar position=top, 휴식 바는 Bar position=bottom role=timer aria-live=off다", () => {
+    expect(code(FILES[0])).toMatch(/<Bar position="top">/)
+    expect(code(FILES[1])).toMatch(/<Bar position="bottom" role="timer" aria-live="off">/)
+  })
+
+  it("v120 RR6: 상단 바의 아이콘 버튼 둘은 이름이 있고(세션 최소화·휴식 타이머 시작) 종료 버튼도 그대로다", () => {
+    const s = code(FILES[0])
+    expect(s).toMatch(/isIconOnly[\s\S]{0,80}label="세션 최소화"[\s\S]{0,40}onClick=\{onMinimize\}/)
+    expect(s).toMatch(/isIconOnly[\s\S]{0,80}label="휴식 타이머 시작"[\s\S]{0,40}onClick=\{\(\) => setManualTimer\(true\)\}/)
+    expect(s).toMatch(/label="종료" onClick=\{\(\) => setFinishing\(true\)\}/)
+    expect(s).toMatch(/label="\+ 종목 추가" onClick=\{\(\) => setAddingExercise\(true\)\}/)
+  })
+
+  it("v120 RR6: 로직 그대로 — 세트 체크가 휴식을 시작하고, 세션 없음·Day 없음 문구가 그대로다", () => {
+    const s = code(FILES[0])
+    expect(s).toMatch(/unlockAudio\(\)\s*\n\s*timer\.start\(ex\.restSec/)
+    expect(s).toContain("진행 중인 세션이 없습니다.")
+    expect(s).toContain("이 세션의 Day 정의를 찾을 수 없습니다 ({session.dayId}).")
+    expect(s).not.toMatch(/center-note/)
+  })
+
+  it("v120 RR6: 휴식 바 — 진행은 값으로 그리고(인라인 scaleX 0건) 끝나면 success, 버튼 셋의 조건·동작이 그대로다", () => {
+    const s = code(FILES[1])
+    expect(s).toMatch(/<ProgressBar[\s\S]*?label="휴식 진행"[\s\S]*?isLabelHidden[\s\S]*?value=\{timer\.totalSec - timer\.remainingSec\}[\s\S]*?variant=\{timer\.finished \? 'success' : 'accent'\}/)
+    expect(s).not.toMatch(/scaleX/)
+    expect(s).toMatch(/\{!timer\.finished && \(\s*<Button variant="secondary" label="−30초" onClick=\{\(\) => timer\.addSeconds\(-30\)\} \/>\s*\)\}/)
+    expect(s).toMatch(/label="\+30초" onClick=\{\(\) => timer\.addSeconds\(30\)\}/)
+    expect(s).toMatch(/\{!timer\.finished && <Button variant="primary" label="건너뛰기" onClick=\{timer\.dismiss\} \/>\}/)
+    expect(s).toContain("휴식 완료 — 닫기")
+    expect(s).toMatch(/<Heading level=\{2\}>/)
+  })
+
+  it("v120 RR6: 옛 세션·휴식 클래스(.session-*·.rest-*)가 CSS에 하나도 안 남고 legacy 뿌리 목록에 .session이 없다", () => {
+    const css = Object.entries(import.meta.glob("/src/**/*.css", { query: "?raw", import: "default", eager: true }) as Record<string, string>)
+    for (const [f, t] of css) {
+      expect(t, f).not.toMatch(/\.session(-[a-z]+)?\b(?!-)/)
+      expect(t, f).not.toMatch(/\.rest-(bar|progress|dismiss|content|main|time|label|btn)/)
+    }
+  })
+
+  it("v120 RR6: ui-check — 세션 장면의 마지막 요소 칸과 휴식 바 흐름 넷이 guardedFlow 안에 있고, 띠 기대 개수가 그대로다", () => {
+    const t = text(SCRIPTS, "/scripts/ui-check.mjs")
+    expect(t).toMatch(/LAST_SCENES = new Set\(\['session', 'session-375', 'session-rest'/)
+    for (const name of ["휴식 바 +30초 건너뛰기", "움직임 줄이기에서 휴식 진행 막대", "최소화하면 재개 줄에 남은 휴식", "끝난 휴식 바 1탭 닫기"]) {
+      expect(t, name).toContain("guardedFlow(['" + name + "']")
+    }
+    expect(t).toMatch(/'session-rest': 2/)
+    const lib = text(LIB, "/scripts/lib/ui-check-lib.mjs")
+    expect(lib).toContain("위 띠 아래")
   })
 })

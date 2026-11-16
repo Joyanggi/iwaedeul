@@ -7,7 +7,7 @@
 import { createServer } from 'node:net'
 
 /** 띠 선택자 — 이 한 줄이 유일한 출처다. 페이지에는 window.__ui.BARS로 한 번 깔린다 (v1.20 RR0, RRM에서 RRM에서 옮김). 시트는 따로 */
-export const BAR_SELECTOR = '.session-header, .rest-bar, .ax-bar'
+export const BAR_SELECTOR = '.ax-bar'
 export const SHEET_SELECTOR = '.sheet, .astryx-bottom-sheet'
 
 /** 보이는 요소만 (크기 1px 이하·display none·visibility hidden은 뺀다). 판정은 여기 한 곳. 페이지에는 window.__vis로 깔린다 */
@@ -480,6 +480,16 @@ export const inPageLastVisible = () => {
     const top = Math.min(...bars.map((b) => b.getBoundingClientRect().top))
     const bottom = Math.max(...kids.map((el) => el.getBoundingClientRect().bottom))
     out = { ok: bottom <= top + 0.5, detail: `마지막 요소 아래 ${Math.round(bottom)} · 띠 위 ${Math.round(top)}${bottom > top + 0.5 ? ` (${Math.round(bottom - top)}px 가림)` : ''}` }
+  }
+  // RR6: 위에 붙은 띠(세션 상단 바)가 있으면 맨 위에서 첫 보이는 자식이 그 띠 아래에서 시작하는가
+  const topBars = [...document.querySelectorAll(window.__ui.BARS)].filter((b) => window.__vis(b) && b.getBoundingClientRect().top <= 1)
+  if (topBars.length > 0 && kids.length > 0) {
+    window.scrollTo(0, 0)
+    const barBottom = Math.max(...topBars.map((b) => b.getBoundingClientRect().bottom))
+    const first = kids[0].getBoundingClientRect().top
+    const covered = first < barBottom - 0.5
+    const note = `첫 요소 위 ${Math.round(first)} · 위 띠 아래 ${Math.round(barBottom)}${covered ? ` (${Math.round(barBottom - first)}px 가림)` : ''}`
+    out = out.skip ? { ok: !covered, detail: note } : { ok: out.ok && !covered, detail: `${out.detail} · ${note}` }
   }
   window.scrollTo(0, y0)
   return out

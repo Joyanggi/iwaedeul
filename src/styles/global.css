@@ -58,7 +58,7 @@ body {
  * 맨 요소 규칙은 legacy 화면 안에만 건다. 그 안의 Astryx 섬(`.ax-scope`)과 옮긴 화면은 벗어난다.
  * 뿌리 목록은 `src/ax/ax.css`의 리셋 범위와 글자 그대로 같아야 한다(v120 스캔).
  */
-@scope (.screen, .session, .onboarding, .sheet-backdrop, .center-note, .banner) to (.ax-scope) {
+@scope (.screen, .onboarding, .sheet-backdrop, .center-note, .banner) to (.ax-scope) {
   /*
    * `Theme`이 앱 전체를 감싸는 요소(display: contents)에 글꼴·글자색을 건다(Figtree, 흰색). 안 옮긴 화면은 예전 값으로 돌려놓는다.
    * 명시도 0이라 뿌리 클래스가 따로 정한 색·글꼴이 이긴다.
@@ -438,72 +438,6 @@ body {
 
 /* ─── 홈 오늘 카드 ─────────────────────────────────────── */
 
-/* ─── 세션 화면 ────────────────────────────────────────── */
-
-.session {
-  display: flex;
-  flex-direction: column;
-  min-height: 100dvh;
-}
-
-.session-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: calc(var(--safe-t) + 8px) var(--inset-screen) 8px;
-  background: var(--color-background-surface);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.session-day {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.session-meta {
-  font-size: 13px;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-  margin-top: 2px;
-}
-
-/*
-  휴식 타이머 단독 시작 (CC3). 종료 버튼 옆이지만 **아이콘만** 둔다 —
-  헤더에 글자 버튼이 둘이면 "종료"의 무게가 희석되고, 375px에서 Day 이름이 밀린다.
-*/
-.session-timer-btn {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--r-md);
-  background: var(--surface-2);
-  font-size: 18px;
-  color: var(--text-dim);
-}
-
-.session-end {
-  flex-shrink: 0;
-  padding: 8px 16px;
-  border-radius: var(--r-md);
-  background: var(--surface-2);
-  font-weight: 600;
-  font-size: 15px;
-}
-
-.session-body {
-  flex: 1;
-  /* 하단 고정 휴식 타이머 바에 카드가 가리지 않도록 항상 자리를 비워둔다 */
-  padding: 12px var(--inset-screen) calc(var(--safe-b) + 48px + 48px); /* 96px = 단계 둘 */
-  max-width: 640px;
-  width: 100%;
-  margin: 0 auto;
-}
-
 /* ─── 운동 카드 ────────────────────────────────────────── */
 
 .ex-card {
@@ -809,122 +743,6 @@ body {
     라벨을 짧게 유지하는 것이 1차 방어이고, 이건 2차 방어다.
   */
   white-space: nowrap;
-}
-
-/* 최소화 (Z5) — 종료(파괴적)와 시각적으로 구분한다 */
-.session-minimize {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  margin-right: 4px;
-  border-radius: var(--r-sm);
-  background: var(--surface-2);
-  font-size: 20px;
-  line-height: 1;
-}
-
-/* ─── 휴식 타이머 바 (하단 고정) ───────────────────────── */
-
-.rest-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 30;
-  overflow: hidden;
-  padding-bottom: var(--safe-b);
-  background: var(--color-background-surface);
-  border-top: 1px solid var(--color-border);
-}
-
-.rest-bar-done {
-  background: linear-gradient(color-mix(in srgb, var(--color-success) 16%, transparent), color-mix(in srgb, var(--color-success) 16%, transparent)), var(--color-background-surface);
-  border-top-color: color-mix(in srgb, var(--color-success) 50%, transparent);
-}
-
-/* 진행 바는 scaleX로만 움직인다 — 레이아웃을 건드리지 않아 250ms 틱에도 매끄럽다 */
-.rest-progress {
-  position: absolute;
-  inset: 0;
-  transform-origin: left center;
-  background: var(--accent-soft);
-  transition: transform 0.25s linear;
-  pointer-events: none;
-}
-
-.rest-bar-done .rest-progress {
-  background: transparent;
-}
-
-/*
- * 종료 후 "탭하면 닫기" 영역 (W4). 내용 **뒤에** 깔아서 +30초 버튼과 겹치지 않는다.
- * div에 onClick을 달면 키보드로 닿지 않으므로 실제 button을 쓴다.
- */
-.rest-dismiss {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-}
-
-.rest-content {
-  position: relative;
-  z-index: 1;
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  max-width: 640px;
-  margin: 0 auto;
-}
-
-.rest-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.rest-time {
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-}
-
-.rest-bar-done .rest-time {
-  color: var(--ok);
-  font-size: 20px;
-}
-
-.rest-label {
-  font-size: 12px;
-  color: var(--text-dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rest-btn {
-  flex-shrink: 0;
-  pointer-events: auto; /* .rest-content가 none이므로 버튼만 되살린다 */
-  padding: 8px 12px;
-  border-radius: var(--r-sm);
-  background: var(--surface-2);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.rest-btn-strong {
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-}
-
-.rest-bar-done .rest-btn-strong {
-  background: var(--color-success);
-  color: var(--color-on-success);
 }
 
 /* ─── 감각 점수 · 보상작용 ─────────────────────────────── */

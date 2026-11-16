@@ -933,3 +933,69 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 
 - iOS Safari: 시트를 아래로 끌어 닫을 때와 `닫기`를 누를 때 내려가는 움직임이 같은지, 막 누르고 곧바로 같은 줄 시트를 다시 열 때.
 - Day 선택 줄의 부제가 두 줄로 접히는 폭(375)에서 `7종목 · 22세트`가 부제와 겹치지 않는지.
+
+---
+
+## RR6. 세션 화면 틀과 휴식 바
+
+### 범위
+
+| 바뀐 파일 | 내용 |
+|---|---|
+| `src/screens/SessionScreen.tsx` | 상단 바 `Bar position="top"` + `HStack`, 최소화·타이머는 `Button isIconOnly`(`Icon` chevronLeft·clock), Day 이름·경과·세트 수·복귀/디로드 `Badge`, 본문 `AxRoot`+`VStack`, `+ 종목 추가` `Button`, 세션/Day 없음은 `Center`+`Text`. 로직 그대로 |
+| `src/components/RestTimerBar.tsx` | `Bar position="bottom" role="timer" aria-live="off"`, `ProgressBar`(값으로 그림, 끝나면 success), `Heading level=2` 남은 시간, 버튼 셋(조건 그대로), 닫기는 `<button className="ax-bar-dismiss">` 하나 |
+| `src/ax/index.tsx` | `Bar`가 `aria-live`를 받는다. `Icon` 내보내기 |
+| `src/ax/parts.css` | `.ax-bar-dismiss`(내용 뒤에 깔림, 그 뒤 형제는 눌림을 넘기고 안의 버튼만 되살림) |
+| `src/styles/global.css`·`motion.css`·`ax/ax.css` | `.session-*`·`.rest-*` 규칙 삭제, legacy 뿌리 목록에서 `.session` 뺌(두 파일 같게) |
+| `scripts/lib/ui-check-lib.mjs`·`ui-space.mjs`·`ui-check.mjs`·`legacy-scope.test.mjs` | `BAR_SELECTOR='.ax-bar'`, 세션 장면 `마지막 요소`(+위 띠 가림), 휴식 바 흐름 넷, 제목 찾기·옛 클래스 참조 정리 |
+| `src/lib/v120.test.ts`·`useRestTimer.test.ts` | `v120 RR6` 묶음 8개, RR0 `BAR_SELECTOR` 테스트를 RR6 기준으로 고침, `rest-dismiss`→`ax-bar-dismiss`(PLAN 수정표대로) |
+| `docs/ASTRYX-INVENTORY.md` | `--write`: legacy 쓰임 426→404, 인라인 71→70(PLAN 값과 같은 줄어듦) |
+
+### 설계에서 PLAN과 다르게 한 것
+
+| PLAN | 한 것 | 이유 |
+|---|---|---|
+| 진행 막대 폭을 읽어 움직임 확인 | 채움 요소의 `--_progress-bar-fill` 값을 읽음 | `ProgressBar` 채움은 폭이 아니라 CSS 변수로 그려 요소 폭이 늘 트랙 전체다. 움직임 줄이기에서 0%→3.3%로 따라가서 **대안(직접 짓는 막대)은 쓰지 않았다**: 인라인 스타일 `71→70`, `style=` 0건 |
+| 휴식 끝 바의 초록 배경 | 안 칠함 | `Bar`에 면 변형이 없다. 끝나면 `ProgressBar`가 success, 제목이 `휴식 완료` |
+
+### 테스트 ↔ PLAN 검증
+
+| PLAN 검증 | 테스트 / 검사 |
+|---|---|
+| className은 `ax-bar-dismiss`뿐·style 0·`<button` 하나 | `v120 RR6: 두 파일의 className=…` |
+| 다른 스캔 안 고치고 통과, `useRestTimer.test.ts` 한 줄만 | 전체 테스트 통과 |
+| `BAR_SELECTOR`가 `.ax-bar`뿐 | `v120 RR0·RR6: …BAR_SELECTOR 줄이 '.ax-bar'뿐이다` |
+| `띠` 1·2개 | `EXPECTED_BARS` session 1 / session-rest 2, 통과 |
+| `마지막 요소`·위 띠 가림 | `session`·`session-375`·`session-rest` 통과 |
+| 세트 체크→+30→건너뜀, 끝난 바 1탭, 최소화 재개 줄 | 흐름 `휴식 바 +30초 건너뛰기`(59→88초)·`끝난 휴식 바 1탭 닫기`·`최소화하면 재개 줄에 남은 휴식` 통과 |
+| 움직임 줄이기에서 진행 | 흐름 `움직임 줄이기에서 휴식 진행 막대` 통과 |
+| 안쪽 대칭·같은 역할 | `session*` 칸 기록(통과였을 것), 같은 역할 화면 좌우 16 통과 |
+
+### 결함 복원
+
+| 되살린 결함 | 잡은 것 | 원상복구 |
+|---|---|---|
+| `BAR_SELECTOR`에 `.rest-bar` | `v120 RR0·RR6` 1건 | `cmp` 같음 |
+| 닫기 `<button>`을 `<div onClick>`으로 | `useRestTimer.test` 1건 + `v120 RR6` 2건 | `cmp` 같음 |
+| `.ax-bar-dismiss ~ *`의 `pointer-events: none` 뺌 | 흐름 `끝난 휴식 바 1탭 닫기` 실패(바 남음) | `cmp` 같음 |
+| `.ax-screen` 위 여백에서 `--ax-bar-top` 뺌 | `마지막 요소` 칸 `session`·`session-rest` 실패, 종료 코드 1 | `cmp` 같음 |
+| 흐름 안 `2세트 완료`를 없는 이름으로 | 흐름 셋이 `예외: …`로 **흐름 실패**, 종료 코드 1(건너뜀으로 안 삼켜짐) | `cmp` 같음 |
+
+### 변이 테스트
+
+대상 없음(`src/lib`를 안 바꿨다).
+
+### ui-check (`node scripts/ui-check.mjs after --check --ver=v1.20` → **종료 코드 0**)
+
+- 세션 네 장면 `접근성` 통과(이름 4칸 유지), `띠` 통과, `마지막 요소` 통과. 375·390 스크린샷에서 한글이 글자 중간에서 꺾이지 않는다(`세/트` 헤더는 RR6 전 `before`에도 있던 것). 무관한 스크린샷은 `git show HEAD:`로 되돌렸다.
+- **알려 둠:** 운동 카드(legacy, RR7에서 옮김)가 `.session` 뿌리에서 빠져 맨 `button`의 `min-height: 44px`를 잃었다. 머신 메모 줄 높이 130→106px. RR7이 카드를 옮길 때 같이 정리한다.
+
+### 실행 결과
+
+- `npm test`: `Test Files  74 passed (74)` / `Tests  1736 passed (1736)`
+- `npm run check`: 전부 통과(빌드 포함)
+- `git rev-list --count main..HEAD`: 커밋 전 37
+
+### 실기기 확인 목록
+
+- 끝난 휴식 바를 글자·빈 곳 어디서나 1탭으로 닫히는지(iOS Safari), 휴식 바 버튼 셋이 375 폭에서 안 잘리는지.

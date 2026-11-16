@@ -88,11 +88,13 @@ export function Bar({
   position,
   children,
   role,
+  'aria-live': ariaLive,
   'aria-label': ariaLabel,
 }: {
   position: 'top' | 'bottom'
   children: ReactNode
   role?: string
+  'aria-live'?: 'off' | 'polite' | 'assertive'
   'aria-label'?: string
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -112,7 +114,7 @@ export function Bar({
     }
   }, [position])
   return (
-    <div ref={ref} className={`ax-bar ax-bar-${position}`} role={role} aria-label={ariaLabel}>
+    <div ref={ref} className={`ax-bar ax-bar-${position}`} role={role} aria-live={ariaLive} aria-label={ariaLabel}>
       {children}
     </div>
   )
@@ -236,6 +238,7 @@ export function Sheet({ label, purpose = 'info', height = 'hug', onClose, childr
 export { TabList, Tab } from '@astryxdesign/core/TabList'
 export { Center } from '@astryxdesign/core/Center'
 export { Spinner } from '@astryxdesign/core/Spinner'
+export { Icon } from '@astryxdesign/core/Icon'
 export { Button } from '@astryxdesign/core/Button'
 export { Banner } from '@astryxdesign/core/Banner'
 export { Badge } from '@astryxdesign/core/Badge'

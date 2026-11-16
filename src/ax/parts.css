@@ -37,6 +37,30 @@
   }
 
   /*
+   * 끝난 휴식 바를 아무 데나 탭해서 닫는 영역(RR6). 내용 **뒤에** 깔아 버튼과 겹치지 않게 하고(버튼 안에 버튼을 못 넣는다),
+   * 띠의 나머지 내용은 눌림을 이 버튼에 넘기고 그 안의 버튼만 되살린다.
+   */
+  .ax-bar-dismiss {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .ax-bar-dismiss ~ * {
+    position: relative;
+    pointer-events: none;
+  }
+
+  .ax-bar-dismiss ~ * :is(button, a, input) {
+    pointer-events: auto;
+  }
+
+  /*
    * 탭은 눌리는 영역이 띠의 높이 전체여야 한다(보이는 높이만 눌리면 띠의 위·아래 끝에서 안 눌린다).
    * 레이아웃은 그대로 두고 눌림 영역만 띠의 안쪽 여백만큼 위·아래로 늘린다.
    */

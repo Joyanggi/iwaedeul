@@ -68,7 +68,7 @@ export const inPageLayout = () => {
     }
     return res
   }
-  const frame = [...document.querySelectorAll('.screen, .ax-screen, .session-body')].find(vis)
+  const frame = [...document.querySelectorAll('.screen, .ax-screen')].find(vis)
   if (!frame) return res
   const first = frame.querySelector('.card') ?? [...frame.children].find(vis)
   if (first) res.screenX = half(first.getBoundingClientRect().left)

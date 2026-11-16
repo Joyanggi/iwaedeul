@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { AxRoot, Badge, Bar, Button, Center, HStack, Icon, Text, VStack } from '../ax'
 import ExerciseCard from '../components/ExerciseCard'
 import FinishSheet from '../components/FinishSheet'
 import AddExerciseSheet from '../components/AddExerciseSheet'
@@ -163,12 +164,20 @@ export default function SessionScreen({
   }
 
   if (!session) {
-    return <p className="center-note">진행 중인 세션이 없습니다.</p>
+    return (
+      <Center>
+        <Text color="secondary">진행 중인 세션이 없습니다.</Text>
+      </Center>
+    )
   }
 
   const day = findDay(bundle.routine, session.dayId)
   if (!day) {
-    return <p className="center-note">이 세션의 Day 정의를 찾을 수 없습니다 ({session.dayId}).</p>
+    return (
+      <Center>
+        <Text color="secondary">이 세션의 Day 정의를 찾을 수 없습니다 ({session.dayId}).</Text>
+      </Center>
+    )
   }
 
   /*
@@ -189,44 +198,55 @@ export default function SessionScreen({
   const totalDone = session.entries.reduce((n, e) => n + doneSets(e).length, 0)
 
   return (
-    <div className="session">
-      <header className="session-header">
-        {/*
-          최소화 (Z5) — 세션을 열어둔 채 탭으로 나간다. 파괴적 동작이 아니므로
-          종료 버튼과 시각적으로 구분한다. 세션 상태는 store + Dexie에 있어
-          화면을 떠나는 것 자체는 데이터에 아무 위험이 없다.
-        */}
-        <button className="session-minimize" onClick={onMinimize} aria-label="세션 최소화">
-          ‹
-        </button>
-        <div>
-          <div className="session-day">{day.name}</div>
-          <div className="session-meta">
-            {formatElapsed(elapsed)} · {totalDone}/{totalPlanned}세트
-            {session.mode !== 'normal' && (
-              <span className="chip chip-warn ml-inline">
-                {session.mode === 'return' ? '복귀' : '디로드'}
-              </span>
-            )}
-          </div>
-        </div>
-        {/*
-          휴식 타이머 단독 시작 (CC3). 세트 체크와 무관하게 쓰는 맥락(자리 이동·스트레칭)이
-          세션 중이므로 여기 둔다. App이 소유한 타이머 하나를 그대로 시작시킨다.
-        */}
-        <button
-          className="session-timer-btn"
-          onClick={() => setManualTimer(true)}
-          aria-label="휴식 타이머 시작"
-        >
-          ⏱
-        </button>
-        <button className="session-end" onClick={() => setFinishing(true)}>
-          종료
-        </button>
-      </header>
+    <>
+      <Bar position="top">
+        <HStack justify="between" align="center" gap={2}>
+          <HStack align="center" gap={2}>
+            {/*
+              최소화 (Z5) — 세션을 열어둔 채 탭으로 나간다. 파괴적 동작이 아니므로
+              종료 버튼과 시각적으로 구분한다. 세션 상태는 store + Dexie에 있어
+              화면을 떠나는 것 자체는 데이터에 아무 위험이 없다.
+            */}
+            <Button
+              variant="ghost"
+              isIconOnly
+              icon={<Icon icon="chevronLeft" />}
+              label="세션 최소화"
+              onClick={onMinimize}
+            />
+            <VStack>
+              <Text weight="bold" maxLines={1}>
+                {day.name}
+              </Text>
+              <HStack align="center" gap={2}>
+                <Text type="supporting" color="secondary" hasTabularNumbers>
+                  {formatElapsed(elapsed)} · {totalDone}/{totalPlanned}세트
+                </Text>
+                {session.mode !== 'normal' && (
+                  <Badge variant="warning" label={session.mode === 'return' ? '복귀' : '디로드'} />
+                )}
+              </HStack>
+            </VStack>
+          </HStack>
+          <HStack align="center" gap={2}>
+            {/*
+              휴식 타이머 단독 시작 (CC3). 세트 체크와 무관하게 쓰는 맥락(자리 이동·스트레칭)이
+              세션 중이므로 여기 둔다. App이 소유한 타이머 하나를 그대로 시작시킨다.
+            */}
+            <Button
+              variant="ghost"
+              isIconOnly
+              icon={<Icon icon="clock" />}
+              label="휴식 타이머 시작"
+              onClick={() => setManualTimer(true)}
+            />
+            <Button variant="secondary" label="종료" onClick={() => setFinishing(true)} />
+          </HStack>
+        </HStack>
+      </Bar>
 
-      <div className="session-body">
+      <AxRoot>
+        <VStack gap={3}>
         {session.entries.map((entry) => {
           // 대체 수행(T8)은 루틴에 없는 종목이므로 day.exercises에서 찾으면 카드가 사라진다.
           // routineExerciseOfEntry가 원 종목 계획을 되짚어 준다.
@@ -279,10 +299,9 @@ export default function SessionScreen({
           종목 얹기 (CC15). 카드 목록 **끝**에 둔다 — 계획된 종목을 먼저 보고 나서
           "머신이 차 있다"를 판단하는 순서이고, 상단에 두면 계획을 밀어낸다.
         */}
-        <button className="btn btn-sm" onClick={() => setAddingExercise(true)}>
-          + 종목 추가
-        </button>
-      </div>
+        <Button variant="secondary" label="+ 종목 추가" onClick={() => setAddingExercise(true)} />
+        </VStack>
+      </AxRoot>
 
       <RestTimerBar timer={timer} />
 
@@ -397,6 +416,6 @@ export default function SessionScreen({
           }}
         />
       )}
-    </div>
+    </>
   )
 }
