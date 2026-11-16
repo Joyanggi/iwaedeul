@@ -17,13 +17,13 @@ describe('v120 RR7 — global.css에서 지운 것과 남긴 것', () => {
     expect(bad).toEqual([])
   })
 
-  it('v120 RR7: 기록 상세의 고아 카드와 대체 시트가 쓰는 것은 남아 있다 — .ex-card·.ex-head·.ex-order·.ex-name·.ex-sub·.ex-count·.ex-card-orphan·.setup-edit', () => {
+  it('v120 RR7: 기록 상세의 고아 카드가 쓰는 것은 남아 있다 — .ex-card·.ex-head·.ex-order·.ex-name·.ex-sub·.ex-count·.ex-card-orphan (RR8: .setup-edit은 대체 시트가 Astryx로 옮겨 가며 지웠다)', () => {
     const all = selectors(globalCss).join('\n')
-    for (const c of ['.ex-card', '.ex-head', '.ex-order', '.ex-name', '.ex-sub', '.ex-count', '.ex-card-orphan', '.setup-edit']) {
+    for (const c of ['.ex-card', '.ex-head', '.ex-order', '.ex-name', '.ex-sub', '.ex-count', '.ex-card-orphan']) {
       expect(all, c).toContain(c)
     }
     // 그 카드가 안 쓰는 변형은 지웠다
-    expect(all).not.toMatch(/\.ex-card-done|\.ex-card-skipped|\.ex-count-done/)
+    expect(all).not.toMatch(/\.ex-card-done|\.ex-card-skipped|\.ex-count-done|\.setup-edit/)
   })
 })
 

@@ -16,6 +16,7 @@ import { Card as AstryxCard, type CardProps } from '@astryxdesign/core/Card'
 import { ClickableCard as AstryxClickableCard, type ClickableCardProps } from '@astryxdesign/core/ClickableCard'
 import { NumberInput } from '@astryxdesign/core/NumberInput'
 import { TextInput, type TextInputProps } from '@astryxdesign/core/TextInput'
+import { TextArea, type TextAreaProps } from '@astryxdesign/core/TextArea'
 import { BottomSheet, type BottomSheetProps } from '@astryxdesign/core/BottomSheet'
 import { AX_NO_AUTOFILL } from '../lib/inputProps'
 import { once } from '../lib/once'
@@ -143,6 +144,11 @@ interface TextFieldProps extends TextInputProps {
 export function TextField({ isNumeric = false, isProminent = false, ...props }: TextFieldProps) {
   const numeric = isProminent ? 'ax-num-prominent' : isNumeric ? 'ax-num' : undefined
   return <TextInput {...AX_NO_AUTOFILL} controlStyle={isProminent ? PROMINENT_STYLE : CONTROL_STYLE} controlClassName={numeric} {...props} />
+}
+
+/** 여러 줄 입력. `TextField`처럼 자동완성 억제(G5)와 16px 하한을 빠뜨릴 수 없게 한다. */
+export function TextAreaField(props: TextAreaProps) {
+  return <TextArea {...AX_NO_AUTOFILL} controlStyle={CONTROL_STYLE} {...props} />
 }
 
 interface StepperProps {

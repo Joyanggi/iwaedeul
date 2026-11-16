@@ -185,6 +185,25 @@
   }
 
   /*
+   * 세션이 여는 시트 여덟의 글도 같은 규칙이다(RR8) — 시트 이름(aria-label)으로 좁힌다.
+   * 제목(h1·h2)까지 건다: 긴 종목 이름이 든 제목이 "대/체"처럼 글자 중간에서 꺾이지 않게.
+   */
+  dialog:is(
+      [aria-label='세션 종료'],
+      [aria-label='종목 추가'],
+      [aria-label='휴식 타이머'],
+      [aria-label='대체운동 선택'],
+      [aria-label='보상작용 입력'],
+      [aria-label='보상작용 반복 — 무게 하향'],
+      [aria-label='무게 단위 설정'],
+      [aria-label='템포 가이드']
+    )
+    :is(p, span, div, h1, h2) {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  /*
    * 세트 표 (RR7 — Astryx에 세트 표가 없다). 머리(.ax-set-head)와 행(.set-row)이 **같은 열 정의**를 읽는다:
    * 세트 번호 · 무게 · 횟수. 머리의 열 폭이 따로 있던 옛 CSS는 "세트"를 두 줄로 꺾었다.
    * 행은 두 줄이다 — 위 줄(고스트·템포·완료)은 두 열에 걸치고, 아래 줄에 스테퍼 둘이 각자의 열에 앉는다.
@@ -327,5 +346,48 @@
   .btn-row:has(> .ax-scope) > .btn-danger {
     width: auto;
     flex: 0 0 auto;
+  }
+
+  /*
+   * 템포 무대 (RR8 — Astryx에 박자 표시가 없다). 링 크기는 `--ax-tempo-scale`(TempoGuideSheet가 80ms마다 건넨다)이고
+   * 수축에서 커지고 이완에서 작아진다. 마지막 사이클은 링 색으로도 알린다(무음 스위치로 소리를 못 들을 때 대비).
+   */
+  .ax-tempo-stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 12.5rem;
+  }
+
+  .ax-tempo-ring {
+    position: absolute;
+    width: 10rem;
+    height: 10rem;
+    border-radius: 50%;
+    border: var(--spacing-1) solid var(--color-border);
+    transform: scale(var(--ax-tempo-scale, 0.5));
+    transition: transform 120ms linear, border-color 160ms ease-out;
+  }
+
+  .ax-tempo-ring-concentric {
+    border-color: var(--color-accent);
+  }
+
+  .ax-tempo-ring-eccentric {
+    border-color: var(--color-text-success);
+  }
+
+  .ax-tempo-ring-squeeze,
+  .ax-tempo-ring-stretch,
+  .ax-tempo-ring-last {
+    border-color: var(--color-text-warning);
+  }
+
+  .ax-tempo-center {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-1);
   }
 }

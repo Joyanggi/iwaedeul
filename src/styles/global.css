@@ -429,11 +429,6 @@ body {
   margin: 4px auto 12px;
 }
 
-.sheet-row {
-  width: 100%;
-  text-align: left;
-}
-
 /* 시트·막이 들어오는 움직임은 motion.css */
 
 /* ─── 홈 오늘 카드 ─────────────────────────────────────── */
@@ -573,24 +568,6 @@ body {
 }
 
 /* ─── 감각 점수 · 보상작용 ─────────────────────────────── */
-
-.sub-field {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-}
-
-.sub-field .card-label {
-  margin-bottom: 6px;
-}
-
-.sub-field .field {
-  margin-top: 8px;
-}
-
-.sub-field .row-sub {
-  margin-top: 6px;
-}
 
 .check-list {
   display: flex;
@@ -898,35 +875,6 @@ button.row {
   flex-shrink: 0;
 }
 
-/* 호흡 안내 (CC4) — 페이즈 라벨 아래 한 줄 */
-.tempo-breath {
-  font-size: 13px;
-  color: var(--text-dim);
-}
-
-/* 무게 단위 프리셋 (T9). 44pt 터치 타깃을 유지하면서 375px에 5개가 들어가야 한다 */
-.chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.chip-btn {
-  min-height: 36px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--text-dim);
-  font-size: 13px;
-  border-radius: var(--r-sm);
-}
-
-.chip-btn-on {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: color-mix(in srgb, var(--color-info) 12%, transparent);
-}
-
 textarea.field {
   resize: vertical;
   font-family: inherit;
@@ -1176,89 +1124,3 @@ textarea.field::placeholder {
   opacity: 1; /* Firefox가 기본 opacity를 낮춘다 */
 }
 
-/* 상단 도달까지의 진행 (W3). 마지막 사이클에서 색으로도 알린다 */
-.tempo-progress {
-  text-align: center;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-  margin-top: 2px;
-}
-
-.tempo-progress-last {
-  color: var(--warn);
-}
-
-/* 무음 스위치로 큐를 못 들을 수 있으므로 링 색도 함께 바꾼다 */
-.tempo-ring-last {
-  border-color: var(--warn) !important;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-warning) 28%, transparent); /* --color-warning */
-}
-
-.tempo-stage {
-  position: relative;
-  display: grid;
-  place-items: center;
-  height: 200px;
-  margin: 12px 0;
-}
-
-/*
-  링 크기가 수축에서 커지고 이완에서 작아진다 — 숫자를 읽지 않고도 방향을 알아야 한다.
-  transition은 프레임 간격(80ms)보다 조금 길게 둬서 끊겨 보이지 않게 한다.
-*/
-.tempo-ring {
-  position: absolute;
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  border: 3px solid var(--line);
-  transition: transform 120ms linear, border-color 160ms ease-out;
-}
-
-.tempo-ring-concentric { border-color: var(--accent); }
-.tempo-ring-eccentric { border-color: var(--ok); }
-.tempo-ring-squeeze,
-.tempo-ring-stretch { border-color: var(--warn); }
-
-.tempo-center {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.tempo-count {
-  font-size: 56px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.tempo-phase {
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.tempo-reps {
-  font-size: 15px;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-}
-
-/* 대체운동 시트의 입력 줄(SubstituteSheet)이 쓴다 — 운동 카드가 Astryx로 옮겨 가며 카드 쪽 `.setup-*`는 지웠고 이 셋만 남았다 */
-.setup-edit {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-
-.setup-edit .field {
-  flex: 1;
-}
-
-.setup-edit .btn-sm {
-  width: auto;
-  flex-shrink: 0;
-}

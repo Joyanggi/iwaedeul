@@ -112,10 +112,12 @@ const JUDGED = { '탭 누름': true, '지금 탭': true, '마지막 요소': tru
 const HOME_SCENES = ['home', 'home-end', 'home-375', 'home-banner', 'home-banner-375', 'home-banners-open', 'home-resume']
 /** 홈이 여는 시트 둘(RR5). 시트 안 내용의 좌·우(`sheet` 쌍)도 판정한다 */
 const HOME_SHEET_SCENES = ['sheet-home', 'sheet-open-session']
+/** 세션이 여는 시트(RR8) — 안쪽 대칭(sheet·button)과 같은 역할(시트 좌우)을 판정한다. 이름은 장면 이름 */
+const SESSION_SHEET_SCENES = ['sheet-finish', 'sheet-finish-cardio', 'sheet-finish-end', 'sheet-timer', 'sheet-timer-picked', 'sheet-add', 'sheet-substitute', 'sheet-comp', 'sheet-comp-picked', 'sheet-scale', 'sheet-scale-error', 'sheet-tempo']
 const SESSION_SCENES = ['session', 'session-375', 'session-rest']
 /** 운동 카드가 보이는 장면(RR7) — 카드·뱃지·세트 행 쌍도 판정한다 */
 const CARD_SCENES = ['session', 'session-375', 'session-open-b', 'history-detail-edit']
-const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SCENES, 'session-open-b', 'history-detail-edit', 'home-safe', 'session-safe', 'settings'])
+const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SHEET_SCENES, ...SESSION_SCENES, 'session-open-b', 'history-detail-edit', 'home-safe', 'session-safe', 'settings'])
 /** 판정을 켠 쌍 종류. 나머지 종류는 장면이 Astryx여도 기록만 한다(card·badge = RR4, set-row = RR7, sheet = RR5 — 세션 장면은 RR6부터 button·bar를 판정하고, 운동 카드 안의 card·badge·set-row는 RR7 전까지 기록만) */
 const SYMMETRY_KINDS = new Set(['button', 'bar', 'tab-indicator', 'tab-content'])
 /** 홈(RR4)은 카드·뱃지 쌍도 판정한다 */
@@ -140,7 +142,7 @@ const EXPECTED_BARS = {
   'session-open-b': 1,
   'session-rest': 2,
   // 시트 장면: 시트 1
-  ...Object.fromEntries(['sheet-home', 'sheet-open-session', 'sheet-finish', 'sheet-timer', 'sheet-food', 'line-sheet'].map((n) => [n, 1])),
+  ...Object.fromEntries(['sheet-home', 'sheet-open-session', ...SESSION_SHEET_SCENES, 'sheet-food', 'line-sheet'].map((n) => [n, 1])),
 }
 const SET_SCENES = new Set(['session', 'session-375', 'history-detail-edit'])
 /** 시작 자리를 재는 장면 (RR4). 390 폭 넷, 375 폭 둘 */
@@ -202,7 +204,7 @@ async function newColumns(page, scene, cells, light) {
   }
   if (scene === 'analyze') chartColors[scene] = { ...chartColors[scene], [light ? 'light' : 'dark']: await page.evaluate(inPageChartColors) }
   const pairs = await page.evaluate(inPageInsetSymmetry)
-  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : HOME_SHEET_SCENES.includes(scene) ? HOME_SHEET_SYMMETRY_KINDS : CARD_SCENES.includes(scene) ? CARD_SYMMETRY_KINDS : SYMMETRY_KINDS
+  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : (HOME_SHEET_SCENES.includes(scene) || SESSION_SHEET_SCENES.includes(scene)) ? HOME_SHEET_SYMMETRY_KINDS : CARD_SCENES.includes(scene) ? CARD_SYMMETRY_KINDS : SYMMETRY_KINDS
   const judgedPairs = pairs.filter((p) => kinds.has(p.kind))
   const sym = insetSymmetryVerdict(SYMMETRY_JUDGED.has(scene) ? judgedPairs : pairs, EXPECTED_PAIRS[scene] ?? [])
   const rest = SYMMETRY_JUDGED.has(scene) ? insetSymmetryVerdict(pairs.filter((p) => !kinds.has(p.kind)), []) : null
@@ -258,42 +260,44 @@ async function runChecks(page, scene) {
   rows.push({ scene, cells })
 }
 
-/** QQ3 흐름: sheet-finish가 떠 있을 때 부른다. 끝나면 시트를 다시 열어 둔다(뒤 장면이 시트를 닫는 코드를 그대로 쓴다). */
+/** QQ3·RR8 흐름: sheet-finish(Astryx `Sheet`)가 떠 있을 때 부른다. 끝나면 시트를 다시 열어 둔다(뒤 장면이 시트를 닫는 코드를 그대로 쓴다). */
 async function closeFlows(page) {
+  const dlg = page.getByRole('dialog', { name: '세션 종료' })
+  // 입력칸이 있는 시트(purpose="form")는 막을 눌러도 안 닫힌다(실수로 입력을 잃지 않게) — 닫는 길은 Esc와 닫기 버튼이다. Esc는 막·끌어내림과 같은 onOpenChange(false) 길이다
+  const dismissOutside = () => page.keyboard.press('Escape')
   const reopen = async () => {
+    await settle(page, 450) // 닫힘이 끝나고 레이어가 정리된 뒤에 다시 연다(바로 누르면 안 열린다)
     await btn(page, '종료').click()
-    await page.getByRole('dialog', { name: '세션 종료' }).waitFor()
+    await dlg.waitFor()
     await settle(page, 450)
   }
   const flow = (name, ok, detail) => flows.push([name, { ok, detail }])
-  // 막 눌러 닫기: 누른 직후 is-closing, --motion-medium(300ms) 안에 막이 사라지고 아래 띠가 다시 보인다
-  await page.mouse.click(195, 30)
-  const closing = await page.locator('.sheet.is-closing').count()
-  const gone = await page.locator('.sheet-backdrop').waitFor({ state: 'detached', timeout: 600 }).then(() => true, () => false)
+  // Esc로 닫기: 시트가 사라지고(닫힘 대기 350ms 안팎) 아래 띠가 다시 보인다
+  await dismissOutside()
+  const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
   await settle(page, 150)
-  const bars = gone ? await page.evaluate(inPageBars) : { ok: false, count: 0, detail: '막이 안 사라졌다' }
-  flow('막 눌러 닫기', closing > 0 && gone && bars.ok && bars.count > 0, `is-closing ${closing}개 · 막 사라짐 ${gone} · 아래 띠 ${bars.count}개 불투명 ${bars.ok}`)
+  const bars = gone ? await page.evaluate(inPageBars) : { ok: false, count: 0, detail: '시트가 안 사라졌다' }
+  flow('Esc로 닫기', gone && bars.ok && bars.count > 0, `시트 사라짐 ${gone} · 아래 띠 ${bars.count}개 불투명 ${bars.ok}`)
   // 두 번 누르기: 닫히는 중 한 번 더 눌러도 오류 없이 한 번만 닫힌다
   await reopen()
   const errs = []
   const onErr = (e) => errs.push(String(e))
   page.on('pageerror', onErr)
-  await page.mouse.click(195, 30)
-  await page.mouse.click(195, 30)
-  const gone2 = await page.locator('.sheet-backdrop').waitFor({ state: 'detached', timeout: 600 }).then(() => true, () => false)
+  await dismissOutside()
+  await dismissOutside()
+  const gone2 = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
   await settle(page, 450)
   page.off('pageerror', onErr)
   const still = await page.getByRole('button', { name: '세션 최소화', exact: true }).count()
-  flow('막 두 번 누르기', gone2 && errs.length === 0 && still > 0, `사라짐 ${gone2} · 오류 ${errs.length}건 · 세션 화면 ${still > 0}`)
-  // 움직임 줄이기에서 닫기: 기다리지 않고 다음 프레임에 사라진다
+  flow('Esc 두 번 누르기', gone2 && errs.length === 0 && still > 0, `사라짐 ${gone2} · 오류 ${errs.length}건 · 세션 화면 ${still > 0}`)
+  // 움직임 줄이기에서 닫기: 기다리지 않는다 — 일반 닫힘 대기(350ms)보다 훨씬 짧은 250ms 안에 사라진다
   await reopen()
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await settle(page, 100)
-  await page.mouse.click(195, 30)
-  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
-  const instant = (await page.locator('.sheet-backdrop').count()) === 0
+  await dismissOutside()
+  const instant = await dlg.waitFor({ state: 'detached', timeout: 250 }).then(() => true, () => false)
   await page.emulateMedia({ reducedMotion: null })
-  flow('움직임 줄이기에서 닫기', instant, `두 프레임 뒤 막 ${instant ? '없음' : '남음'}`)
+  flow('움직임 줄이기에서 닫기', instant, `250ms 안에 시트 ${instant ? '없음' : '남음'}`)
   await reopen()
 }
 
@@ -396,6 +400,47 @@ async function runScenes(browser, port, scheme) {
     await dlg.waitFor({ state: 'detached' }).catch(() => {})
     await settle(page, 400)
   }
+
+  // RR8 도우미 — 세션이 여는 시트 여덟의 장면과 흐름
+  /** 펼친 카드 가운데 find()가 찾는 것이 있는 첫 카드를 펼쳐 둔다. 없으면 -1 (펼쳤던 카드는 도로 접는다) */
+  const openCardWith = async (find) => {
+    const heads = page.locator('button[aria-expanded]')
+    const n = await heads.count()
+    for (let i = 0; i < n; i++) {
+      const head = heads.nth(i)
+      const wasOpen = (await head.getAttribute('aria-expanded')) === 'true'
+      if (!wasOpen) await head.click()
+      await settle(page, 300)
+      if ((await find().count()) > 0) return i
+      if (!wasOpen) await head.click()
+    }
+    return -1
+  }
+  /** 시트 안 스크롤 칸을 끝까지 내린다(시트가 안 넘치면 false) */
+  const sheetToEnd = () =>
+    page.evaluate(() => {
+      const el = document.querySelector('dialog[open] [data-scrollable-block]')
+      if (!el) return false
+      el.scrollTop = el.scrollHeight
+      return el.scrollHeight > el.clientHeight + 1
+    })
+  /** 시트 이름 하나의 글자가 390·375 폭에서 글자 중간에서 꺾이지 않는지 (RR5 재검증과 같은 잣대, 다크에서만) */
+  const wrapFlow = async (label) => {
+    if (light) return
+    const name = `RR8 ${label} 390·375 글자 중간 꺾임 없음`
+    await guardedFlow([name], async () => {
+      const r390 = await page.evaluate(inPageMidWordBreaks, 'dialog[open]')
+      await page.setViewportSize({ width: 375, height: 812 })
+      await settle(page, 400)
+      const r375 = await page.evaluate(inPageMidWordBreaks, 'dialog[open]')
+      await page.setViewportSize({ width: 390, height: 844 })
+      await settle(page, 400)
+      const bad = [...r390.samples, ...r375.samples]
+      flows.push([name, { ok: r390.count === 0 && r375.count === 0 && r390.chars > 0 && r375.chars > 0, detail: `390: 글자 ${r390.chars}개·꺾임 ${r390.count}건 · 375: 글자 ${r375.chars}개·꺾임 ${r375.count}건${bad.length ? ' — ' + bad.join(' ') : ''}` }])
+    })
+  }
+  /** 고른 상태: 그 시트의 눌림 토글(aria-pressed) 가운데 켜진 것이 want개다 (안 눌린 토글이 맨 글자가 되지 않는지는 `시트 버튼` 칸이 따로 본다) */
+  const pressedCount = (dlg) => dlg.locator('button[aria-pressed="true"]').count()
 
   await page.getByRole('button', { name: /^(시작하기|확인했어요, 그래도 계속)$/ }).click()
   await page.getByRole('button', { name: '설정', exact: true }).waitFor()
@@ -738,7 +783,45 @@ async function runScenes(browser, port, scheme) {
     await page.getByRole('dialog', { name: '세션 종료' }).waitFor()
     await settle(page)
     await snap('sheet-finish')
-    if (CHECK && phase === 'after' && !light) await closeFlows(page)
+    await wrapFlow('종료 시트')
+    if (CHECK && phase === 'after' && !light) await guardedFlow(['Esc로 닫기', 'Esc 두 번 누르기', '움직임 줄이기에서 닫기'], () => closeFlows(page))
+    // RR8: 유산소를 고른 모습(눌린 상태 + 입력칸 둘), 버리기 2단계(취소로 돌아온다), 끝까지 스크롤
+    await optional('sheet-finish-cardio', async () => {
+      const dlg = page.getByRole('dialog', { name: '세션 종료' })
+      await dlg.locator('button[aria-pressed]').first().click()
+      await settle(page, 400)
+      await snap('sheet-finish-cardio')
+      if (!light) {
+        await guardedFlow(['RR8 종료 시트 유산소 고르기 → 눌린 상태 하나 + 입력칸 둘'], async () => {
+          const pressed = await pressedCount(dlg)
+          const minutes = await dlg.getByRole('textbox', { name: '유산소 시간(분)' }).count()
+          const note = await dlg.getByRole('textbox', { name: '유산소 강도' }).count()
+          flows.push(['RR8 종료 시트 유산소 고르기 → 눌린 상태 하나 + 입력칸 둘', { ok: pressed === 1 && minutes === 1 && note === 1, detail: `눌린 토글 ${pressed}개 · 시간 칸 ${minutes} · 강도 칸 ${note}` }])
+        })
+        await guardedFlow(['RR8 종료 시트 버리기 2단계: 눌러도 바로 지워지지 않고 취소로 돌아온다'], async () => {
+          await dlg.getByRole('button', { name: '이 세션 버리기', exact: true }).click()
+          await settle(page, 300)
+          const confirm = await dlg.getByRole('button', { name: '정말 버리기', exact: true }).count()
+          const warn = await dlg.getByText(/삭제/).count()
+          await dlg.getByRole('button', { name: '취소', exact: true }).click()
+          await settle(page, 300)
+          const back = await dlg.getByRole('button', { name: '이 세션 버리기', exact: true }).count()
+          const stay = await page.getByRole('button', { name: '세션 최소화', exact: true }).count()
+          flows.push(['RR8 종료 시트 버리기 2단계: 눌러도 바로 지워지지 않고 취소로 돌아온다', { ok: confirm === 1 && warn > 0 && back === 1 && stay > 0, detail: `확인 버튼 ${confirm} · 삭제 문구 ${warn} · 취소 뒤 버리기 버튼 ${back} · 세션 화면 ${stay > 0}` }])
+        })
+      }
+      await dlg.getByRole('button', { name: '이 세션 버리기', exact: true }).waitFor()
+      const scrolled = await sheetToEnd()
+      await settle(page, 400)
+      await snap('sheet-finish-end')
+      if (!light) {
+        await guardedFlow(['RR8 종료 시트 끝까지 스크롤하면 버리기 버튼이 화면 안에 있다'], async () => {
+          const box = await dlg.getByRole('button', { name: '이 세션 버리기', exact: true }).boundingBox()
+          const vh = page.viewportSize().height
+          flows.push(['RR8 종료 시트 끝까지 스크롤하면 버리기 버튼이 화면 안에 있다', { ok: !!box && box.y >= 0 && box.y + box.height <= vh + 0.5, detail: `스크롤 칸이 넘쳤나 ${scrolled} · 버리기 버튼 ${box ? `y ${Math.round(box.y)}~${Math.round(box.y + box.height)} / 화면 ${vh}` : '안 보임'}` }])
+        })
+      }
+    })
     await page.keyboard.press('Escape')
     await page.getByRole('dialog').first().waitFor({ state: 'detached', timeout: 1500 }).catch(() => {})
     if (await page.getByRole('dialog').count()) {
@@ -749,11 +832,124 @@ async function runScenes(browser, port, scheme) {
     await page.getByRole('dialog').first().waitFor()
     await settle(page)
     await snap('sheet-timer')
-    await page.keyboard.press('Escape')
+    await wrapFlow('휴식 타이머 시트')
+    // RR8: 초 고르기(눌린 상태가 하나) → 시작 → 휴식 바
+    await guardedFlow(['RR8 수동 타이머: 초 고르기(눌린 것 하나) → 시작 → 휴식 바'], async () => {
+      const dlg = page.getByRole('dialog', { name: '휴식 타이머' })
+      const toggles = dlg.locator('button[aria-pressed]')
+      let off = toggles.first()
+      for (let i = 0; i < (await toggles.count()); i++) if ((await toggles.nth(i).getAttribute('aria-pressed')) === 'false') { off = toggles.nth(i); break }
+      await off.click()
+      await settle(page, 300)
+      const pressed = await pressedCount(dlg)
+      const nowPressed = (await off.getAttribute('aria-pressed')) === 'true'
+      await snap('sheet-timer-picked')
+      await dlg.getByRole('button', { name: /시작$/ }).click()
+      const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
+      const timer = await page.getByRole('timer').waitFor({ timeout: 3000 }).then(() => true, () => false)
+      flows.push(['RR8 수동 타이머: 초 고르기(눌린 것 하나) → 시작 → 휴식 바', { ok: pressed === 1 && nowPressed && gone && timer, detail: `눌린 토글 ${pressed}개 · 방금 누른 것 눌림 ${nowPressed} · 시트 닫힘 ${gone} · 휴식 바 ${timer}` }])
+    })
+    if (await page.getByRole('dialog').count()) {
+      await page.keyboard.press('Escape')
+      await settle(page, 600)
+    }
     if (await page.getByRole('dialog').count()) {
       await page.mouse.click(195, 30)
       await settle(page, 400)
     }
+
+    // RR8: 종목 추가 시트 — 줄 1탭으로 닫히고 카드가 하나 늘어난다
+    await optional('sheet-add', async () => {
+      await btn(page, '+ 종목 추가').click()
+      const dlg = page.getByRole('dialog', { name: '종목 추가' })
+      await dlg.waitFor()
+      await settle(page, 450)
+      await snap('sheet-add')
+      await wrapFlow('종목 추가 시트')
+      await guardedFlow(['RR8 종목 추가: 줄 1탭 → 시트가 닫히고 카드가 하나 늘어난다'], async () => {
+        const before = await page.locator('button[aria-expanded]').count()
+        await dlg.locator('li button').first().click()
+        const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
+        await settle(page, 500)
+        const after = await page.locator('button[aria-expanded]').count()
+        const badge = await page.getByText('추가', { exact: true }).count()
+        flows.push(['RR8 종목 추가: 줄 1탭 → 시트가 닫히고 카드가 하나 늘어난다', { ok: gone && after === before + 1 && badge > 0, detail: `시트 닫힘 ${gone} · 카드 ${before} → ${after} · 추가 뱃지 ${badge}` }])
+      })
+    })
+
+    // RR8: 대체 시트(예시 데이터는 원 종목 기록이 없어 후보가 막힌 경계 상태), 보상작용(징후 둘 고르기), 무게 단위(방식·핀 목록 오류)
+    await optional('sheet-substitute', async () => {
+      if ((await openCardWith(() => page.getByRole('button', { name: /^대체 — 자리 없음/ }))) < 0) throw new Error('대체 버튼이 있는 카드가 없다')
+      await page.getByRole('button', { name: /^대체 — 자리 없음/ }).first().click()
+      const dlg = page.getByRole('dialog', { name: '대체운동 선택' })
+      await dlg.waitFor()
+      await settle(page, 450)
+      await snap('sheet-substitute')
+      await wrapFlow('대체 시트')
+      await dlg.getByRole('button', { name: '취소', exact: true }).click()
+      await dlg.waitFor({ state: 'detached' }).catch(() => {})
+      await settle(page, 400)
+    })
+    await optional('sheet-comp', async () => {
+      if ((await openCardWith(() => page.locator('li').filter({ hasText: '▸' }))) < 0) throw new Error('보상작용 줄이 있는 카드가 없다')
+      await page.locator('li').filter({ hasText: '▸' }).getByRole('button').first().click()
+      const dlg = page.getByRole('dialog', { name: '보상작용 입력' })
+      await dlg.waitFor()
+      await settle(page, 450)
+      await snap('sheet-comp')
+      // 징후 둘 고르기 → 눌린 것 둘 + 저장될 값이 경고 줄
+      const signs = dlg.locator('button[aria-pressed]')
+      const nSigns = await signs.count()
+      for (let i = 0; i < Math.min(2, nSigns); i++) await signs.nth(i).click()
+      // 체크리스트가 없는 종목이면 직접 입력으로 (같은 저장 길)
+      if (nSigns === 0) await dlg.getByRole('textbox', { name: '보상작용 직접 입력' }).fill('마지막 세트 엉덩이 살짝 뜸')
+      await settle(page, 300)
+      await snap('sheet-comp-picked')
+      await wrapFlow('보상작용 시트')
+      await guardedFlow(['RR8 보상작용: 징후 둘 고르기 → 저장 → 카드의 보상작용 줄이 바뀐다'], async () => {
+        const pressed = await pressedCount(dlg)
+        const warnLine = await dlg.locator('.ax-text-warning').count()
+        await dlg.getByRole('button', { name: '저장', exact: true }).click()
+        const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
+        await settle(page, 400)
+        const shown = await page.locator('li .ax-text-warning').count()
+        flows.push(['RR8 보상작용: 징후 둘 고르기 → 저장 → 카드의 보상작용 줄이 바뀐다', { ok: pressed === Math.min(2, nSigns) && warnLine === 1 && shown > 0 && gone && shown > 0, detail: `징후 목록 ${nSigns}개 · 눌린 징후 ${pressed}개 · 저장될 값 경고 줄 ${warnLine} · 시트 닫힘 ${gone} · 카드의 경고 줄 ${shown}` }])
+      })
+    })
+    await optional('sheet-scale', async () => {
+      if ((await openCardWith(() => page.getByRole('button', { name: /^무게 단위 · / }))) < 0) throw new Error('무게 단위 줄이 있는 카드가 없다')
+      await page.getByRole('button', { name: /^무게 단위 · / }).first().click()
+      const dlg = page.getByRole('dialog', { name: '무게 단위 설정' })
+      await dlg.waitFor()
+      await settle(page, 450)
+      await snap('sheet-scale')
+      await wrapFlow('무게 단위 시트')
+      // 불규칙(핀 목록)으로 바꾸고 잘못된 형식을 넣으면 오류 문구가 보이고 저장이 막힌다
+      await dlg.getByRole('radio', { name: /불규칙/ }).click()
+      await dlg.getByRole('textbox', { name: '핀 목록' }).fill('5, abc')
+      await settle(page, 300)
+      await snap('sheet-scale-error')
+      await guardedFlow(['RR8 무게 단위 핀 목록 잘못된 형식 → 오류 문구가 보이고 저장이 막힌다'], async () => {
+        const err = await dlg.locator('.ax-text-warning').count()
+        const disabled = await dlg.getByRole('button', { name: '저장', exact: true }).isDisabled()
+        flows.push(['RR8 무게 단위 핀 목록 잘못된 형식 → 오류 문구가 보이고 저장이 막힌다', { ok: err === 1 && disabled, detail: `오류 문구 ${err}개 · 저장 막힘 ${disabled}` }])
+      })
+      // 올바른 핀 목록을 넣고 저장하면 카드의 + 가 다음 핀으로 간다
+      await guardedFlow(['RR8 무게 단위 핀 목록 입력 → 저장 → + 가 다음 핀으로 간다'], async () => {
+        await dlg.getByRole('textbox', { name: '핀 목록' }).fill('5, 10, 15, 20, 25, 30, 35, 41, 47, 55, 65, 75, 85, 95, 110, 130, 150, 200, 300, 400, 500')
+        await dlg.getByRole('button', { name: '저장', exact: true }).click()
+        await dlg.waitFor({ state: 'detached', timeout: 1500 }).catch(() => {})
+        await settle(page, 400)
+        const w = page.getByRole('textbox', { name: /1세트 무게$/ }).first()
+        const before = Number(await w.inputValue())
+        await page.getByRole('button', { name: /1세트 무게 증가$/ }).first().click()
+        await settle(page, 200)
+        const after = Number(await w.inputValue())
+        const ladder = [5, 10, 15, 20, 25, 30, 35, 41, 47, 55, 65, 75, 85, 95, 110, 130, 150, 200, 300, 400, 500]
+        const expect = ladder.find((p) => p > before)
+        flows.push(['RR8 무게 단위 핀 목록 입력 → 저장 → + 가 다음 핀으로 간다', { ok: after === expect, detail: `무게 ${before} → ${after} (다음 핀 ${expect})` }])
+      })
+    })
 
     // 세션 끝 → 요약
     await btn(page, '종료').click()
@@ -785,6 +981,112 @@ async function runScenes(browser, port, scheme) {
         await settle(page, 500)
         await snap('home-banners-open')
       })
+    })
+
+    // RR8: 템포 가이드·대체 후보 1탭·버리기 → 홈. 템포 가이드는 설정에서 켜야 버튼이 보이므로(기본 꺼짐) 켜고 시작해 끝에 다시 끈다.
+    // 첫 세션이 끝나 원 종목 기록이 생긴 뒤라 대체 후보가 열린다. 세션은 끝에서 버려 기록에 흔적이 없다.
+    await optional('sheet-tempo', async () => {
+      await page.getByRole('button', { name: '설정', exact: true }).click()
+      await settle(page, 600)
+      const tempoCard = page.locator('.card').filter({ has: page.getByText('템포 가이드', { exact: true }) })
+      await tempoCard.getByRole('button', { name: '사용', exact: true }).click()
+      await settle(page, 300)
+      await page.getByRole('button', { name: '홈', exact: true }).click()
+      await settle(page, 500)
+      await page.getByRole('button', { name: /시작$|이어서 하기/ }).first().click()
+      await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor()
+      await settle(page, 600)
+
+      // 대체: 후보 1탭 → 카드가 대체 종목으로 (후보 줄이 열려 있어야 한다 — 원 종목 기록이 있는 종목을 고른다)
+      await guardedFlow(['RR8 대체: 후보 1탭 → 시트가 닫히고 카드에 대체 뱃지가 생긴다'], async () => {
+        // 후보가 열리는(원 종목 기록이 있는) 카드를 찾을 때까지 카드를 하나씩 펼쳐 본다
+        const heads = page.locator('button[aria-expanded]')
+        const dlg = page.getByRole('dialog', { name: '대체운동 선택' })
+        const open = dlg.locator('li button:not([disabled])')
+        let nOpen = 0
+        for (let i = 0; i < (await heads.count()) && nOpen === 0; i++) {
+          const head = heads.nth(i)
+          const was = (await head.getAttribute('aria-expanded')) === 'true'
+          if (!was) await head.click()
+          await settle(page, 300)
+          const sub = page.getByRole('button', { name: /^대체 — 자리 없음/ })
+          if ((await sub.count()) > 0) {
+            await sub.first().click()
+            await dlg.waitFor()
+            await settle(page, 450)
+            nOpen = await open.count()
+            if (nOpen === 0) {
+              await dlg.getByRole('button', { name: '취소', exact: true }).click()
+              await dlg.waitFor({ state: 'detached' }).catch(() => {})
+              await settle(page, 400)
+            }
+          }
+          if (nOpen === 0 && !was) await head.click()
+        }
+        if (nOpen === 0) {
+          flows.push(['RR8 대체: 후보 1탭 → 시트가 닫히고 카드에 대체 뱃지가 생긴다', { ok: true, detail: '건너뜀 — 예시 데이터에는 원 종목 기록이 있는 대체 후보가 없다(후보가 전부 막힌 경계 상태는 sheet-substitute가 찍는다). 후보 1탭은 실기기 확인' }])
+          return
+        }
+        await open.first().click()
+        const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
+        await settle(page, 500)
+        const badge = await page.getByText('대체', { exact: true }).count()
+        flows.push(['RR8 대체: 후보 1탭 → 시트가 닫히고 카드에 대체 뱃지가 생긴다', { ok: gone && badge > 0, detail: `열린 후보 ${nOpen}개 · 시트 닫힘 ${gone} · 대체 뱃지 ${badge}` }])
+      })
+
+      // 템포 가이드: 도는 중 한 장, 그 장면의 링·글자, 자동이 아닌 수동 종료로 세트 체크 + 휴식 시작(Z2 체인)
+      const tempoBtn = () => page.getByRole('button', { name: /세트 템포 가이드$/ })
+      if ((await openCardWith(tempoBtn)) < 0) throw new Error('템포 가이드 버튼이 있는 카드가 없다')
+      const setNo = (await tempoBtn().first().getAttribute('aria-label'))?.match(/^(\d+)세트/)?.[1] ?? '1'
+      await tempoBtn().first().click()
+      const dlg = page.getByRole('dialog', { name: '템포 가이드' })
+      await dlg.waitFor()
+      // 카운트인이 끝나고 첫 단계가 돌아야 "도는 중"이다
+      await dlg.getByText(/회째$/).waitFor({ timeout: 12000 })
+      await settle(page, 700)
+      await snap('sheet-tempo')
+      await wrapFlow('템포 가이드 시트')
+      await guardedFlow(['RR8 템포 가이드 도는 중: 링이 단계 색을 갖고 크기가 변수로 간다 + 막을 눌러 닫히지 않는다(purpose)'], async () => {
+        const ring = dlg.locator('.ax-tempo-ring')
+        const cls = (await ring.getAttribute('class')) ?? ''
+        const scale = await ring.evaluate((el) => el.style.getPropertyValue('--ax-tempo-scale'))
+        const w = await ring.evaluate((el) => el.getBoundingClientRect().width)
+        const progress = await dlg.getByRole('progressbar').count()
+        flows.push(['RR8 템포 가이드 도는 중: 링이 단계 색을 갖고 크기가 변수로 간다 + 막을 눌러 닫히지 않는다(purpose)', { ok: /ax-tempo-ring-(concentric|eccentric|squeeze|stretch)/.test(cls) && scale !== '' && w > 0 && progress === 1, detail: `링 ${cls.replace('ax-tempo-ring ', '')} · scale ${scale} · 폭 ${Math.round(w)}px · 진행 막대 ${progress}` }])
+      })
+      await guardedFlow(['RR8 템포 가이드 → 종료 → 세트 체크 + 휴식 시작'], async () => {
+        const end = dlg.getByRole('button', { name: /^종료 — 약 [1-9]\d*회 기록 · 휴식 시작$/ })
+        await end.waitFor({ timeout: 20000 })
+        await end.click()
+        const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
+        await settle(page, 500)
+        const checked = (await page.getByRole('button', { name: `${setNo}세트 완료`, exact: true }).first().getAttribute('aria-pressed')) === 'true'
+        const timer = await page.getByRole('timer').waitFor({ timeout: 3000 }).then(() => true, () => false)
+        flows.push(['RR8 템포 가이드 → 종료 → 세트 체크 + 휴식 시작', { ok: gone && checked && timer, detail: `시트 닫힘 ${gone} · ${setNo}세트 완료 눌림 ${checked} · 휴식 바 ${timer}` }])
+      })
+
+      // 종료 시트에서 정말 버리기 → 홈 (세션이 지워지고 홈으로 간다)
+      await guardedFlow(['RR8 종료 시트: 이 세션 버리기 → 정말 버리기 → 홈'], async () => {
+        await btn(page, '종료').click()
+        const fin = page.getByRole('dialog', { name: '세션 종료' })
+        await fin.waitFor()
+        await settle(page, 450)
+        await fin.getByRole('button', { name: '이 세션 버리기', exact: true }).click()
+        await fin.getByRole('button', { name: '정말 버리기', exact: true }).click()
+        const home = await page.getByRole('button', { name: '설정', exact: true }).waitFor({ timeout: 4000 }).then(() => true, () => false)
+        await settle(page, 600)
+        const dialogs = await page.getByRole('dialog').count()
+        const session = await page.getByRole('button', { name: '세션 최소화', exact: true }).count()
+        flows.push(['RR8 종료 시트: 이 세션 버리기 → 정말 버리기 → 홈', { ok: home && dialogs === 0 && session === 0, detail: `홈 ${home} · 열린 시트 ${dialogs} · 세션 화면 ${session}` }])
+      })
+
+      // 설정을 되돌린다(뒤 장면이 같은 설정으로 찍히게)
+      await page.getByRole('button', { name: '설정', exact: true }).click()
+      await settle(page, 600)
+      await tempoCard.getByRole('button', { name: '사용 안 함', exact: true }).click()
+      await settle(page, 300)
+      await page.getByRole('button', { name: '홈', exact: true }).click()
+      await settle(page, 500)
     })
 
     // 기록

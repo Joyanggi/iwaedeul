@@ -5,8 +5,7 @@ import { partialEntries, resolveSessionAdjust, sessionAdjustText, sessionSetPlan
 import { compensationEntriesOf } from '../lib/compensationWatch'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
-import { NO_AUTOFILL } from '../lib/inputProps'
-import { SheetFrame } from './SheetFrame'
+import { Banner, Button, Heading, HStack, Sheet, Text, TextAreaField, TextField, ToggleButton, VStack } from '../ax'
 
 /**
  * 세션 종료 (DESIGN.md §5.2).
@@ -71,118 +70,109 @@ export default function FinishSheet({
   }
 
   return (
-    <SheetFrame label="세션 종료" onClose={onClose}>
+    <Sheet label="세션 종료" purpose="form" onClose={onClose}>
       {(dismiss) => (
-        <>
-          <div className="card-label">세션 종료</div>
-          {adjustLine && <p className="row-sub">{adjustLine}</p>}
+        <VStack gap={5} paddingBlockEnd={3}>
+          <VStack gap={2}>
+            <Heading level={2}>세션 종료</Heading>
+            {adjustLine && <Text color="secondary">{adjustLine}</Text>}
 
-          {incomplete.length > 0 && (
-            <div className="warn-box">
-              <strong>손대지 않은 종목 {incomplete.length}개</strong>
-              <br />
-              {incomplete.map((e) => nameOf(e.recordKey)).join(', ')}
-              <br />
-              그대로 종료하면 기록되지 않습니다.
-            </div>
-          )}
-          {partial.length > 0 && (
-            <p className="row-sub">
-              세트가 남은 종목: {partial.map((p) => `${nameOf(p.recordKey)} ${p.done}/${p.rows}`).join(' · ')}
-            </p>
-          )}
-          {/* 이번 세션 보상작용 (T11). 루틴 문서 13장 — 보이면 무게가 과한 것 */}
-          {compensated.length > 0 && (
-            <p className="row-sub">
-              보상작용 기록:{' '}
-              {compensated.map((c) => `${nameOf(c.recordKey)} — ${c.note}`).join(' · ')}
-            </p>
-          )}
-
-          <div className="card-label mt-group">
-            유산소 (선택)
-          </div>
-          <div className="pill-row">
-            {CARDIO_TYPES.map((t) => t.name).map((t) => (
-              <button
-                key={t}
-                className={`pill${cardioType === t ? ' pill-on' : ''}`}
-                onClick={() => setCardioType(cardioType === t ? null : t)}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-          {cardioType && (
-            <div className="btn-row mt-row">
-              <input
-                {...NO_AUTOFILL}
-                className="field"
-                inputMode="numeric"
-                value={minutes}
-                onChange={(e) => setMinutes(e.target.value)}
-                aria-label="유산소 시간(분)"
-                placeholder="분"
+            {incomplete.length > 0 && (
+              <Banner
+                status="warning"
+                collapsible={false}
+                title={`손대지 않은 종목 ${incomplete.length}개`}
+                description={`${incomplete.map((e) => nameOf(e.recordKey)).join(', ')} — 그대로 종료하면 기록되지 않습니다.`}
               />
-              <input
-                {...NO_AUTOFILL}
-                className="field"
-                value={cardioNote}
-                onChange={(e) => setCardioNote(e.target.value)}
-                aria-label="유산소 강도"
-                placeholder={intensityHintFor(cardioType)}
-              />
-            </div>
-          )}
+            )}
+            {partial.length > 0 && (
+              <Text color="secondary">
+                세트가 남은 종목: {partial.map((p) => `${nameOf(p.recordKey)} ${p.done}/${p.rows}`).join(' · ')}
+              </Text>
+            )}
+            {/* 이번 세션 보상작용 (T11). 루틴 문서 13장 — 보이면 무게가 과한 것 */}
+            {compensated.length > 0 && (
+              <Text color="secondary">
+                보상작용 기록: {compensated.map((c) => `${nameOf(c.recordKey)} — ${c.note}`).join(' · ')}
+              </Text>
+            )}
+          </VStack>
 
-          <div className="card-label mt-group">
-            메모 (선택)
-          </div>
-          <textarea
-            {...NO_AUTOFILL}
-            className="field"
-            rows={2}
-            value={note}
-            onChange={(e) => setLocalNote(e.target.value)}
-            placeholder="컨디션, 특이사항"
-          />
+          <VStack gap={2}>
+            <Heading level={2}>유산소 (선택)</Heading>
+            <HStack gap={2} wrap="wrap">
+              {CARDIO_TYPES.map((t) => t.name).map((t) => (
+                <ToggleButton
+                  key={t}
+                  className="ax-toggle"
+                  label={t}
+                  isPressed={cardioType === t}
+                  onPressedChange={() => setCardioType(cardioType === t ? null : t)}
+                />
+              ))}
+            </HStack>
+            {cardioType && (
+              <HStack gap={2}>
+                <TextField
+                  label="유산소 시간(분)"
+                  isLabelHidden
+                  inputMode="numeric"
+                  value={minutes}
+                  onChange={setMinutes}
+                  placeholder="분"
+                />
+                <TextField
+                  label="유산소 강도"
+                  isLabelHidden
+                  value={cardioNote}
+                  onChange={setCardioNote}
+                  placeholder={intensityHintFor(cardioType)}
+                />
+              </HStack>
+            )}
+          </VStack>
 
-          <button className="btn btn-primary mt-group" onClick={() => void submit()}>
-            기록 마치기
-          </button>
-          <button className="btn mt-row" onClick={dismiss}>
-            계속하기
-          </button>
+          <VStack gap={2}>
+            <Heading level={2}>메모 (선택)</Heading>
+            <TextAreaField
+              label="메모"
+              isLabelHidden
+              rows={2}
+              value={note}
+              onChange={setLocalNote}
+              placeholder="컨디션, 특이사항"
+            />
+          </VStack>
 
-          {/*
-            기록이 있어도 버릴 수 있어야 한다. 이전에는 !anyDone 조건이라, 세트를 하나
-            체크한 뒤 "잘못된 Day였다"고 깨달으면 버릴 수도 마칠 수도 없는 상태가 됐다.
-            (Day 변경은 기록 탭에서 가능하지만 진행 중 세션은 기록 탭에 없다)
-            기록이 있을 때는 세트 수를 보여주고 확인을 한 단계 더 받는다.
-          */}
-          {confirmDiscard ? (
-            <>
-              <p className="row-sub mt-row" style={{ color: 'var(--danger)' }}>
-                {anyDone
-                  ? `${doneCount}세트 기록이 삭제됩니다. 되돌릴 수 없습니다.`
-                  : '이 세션을 삭제합니다.'}
-              </p>
-              <div className="btn-row">
-                <button className="btn" onClick={() => setConfirmDiscard(false)}>
-                  취소
-                </button>
-                <button className="btn btn-danger" onClick={() => void discard().then(onDiscarded)}>
-                  정말 버리기
-                </button>
-              </div>
-            </>
-          ) : (
-            <button className="btn btn-danger mt-row" onClick={() => setConfirmDiscard(true)}>
-              이 세션 버리기
-            </button>
-          )}
-        </>
+          <VStack gap={3}>
+            <Button variant="primary" width="100%" label="기록 마치기" onClick={() => void submit()} />
+            <Button variant="secondary" width="100%" label="계속하기" onClick={dismiss} />
+
+            {/*
+              기록이 있어도 버릴 수 있어야 한다. 이전에는 !anyDone 조건이라, 세트를 하나
+              체크한 뒤 "잘못된 Day였다"고 깨달으면 버릴 수도 마칠 수도 없는 상태가 됐다.
+              (Day 변경은 기록 탭에서 가능하지만 진행 중 세션은 기록 탭에 없다)
+              기록이 있을 때는 세트 수를 보여주고 확인을 한 단계 더 받는다.
+            */}
+            {confirmDiscard ? (
+              <VStack gap={3}>
+                {/* Text에는 error 색이 없다 → OpenSessionSheet·루틴 편집의 삭제 확인처럼 Banner error */}
+                <Banner
+                  status="error"
+                  collapsible={false}
+                  title={anyDone ? `${doneCount}세트 기록이 삭제됩니다. 되돌릴 수 없습니다.` : '이 세션을 삭제합니다.'}
+                />
+                <HStack gap={3}>
+                  <Button variant="secondary" width="100%" label="취소" onClick={() => setConfirmDiscard(false)} />
+                  <Button variant="destructive" width="100%" label="정말 버리기" onClick={() => void discard().then(onDiscarded)} />
+                </HStack>
+              </VStack>
+            ) : (
+              <Button variant="destructive" width="100%" label="이 세션 버리기" onClick={() => setConfirmDiscard(true)} />
+            )}
+          </VStack>
+        </VStack>
       )}
-    </SheetFrame>
+    </Sheet>
   )
 }

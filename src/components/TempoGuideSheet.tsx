@@ -10,7 +10,7 @@ import {
   type TempoPhase,
 } from '../lib/tempo'
 import type { RoutineExercise } from '../types'
-import { SheetFrame } from './SheetFrame'
+import { Button, Heading, ProgressBar, Sheet, Text, VStack } from '../ax'
 
 const FRAME_MS = 80
 
@@ -71,6 +71,7 @@ export default function TempoGuideSheet({
   const [startedAt] = useState(() => Date.now())
   const [elapsed, setElapsed] = useState(0)
   const lastIndex = useRef<number | null>(null)
+  const ringRef = useRef<HTMLDivElement>(null)
   const wakeLock = useRef<{ release: () => Promise<void> } | null>(null)
   /** 자동 종료·마지막 큐를 각각 한 번만 발화시킨다 (프레임마다 재발화 금지) */
   const fired = useRef({ complete: false, lastCycle: false })
@@ -180,71 +181,92 @@ export default function TempoGuideSheet({
     }
   })()
 
+  // 링 크기는 CSS 변수로 건넨다(인라인 style 속성을 쓰지 않는다 — 80ms마다 바뀌는 값이라 렌더 뒤에 직접 단다)
+  useEffect(() => {
+    ringRef.current?.style.setProperty('--ax-tempo-scale', scale.toFixed(3))
+  })
+
   return (
-    <SheetFrame label="템포 가이드" onClose={onClose}>
-      <div className="card-label">
-        템포 가이드 · {exerciseName} {setNumber}세트
-      </div>
-      <div className={`tempo-progress${rep.lastCycle ? ' tempo-progress-last' : ''}`}>
-        {rep.currentRep} / 최대 {routineExercise.repMax}회{rep.lastCycle && ' · 마지막'}
-      </div>
+    // purpose="info": 지금도 막을 눌러 닫힌다(SheetFrame은 막 누름 = dismiss). 도는 중 닫히면 소리는 언마운트 정리가 취소한다(CC2)
+    <Sheet label="템포 가이드" purpose="info" onClose={onClose}>
+      <VStack gap={4} paddingBlockEnd={3}>
+        <VStack gap={1}>
+          <Heading level={2}>
+            템포 가이드 · {exerciseName} {setNumber}세트
+          </Heading>
+          <Text color={rep.lastCycle ? 'accent' : 'secondary'} hasTabularNumbers>
+            {rep.currentRep} / 최대 {routineExercise.repMax}회{rep.lastCycle && ' · 마지막'}
+          </Text>
+          <ProgressBar
+            label="반복 진행"
+            isLabelHidden
+            value={rep.currentRep}
+            max={routineExercise.repMax}
+            variant={rep.lastCycle ? 'warning' : 'accent'}
+          />
+        </VStack>
 
-      <div className="tempo-stage">
-        <div
-          className={`tempo-ring tempo-ring-${pos.phase?.kind ?? 'idle'}${
-            rep.lastCycle ? ' tempo-ring-last' : ''
-          }`}
-          style={{ transform: `scale(${scale.toFixed(3)})` }}
-          aria-hidden="true"
-        />
-        <div className="tempo-center">
-          {pos.countIn !== null ? (
-            <span className="tempo-count">{pos.countIn}</span>
-          ) : (
-            <>
-              <span className="tempo-phase">{pos.phase ? PHASE_LABEL[pos.phase.kind] : ''}</span>
-              {/*
-                호흡 안내 (CC4). 원리는 "힘쓸 때 내쉰다" 하나 — 원본은 문서 3장 표의
-                호흡 열이다. 대칭 호흡(3초 들숨/3초 날숨)이 아니라는 것이 요점이다.
-              */}
-              <span className="tempo-breath">
-                {pos.phase ? BREATH_LABEL[pos.phase.kind] : ''}
-              </span>
-              {/*
-                진행 회차를 보여준다 (완료 수가 아니다) — 완료 수만 보여주면 10회짜리에서
-                마지막에 보이는 숫자가 9다. "회째"로 적어 종료 라벨의 "약 N회"와 구분한다.
-              */}
-              <span className="tempo-reps">{rep.currentRep}회째</span>
-            </>
-          )}
+        {/* 무대는 직접 짠다(Astryx에 박자 표시가 없다). 배치와 링 모양은 parts.css의 .ax-tempo-* */}
+        <div className="ax-tempo-stage">
+          <div
+            ref={ringRef}
+            className={`ax-tempo-ring ax-tempo-ring-${pos.phase?.kind ?? 'idle'}${rep.lastCycle ? ' ax-tempo-ring-last' : ''}`}
+            aria-hidden="true"
+          />
+          <div className="ax-tempo-center">
+            {pos.countIn !== null ? (
+              <Heading level={1} type="display-1">
+                {pos.countIn}
+              </Heading>
+            ) : (
+              <>
+                <Text type="large" weight="semibold">
+                  {pos.phase ? PHASE_LABEL[pos.phase.kind] : ''}
+                </Text>
+                {/*
+                  호흡 안내 (CC4). 원리는 "힘쓸 때 내쉰다" 하나 — 원본은 문서 3장 표의
+                  호흡 열이다. 대칭 호흡(3초 들숨/3초 날숨)이 아니라는 것이 요점이다.
+                */}
+                <Text type="supporting" color="secondary">
+                  {pos.phase ? BREATH_LABEL[pos.phase.kind] : ''}
+                </Text>
+                {/*
+                  진행 회차를 보여준다 (완료 수가 아니다) — 완료 수만 보여주면 10회짜리에서
+                  마지막에 보이는 숫자가 9다. "회째"로 적어 종료 라벨의 "약 N회"와 구분한다.
+                */}
+                <Text color="secondary" hasTabularNumbers>
+                  {rep.currentRep}회째
+                </Text>
+              </>
+            )}
+          </div>
         </div>
-      </div>
 
-      <p className="row-sub" style={{ textAlign: 'center' }}>
-        {routineExercise.group}그룹 · 한 사이클 {cycleSeconds(phases)}초 (
-        {phases.map((p) => `${PHASE_LABEL[p.kind]} ${p.seconds}`).join(' · ')})
-      </p>
+        <Text color="secondary" justify="center">
+          {routineExercise.group}그룹 · 한 사이클 {cycleSeconds(phases)}초 (
+          {phases.map((p) => `${PHASE_LABEL[p.kind]} ${p.seconds}`).join(' · ')})
+        </Text>
 
-      <button
-        className="btn btn-primary mt-group"
-        
-        onClick={() => {
-          onDone(rep.reps)
-          onClose()
-        }}
-      >
         {/*
           "약"을 붙이는 이유 (V1): 이 값은 실제 반복이 아니라 **가이드가 돈 사이클 수**다.
           가이드보다 느리게 하거나 시트를 열어둔 채 쉬면 실제보다 많이 세어진다.
           자동 종료(상단 도달)는 정확한 값이므로 이 경로를 지나지 않는다.
         */}
-        {pos.countIn !== null ? '취소' : `종료 — 약 ${rep.reps}회 기록 · 휴식 시작`}
-      </button>
-      <p className="row-sub mt-row">
-        최대 {routineExercise.repMax}회에 닿으면 자동으로 기록하고 휴식이 시작됩니다.
-        마지막 2~3회에서 리듬을 못 따라가기 시작하면 그게 세트 종료 신호입니다 (문서 13장) —
-        그때는 먼저 종료하세요. 화면이 꺼지면 가이드도 멈춥니다 (iOS PWA 제약).
-      </p>
-    </SheetFrame>
+        <Button
+          variant="primary"
+          width="100%"
+          label={pos.countIn !== null ? '취소' : `종료 — 약 ${rep.reps}회 기록 · 휴식 시작`}
+          onClick={() => {
+            onDone(rep.reps)
+            onClose()
+          }}
+        />
+        <Text color="secondary">
+          최대 {routineExercise.repMax}회에 닿으면 자동으로 기록하고 휴식이 시작됩니다. 마지막 2~3회에서 리듬을 못
+          따라가기 시작하면 그게 세트 종료 신호입니다 (문서 13장) — 그때는 먼저 종료하세요. 화면이 꺼지면 가이드도
+          멈춥니다 (iOS PWA 제약).
+        </Text>
+      </VStack>
+    </Sheet>
   )
 }

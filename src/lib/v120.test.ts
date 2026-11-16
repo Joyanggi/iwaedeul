@@ -864,3 +864,162 @@ describe("v120 RR7 — 운동 카드와 스테퍼", () => {
     expect(lib).toMatch(/b\.closest\(LEGACY\)/)
   })
 })
+
+describe("v120 RR8 — 세션의 시트 8개", () => {
+  const EIGHT = ["FinishSheet", "AddExerciseSheet", "ManualTimerSheet", "SubstituteSheet", "CompensationSheet", "CompensationWatchSheet", "WeightScaleSheet", "TempoGuideSheet"].map((n) => `/src/components/${n}.tsx`)
+  const OPEN = [...EIGHT, "/src/components/DayPickerSheet.tsx", "/src/components/OpenSessionSheet.tsx"]
+  /** 모든 className= 값(문자열 또는 {…}) */
+  const classNames = (s: string) => [...s.matchAll(/className=("[^"]*"|\{`[^`]*`\}|\{[^}]*\})/g)].map((m) => m[1])
+
+  it("v120 RR8: 여덟 파일이 ../ax의 Sheet를 쓰고 SheetFrame·style=·<button·<input·<textarea·@astryxdesign이 0건이다", () => {
+    for (const f of EIGHT) {
+      const s = code(f)
+      expect(s, f).toMatch(/from '\.\.\/ax'/)
+      expect(s, f).toMatch(/<Sheet /)
+      expect(s, f).not.toMatch(/SheetFrame|style=|<button|<input|<textarea|@astryxdesign/)
+    }
+  })
+
+  it("v120 RR8: className=은 ax-tempo-(템포 무대)·ax-toggle(켜고 끄는 글자 버튼)·ax-text-warning(경고 글자색)뿐이다", () => {
+    const all = EIGHT.flatMap((f) => classNames(code(f)))
+    expect(all.length).toBeGreaterThan(0)
+    for (const c of all) expect(c).toMatch(/^("ax-(tempo-|toggle|text-warning)|\{`ax-tempo-|\{[^}]*'ax-text-warning')/)
+    // 템포 말고는 ax-tempo-를 안 쓴다
+    for (const f of EIGHT.filter((x) => !/TempoGuideSheet/.test(x))) expect(code(f), f).not.toMatch(/ax-tempo-/)
+  })
+
+  it("v120 RR8: 열 시트 열의 닫기는 dismiss를 지난다 — onClick={onClose} 0건, 렌더 프롭으로 dismiss를 받고 닫기 버튼이 dismiss를 부른다(템포는 닫기 버튼 없이 종료가 onDone→onClose)", () => {
+    for (const f of OPEN) {
+      const s = code(f)
+      expect(s, f).not.toMatch(/onClick=\{onClose\}|onClick=\{\(\) => onClose\(\)\}/)
+      if (/TempoGuideSheet/.test(f)) continue
+      expect(s, f).toMatch(/\{\(dismiss\) =>/)
+      expect(s, f).toMatch(/onClick=\{dismiss\}/)
+    }
+  })
+
+  it("v120 RR8: v119 QQ3의 legacy 시트 목록이 식단 시트 넷만 남는다", () => {
+    const legacyLeft = Object.keys(SRC).filter((p) => /\/components\/\w*Sheet\.tsx$/.test(p) && !/SheetFrame\.tsx$/.test(p) && !/from '\.\.\/ax/.test(SRC[p]))
+    expect(legacyLeft.sort()).toEqual(["/src/components/DietPlanSheet.tsx", "/src/components/DietSlotSheet.tsx", "/src/components/DietVariantSheet.tsx", "/src/components/FoodLogSheet.tsx"])
+  })
+
+  it("v120 RR8: FinishSheet의 버리기 문구 앞(같은 <Button 태그)에 variant=\"destructive\"가 있다 — 이 세션 버리기·정말 버리기", () => {
+    const s = code("/src/components/FinishSheet.tsx")
+    for (const label of ['label="이 세션 버리기"', 'label="정말 버리기"']) {
+      const at = s.indexOf(label)
+      expect(at, label).toBeGreaterThan(0)
+      const tagStart = s.lastIndexOf("<Button", at)
+      expect(s.slice(tagStart, at), label).toContain('variant="destructive"')
+    }
+    // 2단계 그대로: 확인 상태가 있고, 취소가 되돌린다
+    expect(s).toContain("setConfirmDiscard(true)")
+    expect(s).toContain("setConfirmDiscard(false)")
+    expect(s).toMatch(/discard\(\)\.then\(onDiscarded\)/)
+  })
+
+  it("v120 RR8: 시트 purpose — 입력칸이 있는 넷(종료·대체·보상작용·무게 단위)은 form, 고르기·읽기뿐인 넷은 info다", () => {
+    const form = ["FinishSheet", "SubstituteSheet", "CompensationSheet", "WeightScaleSheet"]
+    const info = ["AddExerciseSheet", "ManualTimerSheet", "CompensationWatchSheet", "TempoGuideSheet"]
+    for (const n of form) expect(code(`/src/components/${n}.tsx`), n).toMatch(/<Sheet label="[^"]+" purpose="form"/)
+    for (const n of info) expect(code(`/src/components/${n}.tsx`), n).toMatch(/<Sheet label="[^"]+" purpose="info"/)
+  })
+
+  it("v120 RR8: 템포 가이드도 지금처럼 막을 눌러 닫힌다(info) — required가 아니다. 소리 취소는 언마운트 정리가 한다", () => {
+    const s = code("/src/components/TempoGuideSheet.tsx")
+    expect(s).not.toMatch(/purpose="required"/)
+    expect(s).toMatch(/return \(\) => cancelTag\('tempo'\)/)
+  })
+
+  it("v120 RR8: 템포 무대 — 큰 카운트 Heading level 1, 진행은 ProgressBar, 링 크기는 style 속성이 아니라 CSS 변수(--ax-tempo-scale)로 건넨다", () => {
+    const s = code("/src/components/TempoGuideSheet.tsx")
+    expect(s).toMatch(/<Heading level=\{1\} type="display-1">/)
+    expect(s).toMatch(/<ProgressBar[\s\S]*?label="반복 진행"/)
+    expect(s).toContain("style.setProperty('--ax-tempo-scale'")
+    expect(s).toContain("`종료 — 약 ${rep.reps}회 기록 · 휴식 시작`")
+  })
+
+  it("v120 RR8: 켜고 끄는 고르기(유산소 종류·초 프리셋·징후·무게 단위 프리셋)는 ToggleButton이고, 하나 고르기(무게 단위 방식)는 SegmentedControl이다", () => {
+    for (const n of ["FinishSheet", "ManualTimerSheet", "CompensationSheet", "WeightScaleSheet"]) {
+      const c = code(`/src/components/${n}.tsx`)
+      const tags = c.match(/<ToggleButton/g)?.length ?? 0
+      expect(tags, n).toBeGreaterThan(0)
+      // 하나라도 ax-toggle이 빠지면 안 눌린 버튼이 맨 글자가 된다 → 태그 수와 클래스 수가 같아야 한다
+      expect(c.match(/className="ax-toggle"/g)?.length ?? 0, `${n}: 모든 ToggleButton에 ax-toggle`).toBe(tags)
+    }
+    expect(code("/src/components/WeightScaleSheet.tsx")).toMatch(/<SegmentedControl label="방식"/)
+  })
+
+  it("v120 RR8: 여러 줄 입력은 src/ax의 TextAreaField(자동완성 억제·16px 하한)로 하고, 종료 메모·핀 목록이 그것을 쓴다", () => {
+    const ax = code("/src/ax/index.tsx")
+    expect(ax).toMatch(/export function TextAreaField\(props: TextAreaProps\) \{\s*return <TextArea \{\.\.\.AX_NO_AUTOFILL\} controlStyle=\{CONTROL_STYLE\} \{\.\.\.props\} \/>/)
+    expect(code("/src/components/FinishSheet.tsx")).toContain("<TextAreaField")
+    expect(code("/src/components/WeightScaleSheet.tsx")).toContain("<TextAreaField")
+  })
+
+  it("v120 RR8: 로직·문구가 그대로다 (저장·취소·계산 — 종료·추가·타이머·대체·보상작용·관찰·무게 단위)", () => {
+    const f = code("/src/components/FinishSheet.tsx")
+    for (const w of ['label="기록 마치기"', 'label="계속하기"', "await finish()", "onFinished()", "손대지 않은 종목", "그대로 종료하면 기록되지 않습니다", "partialEntries(", "compensationEntriesOf(", "resolveSessionAdjust("]) expect(f, w).toContain(w)
+    const a = code("/src/components/AddExerciseSheet.tsx")
+    for (const w of ["makeRecordKey(ex.exerciseId, recordDayIdOf(day))", "onAdd({ recordKey, setCount: ex.sets, repMin: ex.repMin })", "추가할 수 있는 종목이 없습니다"]) expect(a, w).toContain(w)
+    const m = code("/src/components/ManualTimerSheet.tsx")
+    for (const w of ["unlockAudio()", "onStart(selected, isDefault", "TIMER_PRESETS.includes(defaultSec as never)"]) expect(m, w).toContain(w)
+    const s = code("/src/components/SubstituteSheet.tsx")
+    for (const w of ["onSaveBodyWeight(Math.round(parsedBodyWeight * 10) / 10)", "onSelect(preview)", "이 종목에는 등록된 대체가 없습니다", "원 종목 기록이 없어 시작 무게를 추정할 수 없습니다", "체중을 입력하면 보조 무게를 계산합니다"]) expect(s, w).toContain(w)
+    const c = code("/src/components/CompensationSheet.tsx")
+    for (const w of ["serializeCompensation({ signs: selected, free })", "{hasCompensation(current) &&", "setSelected([])"]) expect(c, w).toContain(w)
+    const w = code("/src/components/CompensationWatchSheet.tsx")
+    for (const x of ["easierWeight(currentWeight, scale)", "onApply(lowered)", "더 조절할 단위가 없습니다"]) expect(w, x).toContain(x)
+    const u = code("/src/components/WeightScaleSheet.tsx")
+    for (const x of ["parseLadder(ladderText)", "0보다 큰 숫자를 입력하세요", "핀 값을 입력하세요", "onSave({})", "isDisabled={!preview}"]) expect(u, x).toContain(x)
+  })
+
+  it("v120 RR8: 경고·오류 글자는 ax-text-warning이고(Text의 색 이름에 경고가 없다), 2단계 삭제 확인은 Banner error다", () => {
+    expect(code("/src/components/WeightScaleSheet.tsx")).toContain('className="ax-text-warning"')
+    expect(code("/src/components/CompensationSheet.tsx")).toContain('className="ax-text-warning"')
+    expect(code("/src/components/FinishSheet.tsx")).toMatch(/<Banner\s+status="error"/)
+    expect(code("/src/components/FinishSheet.tsx")).toMatch(/<Banner\s+status="warning"/)
+    for (const f of EIGHT) expect(code(f), f).not.toMatch(/color="(warning|error)"/)
+  })
+
+  it("v120 RR8: ui-check — 시트 장면(종료·유산소·끝·타이머·고른 타이머·추가·대체·보상작용·고른 보상작용·무게 단위·오류·템포)을 찍고 sheet 쌍을 판정한다", () => {
+    const t = text(SCRIPTS, "/scripts/ui-check.mjs")
+    for (const scene of ["sheet-finish", "sheet-finish-cardio", "sheet-finish-end", "sheet-timer", "sheet-timer-picked", "sheet-add", "sheet-substitute", "sheet-comp", "sheet-comp-picked", "sheet-scale", "sheet-scale-error", "sheet-tempo"]) {
+      expect(t, scene).toContain(`'${scene}'`)
+      expect(t, scene).toContain(`snap('${scene}')`)
+    }
+    expect(t).toContain("SESSION_SHEET_SCENES.includes(scene)")
+    expect(text(LIB, "/scripts/lib/ui-space.mjs")).toContain("'sheet-tempo'")
+  })
+
+  it("v120 RR8: 새 흐름은 전부 guardedFlow 안에 있어 예외가 나면 건너뜀이 아니라 흐름 실패로 센다", () => {
+    const t = text(SCRIPTS, "/scripts/ui-check.mjs")
+    for (const name of [
+      "Esc로 닫기",
+      "RR8 종료 시트 유산소 고르기 → 눌린 상태 하나 + 입력칸 둘",
+      "RR8 종료 시트 버리기 2단계: 눌러도 바로 지워지지 않고 취소로 돌아온다",
+      "RR8 종료 시트 끝까지 스크롤하면 버리기 버튼이 화면 안에 있다",
+      "RR8 수동 타이머: 초 고르기(눌린 것 하나) → 시작 → 휴식 바",
+      "RR8 종목 추가: 줄 1탭 → 시트가 닫히고 카드가 하나 늘어난다",
+      "RR8 보상작용: 징후 둘 고르기 → 저장 → 카드의 보상작용 줄이 바뀐다",
+      "RR8 무게 단위 핀 목록 잘못된 형식 → 오류 문구가 보이고 저장이 막힌다",
+      "RR8 무게 단위 핀 목록 입력 → 저장 → + 가 다음 핀으로 간다",
+      "RR8 대체: 후보 1탭 → 시트가 닫히고 카드에 대체 뱃지가 생긴다",
+      "RR8 템포 가이드 도는 중: 링이 단계 색을 갖고 크기가 변수로 간다 + 막을 눌러 닫히지 않는다(purpose)",
+      "RR8 템포 가이드 → 종료 → 세트 체크 + 휴식 시작",
+      "RR8 종료 시트: 이 세션 버리기 → 정말 버리기 → 홈",
+    ]) {
+      expect(t, name).toMatch(new RegExp("guardedFlow\\(\\[(?:[^\\]]*, )?'" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "'"))
+    }
+    // 글자 중간 꺾임은 시트마다 390·375 두 폭에서 잰다
+    expect(t).toContain("const wrapFlow = async (label) =>")
+    expect(t).toMatch(/r390\.count === 0 && r375\.count === 0/)
+    for (const label of ["종료 시트", "휴식 타이머 시트", "종목 추가 시트", "대체 시트", "보상작용 시트", "무게 단위 시트", "템포 가이드 시트"]) expect(t, label).toContain(`wrapFlow('${label}')`)
+  })
+
+  it("v120 RR8: 종료 시트 닫기 세 흐름은 legacy 막(.sheet-backdrop·.is-closing)이 아니라 Astryx dialog로 잰다", () => {
+    const t = text(SCRIPTS, "/scripts/ui-check.mjs")
+    const fn = t.slice(t.indexOf("async function closeFlows(page)"), t.indexOf("/** 라이트 장면"))
+    expect(fn).toContain("getByRole('dialog', { name: '세션 종료' })")
+    expect(fn).not.toMatch(/sheet-backdrop|is-closing/)
+  })
+})

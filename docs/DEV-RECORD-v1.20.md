@@ -1110,3 +1110,79 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 - `npm run check`: 전부 통과(빌드 포함)
 - `node scripts/ui-check.mjs after --check --ver=v1.20`: `종료 코드 0`
 - `git rev-list --count main..HEAD`: 커밋 전 40
+
+## RR8. 세션의 시트 8개
+
+### 범위
+
+| 파일 | 바뀐 것 |
+|---|---|
+| `src/components/{FinishSheet,AddExerciseSheet,ManualTimerSheet,SubstituteSheet,CompensationSheet,CompensationWatchSheet,WeightScaleSheet,TempoGuideSheet}.tsx` | `SheetFrame` → `../ax`의 `Sheet`(RR5의 `dismiss` 렌더 프롭). 로직·문구·`label` 그대로. 고르는 줄 `ListItem`, 읽는 줄 `Item`, 켜고 끄는 고르기 `ToggleButton`(`className="ax-toggle"`), 하나 고르기 `SegmentedControl`, 입력 `TextField`·`TextAreaField`, 2단계 삭제 확인은 `Banner error`. `purpose`: 종료·대체·보상작용·무게 단위 `form`, 나머지 넷 `info` |
+| `src/ax/index.tsx` | `TextAreaField` 추가(`TextField`처럼 자동완성 억제·16px 하한을 품는다) |
+| `src/ax/parts.css` | 템포 무대 `.ax-tempo-*`(링 크기는 `--ax-tempo-scale`), 여덟 시트 이름으로 좁힌 한글 `keep-all` 규칙 |
+| `src/styles/global.css` | `.tempo-*`·`.sheet-row`·`.sub-field*`·`.chip-row`·`.chip-btn*`·`.setup-edit*` 삭제(−138줄) |
+| `scripts/ui-check.mjs`·`scripts/lib/ui-space.mjs` | 시트 장면 12개(종료·유산소·끝·타이머·고른 타이머·추가·대체·보상작용·고른 보상작용·무게 단위·오류·템포), 흐름 14개+시트별 390·375 글자 중간 꺾임 7개(전부 `guardedFlow`), `sheet-*` 쌍·같은 역할 판정, 종료 시트 닫기 세 흐름을 Astryx dialog 기준으로 다시 씀 |
+| 테스트 | `src/lib/v120.test.ts`(+15), `scripts/rr8.test.mjs`(신규 4, CSS는 fs로 읽는다) |
+| 기타 | `docs/ASTRYX-INVENTORY.md` 새로 씀, `docs/screenshots/v1.20/after/` 신규 장면 20장 + `sheet-finish`·`sheet-timer`(다크·라이트) + `layout.json` |
+
+세 숫자(`astryx-inventory --check`): Astryx를 안 읽는 파일 32→**24**, 인라인 66→**55**, legacy 쓰임 358→**288**(PLAN 예상 283보다 5 많다 — 원인은 따로 안 가렸다), 안 쓰는 선택자 2→**2**(늘지 않음).
+
+### PLAN과 달라진 것·알아낸 것
+
+| 항목 | 내용 |
+|---|---|
+| 경고 글자색 | `Text`의 색 이름에 `warning`·`error`가 없다(`BuiltinTextColor`). PLAN의 `Text color="warning"`은 RR7이 만든 `className="ax-text-warning"`로, `Text color="error"`는 RR5와 같이 `Banner status="error"`로 했다 |
+| 막 누름으로 안 닫히는 시트 | `purpose="form"` 시트(종료·대체·보상작용·무게 단위)는 막을 눌러도 안 닫힌다(실측: 종료 시트에서 막을 눌러도 `dialog`가 남고 Esc는 닫는다). 입력을 실수로 잃지 않는 쪽이라 PLAN의 `purpose` 규칙 그대로 두었다. 종료 시트의 옛 동작(막 누름으로 닫힘)이 바뀌는 점이라 여기 적는다. `ui-check`의 닫기 세 흐름은 이름을 `Esc로 닫기`·`Esc 두 번 누르기`·`움직임 줄이기에서 닫기`로 바꿨다 |
+| 템포 가이드 `purpose` | 지금 막 누름으로 닫혀서 `info`(PLAN의 지시). `required`가 아니다 |
+| 링 크기 | `style=` 속성을 안 쓰려고 효과에서 `style.setProperty('--ax-tempo-scale', …)`로 건넨다(인라인 스타일 수 안 늘어남) |
+| 대체 후보 1탭 | 예시 데이터에는 원 종목 기록이 있는 후보가 없어(후보가 전부 `no-history`로 막힘) 흐름이 **건너뜀**으로 통과한다(`ok: true`, 이유 적음). 경계 상태는 `sheet-substitute` 장면이 찍는다. 보상작용 징후 둘 고르기도 예시 카드에 체크리스트가 없어 직접 입력으로 같은 저장 길을 탄다 |
+| 템포 장면 | 템포 가이드는 설정에서 켜야 버튼이 보인다 → `sheet-tempo` 구간이 설정을 켜고 새 세션을 시작해 흐름을 돌린 뒤 세션을 버리고 설정을 되돌린다 |
+| 제목 정렬 | 템포 시트 제목을 가운데로 두면 `같은 역할`의 시트 좌우가 18로 어긋나(다른 시트 16) 왼쪽 맞춤으로 했다 |
+| 옮긴 스캔 | `v119` QQ3 legacy 시트 12→4, `v112` `FinishSheet` 한 줄(`<Text color="secondary">`), `uiConsistency` X9(`<Button`), `scripts/rr7.test.mjs`(`.setup-edit` 삭제) — 수정표의 둘 + 아래 `수정표 밖` |
+
+수정표 밖: `v119.test.ts`(QQ3 개수 12→4), `scripts/rr7.test.mjs`(`.setup-edit` 남김 → 삭제 확인).
+
+### 테스트 ↔ PLAN 검증 항목
+
+| PLAN 검증 | 확인 |
+|---|---|
+| 여덟 파일 `Sheet`·`SheetFrame` 0·className `ax-tempo-` 뿐·`style=`·`<button`·`<input`·`<textarea` 0 | `v120` RR8 첫 둘(className은 `ax-toggle`·`ax-text-warning`도 허용 — 위 표) |
+| QQ3 목록이 식단 넷, 열 시트 닫기가 `dismiss` | `v120` RR8 "legacy 시트 목록이…", "열 시트 열의 닫기는 dismiss" |
+| 안 고치고 통과(`guideFinish`·`tempo`·`soundCancel`·`audioIndependence`·`v18`·`uiConsistency` X9 첫 검사·`v112`) | 전체 테스트 통과 |
+| 옮기는 둘(`v112:815`·`uiConsistency:96`) | 위 표 |
+| `FinishSheet` 버리기 앞 `destructive` | `v120` RR8 |
+| 흐름: 종료→기록→요약 / 버리기 2단계→홈 / 수동 타이머 / 대체 / 보상작용 / 무게 단위 / 템포 Z2 체인 | `ui-check` 흐름 `RR8 …`(종료→요약은 기존 장면 순서, 대체는 건너뜀 — 위 표) |
+| 화면 검증: 끝까지 스크롤·고른 상태·오류 문구·도는 중 한 장·375·390 | 장면 12개, `RR8 종료 시트 끝까지 스크롤…`, `…글자 중간 꺾임 없음` 7개(390·375) |
+| 경계: 경고(미완료)·대체 후보 막힘·체중·보상작용 없음·핀 목록 오류 | `sheet-finish`(미완료 경고)·`sheet-substitute`·`sheet-scale-error` 장면. 체중 입력 칸은 후보가 열려야 나와 소스 스캔(`v120` RR8 로직 그대로)만 |
+
+### 결함 복원 (`cp` 백업 → 결함 → 테스트 → 복구 → `cmp`)
+
+| 되살린 결함 | 실패한 테스트 | 복구 |
+|---|---|---|
+| `FinishSheet` `이 세션 버리기`의 `variant="destructive"` 제거 | `v120` RR8 "버리기 문구 앞…" | `cmp` 같음 |
+| `AddExerciseSheet` 닫기 `onClick={dismiss}` → `{onClose}` | `v120` RR8 "닫기는 dismiss를 지난다" | 같음 |
+| `parts.css` keep-all 목록에서 `무게 단위 설정` 제거 | `rr8.test.mjs` "여덟 시트의 이름…" | 같음 |
+| `ManualTimerSheet`의 `ax-toggle` 하나 제거 | 처음엔 **못 잡았다**(정규식이 다른 `ToggleButton`의 클래스에 걸림) → 태그 수 = 클래스 수 비교로 고친 뒤 `v120` RR8 "켜고 끄는 고르기" 실패 | 같음 |
+| `CompensationSheet`의 `hasCompensation(current)` → `(preview)` | `uiConsistency` X9 둘 | 같음 |
+
+### 변이 테스트
+
+대상 없음 — `src/lib`의 판정 파일을 안 고쳤다(`git diff --stat main..HEAD -- src/lib`는 테스트 파일뿐).
+
+### ui-check (`node scripts/ui-check.mjs after --check --ver=v1.20` → **종료 코드 0**)
+
+- 접근성(axe) serious·critical 0건, 새 장면 12개의 `띠`·`시트 버튼`·`안쪽 대칭`·`같은 역할`(시트 좌우 16으로 열두 장면 같음) 통과.
+- 처음 실행의 실패와 고친 것: 종료 시트 닫기 흐름이 legacy 막(`.sheet-backdrop`)·막 누름에 묶여 있었다(위 표), 수동 타이머 흐름이 "안 눌린 첫 버튼"을 매번 다시 골라 거짓 실패, 닫힌 직후 바로 다시 열면 안 열려 450ms 기다림 추가, 템포 제목 가운데 정렬이 `같은 역할`에서 18.
+- 이 실행은 `--same-layout`을 안 붙였다(옮긴 화면의 배치 기록이 `before`와 달라 RR3~RR7에서도 판정 명령이 아니다).
+
+### 하지 않은 것·실기기 확인 목록
+
+- 대체 후보 1탭 흐름(예시 데이터 한계), 보상작용 관찰 시트(`CompensationWatchSheet`)는 장면·흐름이 없다 — 3회 반복 기록이 있어야 열린다. 소스 스캔으로만 잠갔다.
+- 실기기: 종료 시트 메모·무게 단위 핀 목록에 키보드가 올라와도 입력칸이 안 가리는지(Chromium에는 키보드가 없다), 템포 가이드 소리·화면 꺼짐, 종료 시트에서 막을 눌러도 안 닫히는 것(위 표)이 불편한지.
+
+### 실행 결과
+
+- `npm test`: `Test Files  76 passed (76)` / `Tests  1772 passed (1772)`
+- `npm run check`: 전부 통과(빌드 포함)
+- `node scripts/ui-check.mjs after --check --ver=v1.20`: `종료 코드 0`
+- `git rev-list --count main..HEAD`: 커밋 전 45

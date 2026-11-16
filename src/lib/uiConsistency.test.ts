@@ -93,7 +93,7 @@ describe('X9 — 비우기 버튼은 지울 것이 있을 때만 보인다', () 
     // selected/free로 판단하면 체크를 다 푼 순간 버튼이 사라져 되돌릴 수 없다
     const src = file('/src/components/CompensationSheet.tsx')
     // LL1(PLAN-v1.14): 옛 정규식은 current로 시작하는 식만 잡아 새 식에서 헛돈다
-    const cond = /\{([^{}]*\bcurrent\b[^{}]*?) &&\s*\(\s*<button/.exec(src)?.[1] ?? ''
+    const cond = /\{([^{}]*\bcurrent\b[^{}]*?) &&\s*\(\s*<Button/.exec(src)?.[1] ?? ''
     expect(cond).not.toBe('')
     expect(cond).not.toMatch(/\bselected\b|\bfree\b|\bpreview\b/)
   })
