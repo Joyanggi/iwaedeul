@@ -578,10 +578,26 @@ async function runScenes(browser, port, scheme) {
       const back = await restSec()
       flows.push(['최소화하면 재개 줄에 남은 휴식', { ok: stripSec <= before && stripSec > 0 && back <= stripSec, detail: `세션 ${before}초 → 재개 줄 ${stripSec}초 → 돌아온 세션 ${back}초(같은 타이머라 줄어들기만 한다)` }])
     })
+    // 참고(RR6 화면 검증): 세션 화면 버튼의 눌림 크기. 숫자 기준이 아니라 사람이 보는 값이다 — 항상 ok. 휴식 바 닫기 버튼은 끝난 바에서만 생긴다.
+    await guardedFlow(['세션 버튼 눌림 크기 참고'], async () => {
+      const sizes = await page.evaluate(() => {
+        const out = []
+        for (const b of document.querySelectorAll('button')) {
+          const r = b.getBoundingClientRect()
+          if (r.width === 0 || r.height === 0) continue
+          out.push(`${(b.getAttribute('aria-label') || b.textContent || '').trim().slice(0, 14)}=${Math.round(r.width)}x${Math.round(r.height)}`)
+        }
+        return out
+      })
+      const small = sizes.filter((x) => Number(x.split('=')[1].split('x')[1]) < 44)
+      flows.push(['세션 버튼 눌림 크기 참고', { ok: true, detail: `전체 ${sizes.length}개 · 44px 미만 ${small.length}개: ${[...new Set(small)].join(', ')}` }])
+    })
     await guardedFlow(['끝난 휴식 바 1탭 닫기'], async () => {
       await restBtn('−30초').click()
       await restBtn('−30초').click()
       await restBar().getByRole('heading', { name: '휴식 완료' }).waitFor({ timeout: 3000 })
+      const dm = await page.evaluate(() => { const b = document.querySelector('[role="timer"] .ax-bar-dismiss, .ax-bar-dismiss'); const r = b?.getBoundingClientRect(); const t = document.querySelector('[role="timer"]')?.getBoundingClientRect(); return r ? `${Math.round(r.width)}x${Math.round(r.height)} (바 ${Math.round(t?.width ?? 0)}x${Math.round(t?.height ?? 0)})` : '못 찾음' })
+      flows.push(['휴식 바 닫기 버튼 눌림 크기 참고', { ok: true, detail: dm }])
       const box = await restBar().getByRole('heading', { name: '휴식 완료' }).boundingBox()
       // 글자 위를 누른다 — 글자는 눌림을 안 받고 뒤에 깔린 닫기 버튼이 받는다
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
