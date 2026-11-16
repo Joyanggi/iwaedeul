@@ -117,7 +117,7 @@ export const inPageLayout = () => {
 export function spaceRoleVerdicts(layouts, judged = new Set()) {
   const same = (xs) => xs.every((x) => Math.abs(x - xs[0]) < 0.5)
   const SCREENS = ['home', 'home-375', 'home-banner', 'session', 'summary', 'history', 'analyze', 'diet', 'settings', 'editor']
-  const SHEETS = ['sheet-finish', 'sheet-finish-cardio', 'sheet-timer', 'sheet-add', 'sheet-substitute', 'sheet-comp', 'sheet-scale', 'sheet-tempo', 'sheet-home', 'sheet-open-session', 'sheet-food', 'line-sheet']
+  const SHEETS = ['sheet-finish', 'sheet-finish-cardio', 'sheet-timer', 'sheet-add', 'sheet-substitute', 'sheet-comp', 'sheet-scale', 'sheet-tempo', 'sheet-watch', 'sheet-home', 'sheet-open-session', 'sheet-food', 'line-sheet']
   const fmt = (pairs) => pairs.map(([k, v]) => `${k} ${v}`).join(' · ')
   const x = SCREENS.filter((s) => layouts[s]?.screenX != null).map((s) => [s, layouts[s].screenX])
   const gaps = SCREENS.flatMap((s) => (layouts[s]?.cardGaps ?? []).map((g) => [s, g]))
@@ -250,7 +250,7 @@ export const EXPECTED_PAIRS = {
   'sheet-home': ['sheet', 'button'],
   'sheet-open-session': ['sheet', 'button'],
   // RR8: 세션이 여는 시트 여덟(종료·타이머·추가·대체·보상작용·무게 단위·템포)
-  ...Object.fromEntries(['sheet-finish', 'sheet-finish-cardio', 'sheet-finish-end', 'sheet-timer', 'sheet-timer-picked', 'sheet-add', 'sheet-substitute', 'sheet-comp', 'sheet-comp-picked', 'sheet-scale', 'sheet-scale-error', 'sheet-tempo'].map((n) => [n, ['sheet', 'button']])),
+  ...Object.fromEntries(['sheet-finish', 'sheet-finish-cardio', 'sheet-finish-end', 'sheet-timer', 'sheet-timer-picked', 'sheet-add', 'sheet-substitute', 'sheet-comp', 'sheet-comp-picked', 'sheet-scale', 'sheet-scale-error', 'sheet-tempo', 'sheet-watch', 'sheet-watch-end'].map((n) => [n, ['sheet', 'button']])),
 }
 
 /** 안쪽 대칭 판정 (Node). pairs = inPageInsetSymmetry() 결과, expected = 기대하는 쌍 종류. 위·아래·좌·우 차이가 tol(1px) 이하여야 하고, 기대한 쌍이 하나라도 0개면 실패 */

@@ -114,7 +114,7 @@ const HOME_SCENES = ['home', 'home-end', 'home-375', 'home-banner', 'home-banner
 /** 홈이 여는 시트 둘(RR5). 시트 안 내용의 좌·우(`sheet` 쌍)도 판정한다 */
 const HOME_SHEET_SCENES = ['sheet-home', 'sheet-open-session']
 /** 세션이 여는 시트(RR8) — 안쪽 대칭(sheet·button)과 같은 역할(시트 좌우)을 판정한다. 이름은 장면 이름 */
-const SESSION_SHEET_SCENES = ['sheet-finish', 'sheet-finish-cardio', 'sheet-finish-end', 'sheet-timer', 'sheet-timer-picked', 'sheet-add', 'sheet-substitute', 'sheet-comp', 'sheet-comp-picked', 'sheet-scale', 'sheet-scale-error', 'sheet-tempo']
+const SESSION_SHEET_SCENES = ['sheet-finish', 'sheet-finish-cardio', 'sheet-finish-end', 'sheet-timer', 'sheet-timer-picked', 'sheet-add', 'sheet-substitute', 'sheet-comp', 'sheet-comp-picked', 'sheet-scale', 'sheet-scale-error', 'sheet-tempo', 'sheet-watch', 'sheet-watch-end']
 const SESSION_SCENES = ['session', 'session-375', 'session-rest']
 /** 운동 카드가 보이는 장면(RR7) — 카드·뱃지·세트 행 쌍도 판정한다 */
 const CARD_SCENES = ['session', 'session-375', 'session-open-b', 'history-detail-edit']
@@ -909,25 +909,16 @@ async function runScenes(browser, port, scheme) {
       await dlg.waitFor()
       await settle(page, 450)
       await snap('sheet-comp')
-      // 징후 둘 고르기 → 눌린 것 둘 + 저장될 값이 경고 줄
+      // 장면: 징후 둘 고른 모습. 판정(징후 둘 고르기 → 저장 → 카드 문구)은 시드한 세션에서 한다 — 여기 예시 세션은 기록이 없어 징후 목록이 없는 종목일 수 있다
       const signs = dlg.locator('button[aria-pressed]')
-      const nSigns = await signs.count()
-      for (let i = 0; i < Math.min(2, nSigns); i++) await signs.nth(i).click()
-      // 체크리스트가 없는 종목이면 직접 입력으로 (같은 저장 길)
-      if (nSigns === 0) await dlg.getByRole('textbox', { name: '보상작용 직접 입력' }).fill('마지막 세트 엉덩이 살짝 뜸')
+      for (let i = 0; i < Math.min(2, await signs.count()); i++) await signs.nth(i).click()
+      if ((await signs.count()) === 0) await dlg.getByRole('textbox', { name: '보상작용 직접 입력' }).fill('마지막 세트 엉덩이 살짝 뜸')
       await settle(page, 300)
       await snap('sheet-comp-picked')
       await wrapFlow('보상작용 시트')
-      await guardedFlow(['RR8 보상작용: 징후 둘 고르기 → 저장 → 카드의 보상작용 줄이 바뀐다'], async () => {
-        const pressed = await pressedCount(dlg)
-        const warnLine = await dlg.locator('.ax-text-warning').count()
-        const warnColor = await warnColorBothSchemes()
-        await dlg.getByRole('button', { name: '저장', exact: true }).click()
-        const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
-        await settle(page, 400)
-        const shown = await page.locator('li .ax-text-warning').count()
-        flows.push(['RR8 보상작용: 징후 둘 고르기 → 저장 → 카드의 보상작용 줄이 바뀐다', { ok: pressed === Math.min(2, nSigns) && warnLine === 1 && warnColor.same && shown > 0 && gone, detail: `저장될 값 계산된 색 ${warnColor.actual} (토큰 ${warnColor.token}) · 징후 목록 ${nSigns}개 · 눌린 징후 ${pressed}개 · 저장될 값 경고 줄 ${warnLine} · 시트 닫힘 ${gone} · 카드의 경고 줄 ${shown}` }])
-      })
+      await dlg.getByRole('button', { name: '취소', exact: true }).click()
+      await dlg.waitFor({ state: 'detached' }).catch(() => {})
+      await settle(page, 400)
     })
     await optional('sheet-scale', async () => {
       if ((await openCardWith(() => page.getByRole('button', { name: /^무게 단위 · / }))) < 0) throw new Error('무게 단위 줄이 있는 카드가 없다')
@@ -997,26 +988,163 @@ async function runScenes(browser, port, scheme) {
       })
     })
 
-    // RR8: 템포 가이드·대체 후보 1탭·버리기 → 홈. 템포 가이드는 설정에서 켜야 버튼이 보이므로(기본 꺼짐) 켜고 시작해 끝에 다시 끈다.
-    // 첫 세션이 끝나 원 종목 기록이 생긴 뒤라 대체 후보가 열린다. 세션은 끝에서 버려 기록에 흔적이 없다.
+    // RR8: 시드한 세션에서 보상작용(징후 둘 고르기)·보상작용 반복 시트·대체 후보 1탭을 재고, 템포 가이드·버리기 → 홈까지 간다.
+    // 시드: 방금 끝낸 세션을 같은 Day로 세 번 더 끝낸 것처럼 복제해 "Day를 여러 번 끝낸 상태"를 만든다(보상작용은 복제 셋 모두 기록).
+    // 그래야 원 종목 기록이 있는 대체 후보가 열리고, 징후 목록이 있는 종목의 보상작용 시트와 3/3 반복 시트가 열린다. 시드는 이 블록 끝에서 지운다.
+    // 템포 가이드는 설정에서 켜야 버튼이 보이므로(기본 꺼짐) 켜고 시작해 끝에 다시 끈다. 세션은 끝에서 버려 기록에 흔적이 없다.
+    const SEED_IDS = ['ui-check-seed-1', 'ui-check-seed-2', 'ui-check-seed-3']
+    const seedFlows = {
+      comp: 'RR8 보상작용: 징후 둘 고르기 → 저장 → 카드의 보상작용 줄이 바뀐다',
+      watch: 'RR8 보상작용 반복 시트: 3/3 버튼 → 시트 → 끝까지 스크롤하면 그대로 두기 버튼이 화면 안에 있다',
+      watchWrap: 'RR8 보상작용 반복 시트 390·375 글자 중간 꺾임 없음',
+      sub: 'RR8 대체: 후보 1탭 → 시트가 닫히고 카드에 대체 뱃지가 생긴다',
+    }
+    const seedWatch = () =>
+      page.evaluate(
+        (ids) =>
+          new Promise((resolve, reject) => {
+            const open = indexedDB.open('workout-tracker')
+            open.onerror = () => reject(open.error)
+            open.onsuccess = () => {
+              const idb = open.result
+              const tx = idb.transaction(['sessions', 'exercises'], 'readwrite')
+              const sessions = tx.objectStore('sessions')
+              const all = sessions.getAll()
+              const exs = tx.objectStore('exercises').getAll()
+              let out = null
+              tx.oncomplete = () => {
+                idb.close()
+                if (out) resolve(out)
+                else reject(new Error('시드 실패: 끝난 세션이나 징후가 둘 이상인 종목이 없다'))
+              }
+              tx.onerror = () => reject(tx.error)
+              const go = () => {
+                if (all.readyState !== 'done' || exs.readyState !== 'done') return
+                const catalog = new Map(exs.result.map((e) => [e.id, e]))
+                const done = all.result.filter((x) => x.endedAt && !ids.includes(x.id)).sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+                const src = done[0]
+                if (!src) return
+                const signsOf = (e) => catalog.get(e.recordKey.split('@')[0])?.compensationSigns ?? []
+                const target = src.entries.find((e) => !e.skipped && !e.substituteFor && !e.extra && signsOf(e).length >= 2)
+                if (!target) return
+                const note = signsOf(target)[0]
+                ids.forEach((id, i) => {
+                  const at = Date.parse(src.startedAt) + (i + 1) * 60000
+                  sessions.put({
+                    ...src,
+                    id,
+                    startedAt: new Date(at).toISOString(),
+                    endedAt: new Date(at + 30000).toISOString(),
+                    entries: src.entries.map((e) => ({
+                      ...e,
+                      sets: e.sets.map((x) => ({ ...x, done: true })),
+                      compensation: e.recordKey === target.recordKey ? note : e.compensation,
+                    })),
+                  })
+                })
+                out = { dayId: src.dayId, recordKey: target.recordKey }
+              }
+              all.onsuccess = go
+              exs.onsuccess = go
+            }
+          }),
+        SEED_IDS,
+      )
+    const unseedWatch = () =>
+      page.evaluate(
+        (ids) =>
+          new Promise((resolve, reject) => {
+            const open = indexedDB.open('workout-tracker')
+            open.onerror = () => reject(open.error)
+            open.onsuccess = () => {
+              const idb = open.result
+              const tx = idb.transaction('sessions', 'readwrite')
+              ids.forEach((id) => tx.objectStore('sessions').delete(id))
+              tx.oncomplete = () => {
+                idb.close()
+                resolve(null)
+              }
+              tx.onerror = () => reject(tx.error)
+            }
+          }),
+        SEED_IDS,
+      )
     await optional('sheet-tempo', async () => {
       await page.getByRole('button', { name: '설정', exact: true }).click()
       await settle(page, 600)
       const tempoCard = page.locator('.card').filter({ has: page.getByText('템포 가이드', { exact: true }) })
       await tempoCard.getByRole('button', { name: '사용', exact: true }).click()
       await settle(page, 300)
-      await page.getByRole('button', { name: '홈', exact: true }).click()
-      await settle(page, 500)
-      await page.getByRole('button', { name: /시작$|이어서 하기/ }).first().click()
-      await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor()
-      await settle(page, 600)
 
-      // 대체: 후보 1탭 → 카드가 대체 종목으로 (후보 줄이 열려 있어야 한다 — 원 종목 기록이 있는 종목을 고른다)
-      await guardedFlow(['RR8 대체: 후보 1탭 → 시트가 닫히고 카드에 대체 뱃지가 생긴다'], async () => {
-        // 후보가 열리는(원 종목 기록이 있는) 카드를 찾을 때까지 카드를 하나씩 펼쳐 본다
+      // 시드 → 같은 Day로 새 세션 시작. 어느 단계든 예외가 나면 아래 흐름 이름 전부가 실패로 센다(건너뜀 없음)
+      let started = false
+      await guardedFlow(Object.values(seedFlows), async () => {
+        const seed = await seedWatch()
+        await page.reload()
+        await page.getByRole('button', { name: '설정', exact: true }).waitFor()
+        await settle(page, 800)
+        const dayNo = /^d(\d+)$/.exec(seed.dayId)?.[1]
+        if (!dayNo) throw new Error(`Day 이름을 못 읽었다: ${seed.dayId}`)
+        await btn(page, '변경').click()
+        const pick = page.getByRole('dialog', { name: 'Day 선택' })
+        await pick.waitFor({ timeout: 3000 })
+        await settle(page, 400)
+        await pick.getByRole('button', { name: new RegExp(`^Day ${dayNo}`) }).click()
+        await settle(page, 400)
+        await page.getByRole('button', { name: /시작$|이어서 하기/ }).first().click()
+        await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor()
+        await settle(page, 600)
+        started = true
+
+        // 보상작용 반복 시트(info): 3/3 버튼 → 시트 → 끝까지 스크롤 → 그대로 두기로 닫힘
+        const watchBtn = () => page.getByRole('button', { name: /^보상작용 \d\/3회/ })
+        if ((await openCardWith(watchBtn)) < 0) throw new Error('보상작용 3/3 버튼이 있는 카드가 없다(시드가 안 먹었다)')
+        await watchBtn().first().click()
+        const wdlg = page.getByRole('dialog', { name: '보상작용 반복 — 무게 하향' })
+        await wdlg.waitFor()
+        await settle(page, 450)
+        await snap('sheet-watch')
+        await wrapFlow('보상작용 반복 시트')
+        const wScrolled = await sheetToEnd()
+        await settle(page, 400)
+        await snap('sheet-watch-end')
+        if (!light) {
+          const box = await wdlg.getByRole('button', { name: '그대로 두기', exact: true }).boundingBox()
+          const vh = page.viewportSize().height
+          flows.push([seedFlows.watch, { ok: !!box && box.y >= 0 && box.y + box.height <= vh + 0.5, detail: `스크롤 칸이 넘쳤나 ${wScrolled} · 그대로 두기 버튼 ${box ? `y ${Math.round(box.y)}~${Math.round(box.y + box.height)} / 화면 ${vh}` : '안 보임'}` }])
+        }
+        await wdlg.getByRole('button', { name: '그대로 두기', exact: true }).click()
+        await wdlg.waitFor({ state: 'detached' }).catch(() => {})
+        await settle(page, 400)
+
+        // 보상작용: 징후 둘 고르기 → 저장 → 카드의 보상작용 줄이 저장한 문구로 바뀐다 (징후 목록 ≥2·눌린 징후 2를 요구한다 — 0개는 실패)
+        await page.locator('li').filter({ hasText: '▸' }).getByRole('button').first().click()
+        const dlg = page.getByRole('dialog', { name: '보상작용 입력' })
+        await dlg.waitFor()
+        await settle(page, 450)
+        const signs = dlg.locator('button[aria-pressed]')
+        const nSigns = await signs.count()
+        const names = []
+        for (let i = 0; i < Math.min(2, nSigns); i++) {
+          names.push(((await signs.nth(i).innerText()) || '').trim())
+          await signs.nth(i).click()
+        }
+        await settle(page, 300)
+        const pressed = await pressedCount(dlg)
+        const warnLine = await dlg.locator('.ax-text-warning').count()
+        const warnColor = await warnColorBothSchemes()
+        const saved = names.join(', ')
+        const beforeText = await page.locator('li .ax-text-warning').filter({ hasText: saved }).count()
+        await dlg.getByRole('button', { name: '저장', exact: true }).click()
+        const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
+        await settle(page, 400)
+        const shown = await page.locator('li .ax-text-warning').filter({ hasText: saved }).count()
+        flows.push([seedFlows.comp, { ok: nSigns >= 2 && pressed === 2 && saved.length > 0 && warnLine === 1 && warnColor.same && beforeText === 0 && shown === 1 && gone, detail: `저장될 값 계산된 색 ${warnColor.actual} (토큰 ${warnColor.token}) · 징후 목록 ${nSigns}개 · 눌린 징후 ${pressed}개 · 저장될 값 경고 줄 ${warnLine} · 시트 닫힘 ${gone} · 저장 전 카드의 "${saved}" ${beforeText}줄 → 저장 뒤 ${shown}줄` }])
+
+        // 대체: 후보 1탭 → 카드가 대체 종목으로 (후보가 0개면 실패다 — 시드한 원 종목 기록으로 후보가 열려야 한다)
         const heads = page.locator('button[aria-expanded]')
-        const dlg = page.getByRole('dialog', { name: '대체운동 선택' })
-        const open = dlg.locator('li button:not([disabled])')
+        const sdlg = page.getByRole('dialog', { name: '대체운동 선택' })
+        const open = sdlg.locator('li button:not([disabled])')
         let nOpen = 0
         for (let i = 0; i < (await heads.count()) && nOpen === 0; i++) {
           const head = heads.nth(i)
@@ -1026,27 +1154,29 @@ async function runScenes(browser, port, scheme) {
           const sub = page.getByRole('button', { name: /^대체 — 자리 없음/ })
           if ((await sub.count()) > 0) {
             await sub.first().click()
-            await dlg.waitFor()
+            await sdlg.waitFor()
             await settle(page, 450)
             nOpen = await open.count()
             if (nOpen === 0) {
-              await dlg.getByRole('button', { name: '취소', exact: true }).click()
-              await dlg.waitFor({ state: 'detached' }).catch(() => {})
+              await sdlg.getByRole('button', { name: '취소', exact: true }).click()
+              await sdlg.waitFor({ state: 'detached' }).catch(() => {})
               await settle(page, 400)
             }
           }
           if (nOpen === 0 && !was) await head.click()
         }
         if (nOpen === 0) {
-          flows.push(['RR8 대체: 후보 1탭 → 시트가 닫히고 카드에 대체 뱃지가 생긴다', { ok: true, detail: '건너뜀 — 예시 데이터에는 원 종목 기록이 있는 대체 후보가 없다(후보가 전부 막힌 경계 상태는 sheet-substitute가 찍는다). 후보 1탭은 실기기 확인' }])
-          return
+          flows.push([seedFlows.sub, { ok: false, detail: '열린 대체 후보가 0개다 — 시드한 원 종목 기록으로 후보가 열려야 한다' }])
+        } else {
+          const badgeBefore = await page.getByText('대체', { exact: true }).count()
+          await open.first().click()
+          const subGone = await sdlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
+          await settle(page, 500)
+          const badge = await page.getByText('대체', { exact: true }).count()
+          flows.push([seedFlows.sub, { ok: nOpen >= 1 && subGone && badge > badgeBefore, detail: `열린 후보 ${nOpen}개 · 시트 닫힘 ${subGone} · 대체 뱃지 ${badgeBefore} → ${badge}` }])
         }
-        await open.first().click()
-        const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
-        await settle(page, 500)
-        const badge = await page.getByText('대체', { exact: true }).count()
-        flows.push(['RR8 대체: 후보 1탭 → 시트가 닫히고 카드에 대체 뱃지가 생긴다', { ok: gone && badge > 0, detail: `열린 후보 ${nOpen}개 · 시트 닫힘 ${gone} · 대체 뱃지 ${badge}` }])
       })
+      if (!started) throw new Error('시드한 세션을 시작하지 못했다')
 
       // 템포 가이드: 도는 중 한 장, 그 장면의 링·글자, 자동이 아닌 수동 종료로 세트 체크 + 휴식 시작(Z2 체인)
       const tempoBtn = () => page.getByRole('button', { name: /세트 템포 가이드$/ })
@@ -1060,13 +1190,13 @@ async function runScenes(browser, port, scheme) {
       await settle(page, 700)
       await snap('sheet-tempo')
       await wrapFlow('템포 가이드 시트')
-      await guardedFlow(['RR8 템포 가이드 도는 중: 링이 단계 색을 갖고 크기가 변수로 간다 + 막을 눌러 닫히지 않는다(purpose)'], async () => {
+      await guardedFlow(['RR8 템포 가이드 도는 중: 링이 단계 색을 갖고 크기가 변수로 간다'], async () => {
         const ring = dlg.locator('.ax-tempo-ring')
         const cls = (await ring.getAttribute('class')) ?? ''
         const scale = await ring.evaluate((el) => el.style.getPropertyValue('--ax-tempo-scale'))
         const w = await ring.evaluate((el) => el.getBoundingClientRect().width)
         const progress = await dlg.getByRole('progressbar').count()
-        flows.push(['RR8 템포 가이드 도는 중: 링이 단계 색을 갖고 크기가 변수로 간다 + 막을 눌러 닫히지 않는다(purpose)', { ok: /ax-tempo-ring-(concentric|eccentric|squeeze|stretch)/.test(cls) && scale !== '' && w > 0 && progress === 1, detail: `링 ${cls.replace('ax-tempo-ring ', '')} · scale ${scale} · 폭 ${Math.round(w)}px · 진행 막대 ${progress}` }])
+        flows.push(['RR8 템포 가이드 도는 중: 링이 단계 색을 갖고 크기가 변수로 간다', { ok: /ax-tempo-ring-(concentric|eccentric|squeeze|stretch)/.test(cls) && scale !== '' && w > 0 && progress === 1, detail: `링 ${cls.replace('ax-tempo-ring ', '')} · scale ${scale} · 폭 ${Math.round(w)}px · 진행 막대 ${progress}` }])
       })
       await guardedFlow(['RR8 템포 가이드 → 종료 → 세트 체크 + 휴식 시작'], async () => {
         const end = dlg.getByRole('button', { name: /^종료 — 약 [1-9]\d*회 기록 · 휴식 시작$/ })
@@ -1101,6 +1231,13 @@ async function runScenes(browser, port, scheme) {
       await settle(page, 300)
       await page.getByRole('button', { name: '홈', exact: true }).click()
       await settle(page, 500)
+    })
+    // 시드한 세션을 지운다(뒤 장면 기록·분석·홈이 시드 없는 예시 데이터로 찍히게). 위 장면이 건너뜀이어도 돈다
+    await optional('seed-cleanup', async () => {
+      await unseedWatch()
+      await page.reload()
+      await page.getByRole('button', { name: '설정', exact: true }).waitFor()
+      await settle(page, 800)
     })
 
     // 기록

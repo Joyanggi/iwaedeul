@@ -1125,14 +1125,14 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 | 테스트 | `src/lib/v120.test.ts`(+15), `scripts/rr8.test.mjs`(신규 4, CSS는 fs로 읽는다) |
 | 기타 | `docs/ASTRYX-INVENTORY.md` 새로 씀, `docs/screenshots/v1.20/after/` 신규 장면 20장 + `sheet-finish`·`sheet-timer`(다크·라이트) + `layout.json` |
 
-세 숫자(`astryx-inventory --check`): Astryx를 안 읽는 파일 32→**24**, 인라인 66→**55**, legacy 쓰임 358→**288**(PLAN 예상 283보다 5 많다 — 원인은 따로 안 가렸다), 안 쓰는 선택자 2→**2**(늘지 않음).
+세 숫자(`astryx-inventory --check`): Astryx를 안 읽는 파일 32→**24**, 인라인 66→**55**, legacy 쓰임 363→**288**(RR8 몫은 −75로 PLAN 예상 그대로. PLAN 예상 283과의 차이 5는 RR7이 363에서 끝나 넘어온 것이다), 안 쓰는 선택자 2→**2**(늘지 않음).
 
 ### PLAN과 달라진 것·알아낸 것
 
 | 항목 | 내용 |
 |---|---|
 | 경고 글자색 | `Text`의 색 이름에 `warning`·`error`가 없다(`BuiltinTextColor`). PLAN의 `Text color="warning"`은 RR7이 만든 `className="ax-text-warning"`로, `Text color="error"`는 RR5와 같이 `Banner status="error"`로 했다 |
-| 막 누름으로 안 닫히는 시트 | `purpose="form"` 시트(종료·대체·보상작용·무게 단위)는 막을 눌러도 안 닫힌다(실측: 종료 시트에서 막을 눌러도 `dialog`가 남고 Esc는 닫는다). 입력을 실수로 잃지 않는 쪽이라 PLAN의 `purpose` 규칙 그대로 두었다. 종료 시트의 옛 동작(막 누름으로 닫힘)이 바뀌는 점이라 여기 적는다. `ui-check`의 닫기 세 흐름은 이름을 `Esc로 닫기`·`Esc 두 번 누르기`·`움직임 줄이기에서 닫기`로 바꿨다 |
+| 막 누름으로 안 닫히는 시트 | `purpose="form"` 시트(종료·대체·보상작용·무게 단위)는 막을 눌러도 안 닫힌다(실측: 종료 시트에서 막을 눌러도 `dialog`가 남고 Esc는 닫는다). **끌어내려도 안 닫힌다** — Astryx `BottomSheet`의 `isSwipeDismissAllowed`가 `purpose === 'info'`뿐이고(`BottomSheet.js:752`), 막 누름도 `info`만 받는다(`:387`). 닫는 길은 시트 안 닫기·취소 버튼과 Esc다. 입력을 실수로 잃지 않는 쪽이라 PLAN의 `purpose` 규칙 그대로 두었다(PLAN 개정 4가 사람 결정으로 "버튼·Esc로만 닫힌다"를 확정). 종료 시트의 옛 동작(막 누름으로 닫힘)이 바뀌는 점이라 여기 적는다. `ui-check`의 닫기 세 흐름은 이름을 `Esc로 닫기`·`Esc 두 번 누르기`·`움직임 줄이기에서 닫기`로 바꿨다 |
 | 템포 가이드 `purpose` | 지금 막 누름으로 닫혀서 `info`(PLAN의 지시). `required`가 아니다 |
 | 링 크기 | `style=` 속성을 안 쓰려고 효과에서 `style.setProperty('--ax-tempo-scale', …)`로 건넨다(인라인 스타일 수 안 늘어남) |
 | 대체 후보 1탭 | 예시 데이터에는 원 종목 기록이 있는 후보가 없어(후보가 전부 `no-history`로 막힘) 흐름이 **건너뜀**으로 통과한다(`ok: true`, 이유 적음). 경계 상태는 `sheet-substitute` 장면이 찍는다. 보상작용 징후 둘 고르기도 예시 카드에 체크리스트가 없어 직접 입력으로 같은 저장 길을 탄다 |
@@ -1177,15 +1177,15 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 
 ### 하지 않은 것·실기기 확인 목록
 
-- 대체 후보 1탭 흐름(예시 데이터 한계), 보상작용 관찰 시트(`CompensationWatchSheet`)는 장면·흐름이 없다 — 3회 반복 기록이 있어야 열린다. 소스 스캔으로만 잠갔다.
-- 실기기: 종료 시트 메모·무게 단위 핀 목록에 키보드가 올라와도 입력칸이 안 가리는지(Chromium에는 키보드가 없다), 템포 가이드 소리·화면 꺼짐, 종료 시트에서 막을 눌러도 안 닫히는 것(위 표)이 불편한지.
+- (RR8 리뷰 반려 반영으로 해소: 대체 후보 1탭·보상작용 징후 둘·`CompensationWatchSheet`는 아래 "리뷰 반영"에서 시드로 실제로 잰다.)
+- 실기기: 종료 시트 메모·무게 단위 핀 목록에 키보드가 올라와도 입력칸이 안 가리는지(Chromium에는 키보드가 없다), 템포 가이드 소리·화면 꺼짐, 종료·대체·보상작용·무게 단위 시트가 막 누름·끌어내림으로 안 닫히고 버튼·Esc로만 닫히는 것(위 표)이 불편한지.
 
 ### 실행 결과
 
-- `npm test`: `Test Files  76 passed (76)` / `Tests  1772 passed (1772)`
+- `npm test`: `Test Files  76 passed (76)` / `Tests  1773 passed (1773)`
 - `npm run check`: 전부 통과(빌드 포함)
 - `node scripts/ui-check.mjs after --check --ver=v1.20`: `종료 코드 0`
-- `git rev-list --count main..HEAD`: 커밋 전 45
+- `git rev-list --count main..HEAD`: 커밋 전 45(이 반려 반영 커밋 뒤 46)
 
 ### RR8 화면 검증 반려 반영 (경고 글자색)
 
@@ -1198,3 +1198,14 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 | 사진 | `sheet-comp-picked`·`sheet-scale-error`(다크·라이트) 다시 찍음 |
 
 하지 않은 것: 보상작용 징후 0개로 통과·대체 후보 1탭 건너뜀·`sheet-watch` 장면 없음은 남은 일이다. 시드로 Day 1을 세 번 끝낸 상태를 만들어 셋을 함께 돌려야 하는데 ui-check 시드 흐름을 새로 짜야 해서 이번 반려 범위 밖으로 뒀다.
+
+### RR8 리뷰 반려 반영 (대체·보상작용 흐름 0개 통과, sheet-watch, 수치)
+
+| 고칠 것 | 내용 |
+|---|---|
+| 1 흐름이 0개로 통과 | 첫 세션을 끝낸 뒤 그 세션을 같은 Day의 세 세션(`ui-check-seed-1~3`, 보상작용 기록)으로 복제해 IndexedDB에 넣고 새로고침한 뒤 같은 Day를 시작한다(블록 끝에서 지운다 — 뒤 장면은 시드 없는 데이터). 시드·시작·세 흐름은 한 `guardedFlow`(이름 넷)라 어느 단계서 던져도 넷 다 실패로 센다. 대체: 열린 후보 0개면 `ok:false`, 후보 1탭 뒤 시트 닫힘 + `대체` 뱃지가 늘었는지 잰다. 보상작용: `nSigns >= 2 && pressed === 2`(0=0 통과 제거), 카드는 클래스 유무가 아니라 저장한 문구(징후 이름 둘)가 `li .ax-text-warning`에 저장 전 0줄 → 저장 뒤 1줄인지 본다. 로그: 징후 목록 2개·눌린 징후 2개, 열린 후보 2개·대체 뱃지 1→2 (`.reports/ui-RR8-fix.log`) |
+| 2 sheet-watch | `보상작용 3/3` 버튼으로 연 `CompensationWatchSheet`를 `sheet-watch`·`sheet-watch-end`(끝까지 스크롤) 장면으로 다크·라이트 찍고 `SESSION_SHEET_SCENES`·`ui-space.mjs` 두 목록에 더했다. 흐름 둘 추가(`그대로 두기` 버튼이 화면 안, 390·375 꺾임 없음). 템포 흐름 이름의 거짓 문구 `+ 막을 눌러 닫히지 않는다(purpose)`를 지웠다(템포는 `info`) |
+| 3 DEV-RECORD | 위 RR8 절의 `358→288`을 `363→288`로, form 시트가 끌어내림으로도 안 닫힌다(`isSwipeDismissAllowed`는 `info`만)를 막 누름 줄·실기기 목록에 더했다 |
+| 같이 | 예시 세션의 `sheet-comp` 장면은 판정 흐름을 시드 세션으로 옮기고 저장 대신 `취소`로 닫는다 |
+
+결함 복원: `CompensationSheet`의 `ToggleButton` `onPressedChange`를 `() => void toggle`로(컴파일은 되게) 바꾸자 보상작용 흐름이 다크·라이트 둘 다 실패(눌린 징후 0개) → 복구, `cmp` 확인. 시드 `evaluate`가 던진 처음 실행에서는 넷이 모두 `흐름 실패`로 셌다(건너뜀 없음). 테스트: `v120` RR8에 "0개로 통과하지 않는다" 하나를 더했고 장면·이름 목록을 고쳤다.

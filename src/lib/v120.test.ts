@@ -983,7 +983,7 @@ describe("v120 RR8 — 세션의 시트 8개", () => {
 
   it("v120 RR8: ui-check — 시트 장면(종료·유산소·끝·타이머·고른 타이머·추가·대체·보상작용·고른 보상작용·무게 단위·오류·템포)을 찍고 sheet 쌍을 판정한다", () => {
     const t = text(SCRIPTS, "/scripts/ui-check.mjs")
-    for (const scene of ["sheet-finish", "sheet-finish-cardio", "sheet-finish-end", "sheet-timer", "sheet-timer-picked", "sheet-add", "sheet-substitute", "sheet-comp", "sheet-comp-picked", "sheet-scale", "sheet-scale-error", "sheet-tempo"]) {
+    for (const scene of ["sheet-finish", "sheet-finish-cardio", "sheet-finish-end", "sheet-timer", "sheet-timer-picked", "sheet-add", "sheet-substitute", "sheet-comp", "sheet-comp-picked", "sheet-scale", "sheet-scale-error", "sheet-tempo", "sheet-watch", "sheet-watch-end"]) {
       expect(t, scene).toContain(`'${scene}'`)
       expect(t, scene).toContain(`snap('${scene}')`)
     }
@@ -1000,20 +1000,38 @@ describe("v120 RR8 — 세션의 시트 8개", () => {
       "RR8 종료 시트 끝까지 스크롤하면 버리기 버튼이 화면 안에 있다",
       "RR8 수동 타이머: 초 고르기(눌린 것 하나) → 시작 → 휴식 바",
       "RR8 종목 추가: 줄 1탭 → 시트가 닫히고 카드가 하나 늘어난다",
-      "RR8 보상작용: 징후 둘 고르기 → 저장 → 카드의 보상작용 줄이 바뀐다",
       "RR8 무게 단위 핀 목록 잘못된 형식 → 오류 문구가 보이고 저장이 막힌다",
       "RR8 무게 단위 핀 목록 입력 → 저장 → + 가 다음 핀으로 간다",
-      "RR8 대체: 후보 1탭 → 시트가 닫히고 카드에 대체 뱃지가 생긴다",
-      "RR8 템포 가이드 도는 중: 링이 단계 색을 갖고 크기가 변수로 간다 + 막을 눌러 닫히지 않는다(purpose)",
+      "RR8 템포 가이드 도는 중: 링이 단계 색을 갖고 크기가 변수로 간다",
       "RR8 템포 가이드 → 종료 → 세트 체크 + 휴식 시작",
       "RR8 종료 시트: 이 세션 버리기 → 정말 버리기 → 홈",
     ]) {
       expect(t, name).toMatch(new RegExp("guardedFlow\\(\\[(?:[^\\]]*, )?'" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "'"))
     }
+    // 시드 세션에서 재는 셋은 seedFlows 이름으로 guardedFlow(Object.values(seedFlows)) 하나에 묶여 있다 — 어느 단계서 던져도 셋 다 실패로 센다
+    for (const name of ["RR8 보상작용: 징후 둘 고르기 → 저장 → 카드의 보상작용 줄이 바뀐다", "RR8 대체: 후보 1탭 → 시트가 닫히고 카드에 대체 뱃지가 생긴다", "RR8 보상작용 반복 시트: 3/3 버튼 → 시트 → 끝까지 스크롤하면 그대로 두기 버튼이 화면 안에 있다"]) expect(t, name).toContain(`: '${name}'`)
     // 글자 중간 꺾임은 시트마다 390·375 두 폭에서 잰다
     expect(t).toContain("const wrapFlow = async (label) =>")
     expect(t).toMatch(/r390\.count === 0 && r375\.count === 0/)
-    for (const label of ["종료 시트", "휴식 타이머 시트", "종목 추가 시트", "대체 시트", "보상작용 시트", "무게 단위 시트", "템포 가이드 시트"]) expect(t, label).toContain(`wrapFlow('${label}')`)
+    for (const label of ["종료 시트", "휴식 타이머 시트", "종목 추가 시트", "대체 시트", "보상작용 시트", "무게 단위 시트", "템포 가이드 시트", "보상작용 반복 시트"]) expect(t, label).toContain(`wrapFlow('${label}')`)
+  })
+
+  it("v120 RR8 반려: 대체·보상작용 흐름은 0개로 통과하지 않는다 — 시드로 후보 1탭·징후 둘을 실제로 재고, 카드는 저장한 문구로 판정한다", () => {
+    const t = text(SCRIPTS, "/scripts/ui-check.mjs")
+    // 후보 0개를 통과로 세던 옛 줄이 없다
+    expect(t).not.toMatch(/ok: true, detail: '건너뜀/)
+    expect(t).toContain("열린 대체 후보가 0개다")
+    // 징후 둘 고르기: 목록 2개 이상·눌린 징후 2를 요구한다(Math.min(2, 0) = 0 = 0 통과가 없다)
+    expect(t).toMatch(/nSigns >= 2 && pressed === 2/)
+    expect(t).not.toContain("pressed === Math.min(2, nSigns)")
+    // 카드 판정은 클래스 유무가 아니라 저장한 문구(징후 이름)
+    expect(t).toMatch(/li \.ax-text-warning'\)\.filter\(\{ hasText: saved \}\)/)
+    expect(t).toMatch(/beforeText === 0 && shown === 1/)
+    // 시드는 흐름 이름 전부를 건 guardedFlow 안에서 만들고, 블록 끝에서 지운다
+    expect(t).toContain("guardedFlow(Object.values(seedFlows)")
+    expect(t).toContain("await unseedWatch()")
+    // 템포 흐름 이름은 실제로 재는 것만 적는다(템포는 info라 막을 누르면 닫힌다)
+    expect(t).not.toContain("막을 눌러 닫히지 않는다(purpose)")
   })
 
   it("v120 RR8: 종료 시트 닫기 세 흐름은 legacy 막(.sheet-backdrop·.is-closing)이 아니라 Astryx dialog로 잰다", () => {
