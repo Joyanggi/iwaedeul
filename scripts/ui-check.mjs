@@ -107,11 +107,14 @@ const JUDGED = { '탭 누름': true, '지금 탭': true, '마지막 요소': tru
  * 화면·띠를 옮기는 작업(RR3·RR4·RR5·RR6·RR7)이 자기 장면을 여기에 더한다.
  */
 const HOME_SCENES = ['home', 'home-end', 'home-375', 'home-banner', 'home-banner-375', 'home-banners-open', 'home-resume']
-const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...HOME_SCENES, 'home-safe', 'settings'])
+/** 홈이 여는 시트 둘(RR5). 시트 안 내용의 좌·우(`sheet` 쌍)도 판정한다 */
+const HOME_SHEET_SCENES = ['sheet-home', 'sheet-open-session']
+const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...HOME_SCENES, ...HOME_SHEET_SCENES, 'home-safe', 'settings'])
 /** 판정을 켠 쌍 종류. 나머지 종류는 장면이 Astryx여도 기록만 한다(card·badge = RR4, 위 띠 = RR6, set-row = RR7, sheet = RR5) */
 const SYMMETRY_KINDS = new Set(['button', 'bar', 'tab-indicator', 'tab-content'])
 /** 홈(RR4)은 카드·뱃지 쌍도 판정한다 */
 const HOME_SYMMETRY_KINDS = new Set([...SYMMETRY_KINDS, 'card', 'badge'])
+const HOME_SHEET_SYMMETRY_KINDS = new Set([...SYMMETRY_KINDS, 'sheet'])
 /** `같은 역할`의 묶음 사이·카드 안쪽·가까움 순서는 홈을 옮기는 RR4부터 판정한다 */
 const ROLES_JUDGED = new Set(['묶음 사이', '카드 안쪽', '가까움 순서'])
 const THEME_SCENES_BEFORE = new Set(['editor', 'line-sheet'])
@@ -130,7 +133,7 @@ const EXPECTED_BARS = {
   'session-open-b': 1,
   'session-rest': 2,
   // 시트 장면: 시트 1
-  ...Object.fromEntries(['sheet-home', 'sheet-finish', 'sheet-timer', 'sheet-food', 'line-sheet'].map((n) => [n, 1])),
+  ...Object.fromEntries(['sheet-home', 'sheet-open-session', 'sheet-finish', 'sheet-timer', 'sheet-food', 'line-sheet'].map((n) => [n, 1])),
 }
 const SET_SCENES = new Set(['session', 'session-375', 'history-detail-edit'])
 /** 시작 자리를 재는 장면 (RR4). 390 폭 넷, 375 폭 둘 */
@@ -192,7 +195,7 @@ async function newColumns(page, scene, cells, light) {
   }
   if (scene === 'analyze') chartColors[scene] = { ...chartColors[scene], [light ? 'light' : 'dark']: await page.evaluate(inPageChartColors) }
   const pairs = await page.evaluate(inPageInsetSymmetry)
-  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : SYMMETRY_KINDS
+  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : HOME_SHEET_SCENES.includes(scene) ? HOME_SHEET_SYMMETRY_KINDS : SYMMETRY_KINDS
   const judgedPairs = pairs.filter((p) => kinds.has(p.kind))
   const sym = insetSymmetryVerdict(SYMMETRY_JUDGED.has(scene) ? judgedPairs : pairs, EXPECTED_PAIRS[scene] ?? [])
   const rest = SYMMETRY_JUDGED.has(scene) ? insetSymmetryVerdict(pairs.filter((p) => !kinds.has(p.kind)), []) : null
@@ -344,9 +347,9 @@ async function runScenes(browser, port, scheme) {
   }
   const toEnd = () => page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
   const toTop = () => page.evaluate(() => window.scrollTo(0, 0))
-  const closeSheet = async (name) => {
+  const closeSheet = async (name, button = '닫기') => {
     const dlg = page.getByRole('dialog', { name })
-    await dlg.getByRole('button', { name: '닫기', exact: true }).click()
+    await dlg.getByRole('button', { name: button, exact: true }).click()
     await dlg.waitFor({ state: 'detached' }).catch(() => {})
     await settle(page, 400)
   }
@@ -406,6 +409,43 @@ async function runScenes(browser, port, scheme) {
     await page.getByRole('button', { name: /진행 중/ }).last().waitFor()
     await settle(page, 600)
     await snap('home-resume')
+    // 진행 중 세션 처리 시트 (RR5): 진행 중 세션이 있을 때 다른 시작 길(디로드 권장 배너의 `디로드로 시작`)로만 열린다. 그 배너가 안 뜨는 데이터면 건너뛴다
+    await optional('sheet-open-session', async () => {
+      await page.getByRole('button', { name: '디로드로 시작', exact: true }).click({ timeout: 1500 })
+      await page.getByRole('dialog', { name: '진행 중 세션 처리' }).waitFor({ timeout: 3000 })
+      await settle(page)
+      await snap('sheet-open-session')
+      const dlg = page.getByRole('dialog', { name: '진행 중 세션 처리' })
+      const errs = []
+      const onErr = (e) => errs.push(String(e))
+      page.on('pageerror', onErr)
+      // 닫기 버튼을 빠르게 두 번 눌러도 오류 없이 한 번만 닫힌다 (RR5 once)
+      // 사라지는 시간: 첫 눌림부터 다이얼로그가 DOM에서 빠질 때까지(브라우저 안에서 잰다)
+      const goneIn = page.evaluate(() => new Promise((resolve) => {
+        const t0 = performance.now()
+        const tick = () => (document.querySelector('[aria-label="진행 중 세션 처리"]') ? requestAnimationFrame(tick) : resolve(Math.round(performance.now() - t0)))
+        requestAnimationFrame(tick)
+      }))
+      await dlg.getByRole('button', { name: '취소', exact: true }).dblclick()
+      const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
+      const ms = await goneIn
+      await settle(page, 400)
+      flows.push(['시트 닫기 두 번 누르기 진행 중 세션 처리', { ok: gone && errs.length === 0, detail: `사라짐 ${gone}(${ms}ms) · 오류 ${errs.length}건` }])
+      // 저장으로 먼저 사라지는 길: 버리기 2단계 확인 → 세션 화면으로 가고, 닫힘 대기의 두 배 뒤에도 그대로다(늦은 onClose가 없다)
+      await page.getByRole('button', { name: '디로드로 시작', exact: true }).click()
+      await dlg.waitFor({ timeout: 3000 })
+      await settle(page, 450)
+      await dlg.getByRole('button', { name: '버리고 새로 시작', exact: true }).click()
+      await dlg.getByRole('button', { name: '버리고 새로 시작', exact: true }).last().click()
+      await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor({ timeout: 4000 })
+      await settle(page, 800)
+      page.off('pageerror', onErr)
+      const stay = await page.getByRole('button', { name: '세션 최소화', exact: true }).count()
+      flows.push(['시트가 저장으로 먼저 사라진 뒤 진행 중 세션 처리', { ok: stay > 0 && errs.length === 0, detail: `세션 화면 ${stay > 0} · 오류 ${errs.length}건 (대기 700ms)` }])
+      await btn(page, '세션 최소화').click()
+      await page.getByRole('button', { name: /진행 중/ }).last().waitFor({ timeout: 3000 })
+      await settle(page, 600)
+    })
     // QQ6: 세션이 열려 있을 때 설정 (`편집` 비활성 + 안내 문구)
     await optional('settings-open', async () => {
       await page.getByRole('button', { name: '설정', exact: true }).click()
@@ -586,6 +626,21 @@ async function runScenes(browser, port, scheme) {
   await page.getByRole('dialog', { name: '종목 줄 편집' }).waitFor()
   await settle(page, 800)
   await snap('line-sheet')
+  // RR5 기존 사용처: 막을 눌러 닫으면 시트가 사라지고, 같은 줄을 다시 열 수 있다(늦은 onClose가 새로 연 시트를 닫지 않는다)
+  if (!light) await optional('line-sheet-reopen', async () => {
+    const errs = []
+    const onErr = (e) => errs.push(String(e))
+    page.on('pageerror', onErr)
+    const dlg = page.getByRole('dialog', { name: '종목 줄 편집' })
+    await page.mouse.click(195, 30)
+    const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
+    await page.getByRole('button', { name: /^1\. / }).first().click()
+    await dlg.waitFor({ timeout: 3000 })
+    await settle(page, 900)
+    const still = await dlg.count()
+    page.off('pageerror', onErr)
+    flows.push(['줄 시트 막으로 닫고 같은 줄 다시 열기', { ok: gone && still === 1 && errs.length === 0, detail: `사라짐 ${gone} · 다시 연 뒤 시트 ${still}개 · 오류 ${errs.length}건` }])
+  })
   await ctx.close()
 }
 

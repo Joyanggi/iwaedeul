@@ -570,3 +570,96 @@ describe("v120 RR4 — 홈: 배치를 다시 짠다", () => {
     expect(lib).toMatch(/names\.length < 2/)
   })
 })
+
+describe("v120 RR5 — 홈의 시트 2개 + Sheet의 닫기", () => {
+  const SHEETS = ["/src/components/DayPickerSheet.tsx", "/src/components/OpenSessionSheet.tsx"]
+  const axSheet = () => {
+    const s = code("/src/ax/index.tsx")
+    return s.slice(s.indexOf("export function Sheet("), s.indexOf("export { TabList"))
+  }
+
+  it("v120 RR5: 두 파일이 ../ax의 Sheet를 쓰고 SheetFrame·className=·style=·<button이 0건이다", () => {
+    for (const f of SHEETS) {
+      const s = code(f)
+      expect(s, f).toMatch(/from '\.\.\/ax'/)
+      expect(s, f).toMatch(/<Sheet /)
+      expect(s, f).not.toMatch(/SheetFrame|className=|style=|<button|@astryxdesign/)
+    }
+  })
+
+  it("v120 RR5: 옮긴 시트의 닫기 버튼은 dismiss를 부른다 (onClick={onClose} 0건, 렌더 프롭으로 dismiss를 받는다)", () => {
+    for (const f of SHEETS) {
+      const s = code(f)
+      expect(s, f).not.toMatch(/onClick=\{onClose\}|onClick=\{\(\) => onClose\(\)\}/)
+      expect(s, f).toMatch(/\{\(dismiss\) =>/)
+      expect(s, f).toMatch(/onClick=\{dismiss\}/)
+    }
+  })
+
+  it("v120 RR5: Sheet의 children은 dismiss를 받는 함수일 수 있고 닫힘이 once를 거친다 (두 번 눌러도 onClose 한 번)", () => {
+    const s = axSheet()
+    expect(code("/src/ax/index.tsx")).toMatch(/children: ReactNode \| \(\(dismiss: \(\) => void\) => ReactNode\)/)
+    expect(s).toMatch(/once\(\(\) => onCloseRef\.current\(\)\)/)
+    // dismiss는 상태 하나만 바꾼다 → 두 번 불러도 타이머는 하나(effect는 closing이 바뀔 때만 돈다)
+    expect(s).toMatch(/const dismiss = \(\) => setClosing\(true\)/)
+    expect(s).toMatch(/\}, \[closing\]\)/)
+  })
+
+  it("v120 RR5: 막 누름·끌어내림·Esc(onOpenChange(false))도 dismiss를 지난다", () => {
+    const s = axSheet()
+    expect(s).toMatch(/onOpenChange=\{\(next\) => \{\s*if \(!next\) dismiss\(\)/)
+    expect(s).not.toMatch(/onOpenChange=\{\(open\) => \{\s*if \(!open\) onClose\(\)/)
+  })
+
+  it("v120 RR5: 움직임 줄이기를 켜면 기다리지 않고 바로 끝낸다", () => {
+    const s = axSheet()
+    expect(s).toMatch(/prefers-reduced-motion: reduce/)
+    expect(s.indexOf("prefers-reduced-motion")).toBeLessThan(s.indexOf("setTimeout(finish"))
+  })
+
+  it("v120 RR5: Sheet에 clearTimeout이 useEffect의 정리 함수 안에 있다 (저장으로 먼저 사라지면 늦은 onClose가 없다)", () => {
+    // 타이머는 effect 안에서 걸고, 그 effect의 정리 함수가 지운다(언마운트·closing 바뀜 때)
+    const s = axSheet()
+    const effect = s.slice(s.indexOf("if (!closing) return"), s.indexOf("}, [closing])"))
+    expect(effect).toMatch(/const timer = setTimeout\(finish, SHEET_CLOSE_MS\)/)
+    expect(effect).toMatch(/return \(\) => clearTimeout\(timer\)/)
+  })
+
+  it("v120 RR5: BottomSheet에 className·style·xstyle을 넘기지 않는다 (키보드 대응이 꺼진다 — v118)", () => {
+    const s = axSheet()
+    const tag = s.slice(s.indexOf("<BottomSheet"), s.indexOf(">", s.indexOf("<BottomSheet")))
+    expect(tag).not.toMatch(/className|style|xstyle/)
+  })
+
+  it("v120 RR5: OpenSessionSheet의 버리기 문구 앞 260자 안(같은 <Button 태그)에 variant=\"destructive\"가 있다", () => {
+    const s = code("/src/components/OpenSessionSheet.tsx")
+    for (const label of ['label="버리고 새로 시작"']) {
+      let at = s.indexOf(label)
+      expect(at).toBeGreaterThan(0)
+      while (at >= 0) {
+        const tagStart = s.lastIndexOf("<Button", at)
+        expect(s.slice(Math.max(0, at - 260, tagStart), at)).toContain('variant="destructive"')
+        at = s.indexOf(label, at + 1)
+      }
+    }
+  })
+
+  it("v120 RR5: 두 시트의 문구·로직이 그대로다 (Day 선택·진행 중 세션 처리, 이어하기·마감·버리기 2단계)", () => {
+    const d = code("/src/components/DayPickerSheet.tsx")
+    for (const w of ['label="Day 선택"', "오늘 할 운동", "하한 모드 · 30분", "routine.fallbackDays.length > 0", "onPick(day)", "lastDoneText"]) expect(d, w).toContain(w)
+    const o = code("/src/components/OpenSessionSheet.tsx")
+    for (const w of ['label="진행 중 세션 처리"', 'label="이어하기"', "마감하고 새로 시작", "setConfirmDiscard(true)", "setConfirmDiscard(false)", "onDiscardAndStart", "되돌릴 수 없습니다"]) expect(o, w).toContain(w)
+  })
+
+  it("v120 RR5: ui-check에 sheet-open-session 장면이 있고 두 시트 장면에서 sheet 쌍을 판정한다", () => {
+    const t = text(SCRIPTS, "/scripts/ui-check.mjs")
+    expect(t).toContain("sheet-open-session")
+    expect(t).toMatch(/HOME_SHEET_SCENES = \['sheet-home', 'sheet-open-session'\]/)
+    // 진행 중 세션 처리 시트는 디로드 권장 배너의 `디로드로 시작`으로만 열린다 — 그 배너가 안 뜨는 데이터면 장면을 건너뛴다
+    expect(t).toContain("name: '디로드로 시작', exact: true")
+    expect(t).toContain("시트 닫기 두 번 누르기 진행 중 세션 처리")
+    expect(t).toContain("시트가 저장으로 먼저 사라진 뒤 진행 중 세션 처리")
+    expect(t).toContain("줄 시트 막으로 닫고 같은 줄 다시 열기")
+    expect(t).toMatch(/HOME_SHEET_SYMMETRY_KINDS = new Set\(\[\.\.\.SYMMETRY_KINDS, 'sheet'\]\)/)
+  })
+})

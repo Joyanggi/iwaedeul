@@ -117,7 +117,7 @@ export const inPageLayout = () => {
 export function spaceRoleVerdicts(layouts, judged = new Set()) {
   const same = (xs) => xs.every((x) => Math.abs(x - xs[0]) < 0.5)
   const SCREENS = ['home', 'home-375', 'home-banner', 'session', 'summary', 'history', 'analyze', 'diet', 'settings', 'editor']
-  const SHEETS = ['sheet-finish', 'sheet-home', 'sheet-food', 'line-sheet']
+  const SHEETS = ['sheet-finish', 'sheet-home', 'sheet-open-session', 'sheet-food', 'line-sheet']
   const fmt = (pairs) => pairs.map(([k, v]) => `${k} ${v}`).join(' · ')
   const x = SCREENS.filter((s) => layouts[s]?.screenX != null).map((s) => [s, layouts[s].screenX])
   const gaps = SCREENS.flatMap((s) => (layouts[s]?.cardGaps ?? []).map((g) => [s, g]))
@@ -246,6 +246,9 @@ export const EXPECTED_PAIRS = {
   settings: ['bar', 'tab-indicator', 'tab-content'],
   editor: ['button'],
   'line-sheet': ['button'],
+  // RR5: 홈이 여는 시트 둘 — 시트 안 내용의 좌·우와 버튼 안 글자
+  'sheet-home': ['sheet', 'button'],
+  'sheet-open-session': ['sheet', 'button'],
 }
 
 /** 안쪽 대칭 판정 (Node). pairs = inPageInsetSymmetry() 결과, expected = 기대하는 쌍 종류. 위·아래·좌·우 차이가 tol(1px) 이하여야 하고, 기대한 쌍이 하나라도 0개면 실패 */

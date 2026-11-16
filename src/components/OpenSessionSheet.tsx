@@ -3,7 +3,7 @@ import { doneSets, findDay } from '../lib/derive'
 import { formatClock, weekdayKo } from '../lib/dates'
 import type { RoutineBundle } from '../lib/useRoutine'
 import type { Session } from '../types'
-import { SheetFrame } from './SheetFrame'
+import { Banner, Button, Heading, HStack, Item, Sheet, Text, VStack } from '../ax'
 
 /**
  * 진행 중 세션이 있는데 새 세션을 시작하려 할 때 (§11 관련).
@@ -35,67 +35,56 @@ export default function OpenSessionSheet({
   const hasRecords = doneCount > 0
 
   return (
-    <SheetFrame label="진행 중 세션 처리" onClose={onClose}>
+    <Sheet label="진행 중 세션 처리" purpose="info" onClose={onClose}>
       {(dismiss) => (
-        <>
-          <div className="card-label">진행 중인 세션이 있어요</div>
+        <VStack gap={5} paddingBlockEnd={3}>
+          <VStack gap={2}>
+            <Heading level={2}>진행 중인 세션이 있어요</Heading>
+            <Item
+              label={day?.name ?? openSession.dayId}
+              description={`${openSession.date} (${weekdayKo(openSession.date)}) ${formatClock(openSession.startedAt)} 시작`}
+              endContent={<Text color="secondary">{doneCount}세트</Text>}
+            />
+            <Text color="secondary">
+              {hasRecords
+                ? '새로 시작하기 전에 이 세션을 어떻게 할지 정해야 합니다.'
+                : '기록된 세트가 없는 세션입니다.'}
+            </Text>
+          </VStack>
 
-          <div className="row">
-            <div className="row-main">
-              <div className="row-title">{day?.name ?? openSession.dayId}</div>
-              <div className="row-sub">
-                {openSession.date} ({weekdayKo(openSession.date)}){' '}
-                {formatClock(openSession.startedAt)} 시작
-              </div>
-            </div>
-            <div className="row-meta">{doneCount}세트</div>
-          </div>
+          <VStack gap={3}>
+            <Button variant="primary" width="100%" label="이어하기" onClick={onResume} />
 
-          <p className="row-sub mt-row">
-            {hasRecords
-              ? '새로 시작하기 전에 이 세션을 어떻게 할지 정해야 합니다.'
-              : '기록된 세트가 없는 세션입니다.'}
-          </p>
+            {hasRecords && (
+              <Button
+                variant="secondary"
+                width="100%"
+                label={`마감하고 새로 시작 (${doneCount}세트 기록 유지)`}
+                onClick={onFinishAndStart}
+              />
+            )}
 
-          <button className="btn btn-primary mt-group" onClick={onResume}>
-            이어하기
-          </button>
+            {confirmDiscard ? (
+              <VStack gap={3}>
+                {/* Text에는 error 색이 없다(BuiltinTextColor) → 루틴 편집의 삭제 확인처럼 Banner error */}
+                <Banner
+                  status="error"
+                  collapsible={false}
+                  title={hasRecords ? `${doneCount}세트 기록이 삭제됩니다. 되돌릴 수 없습니다.` : '이 세션을 삭제합니다.'}
+                />
+                <HStack gap={3}>
+                  <Button variant="secondary" width="100%" label="취소" onClick={() => setConfirmDiscard(false)} />
+                  <Button variant="destructive" width="100%" label="버리고 새로 시작" onClick={onDiscardAndStart} />
+                </HStack>
+              </VStack>
+            ) : (
+              <Button variant="destructive" width="100%" label="버리고 새로 시작" onClick={() => setConfirmDiscard(true)} />
+            )}
 
-          {hasRecords && (
-            <>
-              <button className="btn mt-row" onClick={onFinishAndStart}>
-                마감하고 새로 시작 ({doneCount}세트 기록 유지)
-              </button>
-            </>
-          )}
-
-          {confirmDiscard ? (
-            <>
-              <p className="row-sub mt-row" style={{ color: 'var(--danger)' }}>
-                {hasRecords
-                  ? `${doneCount}세트 기록이 삭제됩니다. 되돌릴 수 없습니다.`
-                  : '이 세션을 삭제합니다.'}
-              </p>
-              <div className="btn-row">
-                <button className="btn" onClick={() => setConfirmDiscard(false)}>
-                  취소
-                </button>
-                <button className="btn btn-danger" onClick={onDiscardAndStart}>
-                  버리고 새로 시작
-                </button>
-              </div>
-            </>
-          ) : (
-            <button className="btn btn-danger mt-row" onClick={() => setConfirmDiscard(true)}>
-              버리고 새로 시작
-            </button>
-          )}
-
-          <button className="btn mt-row" onClick={dismiss}>
-            취소
-          </button>
-        </>
+            <Button variant="secondary" width="100%" label="취소" onClick={dismiss} />
+          </VStack>
+        </VStack>
       )}
-    </SheetFrame>
+    </Sheet>
   )
 }

@@ -48,9 +48,10 @@ describe("QQ3 — 시트 틀 하나", () => {
       ([path, text]) => /Sheet\.tsx$/.test(path) && !/SheetFrame\.tsx$/.test(path) && !/from '\.\.\/ax/.test(text),
     )
 
-  it("legacy 시트 14개가 전부 SheetFrame을 import하고 sheet-backdrop 글자가 0건이다", () => {
+  // v1.20 RR5: 홈의 둘이 ../ax의 Sheet로 옮겨 14→12
+  it("legacy 시트 12개가 전부 SheetFrame을 import하고 sheet-backdrop 글자가 0건이다", () => {
     const files = legacy()
-    expect(files.length).toBe(14)
+    expect(files.length).toBe(12)
     const offenders = files
       .filter(([, text]) => !/import \{ SheetFrame \} from '\.\/SheetFrame'/.test(text) || /sheet-backdrop/.test(stripComments(text)))
       .map(([path]) => path)
@@ -64,7 +65,7 @@ describe("QQ3 — 시트 틀 하나", () => {
     expect(hits).toEqual(["/src/components/SheetFrame.tsx"])
   })
 
-  it("14개 시트에 onClick={onClose}·onClick={() => onClose()}가 0건이다 (닫기 버튼은 dismiss를 부른다)", () => {
+  it("legacy 시트에 onClick={onClose}·onClick={() => onClose()}가 0건이다 (닫기 버튼은 dismiss를 부른다)", () => {
     const offenders = legacy()
       .filter(([, text]) => /onClick=\{onClose\}|onClick=\{\(\) => onClose\(\)\}/.test(stripComments(text)))
       .map(([path]) => path)

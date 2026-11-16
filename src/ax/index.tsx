@@ -6,7 +6,7 @@ import '@astryxdesign/core/astryx.css'
 import './ax.css'
 import './parts.css'
 
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Theme } from '@astryxdesign/core/theme'
 import { SizeProvider } from '@astryxdesign/core/SizeContext'
 import { Button } from '@astryxdesign/core/Button'
@@ -18,6 +18,7 @@ import { NumberInput } from '@astryxdesign/core/NumberInput'
 import { TextInput, type TextInputProps } from '@astryxdesign/core/TextInput'
 import { BottomSheet, type BottomSheetProps } from '@astryxdesign/core/BottomSheet'
 import { AX_NO_AUTOFILL } from '../lib/inputProps'
+import { once } from '../lib/once'
 import { appTheme } from './theme'
 import { clampStep } from './clampStep'
 
@@ -178,23 +179,56 @@ interface SheetProps {
   purpose?: 'required' | 'form' | 'info'
   height?: BottomSheetProps['height']
   onClose: () => void
-  children: ReactNode
+  /** 함수면 `dismiss`를 받는다 — 닫기 버튼은 이것을 불러야 막·끌어내림과 같이 내려가며 닫힌다 */
+  children: ReactNode | ((dismiss: () => void) => ReactNode)
 }
 
-/** 바텀 시트. 지금 시트처럼 "있으면 그리고 없으면 안 그리는" 쓰임을 받는다. */
+/**
+ * `BottomSheet`가 내려가는 시간(--motion-medium 300ms)보다 조금 길게. `BottomSheet`에 닫힘이 끝났다는 콜백이 없어 타이머로 기다린다.
+ * 실제 사라지는 시간은 DEV-RECORD RR5에 잰 값이 있다.
+ */
+const SHEET_CLOSE_MS = 350
+
+/**
+ * 바텀 시트. 지금 시트처럼 "있으면 그리고 없으면 안 그리는" 쓰임을 받는다.
+ * `dismiss()`와 막 누름·끌어내림·Esc가 같은 길을 지난다: 내려간 뒤 `onClose`를 한 번만 부른다.
+ * 저장 버튼이 부모 상태를 바꿔 시트가 먼저 사라지면 타이머를 지워 `onClose`가 불리지 않는다(늦은 `onClose`가 다음 화면을 건드리지 않게).
+ */
 export function Sheet({ label, purpose = 'info', height = 'hug', onClose, children }: SheetProps) {
+  // `dismiss`는 상태 하나만 바꾼다 — 두 번 불러도 같은 값이라 타이머는 하나다(effect가 `closing`이 바뀔 때만 돈다)
+  const [closing, setClosing] = useState(false)
+  // 최신 onClose는 효과에서 담는다(렌더 중 ref를 읽거나 쓰지 않는다)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+  useEffect(() => {
+    if (!closing) return
+    const finish = once(() => onCloseRef.current())
+    // 움직임 줄이기: 기다리지 않는다(BottomSheet도 바로 닫힌다)
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      finish()
+      return
+    }
+    const timer = setTimeout(finish, SHEET_CLOSE_MS)
+    // 정리 함수: 저장 버튼이 부모 상태를 바꿔 시트가 먼저 사라지면 타이머가 지워져 늦은 onClose가 없다
+    return () => clearTimeout(timer)
+  }, [closing])
+
+  const dismiss = () => setClosing(true)
+
   return (
     <BottomSheet
       label={label}
       purpose={purpose}
       height={height}
-      isOpen
-      onOpenChange={(open) => {
-        if (!open) onClose()
+      isOpen={!closing}
+      onOpenChange={(next) => {
+        if (!next) dismiss()
       }}
     >
       {/* 시트는 화면과 다른 층에 그려져 크기 기본값이 새로 시작한다 → 화면과 같은 크기를 다시 건다 */}
-      <SizeProvider value="lg">{children}</SizeProvider>
+      <SizeProvider value="lg">{typeof children === 'function' ? children(dismiss) : children}</SizeProvider>
     </BottomSheet>
   )
 }
