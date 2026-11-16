@@ -410,8 +410,20 @@ async function runScenes(browser, port, scheme) {
     await settle(page, 600)
     await snap('home-resume')
     // 진행 중 세션 처리 시트 (RR5): 진행 중 세션이 있을 때 다른 시작 길(디로드 권장 배너의 `디로드로 시작`)로만 열린다. 그 배너가 안 뜨는 데이터면 건너뛴다
+    // 시작 길: 디로드 배너가 있으면 그 버튼, 없으면 `변경` → 다른 Day → 시작(예시 데이터는 이 길이다)
+    const startOther = async () => {
+      const deload = page.getByRole('button', { name: '디로드로 시작', exact: true })
+      if (await deload.count()) { await deload.click(); return }
+      await btn(page, '변경').click()
+      const pick = page.getByRole('dialog', { name: 'Day 선택' })
+      await pick.waitFor({ timeout: 3000 })
+      await settle(page, 400)
+      await pick.getByRole('button', { name: /^Day 2/ }).click()
+      await settle(page, 400)
+      await page.getByRole('button', { name: /시작$/ }).first().click()
+    }
     await optional('sheet-open-session', async () => {
-      await page.getByRole('button', { name: '디로드로 시작', exact: true }).click({ timeout: 1500 })
+      await startOther()
       await page.getByRole('dialog', { name: '진행 중 세션 처리' }).waitFor({ timeout: 3000 })
       await settle(page)
       await snap('sheet-open-session')
@@ -432,7 +444,7 @@ async function runScenes(browser, port, scheme) {
       await settle(page, 400)
       flows.push(['시트 닫기 두 번 누르기 진행 중 세션 처리', { ok: gone && errs.length === 0, detail: `사라짐 ${gone}(${ms}ms) · 오류 ${errs.length}건` }])
       // 저장으로 먼저 사라지는 길: 버리기 2단계 확인 → 세션 화면으로 가고, 닫힘 대기의 두 배 뒤에도 그대로다(늦은 onClose가 없다)
-      await page.getByRole('button', { name: '디로드로 시작', exact: true }).click()
+      await startOther()
       await dlg.waitFor({ timeout: 3000 })
       await settle(page, 450)
       await dlg.getByRole('button', { name: '버리고 새로 시작', exact: true }).click()
