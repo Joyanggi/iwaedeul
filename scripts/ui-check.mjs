@@ -1079,6 +1079,21 @@ async function runScenes(browser, port, scheme) {
       const want = SUMMARY_TITLES.filter((t) => order.includes(t))
       return { ok: order.length >= 2 && order.join('|') === want.join('|') && order.at(-1) === '홈으로', detail: `${scene}: ${order.join(' < ')}` }
     }
+    /** RR9 화면 검증: 맨 아래까지 내렸을 때 홈으로 버튼이 다른 요소에 가려지지 않고 화면 안에 있나 */
+    const endButton = async (scene) => {
+      await toEnd()
+      await settle(page, 400)
+      await snap(`${scene}-end`)
+      const r = await page.evaluate(() => {
+        const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === '홈으로')
+        if (!b) return null
+        const q = b.getBoundingClientRect()
+        const top = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2)
+        return { top: q.top, bottom: q.bottom, h: window.innerHeight, height: q.height, covered: !(top === b || b.contains(top)) }
+      })
+      flows.push([`RR9 ${scene} 맨 아래 홈으로 버튼`, { ok: !!r && !r.covered && r.bottom <= r.h && r.top >= 0, detail: r ? `버튼 y ${Math.round(r.top)}~${Math.round(r.bottom)} / 화면 ${r.h} · 높이 ${Math.round(r.height)} · 가려짐 ${r.covered}` : '버튼 없음' }])
+      await toTop()
+    }
     const wrapSummary = async (scene) => {
       const name = `RR9 ${scene} 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안`
       await guardedFlow([name], async () => {
@@ -1098,6 +1113,7 @@ async function runScenes(browser, port, scheme) {
         flows.push(['RR9 요약 카드 순서', await orderFlow('summary')])
       })
       await wrapSummary('summary')
+      await endButton('summary')
     }
     await btn(page, '홈으로').click()
     await page.getByRole('button', { name: '기록', exact: true }).waitFor()
@@ -1139,6 +1155,7 @@ async function runScenes(browser, port, scheme) {
           const r = await check(seed)
           flows.push([SUM[kind], { ok: r.ok, detail: `${seed.detail} · ${r.detail}` }])
           await wrapSummary(sceneName)
+          await endButton(sceneName)
         } catch (e) {
           if (!flows.some((f) => f[0] === SUM[kind])) flows.push([SUM[kind], { ok: false, detail: `예외: ${String(e.message).split('\n')[0]}` }])
         } finally {
