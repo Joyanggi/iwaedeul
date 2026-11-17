@@ -288,7 +288,7 @@ export default function DietDayEditor({
                       const on = record?.checkedItemIds.includes(item.id) ?? false
                       const variant = itemVariant(item, choices[item.id])
                       return (
-                        <HStack gap={1} key={item.id}>
+                        <HStack gap={1} align="center" key={item.id}>
                           <ToggleButton
                             className="ax-toggle"
                             label={`${variant.name} ${variant.qty}`}
@@ -308,7 +308,6 @@ export default function DietDayEditor({
                           {hasVariants(item) && (
                             <Button
                               variant="secondary"
-                              size="sm"
                               label="바꾸기"
                               icon={<Icon icon="chevronDown" />}
                               aria-label={`바꾸기 — ${slot.name} ${item.name}, 다른 단백질원으로`}
@@ -354,34 +353,38 @@ export default function DietDayEditor({
                 isOpen={openLogId === entry.id}
                 onOpenChange={(open) => setOpenLogId(open ? entry.id : null)}
               >
-                <HStack gap={2} align="center" wrap="wrap">
-                  <TimeField
-                    width={112}
-                    label="먹은 시각"
-                    isLabelHidden
-                    value={entry.time}
-                    onChange={(time) => {
-                      if (time) mutate((d) => applyUpdateLog(d, entry.id, { time }))
-                    }}
-                  />
-                  <NumberStepper
-                    value={entry.count}
-                    step={0.5}
-                    min={0.5}
-                    decimals={2}
-                    ariaLabel="먹은 개수"
-                    fieldWidth={64}
-                    onChange={(count) => mutate((d) => applyUpdateLog(d, entry.id, { count }))}
-                  />
+                <VStack gap={2}>
+                  <HStack gap={2} align="center">
+                    <TimeField
+                      width={120}
+                      label="먹은 시각"
+                      isLabelHidden
+                      value={entry.time}
+                      onChange={(time) => {
+                        if (time) mutate((d) => applyUpdateLog(d, entry.id, { time }))
+                      }}
+                    />
+                    <NumberStepper
+                      value={entry.count}
+                      step={0.5}
+                      min={0.5}
+                      decimals={2}
+                      ariaLabel="먹은 개수"
+                      fieldWidth={64}
+                      onChange={(count) => mutate((d) => applyUpdateLog(d, entry.id, { count }))}
+                    />
+                  </HStack>
+                  {/* 삭제는 줄 전체 폭 — 줄이 모자라 감겨 혼자 뜨는 것이 아니라, 처음부터 둘째 줄의 한 동작이다 */}
                   <Button
                     variant="destructive"
                     label="삭제"
+                    width="100%"
                     onClick={() => {
                       mutate((d) => applyRemoveLog(d, entry.id))
                       setOpenLogId(null)
                     }}
                   />
-                </HStack>
+                </VStack>
               </Collapsible>
             ))}
             {(day.log?.length ?? 0) === 0 && (

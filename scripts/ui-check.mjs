@@ -2005,7 +2005,7 @@ async function runScenes(browser, port, scheme) {
       const card = row ? row.closest('[class*="astryx-card"]') : null
       const cardBox = card ? card.getBoundingClientRect() : null
       const tBox = time.getBoundingClientRect()
-      // 삭제는 폭이 모자라면 아래 줄로 감기므로 세로 가운데 비교에서 뺀다(잘림·겹침은 'SS2 검증 먹은 것 줄'이 잰다)
+      // 삭제는 둘째 줄(전체 폭)이라 세로 가운데 비교에서 뺀다(잘림·겹침은 'SS2 검증 먹은 것 줄'이 잰다)
       const centers = [mid(time), mid(input)]
       return {
         width,
@@ -2055,8 +2055,8 @@ async function runScenes(browser, port, scheme) {
       flows.push(['RR7 식단 스테퍼: 1탭 0.5 단위·입력 패턴·글자 크기·삭제 버튼 44px·넘침 없음', { ok, detail: `+1탭 ${c0}→${c1} · −1탭 ${c2} · 1.555→${typed} · ${widths.map((w) => (w.missing ? `${w.width}: 없음 ${w.missing}` : `${w.width}: 글자 작음 ${w.smaller} 삭제 ${w.delH}px 삭제 오른쪽 끝≤카드 ${w.delInside} 시각 칸 ${w.timeW}px 카드 안 ${w.timeInside} 넘침 없음 ${w.docOk}`)).join(' / ')}` }])
     })
     // SS2 ③ 먹은 것 줄: 줄을 1탭으로 펼치면 시각 칸·스테퍼·삭제가 한 줄에(세로 가운데 차이 ≤ 2px, 390·375), + 1탭에 0.5 오른다
-    await guardedFlow(['SS2 먹은 것 줄: 펼침 1탭 · 시각 칸·스테퍼 한 줄(가운데 차이 ≤ 2px, 삭제는 폭이 모자라면 아래 줄로 감긴다, 390·375) · + 1탭에 0.5'], async () => {
-      const name = 'SS2 먹은 것 줄: 펼침 1탭 · 시각 칸·스테퍼 한 줄(가운데 차이 ≤ 2px, 삭제는 폭이 모자라면 아래 줄로 감긴다, 390·375) · + 1탭에 0.5'
+    await guardedFlow(['SS2 먹은 것 줄: 펼침 1탭 · 시각 칸·스테퍼 한 줄(가운데 차이 ≤ 2px, 삭제는 둘째 줄 전체 폭, 390·375) · + 1탭에 0.5'], async () => {
+      const name = 'SS2 먹은 것 줄: 펼침 1탭 · 시각 칸·스테퍼 한 줄(가운데 차이 ≤ 2px, 삭제는 둘째 줄 전체 폭, 390·375) · + 1탭에 0.5'
       const trigger = page.locator('.ax-diet button[aria-expanded]').filter({ hasNotText: '식사 알림' }).last()
       // diet-log-open에서 이미 펼쳐 있다: 1탭에 접히고 1탭에 다시 펼쳐지는지 본다
       await trigger.click()
@@ -2150,8 +2150,8 @@ async function runScenes(browser, port, scheme) {
     })
 
     // SS2 화면 검증(검증자가 더한 칸): 부품 상자가 서로 안 겹치는가·끼니 등급 다섯 색·눌린 품목·맨 글자 버튼·누르는 영역(elementFromPoint)·맨 아래 버튼·같은 부품의 모양이 기록 화면 안과 같은가
-    await guardedFlow(['SS2 검증 먹은 것 줄: 부품 상자가 안 겹치고 글자가 안 잘린다(390·375)'], async () => {
-      const name = 'SS2 검증 먹은 것 줄: 부품 상자가 안 겹치고 글자가 안 잘린다(390·375)'
+    await guardedFlow(['SS2 검증 먹은 것 줄: 부품 상자가 안 겹치고 글자가 안 잘린다 · 이웃 부품 사이 간격이 같은 역할끼리 같다 · 같은 줄 부품의 세로 가운데가 맞는다(390·375)'], async () => {
+      const name = 'SS2 검증 먹은 것 줄: 부품 상자가 안 겹치고 글자가 안 잘린다 · 이웃 부품 사이 간격이 같은 역할끼리 같다 · 같은 줄 부품의 세로 가운데가 맞는다(390·375)'
       const probe = () => {
         const vis = (e) => !!(e.offsetWidth || e.offsetHeight)
         const time = [...document.querySelectorAll('input')].find((i) => i.type === 'time' && vis(i))
@@ -2161,7 +2161,9 @@ async function runScenes(browser, port, scheme) {
         const out = {}
         for (const [k, el] of Object.entries(parts)) {
           if (!el) { out[k] = null; continue }
-          const r = el.getBoundingClientRect()
+          // 간격·겹침은 눈에 보이는 면으로 잰다: 시각·개수는 입력 글자 상자가 아니라 바깥 면(칸 폭보다 넓게 삐져나올 수 있다)
+          const face = k === '시각' ? el.closest('.astryx-time-input') ?? el : k === '개수' ? el.closest('.astryx-text-input') ?? el : el
+          const r = face.getBoundingClientRect()
           // 시각 칸: 값 'HH:MM' 글자 폭이 칸의 안쪽 폭(안쪽 여백 뺀 것)보다 크면 값이 잘린 것이다(17:12가 5:1로 보이던 결함).
           // 삭제: 글자가 보이는 최소 크기(폭 48·높이 36)
           let valueClip = false
@@ -2176,6 +2178,13 @@ async function runScenes(browser, port, scheme) {
           const tooSmall = k === '삭제' && (r.width < 48 || r.height < 36)
           out[k] = { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height), clipText: valueClip || tooSmall || (k === '삭제' || k === '감소' || k === '증가' ? [...el.querySelectorAll('*')].some((n) => n.children.length === 0 && n.getBoundingClientRect().width && (n.getBoundingClientRect().right > r.right + 1 || n.getBoundingClientRect().left < r.left - 1)) : el.scrollWidth > el.clientWidth + 1), cs: getComputedStyle(el).overflow }
         }
+        // 바꾸기와 같은 줄 이웃 칩(바로 앞 형제)의 세로 상자 — 가운데·높이가 맞아야 한다
+        out.바꿈쌍 = [...document.querySelectorAll('button')].filter((b) => vis(b) && (b.getAttribute('aria-label') ?? '').startsWith('바꾸기')).map((b) => {
+          const chip = b.previousElementSibling
+          if (!chip) return null
+          const a = b.getBoundingClientRect(), c = chip.getBoundingClientRect()
+          return { 바꾸기높이: Math.round(a.height), 칩높이: Math.round(c.height), 가운데차: Math.abs(Math.round(((a.top + a.bottom) - (c.top + c.bottom)) / 2)) }
+        }).filter(Boolean)
         return out
       }
       const res = []
@@ -2207,8 +2216,30 @@ async function runScenes(browser, port, scheme) {
         const clipped = order.filter((k) => r[k].clipText)
         return `${r.width}: ${order.map((k) => `${k} ${r[k].w}px`).join(' · ')} · 삭제 높이 ${r.삭제.h}px · 겹침 ${overlap}쌍 · 잘림 ${clipped.length ? clipped.join(',') : '없음'}`
       })
-      const ok = res.every((r) => order.every((k) => r[k]) && !order.some((k) => r[k].clipText) && pairOverlaps(r) === 0)
-      flows.push([name, { ok, detail: lines.join(' / ') }])
+      // 이웃 부품 사이 간격이 같은 역할끼리 같다: 같은 줄(세로 가운데 차이 ≤ 2px)의 이웃 쌍은 가로 간격, 삭제가 둘째 줄이면 위 줄과의 세로 간격 — 모두 같다(±1px)
+      const gapsOf = (r) => {
+        const gaps = []
+        for (let i = 0; i < order.length - 2; i++) {
+          const a = r[order[i]], b = r[order[i + 1]]
+          if (Math.abs((a.t + a.b) / 2 - (b.t + b.b) / 2) <= 2) gaps.push(b.l - a.r)
+        }
+        const top = Math.max(...order.slice(0, 4).map((k) => r[k].b))
+        const d = r.삭제
+        if (Math.abs((d.t + d.b) / 2 - (r.증가.t + r.증가.b) / 2) <= 2) gaps.push(d.l - r.증가.r)
+        else gaps.push(d.t - top)
+        return gaps
+      }
+      const gapOk = (r) => { const g = gapsOf(r); return g.length > 1 && Math.max(...g) - Math.min(...g) <= 1 }
+      // 삭제가 혼자 뜨지 않는다: 같은 줄이거나, 줄 전체 폭을 쓰는 둘째 줄이다(한 칸만 감겨 남은 것이 아니다)
+      const lonely = (r) => {
+        const d = r.삭제
+        if (Math.abs((d.t + d.b) / 2 - (r.증가.t + r.증가.b) / 2) <= 2) return false
+        return d.w < r.증가.r - r.시각.l - 2
+      }
+      const centerOk = (r) => r.바꿈쌍.length > 0 && r.바꿈쌍.every((x) => x.가운데차 <= 2 && Math.abs(x.바꾸기높이 - x.칩높이) <= 2)
+      const lines2 = res.map((r) => (!order.every((k) => r[k]) ? `${r.width}: 없음` : `${r.width}: 간격 ${gapsOf(r).join('/')}px · 삭제 혼자 줄 ${lonely(r)} · 바꾸기-칩 ${r.바꿈쌍.map((x) => `${x.바꾸기높이}/${x.칩높이} 차 ${x.가운데차}`).join(',')}`))
+      const ok = res.every((r) => order.every((k) => r[k]) && !order.some((k) => r[k].clipText) && pairOverlaps(r) === 0 && gapOk(r) && !lonely(r) && centerOk(r))
+      flows.push([name, { ok, detail: lines.join(' / ') + ' || ' + lines2.join(' / ') }])
     })
     await guardedFlow(['SS2 검증 식단 탭 상태: 끼니 등급 색·눌린 품목·맨 글자 버튼·누르는 영역·맨 아래'], async () => {
       const name = 'SS2 검증 식단 탭 상태: 끼니 등급 색·눌린 품목·맨 글자 버튼·누르는 영역·맨 아래'
