@@ -135,7 +135,9 @@ const ROLES_JUDGED = new Set(['묶음 사이', '카드 안쪽', '가까움 순�
 const THEME_SCENES_BEFORE = new Set(['editor', 'line-sheet'])
 /** 장면마다 기대하는 띠·시트 수의 최소값. 모자라면 `띠` 칸을 실패로 낸다 — 아무것도 안 재고 지나가지 않게 (RR0) */
 /** 아래 탭 띠가 있는 장면(재개 줄이 붙는 `home-resume`·`settings-open`은 따로 2) */
-const TAB_BAR_SCENES = ['home', 'home-end', 'home-375', 'home-banner', 'home-banner-375', 'home-banners-open', 'history', 'history-detail', 'history-detail-edit', 'analyze', 'diet', 'diet-log-open', 'settings', 'settings-end', 'settings-375', 'settings-routines', 'settings-routines-375', 'settings-routines-confirm-375']
+const TAB_BAR_SCENES = ['home', 'home-end', 'home-375', 'home-banner', 'home-banner-375', 'home-banners-open', 'history', 'history-detail', 'history-detail-edit', 'analyze', 'diet', 'diet-log-open', 'settings', 'settings-end', 'settings-375', 'settings-routines', 'settings-routines-375', 'settings-routines-confirm-375',
+  // v1.21 SS0이 더한 장면
+  'diet-end', 'diet-375', 'diet-streak', 'history-375', 'history-day', 'history-exercise', 'history-exercise-detail', 'history-detail-end', 'history-detail-change', 'analyze-end', 'analyze-375', 'analyze-empty', 'settings-gist', 'settings-export-preview', 'settings-reset-confirm']
 const EXPECTED_BARS = {
   // 탭 장면: 아래 탭 띠 1 (재개 줄이 있으면 2)
   ...Object.fromEntries(TAB_BAR_SCENES.map((n) => [n, 1])),
@@ -148,7 +150,7 @@ const EXPECTED_BARS = {
   'session-open-b': 1,
   'session-rest': 2,
   // 시트 장면: 시트 1
-  ...Object.fromEntries(['sheet-home', 'sheet-open-session', ...SESSION_SHEET_SCENES, 'sheet-food', 'line-sheet'].map((n) => [n, 1])),
+  ...Object.fromEntries(['sheet-home', 'sheet-open-session', ...SESSION_SHEET_SCENES, 'sheet-food', 'sheet-food-new', 'sheet-diet-plan', 'sheet-diet-plan-ahead', 'sheet-diet-slot', 'sheet-diet-slot-edit', 'sheet-diet-variant', 'line-sheet'].map((n) => [n, 1])),
 }
 const SET_SCENES = new Set(['session', 'session-375', 'history-detail-edit'])
 /** 시작 자리를 재는 장면 (RR4). 390 폭 넷, 375 폭 둘 */
@@ -164,6 +166,11 @@ const axeInfo = []
 const flows = [] // [이름, {ok, detail}] — 시트 닫기 흐름 (QQ3)
 const shots = []
 const layouts = {} // 장면 -> inPageLayout() (QQ4 여백 한 벌)
+
+const sceneFailures = [] // [장면, 이유] — requiredScene이 준비하다 던졌거나 찍지 못한 장면 (SS0). 하나라도 있으면 종료 코드 1
+const snapped = new Set() // 찍으려고 닿은 장면 이름 (--only로 거른 것도 센다)
+const wrapNotes = [] // 390·375 폭 글자 중간 꺾임 기록 (SS0 before에서는 기록만 한다)
+const ghCalls = [] // 설정 gist 장면이 막은 GitHub 호출 — 0이어야 한다
 
 const verdict = (r) => (r.skip ? { status: '건너뜀', detail: r.detail } : { status: r.ok ? '통과' : '실패', detail: r.detail })
 
@@ -520,25 +527,188 @@ function inPageDropSessionsExcept(keep) {
   })
 }
 
+/** SS0: 식단 하루 기록 `count`일(오늘부터 거슬러)을 `planId`로 심는다. 심기 전 행을 {dates, prev}로 돌려줘 끝에 되돌린다 */
+function inPageDietSeed({ planId, count }) {
+  return new Promise((resolve, reject) => {
+    const pad = (n) => String(n).padStart(2, '0')
+    const dates = Array.from({ length: count }, (_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    })
+    const open = indexedDB.open('workout-tracker')
+    open.onerror = () => reject(open.error)
+    open.onsuccess = () => {
+      const idb = open.result
+      const tx = idb.transaction('dietDays', 'readwrite')
+      const store = tx.objectStore('dietDays')
+      const prev = []
+      let left = dates.length
+      for (const date of dates) {
+        const got = store.get(date)
+        got.onsuccess = () => {
+          prev.push(got.result ?? null)
+          store.put({ date, planId, isTrainingDay: false, slots: {} })
+          left -= 1
+        }
+      }
+      tx.oncomplete = () => {
+        idb.close()
+        if (left === 0) resolve({ dates, prev })
+        else reject(new Error('식단 시드 일부 실패'))
+      }
+      tx.onerror = () => reject(tx.error)
+    }
+  })
+}
+
+/** SS0: inPageDietSeed가 심은 날을 원래대로(없던 날은 지우고, 있던 날은 되쓴다) */
+function inPageDietRestore({ dates, prev }) {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open('workout-tracker')
+    open.onerror = () => reject(open.error)
+    open.onsuccess = () => {
+      const idb = open.result
+      const tx = idb.transaction('dietDays', 'readwrite')
+      const store = tx.objectStore('dietDays')
+      for (const date of dates) {
+        const row = prev.find((r) => r && r.date === date)
+        if (row) store.put(row)
+        else store.delete(date)
+      }
+      tx.oncomplete = () => {
+        idb.close()
+        resolve(null)
+      }
+      tx.onerror = () => reject(tx.error)
+    }
+  })
+}
+
+/**
+ * SS0: 끝난 세션의 모든 종목에 감각 메모를 심는다(종목별 기록의 "메모 이력"이 보이게).
+ * originals가 null이면 심고 원래 세션들을 돌려주고, 배열이면 그것으로 되돌린다.
+ */
+function inPageNoteSeed(originals) {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open('workout-tracker')
+    open.onerror = () => reject(open.error)
+    open.onsuccess = () => {
+      const idb = open.result
+      const tx = idb.transaction('sessions', 'readwrite')
+      const store = tx.objectStore('sessions')
+      let out = null
+      if (originals) originals.forEach((x) => store.put(x))
+      else {
+        const all = store.getAll()
+        all.onsuccess = () => {
+          const done = all.result.filter((x) => x.endedAt)
+          out = done
+          for (const x of done) {
+            store.put({
+              ...x,
+              entries: x.entries.map((e) => (e.skipped ? e : { ...e, sensoryNote: '메모 확인용 — 팔꿈치 각도를 바꿔 봤더니 등 바깥쪽 자극이 훨씬 또렷했다' })),
+            })
+          }
+        }
+      }
+      tx.oncomplete = () => {
+        idb.close()
+        resolve(out)
+      }
+      tx.onerror = () => reject(tx.error)
+    }
+  })
+}
+
 async function runScenes(browser, port, scheme) {
   const light = scheme === 'light'
   const ctx = await browser.newContext({ ...DEVICE, locale: 'ko-KR', colorScheme: scheme, serviceWorkers: 'block' })
   const page = await ctx.newPage()
   await page.addInitScript(installScript())
+  // 설정 gist 장면이 가짜 토큰을 심어도 GitHub을 부르지 않는다: 막고 센다(0이어야 한다)
+  await ctx.route(/api\.github\.com/, (route) => {
+    ghCalls.push(route.request().url())
+    return route.abort()
+  })
   await page.goto(`http://localhost:${port}${BASE}`)
 
-  const snap = async (scene) => {
-    await settle(page, 500)
+  const snap =async (scene, pg = page) => {
+    await settle(pg, 500)
     const name = light ? `${scene}-light` : scene
+    snapped.add(name)
     if (ONLY && !ONLY.has(name)) return
-    await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
-    shots.push({ name, buf: await page.screenshot() })
-    if (!light) rects[scene] = await page.evaluate(inPageRects)
-    if (!light && START_SPOT_SCENES.has(scene)) startSpots[scene.endsWith('-375') ? 375 : 390][scene] = await page.evaluate(inPageStartSpot)
-    if (PRESS_SHOT && !light && PRESS_SHOT[0] === scene) await pressShot(page, scene, PRESS_SHOT[1])
+    await pg.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
+    shots.push({ name, buf: await pg.screenshot() })
+    if (!light) rects[scene] = await pg.evaluate(inPageRects)
+    if (!light && START_SPOT_SCENES.has(scene)) startSpots[scene.endsWith('-375') ? 375 : 390][scene] = await pg.evaluate(inPageStartSpot)
+    if (PRESS_SHOT && !light && PRESS_SHOT[0] === scene) await pressShot(pg, scene, PRESS_SHOT[1])
     if (CHECK) {
-      if (!light) await runChecks(page, scene)
-      else await runLightOnly(page, scene) // 라이트: 띠·시트 버튼과 테마 토큰만
+      if (!light) await runChecks(pg, scene)
+      else await runLightOnly(pg, scene) // 라이트: 띠·시트 버튼과 테마 토큰만
+    }
+  }
+  /**
+   * 필수 장면 (SS0). 준비(fn)가 던지거나, 기대한 장면을 못 찍으면 그 장면의 모든 칸을 `실패`로 표에 넣고 종료 코드 1.
+   * optional처럼 조용히 지나가지 않는다 — 화면을 옮겨 선택자가 안 맞으면 바로 드러나야 한다. names는 -light 없는 장면 이름들
+   */
+  const requiredScene = async (names, fn) => {
+    const list = (Array.isArray(names) ? names : [names]).map((n) => (light ? `${n}-light` : n))
+    let err = null
+    try {
+      await fn()
+    } catch (e) {
+      err = `예외: ${String(e.message).split('\n').slice(0, 3).join(' ')}`
+    }
+    const missed = list.filter((n) => !snapped.has(n))
+    if (!err && missed.length === 0) return
+    const failed = missed.length ? missed : [list[list.length - 1]]
+    for (const n of failed) {
+      const detail = err ?? '장면에 닿지 못했다(찍지 않았다)'
+      sceneFailures.push([n, detail])
+      console.log(`장면 실패: ${n} — ${detail}`)
+      if (CHECK) rows.push({ scene: n, cells: Object.fromEntries(COLUMNS.map((c) => [c, { status: '실패', detail }])) })
+    }
+  }
+  /** 390·375 폭에서 root 안 한글이 글자 중간에서 꺾이는지 잰다(다크만). SS0 before에서는 기록만 한다 — 판정은 그 화면을 옮기는 작업이 흐름으로 건다 */
+  const wrapProbe = async (label, root = '#root', pg = page) => {
+    if (light) return
+    const parts = []
+    try {
+      for (const w of [390, 375]) {
+        await pg.setViewportSize({ width: w, height: w === 375 ? 812 : 844 })
+        await settle(pg, 350)
+        const r = await pg.evaluate(inPageMidWordBreaks, root)
+        parts.push(`${w}: 글자 ${r.chars}개·꺾임 ${r.count}건${r.samples.length ? ' (' + r.samples.join(' ') + ')' : ''}`)
+      }
+    } finally {
+      await pg.setViewportSize({ width: 390, height: 844 })
+      await settle(pg, 350)
+    }
+    wrapNotes.push(`${label} — ${parts.join(' · ')}`)
+  }
+  /** 폭을 375로 줄여 fn을 돌리고 반드시 390으로 되돌린다(장면 준비가 던져도 뒤 장면이 375에 갇히지 않게) */
+  const at375 = async (fn, pg = page) => {
+    await pg.setViewportSize({ width: 375, height: 812 })
+    await settle(pg, 500)
+    try {
+      await fn()
+    } finally {
+      await pg.setViewportSize({ width: 390, height: 844 })
+      await settle(pg, 400)
+    }
+  }
+  /** 새 브라우저 문맥 하나(다른 장면 데이터에 안 닿는 장면용: 온보딩 홈 화면 앱·빈 분석). 끝나면 닫는다 */
+  const withFreshPage = async (init, fn) => {
+    const c = await browser.newContext({ ...DEVICE, locale: 'ko-KR', colorScheme: scheme, serviceWorkers: 'block' })
+    try {
+      const p = await c.newPage()
+      await p.addInitScript(installScript())
+      if (init) await p.addInitScript(init)
+      await p.goto(`http://localhost:${port}${BASE}`)
+      await fn(p)
+    } finally {
+      await c.close()
     }
   }
   const optional = async (label, fn) => {
@@ -604,10 +774,10 @@ async function runScenes(browser, port, scheme) {
     if (light) return
     const name = `RR8 ${label} 390·375 글자 중간 꺾임 없음`
     await guardedFlow([name], async () => {
-      const r390 = await page.evaluate(inPageMidWordBreaks, 'dialog[open]')
+      const r390 = await page.evaluate(inPageMidWordBreaks, 'dialog[open], .sheet')
       await page.setViewportSize({ width: 375, height: 812 })
       await settle(page, 400)
-      const r375 = await page.evaluate(inPageMidWordBreaks, 'dialog[open]')
+      const r375 = await page.evaluate(inPageMidWordBreaks, 'dialog[open], .sheet')
       await page.setViewportSize({ width: 390, height: 844 })
       await settle(page, 400)
       const bad = [...r390.samples, ...r375.samples]
@@ -616,6 +786,45 @@ async function runScenes(browser, port, scheme) {
   }
   /** 고른 상태: 그 시트의 눌림 토글(aria-pressed) 가운데 켜진 것이 want개다 (안 눌린 토글이 맨 글자가 되지 않는지는 `시트 버튼` 칸이 따로 본다) */
   const pressedCount = (dlg) => dlg.locator('button[aria-pressed="true"]').count()
+
+  // SS0 온보딩: 시작 버튼을 누르기 전 첫 화면 — Safari 탭(390·375), 홈 화면 앱(별도 문맥), 빈 분석(별도 문맥)
+  await requiredScene(['onboarding', 'onboarding-375'], async () => {
+    await page.getByRole('button', { name: '확인했어요, 그래도 계속', exact: true }).waitFor({ timeout: 5000 })
+    await page.getByText('1단계 — 홈 화면에 추가').waitFor({ timeout: 3000 })
+    await settle(page, 600)
+    await snap('onboarding')
+    await wrapProbe('onboarding')
+    await at375(() => snap('onboarding-375'))
+  })
+  await requiredScene('onboarding-standalone', () =>
+    withFreshPage(
+      // matchMedia('(display-mode: standalone)')만 참으로 — 홈 화면에 추가된 앱처럼
+      () => {
+        const orig = window.matchMedia.bind(window)
+        window.matchMedia = (q) => {
+          const m = orig(q)
+          if (!/display-mode:\s*standalone/.test(q)) return m
+          return new Proxy(m, { get: (t, k) => (k === 'matches' ? true : typeof t[k] === 'function' ? t[k].bind(t) : t[k]) })
+        }
+      },
+      async (p) => {
+        await p.getByRole('button', { name: '시작하기', exact: true }).waitFor({ timeout: 5000 })
+        await p.getByText('홈 화면 앱으로 실행 중입니다').waitFor({ timeout: 3000 })
+        await settle(p, 600)
+        await snap('onboarding-standalone', p)
+      },
+    ),
+  )
+  // 기록 0개인 새 프로필의 분석 — 안내 문구만 있는 빈 화면
+  await requiredScene('analyze-empty', () =>
+    withFreshPage(null, async (p) => {
+      await p.getByRole('button', { name: /^(시작하기|확인했어요, 그래도 계속)$/ }).click()
+      await p.getByRole('button', { name: '분석', exact: true }).click()
+      await p.getByText('기록이 쌓이면 추이가 표시됩니다.').waitFor({ timeout: 5000 })
+      await settle(p, 600)
+      await snap('analyze-empty', p)
+    }),
+  )
 
   await page.getByRole('button', { name: /^(시작하기|확인했어요, 그래도 계속)$/ }).click()
   await page.getByRole('button', { name: '설정', exact: true }).waitFor()
@@ -646,7 +855,7 @@ async function runScenes(browser, port, scheme) {
       // RR5 재검증: 375 폭에서 한글이 글자 중간에서 꺾이지 않는다 (공백 없는 두 글자 사이에서 줄이 바뀌면 실패)
       if (!light) {
         await guardedFlow(['Day 선택 시트 375 글자 중간 꺾임 없음'], async () => {
-          const r = await page.evaluate(inPageMidWordBreaks, 'dialog[open]')
+          const r = await page.evaluate(inPageMidWordBreaks, 'dialog[open], .sheet')
           flows.push(['Day 선택 시트 375 글자 중간 꺾임 없음', { ok: r.count === 0 && r.chars > 0, detail: r.chars === 0 ? '잰 글자 0개' : `글자 ${r.chars}개 · 중간 꺾임 ${r.count}건${r.count ? ': ' + r.samples.join(' | ') : ''}` }])
         })
       }
@@ -774,7 +983,7 @@ async function runScenes(browser, port, scheme) {
       })
     })
     // QQ6: 세션이 열려 있을 때 설정 (`편집` 비활성 + 안내 문구)
-    await optional('settings-open', async () => {
+    await requiredScene('settings-open', async () => {
       await page.getByRole('button', { name: '설정', exact: true }).click()
       await settle(page, 600)
       await snap('settings-open')
@@ -1580,17 +1789,85 @@ async function runScenes(browser, port, scheme) {
     await page.getByRole('button', { name: '기록', exact: true }).click()
     await settle(page, 800)
     await snap('history')
-    await optional('history-detail', async () => {
-      await page.locator('button.row').first().click({ timeout: 3000 })
+    await wrapProbe('history')
+    await requiredScene('history-375', () => at375(() => snap('history-375')))
+    // 세션이 있는 날(달력 칸의 🔥)을 고른 상태 — 그날 세션 줄 + 그날 식단 편집기. 끝에 "전체 보기"로 되돌린다
+    await requiredScene('history-day', async () => {
+      await page.getByRole('button', { name: /🔥/ }).first().click({ timeout: 3000 })
+      await page.getByRole('button', { name: '전체 보기', exact: true }).waitFor({ timeout: 3000 })
+      await settle(page, 800)
+      await snap('history-day')
+      await page.getByRole('button', { name: '전체 보기', exact: true }).click()
+      await settle(page, 400)
+    })
+    // 종목별: 목록과 한 종목(메모 이력이 보이게 끝난 세션에 감각 메모를 심었다가 되돌린다)
+    await requiredScene(['history-exercise', 'history-exercise-detail'], async () => {
+      const originals = await page.evaluate(inPageNoteSeed, null)
+      try {
+        await page.reload()
+        await page.getByRole('button', { name: '기록', exact: true }).click()
+        await settle(page, 600)
+        await btn(page, '종목별').click()
+        await page.getByRole('button', { name: /\d+회 ▸$/ }).first().waitFor({ timeout: 4000 })
+        await settle(page, 500)
+        await snap('history-exercise')
+        await page.getByRole('button', { name: /\d+회 ▸$/ }).first().click()
+        await page.getByText(/^메모 이력 \(\d+\)$/).waitFor({ timeout: 4000 })
+        await settle(page, 500)
+        await snap('history-exercise-detail')
+        await wrapProbe('history-exercise-detail')
+        await btn(page, '‹ 종목 목록').click()
+        await settle(page, 300)
+        await btn(page, '달력').click()
+        await settle(page, 400)
+      } finally {
+        await page.evaluate(inPageNoteSeed, originals)
+        await page.reload()
+        await page.getByRole('button', { name: '기록', exact: true }).click()
+        await settle(page, 800)
+      }
+    })
+    await requiredScene(['history-detail', 'history-detail-end'], async () => {
+      await page.getByRole('button', { name: /\d{4}-\d{2}-\d{2} \([월화수목금토일]\)/ }).first().click({ timeout: 3000 })
+      await page.getByRole('button', { name: '기록으로', exact: true }).waitFor({ timeout: 3000 })
       await settle(page, 800)
       await snap('history-detail')
+      await wrapProbe('history-detail')
+      await toEnd()
+      await snap('history-detail-end')
+      await toTop()
+      // Day 변경: 다른 Day를 고르면 기록 키 재매핑 표가 보이는 상태 (재매핑이 있는 Day가 나올 때까지 후보를 차례로 눌러 본다)
+      await requiredScene('history-detail-change', async () => {
+        await btn(page, '잘못된 Day로 기록했나요?').click({ timeout: 3000 })
+        // 유산소 종류 알약도 같은 줄 모양이라, 안내 문구 바로 뒤의 Day 후보만 고른다
+        const pills = page.getByText('이 세션을 어느 Day로 옮길까요?').locator('xpath=following-sibling::*[1]').getByRole('button')
+        const n = await pills.count()
+        if (n === 0) throw new Error('Day 후보가 없다')
+        let shown = false
+        for (let i = 0; i < n && !shown; i++) {
+          await pills.nth(i).click()
+          shown = await page.getByText(/기록 키 재매핑 \d+건/).waitFor({ timeout: 1200 }).then(() => true, () => false)
+          // 재매핑이 없는 Day면 확인 화면의 취소로 Day 목록에 돌아와 다음 후보를 누른다
+          if (!shown) {
+            await btn(page, '취소').click()
+            await settle(page, 200)
+          }
+        }
+        if (!shown) throw new Error('재매핑 표가 보이는 Day가 없다')
+        await page.getByText(/기록 키 재매핑 \d+건/).scrollIntoViewIfNeeded()
+        await settle(page, 500)
+        await snap('history-detail-change')
+        await btn(page, '취소').click()
+        await settle(page, 300)
+        await toTop()
+      })
       // 기록 편집에서 카드를 펼친 상태 (RR7의 세트 숫자·섬 버튼을 볼 장면)
-      await optional('history-detail-edit', async () => {
+      await requiredScene('history-detail-edit', async () => {
         await page.locator('button[aria-expanded]').first().click({ timeout: 3000 })
         await settle(page, 500)
         await snap('history-detail-edit')
       })
-      await page.locator('.back-link').click()
+      await btn(page, '‹ 기록').click()
       await settle(page, 400)
     })
 
@@ -1599,24 +1876,82 @@ async function runScenes(browser, port, scheme) {
     await page.locator('svg.recharts-surface, .recharts-wrapper, .center-note').first().waitFor({ timeout: 8000 }).catch(() => {})
     await settle(page, 1200)
     await snap('analyze')
+    await wrapProbe('analyze')
+    await requiredScene('analyze-end', async () => {
+      await toEnd()
+      await snap('analyze-end')
+      await toTop()
+    })
+    await requiredScene('analyze-375', () => at375(() => snap('analyze-375')))
 
     // 식단
     await page.getByRole('button', { name: '식단', exact: true }).click()
     await settle(page, 800)
     await snap('diet')
-    await optional('sheet-food', async () => {
+    await wrapProbe('diet')
+    await requiredScene('diet-end', async () => {
+      await toEnd()
+      await snap('diet-end')
+      await toTop()
+    })
+    await requiredScene('diet-375', () => at375(() => snap('diet-375')))
+    // 플랜 전환 시트와 "내일부터" 1~3일 고르는 상태
+    await requiredScene(['sheet-diet-plan', 'sheet-diet-plan-ahead'], async () => {
+      await page.getByRole('button', { name: /^(?!.*바꾸기).*▾$/ }).first().click({ timeout: 3000 })
+      const dlg = page.getByRole('dialog', { name: '식단 플랜 전환' })
+      await dlg.waitFor({ timeout: 3000 })
+      await settle(page)
+      await snap('sheet-diet-plan')
+      await wrapProbe('sheet-diet-plan', 'dialog[open], .sheet')
+      await dlg.getByRole('button', { name: /^내일부터 / }).first().click()
+      await dlg.getByText('내일부터 며칠').waitFor({ timeout: 3000 })
+      await settle(page, 300)
+      await snap('sheet-diet-plan-ahead')
+      await closeSheet('식단 플랜 전환')
+    })
+    // 끼니 시트(메뉴)와 "대체했어요"를 누른 입력 상태
+    await requiredScene(['sheet-diet-slot', 'sheet-diet-slot-edit'], async () => {
+      await page.getByRole('button', { name: /^아침 \d/ }).first().click({ timeout: 3000 })
+      const dlg = page.getByRole('dialog', { name: /기록$/ })
+      await dlg.waitFor({ timeout: 3000 })
+      await settle(page)
+      await snap('sheet-diet-slot')
+      await wrapProbe('sheet-diet-slot', 'dialog[open], .sheet')
+      await dlg.getByRole('button', { name: '대체했어요', exact: true }).click()
+      await dlg.getByText('어느 쪽이었나요').waitFor({ timeout: 3000 })
+      await settle(page, 300)
+      await snap('sheet-diet-slot-edit')
+      await closeSheet(/기록$/)
+    })
+    // 단백질원 시트
+    await requiredScene('sheet-diet-variant', async () => {
+      await page.getByRole('button', { name: /다른 단백질원으로 바꾸기$/ }).first().click({ timeout: 3000 })
+      await page.getByRole('dialog', { name: /단백질원 고르기$/ }).waitFor({ timeout: 3000 })
+      await settle(page)
+      await snap('sheet-diet-variant')
+      await wrapProbe('sheet-diet-variant', 'dialog[open], .sheet')
+      await closeSheet(/단백질원 고르기$/)
+    })
+    await requiredScene(['sheet-food', 'sheet-food-new'], async () => {
       await btn(page, '＋ 먹은 것 추가').click({ timeout: 3000 })
-      await page.getByRole('dialog', { name: '먹은 것 추가' }).waitFor()
+      await page.getByRole('dialog', { name: '먹은 것 추가' }).waitFor({ timeout: 3000 })
       await settle(page)
       await snap('sheet-food')
-      // 시트에서 먹은 것을 하나 더해 두고 닫는다 — 아래 diet-log-open이 쓴다(장면마다 새 브라우저 문맥이라 다른 장면에 안 남는다)
+      // 새 음식 등록 폼 — 이름·분량·kcal·단백질 칸이 펼쳐진 상태
+      await page.getByRole('dialog', { name: '먹은 것 추가' }).getByRole('button', { name: '새 음식 등록', exact: true }).click()
+      await page.getByRole('dialog', { name: '먹은 것 추가' }).getByRole('textbox', { name: '음식 이름' }).waitFor({ timeout: 3000 })
+      await settle(page, 300)
+      await snap('sheet-food-new')
+      await page.getByRole('dialog', { name: '먹은 것 추가' }).getByRole('button', { name: '취소', exact: true }).click()
+      await settle(page, 300)
+      // 시트에서 먹은 것을 하나 더해 두고 닫는다 — 아래 diet-log-open이 쓴다
       await page.getByRole('dialog', { name: '먹은 것 추가' }).getByRole('button', { name: /(kcal|g|영양 미입력)$/ }).first().click()
       await settle(page, 400)
       await closeSheet('먹은 것 추가')
     })
     // 먹은 기록 한 줄을 펼친 상태 — 시각 입력칸·"먹은 개수" 스테퍼·삭제 버튼이 한 줄에 보인다
-    await optional('diet-log-open', async () => {
-      await page.locator('button.diet-item').last().click({ timeout: 3000 })
+    await requiredScene('diet-log-open', async () => {
+      await page.locator('button[aria-expanded]').last().click({ timeout: 3000 })
       await page.getByRole('button', { name: '삭제', exact: true }).first().waitFor({ timeout: 3000 })
       await settle(page, 400)
       await snap('diet-log-open')
@@ -1670,21 +2005,86 @@ async function runScenes(browser, port, scheme) {
     })
 
 
+    // 줄인 플랜(보정 1,500)을 오늘까지 4일 연속 고른 상태 — 연속 저칼로리 경고. 심은 날은 끝에 되돌린다
+    await requiredScene('diet-streak', async () => {
+      const seeded = await page.evaluate(inPageDietSeed, { planId: 'cut-1500-u', count: 4 })
+      try {
+        await page.reload()
+        await page.getByRole('button', { name: '식단', exact: true }).click()
+        await page.getByText(/보정 1,500 4일 연속/).waitFor({ timeout: 5000 })
+        await settle(page, 600)
+        await snap('diet-streak')
+        await wrapProbe('diet-streak')
+      } finally {
+        await page.evaluate(inPageDietRestore, seeded)
+        await page.reload()
+        await page.getByRole('button', { name: '설정', exact: true }).waitFor()
+        await settle(page, 600)
+      }
+    })
+
     // 설정
     await page.getByRole('button', { name: '설정', exact: true }).click()
     await settle(page, 800)
     await snap('settings')
+    await wrapProbe('settings')
     await toEnd()
     await snap('settings-end')
     await toTop()
 
+    // 내보내기 미리보기를 펼친 상태, 초기화 확인 상태(확인만 — 실제로 지우는 버튼은 누르지 않는다)
+    await requiredScene('settings-export-preview', async () => {
+      await btn(page, '미리보기').click({ timeout: 3000 })
+      await btn(page, '닫기').waitFor({ timeout: 3000 })
+      await btn(page, '닫기').evaluate((el) => el.scrollIntoView({ block: 'start' }))
+      await settle(page, 500)
+      await snap('settings-export-preview')
+      await btn(page, '닫기').click()
+      await settle(page, 300)
+      await toTop()
+    })
+    await requiredScene('settings-reset-confirm', async () => {
+      await btn(page, '모든 데이터 초기화').click({ timeout: 3000 })
+      await btn(page, '취소').last().waitFor({ timeout: 3000 })
+      await btn(page, '취소').last().evaluate((el) => el.scrollIntoView({ block: 'center' }))
+      await settle(page, 500)
+      await snap('settings-reset-confirm')
+      await btn(page, '취소').last().click()
+      await settle(page, 300)
+      await toTop()
+    })
+    // Gist 토큰이 저장된 상태 — 가짜 토큰을 localStorage에 넣는다. GitHub 호출은 막고 세며, 0이어야 한다
+    await guardedFlow(['settings-gist GitHub을 부르지 않는다'], async () => {
+      const callsBefore = ghCalls.length
+      await requiredScene('settings-gist', async () => {
+        await page.evaluate(() => localStorage.setItem('workout-tracker.gistToken', 'ghp_uicheck0000000000000000000000000000'))
+        try {
+          await page.reload()
+          await page.getByRole('button', { name: '설정', exact: true }).click()
+          await page.getByText('토큰 저장됨', { exact: true }).waitFor({ timeout: 5000 })
+          await page.getByText('토큰 저장됨', { exact: true }).evaluate((el) => el.scrollIntoView({ block: 'start' }))
+          await settle(page, 600)
+          await snap('settings-gist')
+          await wrapProbe('settings-gist')
+        } finally {
+          await page.evaluate(() => localStorage.removeItem('workout-tracker.gistToken'))
+          await page.reload()
+          await page.getByRole('button', { name: '설정', exact: true }).click()
+          await settle(page, 800)
+          await toTop()
+        }
+      })
+      const made = ghCalls.length - callsBefore
+      flows.push(['settings-gist GitHub을 부르지 않는다', { ok: made === 0, detail: `막은 호출 ${made}건${made ? ': ' + ghCalls.slice(callsBefore).join(' ') : ''}` }])
+    })
+
     // QQ6: 375 폭, 활성 아닌 루틴 줄(`이 루틴 쓰기`·`삭제`), 그 줄의 확인 상태
-    await optional('settings-375', async () => {
+    await requiredScene('settings-375', async () => {
       await page.setViewportSize({ width: 375, height: 812 })
       await settle(page, 500)
       await snap('settings-375')
     })
-    await optional('settings-routines', async () => {
+    await requiredScene(['settings-routines-375', 'settings-routines-confirm-375', 'settings-routines'], async () => {
       await page.evaluate(
         () =>
           new Promise((resolve, reject) => {
@@ -2069,6 +2469,9 @@ function printResults() {
     if (!r.ok) failed++
     console.log(`- 흐름 ${r.ok ? '통과' : '실패'} ${name}: ${r.detail}`)
   }
+  if (sceneFailures.length) console.log(`\n장면 실패 ${sceneFailures.length}건 (requiredScene):\n${sceneFailures.map(([n, d]) => `- ${n}: ${d}`).join('\n')}`)
+  else console.log('\n장면 실패 0건 (requiredScene)')
+  failed += sceneFailures.length
   console.log('\n접근성(axe) 결과 — color-contrast는 찍기만 한다 (위반 노드 / incomplete 노드):')
   for (const a of axeInfo) console.log(`- ${a.scene}: serious·critical ${a.hard}건, color-contrast 위반 ${a.contrast} · incomplete ${a.incomplete}`)
   return failed
@@ -2100,7 +2503,13 @@ try {
     writeFileSync(file, JSON.stringify({ ...prev, ...rects }) + '\n')
   }
   console.log(`스크린샷 ${shots.length}장 → docs/screenshots/${VER}/${phase}/`)
+  if (wrapNotes.length) console.log(`\n글자 중간 꺾임 기록 (390·375 폭, 판정 아님):\n${wrapNotes.map((n) => `- ${n}`).join('\n')}`)
   if (CHECK && printResults() > 0) exitCode = 1
+  // --check가 아니어도 필수 장면이 빠졌으면 실패다(조용히 빠진 채 0으로 끝나지 않는다)
+  if (!CHECK && sceneFailures.length) {
+    console.log(`\n장면 실패 ${sceneFailures.length}건:\n${sceneFailures.map(([n, d]) => `- ${n}: ${d}`).join('\n')}`)
+    exitCode = 1
+  }
 } finally {
   await browser.close()
   await server.close()

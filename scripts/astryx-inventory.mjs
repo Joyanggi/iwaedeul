@@ -9,7 +9,7 @@
  *   src/**\/*.tsx(테스트 제외)마다: Astryx import 유무 · style={ 수 · 그 가운데 여백 속성 수 · legacy 클래스 수.
  *   --write면 docs/ASTRYX-INVENTORY.md에 쓴다(맨 위에 만든 날짜와 커밋).
  *   --unused면 `global.css`에 선택자로 있지만 src의 .ts·.tsx(테스트 제외) 어디에도 낱말로 안 나오는 클래스 이름을 찍는다 (v1.20 RR0).
- *   넷째 숫자 "안 쓰는 legacy 선택자"가 그 수다 — 화면을 옮기고 CSS를 안 지우면 늘어서 --check가 걸린다.
+ *   첫째 숫자는 NOT_SCREENS(진입점·SVG 그림)를 뺀 수다. 넷째 숫자 "안 쓰는 legacy 선택자"가 그 수다 — 화면을 옮기고 CSS를 안 지우면 늘어서 --check가 걸린다.
  */
 import { execSync } from 'node:child_process'
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -60,6 +60,15 @@ if (process.argv.includes('--unused')) {
   process.exit(0)
 }
 
+/**
+ * 화면이 아닌 파일 (PLAN v1.21 SS0). "Astryx를 안 읽는 화면 파일"(첫째 숫자)에서 뺀다. 표에는 그대로 남기고 Astryx 칸에 `제외`라 적는다.
+ * 이 파일들에 인라인·legacy 클래스가 생기면 둘째·셋째 숫자에는 그대로 센다.
+ */
+const NOT_SCREENS = {
+  'src/main.tsx': '진입점 — 화면을 그리지 않는다',
+  'src/components/icons.tsx': '앱의 SVG 그림(불꽃·식기·달력·차트·톱니·조절·저울) — Astryx Icon에 같은 그림이 없다(PLAN v1.21 확인한 것 1)',
+}
+
 const SPACING = /\b(?:margin(?:Top|Bottom|Left|Right)?|padding(?:Top|Bottom|Left|Right)?|gap|rowGap|columnGap)\s*:/g
 const rows = []
 for (const file of walk(join(ROOT, 'src')).filter((f) => f.endsWith('.tsx') && !/\.test\.tsx$/.test(f)).sort()) {
@@ -72,24 +81,25 @@ for (const file of walk(join(ROOT, 'src')).filter((f) => f.endsWith('.tsx') && !
     for (const w of (m[1] ?? m[2]).replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) if (legacy.has(w)) classes.add(w)
   }
   const inlineCount = (src.match(/style=\{/g) ?? []).length
-  rows.push({ file: relative(ROOT, file).replaceAll('\\', '/'), isAx, inlineCount, spacing, legacyN: classes.size })
+  const rel = relative(ROOT, file).replaceAll('\\', '/')
+  rows.push({ file: rel, isAx, excluded: !isAx && rel in NOT_SCREENS, inlineCount, spacing, legacyN: classes.size })
 }
 
 const lines = ['| 파일 | Astryx | 인라인 | 인라인 여백 | legacy 클래스 |', '|---|---|---|---|---|']
-for (const r of rows) lines.push(`| ${r.file} | ${r.isAx ? '예' : '—'} | ${r.inlineCount} | ${r.spacing} | ${r.legacyN} |`)
-const total = rows.reduce((a, r) => ({ ax: a.ax + (r.isAx ? 1 : 0), inline: a.inline + r.inlineCount, sp: a.sp + r.spacing, legacy: a.legacy + r.legacyN }), { ax: 0, inline: 0, sp: 0, legacy: 0 })
-lines.push('', `합계: \`.tsx\` ${rows.length}개 가운데 Astryx를 읽는 것 ${total.ax}개, 인라인 스타일 ${total.inline}곳(여백 ${total.sp}), legacy 클래스 쓰임 ${total.legacy}곳, 안 쓰는 legacy 선택자 ${unused.length}개.`)
+for (const r of rows) lines.push(`| ${r.file} | ${r.isAx ? '예' : r.excluded ? '제외' : '—'} | ${r.inlineCount} | ${r.spacing} | ${r.legacyN} |`)
+const total = rows.reduce((a, r) => ({ ax: a.ax + (r.isAx ? 1 : 0), ex: a.ex + (r.excluded ? 1 : 0), inline: a.inline + r.inlineCount, sp: a.sp + r.spacing, legacy: a.legacy + r.legacyN }), { ax: 0, ex: 0, inline: 0, sp: 0, legacy: 0 })
+lines.push('', `합계: \`.tsx\` ${rows.length}개 가운데 Astryx를 읽는 것 ${total.ax}개, 화면이 아니라 뺀 것 ${total.ex}개, 인라인 스타일 ${total.inline}곳(여백 ${total.sp}), legacy 클래스 쓰임 ${total.legacy}곳, 안 쓰는 legacy 선택자 ${unused.length}개.`)
 
 if (process.argv.includes('--check')) {
   const doc = readFileSync(join(ROOT, 'docs', 'ASTRYX-INVENTORY.md'), 'utf8')
-  const m = /합계: `\.tsx` (\d+)개 가운데 Astryx를 읽는 것 (\d+)개, 인라인 스타일 (\d+)곳\(여백 \d+\), legacy 클래스 쓰임 (\d+)곳, 안 쓰는 legacy 선택자 (\d+)개/.exec(doc)
+  const m = /합계: `\.tsx` (\d+)개 가운데 Astryx를 읽는 것 (\d+)개, 화면이 아니라 뺀 것 (\d+)개, 인라인 스타일 (\d+)곳\(여백 \d+\), legacy 클래스 쓰임 (\d+)곳, 안 쓰는 legacy 선택자 (\d+)개/.exec(doc)
   if (!m) {
     console.error('docs/ASTRYX-INVENTORY.md에 합계 줄이 없다. `node scripts/astryx-inventory.mjs --write`로 다시 쓴다.')
     process.exit(1)
   }
-  const [files, ax, inline, legacyUse, unusedWas] = m.slice(1).map(Number)
+  const [files, ax, excludedWas, inline, legacyUse, unusedWas] = m.slice(1).map(Number)
   const checks = [
-    ['Astryx를 안 읽는 화면 파일', files - ax, rows.length - total.ax],
+    ['Astryx를 안 읽는 화면 파일', files - ax - excludedWas, rows.length - total.ax - total.ex],
     ['인라인 스타일', inline, total.inline],
     ['legacy 클래스 쓰임', legacyUse, total.legacy],
     ['안 쓰는 legacy 선택자', unusedWas, unused.length],
