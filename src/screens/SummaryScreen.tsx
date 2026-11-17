@@ -17,10 +17,10 @@ import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
 import { useSettings } from '../store/settings'
 import { parseRecordKey } from '../types'
-import { AxRoot, Badge, Button, Card, Center, Grid, Group, Groups, Heading, HStack, Text, VStack } from '../ax'
+import { AxRoot, Badge, Button, Card, Center, Grid, Group, Groups, Heading, HStack, StackItem, Text, VStack } from '../ax'
 
 /**
- * 카드 안 한 줄 — 이름(+뱃지)·설명·오른쪽 끝 값. Row을 안 쓴 이유: Row은 줄마다 위·아래 안쪽 여백 8px이 있어
+ * 카드 안 한 줄 — 이름(+뱃지)·설명·오른쪽 끝 값. ListItem을 안 쓴 이유: ListItem은 줄마다 위·아래 안쪽 여백 8px이 있어
  * 카드의 마지막 줄 아래가 제목 위보다 9px 넓어졌다(ui-check 안쪽 대칭 실측). 줄 사이 간격은 VStack gap 하나다.
  * label·description은 Text 노드로 넘긴다 — 긴 글이 잘리지 않게.
  */
@@ -31,8 +31,8 @@ function Row({ label, description, end }: { label: ReactNode; description?: Reac
         {label}
         {description}
       </VStack>
-      {/* 오른쪽 값은 접히지 않고 칸 폭을 지킨다 — 줄어드는 쪽은 설명 글이다 (RR9 화면 검증 반려: "0점"이 "0/점"으로 꺾임) */}
-      {end && <span className="ax-row-end">{end}</span>}
+      {/* 오른쪽 값은 줄어들지 않는다(StackItem static = flex-shrink 0) — 줄어드는 쪽은 설명 글이다 (RR9 화면 검증 반려: "0점"이 "0/점"으로 꺾임) */}
+      {end && <StackItem size="static">{end}</StackItem>}
     </HStack>
   )
 }
@@ -143,7 +143,7 @@ export default function SummaryScreen({ bundle, onDone }: { bundle: RoutineBundl
     .sort((a, b) => e1rm(b.weight, b.reps) - e1rm(a.weight, a.reps))[0]
 
   /*
-    Row의 label·description은 문자열이면 한 줄로 잘린다(Item.js) — 긴 메모·종목 이름이 잘리지 않게
+    ListItem의 label·description은 문자열이면 한 줄로 잘린다(Item.js) — 긴 메모·종목 이름이 잘리지 않게
     전부 Text 노드로 넘긴다. 경고색은 Text의 색 이름에 없어 ax-text-warning, 증량색은 color="accent".
   */
   const sub = (node: ReactNode) => (

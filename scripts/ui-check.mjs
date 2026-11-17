@@ -120,8 +120,8 @@ const HOME_SHEET_SCENES = ['sheet-home', 'sheet-open-session']
 const SESSION_SHEET_SCENES = ['sheet-finish', 'sheet-finish-cardio', 'sheet-finish-end', 'sheet-timer', 'sheet-timer-picked', 'sheet-add', 'sheet-substitute', 'sheet-comp', 'sheet-comp-picked', 'sheet-scale', 'sheet-scale-error', 'sheet-tempo', 'sheet-watch', 'sheet-watch-end']
 const SESSION_SCENES = ['session', 'session-375', 'session-rest']
 /** 운동 카드가 보이는 장면(RR7) — 카드·뱃지·세트 행 쌍도 판정한다 */
-/** 요약(RR9) — 기본 장면과 경계 장면 넷(0세트·PR 셋·어시스트만·긴 메모). 카드·뱃지·버튼 쌍을 판정한다 */
-const SUMMARY_SCENES = ['summary', 'summary-zero', 'summary-pr', 'summary-assist', 'summary-memo']
+/** 요약(RR9) — 기본 장면과 경계 장면 일곱(0세트·PR 셋·어시스트만·긴 메모·감각 저하 복귀·유산소만·디로드). 카드·뱃지·버튼 쌍을 판정한다 */
+const SUMMARY_SCENES = ['summary', 'summary-zero', 'summary-pr', 'summary-assist', 'summary-memo', 'summary-revert', 'summary-cardio', 'summary-deload']
 const CARD_SCENES = ['session', 'session-375', 'session-open-b', 'history-detail-edit']
 const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SHEET_SCENES, ...SESSION_SCENES, ...SUMMARY_SCENES, 'session-open-b', 'history-detail-edit', 'home-safe', 'session-safe', 'settings'])
 /** 판정을 켠 쌍 종류. 나머지 종류는 장면이 Astryx여도 기록만 한다(card·badge = RR4, set-row = RR7, sheet = RR5 — 세션 장면은 RR6부터 button·bar를 판정하고, 운동 카드 안의 card·badge·set-row는 RR7 전까지 기록만) */
@@ -371,7 +371,8 @@ function inPageMidWordBreaks(rootSelector = 'dialog[open]') {
 /**
  * RR9 요약 장면 시드 (page.evaluate용 — 바깥 변수를 못 본다). 진행 중인 세션(endedAt 없음)을 IndexedDB에서 고쳐 쓴다.
  * kind: zero(손대지 않음 — 0세트) · pr(전 종목 최고 기록, 앞 기록은 가벼운 세션 하나, 수행 순서 앞 둘을 맞바꿈) ·
- *       assist(어시스트 종목만 한 세션) · memo(감각 0점·긴 메모·유산소). 돌려주는 값은 시드 설명.
+ *       assist(어시스트 종목만 한 세션) · memo(감각 0점·긴 메모·유산소) · revert(앞 기록 20kg×5 → 이번 60kg×30·감각 0 — Phase 2에서 B그룹 복귀 카드) ·
+ *       cardio(0세트 + 유산소) · deload(디로드 세션: 종목마다 1세트만 150kg×30). 돌려주는 값은 시드 설명.
  */
 function inPageSummarySeed(kind) {
   return new Promise((resolve, reject) => {
@@ -401,8 +402,9 @@ function inPageSummarySeed(kind) {
           sets: e.sets.map((x) => ({ ...x, weight, reps, done: true, doneAt: at(i) })),
         })
         const live = cur.entries.filter((e) => !e.skipped)
-        if (kind === 'pr') {
-          const prev = {
+        // 앞 기록: 이틀 전 가벼운 세션 하나 (전 종목 20kg×5)
+        const putPrev = () =>
+          store.put({
             ...cur,
             id: 'ui-check-sum-prev',
             startedAt: new Date(now - 2 * 86400000).toISOString(),
@@ -410,12 +412,29 @@ function inPageSummarySeed(kind) {
             date: new Date(now - 2 * 86400000).toISOString().slice(0, 10),
             mode: 'normal',
             entries: cur.entries.map((e) => ({ ...e, sets: e.sets.map((x) => ({ ...x, weight: 20, reps: 5, done: true })) })),
-          }
-          store.put(prev)
+          })
+        if (kind === 'pr') {
+          putPrev()
           // 수행 순서: 계획의 앞 둘을 맞바꿔 "앞당김·미룸" 뱃지가 둘 다 생기게
           const order = (e) => { const k = live.indexOf(e); return k === 0 ? 2 : k === 1 ? 1 : k + 1 }
           cur.entries = cur.entries.map((e) => (e.skipped ? e : fill(e, 150, 30, order(e), live.indexOf(e))))
           out = { kind, detail: `종목 ${live.length}개 전부 150kg×30 (앞 기록 20kg×5)` }
+        } else if (kind === 'revert') {
+          putPrev()
+          cur.entries = cur.entries.map((e) => (e.skipped ? e : { ...fill(e, 60, 30, live.indexOf(e) + 1, live.indexOf(e)), sensoryScore: 0 }))
+          out = { kind, detail: `종목 ${live.length}개 앞 기록 20kg×5 → 이번 60kg×30·감각 0점` }
+        } else if (kind === 'deload') {
+          putPrev()
+          cur.mode = 'deload'
+          cur.entries = cur.entries.map((e) => {
+            if (e.skipped) return e
+            const f = fill(e, 150, 30, live.indexOf(e) + 1, live.indexOf(e))
+            return { ...f, sets: f.sets.map((x, k) => (k === 0 ? x : { ...x, done: false })) }
+          })
+          out = { kind, detail: `디로드 세션: 종목 ${live.length}개 1세트씩만 150kg×30 (앞 기록 20kg×5)` }
+        } else if (kind === 'cardio') {
+          cur.cardio = { type: '걷기', minutes: 30, note: '경사 6 · 속도 5.0' }
+          out = { kind, detail: '체크한 세트 0개 + 유산소(걷기 30분)' }
         } else if (kind === 'assist') {
           const key = 'assisted-pullup@' + cur.dayId
           cur.entries = [
@@ -435,6 +454,38 @@ function inPageSummarySeed(kind) {
         store.put(cur)
       }
     }
+  })
+}
+
+/** RR9: settings 한 줄을 바꾼다(remove면 지운다). 바꾸기 전 값을 {had, value}로 돌려줘 끝에 되돌린다 */
+function inPageSetSetting({ key, value, remove }) {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open('workout-tracker')
+    open.onerror = () => reject(open.error)
+    open.onsuccess = () => {
+      const idb = open.result
+      const tx = idb.transaction('settings', 'readwrite')
+      const store = tx.objectStore('settings')
+      const got = store.get(key)
+      let before = null
+      got.onsuccess = () => {
+        before = { had: got.result !== undefined, value: got.result?.value }
+        if (remove) store.delete(key)
+        else store.put({ key, value })
+      }
+      tx.oncomplete = () => { idb.close(); resolve(before) }
+      tx.onerror = () => reject(tx.error)
+    }
+  })
+}
+
+/** RR9: 글자가 re와 맞는 맨 끝 요소들이 몇 줄로 그려지나 (높이 ÷ 줄 높이) */
+function inPageLineCount(re) {
+  const rx = new RegExp(re)
+  const els = [...document.querySelectorAll('.ax-screen *')].filter((el) => el.children.length === 0 && rx.test(el.textContent.trim()))
+  return els.map((el) => {
+    const lh = parseFloat(getComputedStyle(el).lineHeight) || el.getBoundingClientRect().height
+    return { text: el.textContent.trim(), lines: Math.round(el.getBoundingClientRect().height / lh) }
   })
 }
 
@@ -1081,10 +1132,14 @@ async function runScenes(browser, port, scheme) {
     const orderFlow = async (scene) => {
       const order = await page.evaluate(inPageTextOrder, SUMMARY_TITLES)
       const want = SUMMARY_TITLES.filter((t) => order.includes(t))
-      return { ok: order.length >= 2 && order.join('|') === want.join('|') && order.at(-1) === '홈으로', detail: `${scene}: ${order.join(' < ')}` }
+      return { ok: order.length >= 2 && order.join('|') === want.join('|') && order.at(-1) === '홈으로', order, detail: `${scene}: ${order.join(' < ')}` }
     }
     /** RR9 화면 검증: 맨 아래까지 내렸을 때 홈으로 버튼이 다른 요소에 가려지지 않고 화면 안에 있나 */
-    const endButton = async (scene) => {
+    const endName = (scene) => `RR9 ${scene} 맨 아래 홈으로 버튼`
+    const wrapName = (scene) => `RR9 ${scene} 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안`
+    // endButton은 던져도 흐름 실패로 센다(guardedFlow) — 판정이 한 번 통과한 장면에서 뒤 흐름이 조용히 빠지지 않게 (RR9 리뷰 반려)
+    const endButton = (scene) => guardedFlow([endName(scene)], () => endButtonRaw(scene))
+    const endButtonRaw = async (scene) => {
       await toEnd()
       await settle(page, 400)
       await snap(`${scene}-end`)
@@ -1095,11 +1150,11 @@ async function runScenes(browser, port, scheme) {
         const top = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2)
         return { top: q.top, bottom: q.bottom, h: window.innerHeight, height: q.height, covered: !(top === b || b.contains(top)) }
       })
-      flows.push([`RR9 ${scene} 맨 아래 홈으로 버튼`, { ok: !!r && !r.covered && r.bottom <= r.h && r.top >= 0, detail: r ? `버튼 y ${Math.round(r.top)}~${Math.round(r.bottom)} / 화면 ${r.h} · 높이 ${Math.round(r.height)} · 가려짐 ${r.covered}` : '버튼 없음' }])
+      flows.push([endName(scene), { ok: !!r && !r.covered && r.bottom <= r.h && r.top >= 0, detail: r ? `버튼 y ${Math.round(r.top)}~${Math.round(r.bottom)} / 화면 ${r.h} · 높이 ${Math.round(r.height)} · 가려짐 ${r.covered}` : '버튼 없음' }])
       await toTop()
     }
     const wrapSummary = async (scene) => {
-      const name = `RR9 ${scene} 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안`
+      const name = wrapName(scene)
       await guardedFlow([name], async () => {
         const r390 = await page.evaluate(inPageMidWordBreaks, '.ax-screen')
         const i390 = await page.evaluate(inPageInnerOverflow, '.ax-screen')
@@ -1129,6 +1184,9 @@ async function runScenes(browser, port, scheme) {
         zero: 'RR9 요약 0세트로 종료: 체크된 세트 없음 문구·증량·PR 카드 없음',
         pr: 'RR9 요약 PR 셋 이상: 개인 기록 카드 줄 3개 이상·카드 순서·앞당김과 미룸 뱃지',
         assist: 'RR9 요약 어시스트 종목만: 볼륨 0 + 제외 안내',
+        revert: 'RR9 요약 감각 저하 복귀 카드: 1개·프리필 문구·카드 순서·오른쪽 값 한 줄·경고 글자색',
+        cardio: 'RR9 요약 유산소만: 체크된 세트 없음 문구·유산소 줄·증량·PR·복귀 카드 없음',
+        deload: 'RR9 요약 디로드 세션: 홈으로 1탭·PR 카드 없음·디로드 문구',
         memo: 'RR9 요약 긴 메모·감각 약함: 메모가 안 잘림·경고 글자색(다크·라이트)·유산소 줄',
       }
       const finishToSummary = async (kind) => {
@@ -1151,9 +1209,12 @@ async function runScenes(browser, port, scheme) {
         await settle(page, 800)
         return seed
       }
-      const scene = async (kind, sceneName, check) => {
+      // phase: 이 장면 동안만 바꿀 currentPhase (settings 한 줄 — revertWarning은 Phase 2+만 본다). 끝에 원래 값으로 되돌린다
+      const scene = async (kind, sceneName, check, phase) => {
         const keep = await page.evaluate(inPageSessionIds)
+        let phaseBefore = null
         try {
+          if (phase !== undefined) phaseBefore = await page.evaluate(inPageSetSetting, { key: 'currentPhase', value: phase })
           const seed = await finishToSummary(kind)
           await snap(sceneName)
           const r = await check(seed)
@@ -1161,8 +1222,10 @@ async function runScenes(browser, port, scheme) {
           await wrapSummary(sceneName)
           await endButton(sceneName)
         } catch (e) {
-          if (!flows.some((f) => f[0] === SUM[kind])) flows.push([SUM[kind], { ok: false, detail: `예외: ${String(e.message).split('\n')[0]}` }])
+          // 이 장면이 내야 할 흐름 셋 가운데 없는 것은 전부 실패로 센다
+          for (const n of [SUM[kind], wrapName(sceneName), endName(sceneName)]) if (!flows.some((f) => f[0] === n)) flows.push([n, { ok: false, detail: `예외: ${String(e.message).split('\n')[0]}` }])
         } finally {
+          if (phaseBefore) await page.evaluate(inPageSetSetting, { key: 'currentPhase', value: phaseBefore.value, remove: !phaseBefore.had })
           // 정리는 판정과 따로: 던져도 다음 장면이 깨끗한 홈에서 시작하게 한다
           await page.evaluate(inPageDropSessionsExcept, keep).catch(() => {})
           await page.reload()
@@ -1208,6 +1271,33 @@ async function runScenes(browser, port, scheme) {
         const warn = await warnColorBothSchemes('.ax-text-warning')
         const cardio = await page.getByText(/걷기/).count()
         return { ok: memo.ok && memo.lines >= 3 && note.ok && warn.same && cardio >= 1, detail: `세션 메모 ${memo.detail} · 감각 메모 ${note.detail} · 경고 글자 계산된 색 ${warn.actual} (토큰 ${warn.token}) · 유산소 줄 ${cardio}개` }
+      })
+      const NEXT = '다음 세션 무게 (A그룹)'
+      const REVERT = '감각 저하 — 이전 무게로 복귀'
+      await scene('revert', 'summary-revert', async () => {
+        const cards = await has(REVERT)
+        const auto = await page.getByText(/^다음 세션 프리필이 자동으로 .+kg로 내려갑니다\.$/).count()
+        const ord = await orderFlow('summary-revert')
+        const needed = [NEXT, REVERT, '감각이 약했던 종목']
+        const lines = await page.evaluate(inPageLineCount, '^\\d+(\\.\\d+)? → \\d+(\\.\\d+)?kg$')
+        const warn = await warnColorBothSchemes('.ax-text-warning')
+        const oneLine = lines.length >= 1 && lines.every((l) => l.lines === 1)
+        return { ok: cards === 1 && auto === 1 && ord.ok && needed.every((t) => ord.order.includes(t)) && oneLine && warn.same, detail: `복귀 카드 ${cards}개 · 프리필 문구 ${auto}개 · ${ord.detail} · 오른쪽 값 ${lines.map((l) => `"${l.text}" ${l.lines}줄`).join(', ') || '없음'} · 경고 글자 계산된 색 ${warn.actual} (토큰 ${warn.token})` }
+      }, 2)
+      await scene('cardio', 'summary-cardio', async () => {
+        const none = await has('체크된 세트가 없습니다.')
+        const cardioRow = await has('유산소')
+        const cardioWalk = await page.getByText(/걷기/).count()
+        const counts = []
+        for (const t of [NEXT, '개인 기록 🎉', REVERT]) counts.push(await has(t))
+        return { ok: none === 1 && cardioRow === 1 && cardioWalk >= 1 && counts.every((c) => c === 0), detail: `"체크된 세트가 없습니다." ${none}개 · 유산소 줄 ${cardioRow}개(걷기 글 ${cardioWalk}개) · 증량 카드 ${counts[0]}개 · PR 카드 ${counts[1]}개 · 복귀 카드 ${counts[2]}개` }
+      })
+      await scene('deload', 'summary-deload', async () => {
+        const pr = await has('개인 기록 🎉')
+        const next = await has(NEXT)
+        const notice = await page.getByText(/디로드 세션/).count()
+        const home = await btn(page, '홈으로').count()
+        return { ok: home === 1 && pr === 0 && notice >= 1, detail: `PR 카드 ${pr}개 · 증량 카드 ${next}개 · "디로드 세션" 문구 ${notice}개 · 홈으로 ${home}개` }
       })
     }
 

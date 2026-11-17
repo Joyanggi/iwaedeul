@@ -1047,18 +1047,19 @@ describe("v120 RR9 — 요약", () => {
   const SUMMARY = "/src/screens/SummaryScreen.tsx"
   const ui = () => text(SCRIPTS, "/scripts/ui-check.mjs")
 
-  it("v120 RR9: SummaryScreen.tsx에 style=·<button·var(--·@astryxdesign이 0건이고 className=은 ax-text-warning(경고 글자색)·ax-summary(한글 줄바꿈)·ax-row-end(오른쪽 값 안 접힘)뿐이다", () => {
+  it("v120 RR9: SummaryScreen.tsx에 style=·<button·var(--·@astryxdesign이 0건이고 className=은 ax-text-warning(경고 글자색)·ax-summary(한글 줄바꿈) 둘뿐이다", () => {
     const s = code(SUMMARY)
     expect(s).toMatch(/from '\.\.\/ax'/)
     expect(s).not.toMatch(/style=|<button|var\(--|@astryxdesign/)
-    // PLAN은 className= 0건이었으나 Text의 색 이름에 경고가 없어(RR8과 같은 이유) ax-text-warning 하나는 남는다
+    // PLAN은 className= 0건이었으나 Text의 색 이름에 경고가 없어(RR8과 같은 이유) ax-text-warning·ax-summary 둘은 남는다
     const classes = [...s.matchAll(/className=("[^"]*"|\{[^}]*\})/g)].map((m) => m[1])
     expect(classes.length).toBeGreaterThan(0)
-    for (const c of classes) expect(['"ax-text-warning"', '"ax-summary"', '"ax-row-end"']).toContain(c)
+    for (const c of classes) expect(['"ax-text-warning"', '"ax-summary"']).toContain(c)
   })
 
-  it("v120 RR9 반려: 줄 오른쪽 값은 ax-row-end 칸에 담긴다(CSS는 scripts/rr9.test.mjs) · inPageMidWordBreaks는 이웃 글자 노드(\"0\"+\"점\")를 한 덩어리로 잰다", () => {
-    expect(code(SUMMARY)).toMatch(/<span className="ax-row-end">\{end\}<\/span>/)
+  it("v120 RR9 반려: 줄 오른쪽 값은 StackItem size=\"static\"(flex-shrink 0)에 담기고 손으로 지은 ax-row-end는 없다 · inPageMidWordBreaks는 이웃 글자 노드(\"0\"+\"점\")를 한 덩어리로 잰다", () => {
+    expect(code(SUMMARY)).toMatch(/<StackItem size="static">\{end\}<\/StackItem>/)
+    expect(code(SUMMARY)).not.toContain("ax-row-end")
     expect(ui()).toMatch(/if \(n\.parentNode !== prevParent\) prevTop = null/)
   })
 
@@ -1123,14 +1124,25 @@ describe("v120 RR9 — 요약", () => {
     expect(lib).toMatch(/rect\.right > r\.right \+ 0\.5 \|\| rect\.left < r\.left - 0\.5/)
   })
 
-  it("v120 RR9 — ui-check: 경계 장면 넷(0세트·PR 셋·어시스트만·긴 메모)과 summary 장면이 있고, 흐름은 판정 0개로 통과하지 않는다", () => {
+  it("v120 RR9 — ui-check: 경계 장면 일곱(0세트·PR 셋·어시스트만·긴 메모·감각 저하 복귀·유산소만·디로드)과 summary 장면이 있고, 흐름은 판정 0개로 통과하지 않는다", () => {
     const t = ui()
-    for (const n of ["summary-zero", "summary-pr", "summary-assist", "summary-memo"]) expect(t, n).toContain(`'${n}'`)
-    expect(t).toMatch(/const SUMMARY_SCENES = \['summary', 'summary-zero', 'summary-pr', 'summary-assist', 'summary-memo'\]/)
+    for (const n of ["summary-zero", "summary-pr", "summary-assist", "summary-memo", "summary-revert", "summary-cardio", "summary-deload"]) expect(t, n).toContain(`'${n}'`)
+    expect(t).toMatch(/const SUMMARY_SCENES = \['summary', 'summary-zero', 'summary-pr', 'summary-assist', 'summary-memo', 'summary-revert', 'summary-cardio', 'summary-deload'\]/)
     // 시드는 판정과 따로 정리한다(finally) — 던져도 다음 장면이 깨끗한 홈에서 시작한다
     expect(t).toMatch(/finally \{[\s\S]*inPageDropSessionsExcept, keep/)
     // 예외는 건너뜀이 아니라 흐름 실패
-    expect(t).toMatch(/flows\.push\(\[SUM\[kind\], \{ ok: false, detail: `예외:/)
+    expect(t).toMatch(/flows\.push\(\[n, \{ ok: false, detail: `예외:/)
+    // 판정이 통과한 뒤 endButton이 던져도 그 장면의 세 흐름(판정·꺾임·맨 아래 홈으로) 이름이 전부 실패로 남는다 (RR9 리뷰 반려 2)
+    expect(t).toMatch(/for \(const n of \[SUM\[kind\], wrapName\(sceneName\), endName\(sceneName\)\]\)/)
+    expect(t).toMatch(/const endButton = \(scene\) => guardedFlow\(\[endName\(scene\)\], \(\) => endButtonRaw\(scene\)\)/)
+    // 복귀 카드는 Phase 2에서만 뜬다 — 장면이 settings currentPhase를 2로 바꿨다가 finally에서 되돌린다
+    expect(t).toMatch(/\}, 2\)\s+await scene\('cardio'/)
+    expect(t).toMatch(/finally \{\s+if \(phaseBefore\) await page\.evaluate\(inPageSetSetting/)
+    // 복귀·유산소·디로드 값을 실제로 센다
+    expect(t).toContain("cards === 1 && auto === 1 && ord.ok")
+    expect(t).toContain("l.lines === 1")
+    expect(t).toContain("none === 1 && cardioRow === 1")
+    expect(t).toContain("home === 1 && pr === 0 && notice >= 1")
     // PR 셋 이상·앞당김·미룸·볼륨 0·메모 줄 수·계산된 경고색을 실제로 센다
     expect(t).toContain("prRows >= 3 && ord.ok && ahead >= 1 && behind >= 1")
     expect(t).toContain("vol === '0'")
@@ -1152,5 +1164,6 @@ describe("v120 RR9 — 요약", () => {
     expect(space).toMatch(/INSET_SCENES = new Set\(\[[^\]]*'summary'/)
     expect(space).toMatch(/summary: \['button', 'card'\]/)
     expect(space).toMatch(/'summary-pr': \['button', 'card', 'badge'\]/)
+    for (const n of ["summary-revert", "summary-cardio", "summary-deload"]) expect(space).toContain(`'${n}': ['button', 'card']`)
   })
 })

@@ -19,11 +19,8 @@ describe('v120 RR9 — 요약 글줄바꿈', () => {
     expect(read('../src/screens/SummaryScreen.tsx')).toContain('<Groups className="ax-summary">')
   })
 
-  it('v120 RR9 반려: .ax-row-end(줄 오른쪽 값)는 줄어들지 않고 줄바꿈 없이 칸 폭을 지킨다 — "0점"이 "0/점"으로 꺾이던 결함', () => {
-    const rule = rules(read('../src/ax/parts.css')).find((r) => /\.ax-row-end/.test(r.sel))
-    expect(rule, '.ax-row-end 규칙을 못 찾았다').toBeTruthy()
-    expect(rule.body).toMatch(/flex-shrink:\s*0/)
-    expect(rule.body).toMatch(/white-space:\s*nowrap/)
-    expect(rule.body).toMatch(/overflow-wrap:\s*normal/)
+  it('v120 RR9 반려: 줄 오른쪽 값의 안 접힘은 Astryx StackItem size="static"이 맡고 parts.css에 .ax-row-end가 없다', () => {
+    expect(read('../src/ax/parts.css')).not.toContain('ax-row-end')
+    expect(read('../src/ax/index.tsx')).toMatch(/StackItem/)
   })
 })

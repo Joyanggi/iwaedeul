@@ -251,6 +251,9 @@ export const EXPECTED_PAIRS = {
   'summary-pr': ['button', 'card', 'badge'],
   'summary-assist': ['button', 'card'],
   'summary-memo': ['button', 'card'],
+  'summary-revert': ['button', 'card'],
+  'summary-cardio': ['button', 'card'],
+  'summary-deload': ['button', 'card'],
   'line-sheet': ['button'],
   // RR5: 홈이 여는 시트 둘 — 시트 안 내용의 좌·우와 버튼 안 글자
   'sheet-home': ['sheet', 'button'],

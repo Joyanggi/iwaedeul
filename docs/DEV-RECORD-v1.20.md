@@ -1231,11 +1231,11 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 | 항목 | 내용 |
 |---|---|
 | `List`/`ListItem` 대신 `Row` | `ListItem`은 줄마다 위·아래 안쪽 여백 8px이라 줄 목록 카드의 아래가 제목 위보다 **9px 넓었다**(`안쪽 대칭` 실측: 위 15·아래 24 — "확인한 것" 9의 비대칭). 그래서 `HStack`/`VStack`/`Text`로 줄을 짓고 `role="list"/"listitem"`을 단다. `ListItem`의 문자열 label·description이 한 줄로 잘리는 것(Item.js)도 함께 피한다 |
-| `className=` | PLAN은 0건이나 `Text`에 경고색 이름이 없어(RR8과 같다) `ax-text-warning`, 줄바꿈 범위 `ax-summary` 둘이 남는다 |
+| `className=` | PLAN은 0건이나 `Text`에 경고색 이름이 없어(RR8과 같다) `ax-text-warning`, 줄바꿈 범위 `ax-summary` 둘이 남는다(이름 둘, 쓴 곳 셋: `ax-summary` 1·`ax-text-warning` 2). 화면 검증 반려 때 `ax-row-end`가 생겨 셋이 됐다가 "RR9 화면 검증 반려 반영"에서 `StackItem`으로 바꿔 다시 둘이 됐다 |
 | 최고 세트 줄 | `Text color="secondary"`→`type="supporting"`: 본문 크기 글자의 줄 높이 때문에 숫자 카드 아래가 2px 넓었다 |
 | 유산소 줄 | 값이 길면(`걷기 · 강도 …` 503px) 카드 밖으로 나가 안쪽 폭 검사가 잡았다. 값을 설명 줄로 내렸다 |
 | 안쪽 폭 검사 | 처음엔 진행 막대 채움(움직이는 transform)을 상자 밖으로 잡아 홈 6장면·템포 시트가 실패 → 가로 스크롤·`hidden`·`clip` 칸 안은 뺐다(글 잘림은 `inPageNotClipped`가 따로 본다) |
-| 못 만든 장면 | `감각 저하 — 이전 무게로 복귀` 카드는 Phase 2+의 증량 이력이 필요해 ui-check 시드로 못 만들었다 — 소스 스캔과 `bGroupGuide` 테스트가 맡는다 |
+| 못 만든 장면 | (정정) 처음엔 `감각 저하 — 이전 무게로 복귀`를 "Phase 2+ 이력이 필요해 못 만든다"며 소스 스캔에 맡겼으나, 리뷰 반려로 시드로 만들었다 — 아래 "RR9 화면 검증 반려 반영" |
 
 ### 테스트 ↔ PLAN 검증
 
@@ -1249,11 +1249,11 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 | 경계: 증량 대상 없음 | 0세트 흐름의 `증량 카드 0개` (증량 카드가 있는 쪽은 PR 장면 1개) |
 | 경계: 어시스트만 | 흐름 `RR9 요약 어시스트 종목만`(볼륨 0, 제외 안내 1, 최고 세트 0) |
 | 경계: 긴 메모 3줄 이상 | 흐름 `RR9 요약 긴 메모·감각 약함`(세션 메모 6줄, 감각 메모 3줄, 안 잘림, 경고색 계산값 = 토큰 다크·라이트) |
-| 경계: 유산소만·디로드 | 소스 스캔(`cardioText(` v114)과 기존 화면 — 시드로는 안 만들었다 |
+| 경계: 유산소만·디로드·복귀 카드 | (정정) 장면 `summary-cardio`·`summary-deload`·`summary-revert`와 흐름 셋 — "RR9 화면 검증 반려 반영" |
 | `summary`·`summary-light` 넘침 없음 | `가로 넘침` 칸(문서 폭 + 안쪽 폭) |
 | 순서 | `v120 RR9 — 순서` + 흐름 `RR9 요약 카드 순서`(화면에서 잰 순서) |
 | 여백(RR12) | `안쪽 대칭`·`같은 역할`(카드 안쪽 summary 15)·`가까움 순서` 통과 |
-| 390·375 꺾임 | 흐름 `RR9 <장면> 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안`(장면 5개) + `scripts/rr9.test.mjs` |
+| 390·375 꺾임 | 흐름 `RR9 <장면> 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안`(처음 5개, 지금 8개) + `scripts/rr9.test.mjs` |
 
 ### 결함 복원
 
@@ -1273,8 +1273,53 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 
 ### 실행 결과
 
-- `npm test`: `Test Files  77 passed (77)` / `Tests  1786 passed (1786)`
+- `npm test`: `Test Files  77 passed (77)` / `Tests  1786 passed (1786)` (이 커밋 시점. 이후 값은 "RR9 화면 검증 반려 반영")
 - `npm run check`: 전부 통과(빌드 포함)
 - `node scripts/ui-check.mjs after --check --ver=v1.20`: `종료 코드 0`
 - `git rev-list --count main..HEAD`: 커밋 전 51(이 커밋 뒤 52)
 - 실기기 확인: 없음(요약은 흉내로 다 볼 수 있다)
+
+### RR9 화면 검증 반려 반영 (4e5aa16) + 리뷰 반려 반영
+
+4e5aa16(화면 검증 반려 — "0점"이 "0/점"으로 꺾임)은 이 기록에 빠져 있었다. 아래에 같이 적는다.
+
+| 커밋 | 바뀐 것 |
+|---|---|
+| 4e5aa16 | 줄 오른쪽 값이 접히지 않게 `<span className="ax-row-end">` + `parts.css .ax-row-end`(`flex-shrink:0`·`white-space:nowrap`)를 더했다(`className` 셋이 됨). `inPageMidWordBreaks`를 개정: 같은 부모의 이웃 글자 노드(`"0"`+`"점"`)를 한 덩어리로 잰다(부모가 바뀌거나 공백이면 끊는다 — `if (n.parentNode !== prevParent) prevTop = null`). 옛 검사는 노드마다 따로 재서 "0점"을 못 잡았다. `scripts/rr9.test.mjs` 셋째 테스트(`.ax-row-end` CSS)와 `v120 RR9 반려` 테스트 +2 → 테스트 1786→1788. 결함 복원: CSS를 되돌리면 `summary-memo`가 `/점 꺾임 1건`으로 실패(커밋 메시지에만 있었다) |
+| 이 커밋(리뷰 반려) | 아래 |
+
+| 고칠 것 | 한 일 |
+|---|---|
+| 1 `ax-row-end` → Astryx | `ax/index.tsx`가 `StackItem`을 내보낸다. `Row`의 오른쪽을 `<StackItem size="static">{end}</StackItem>`으로(계산된 `flex-shrink:0`). `parts.css`의 `.ax-row-end` 두 규칙을 지웠다. `Row`·`sub` 위의 거꾸로 된 주석("Row을 안 쓴 이유: Row은…")을 `ListItem`으로 고쳤다. `v120 RR9`의 className 목록은 `ax-text-warning`·`ax-summary` 둘이고 `ax-row-end`가 소스에 없다는 판정으로, `rr9.test.mjs` 셋째 테스트는 "parts.css에 `.ax-row-end` 없음 + `StackItem` 내보냄"으로 바꿨다. 참고: `StackItem`의 `size` 기본값이 `static`이라 `size="static"`을 빼도 같은 화면이다 — 명시한 것은 의도를 남기려는 것이고, 결함 복원은 `StackItem`을 걷어 오른쪽 값이 접히게 했다 |
+| 2 흐름이 예외로 안 사라지게 | `endButton`을 `guardedFlow([endName])`으로 감쌌다(`endButtonRaw`가 본체). `scene()`의 `catch`는 `SUM[kind]`뿐 아니라 그 장면의 흐름 셋(`SUM`·`wrapName`·`endName`)을 없는 대로 전부 실패로 넣는다. `v120 RR9 — ui-check` 테스트가 두 모양을 본다 |
+| 3 장면 셋 | `summary-revert`(settings `currentPhase`=2로 바꿨다가 `finally`에서 되돌림 — `inPageSetSetting`)·`summary-cardio`·`summary-deload`를 `inPageSummarySeed` kind로 더했다. `SUMMARY_SCENES`·`EXPECTED_PAIRS`(button·card)에 넣었고 `wrapSummary`·`endButton`을 그대로 탄다. 새 흐름 9개(장면마다 판정·꺾임·맨 아래 홈으로) |
+| 4 기록 | 이 절 + RR9 절의 className·유산소만·디로드·못 만든 장면 줄 정정 |
+
+새 장면에서 **센 값**(ui-check 출력):
+
+| 장면 | 값 |
+|---|---|
+| `summary-revert` | 시드: 7종목 앞 기록 20kg×5 → 이번 60kg×30·감각 0, Phase 2. 복귀 카드 1개(B그룹 4줄, 오른쪽 값 `60 → 20kg` 4개 모두 **1줄**), 프리필 문구 1개, 순서 `개인 기록 < 다음 세션 무게 < 감각 저하 < 감각이 약했던 종목 < 수행 순서 < 홈으로`. 경고 글자 계산된 색 `rgb(238, 196, 72)`(다크) / `rgb(131, 103, 0)`(라이트) = 토큰 |
+| `summary-cardio` | 체크된 세트 없음 문구 1개, 유산소 줄 1개(걷기 글 1), 증량·PR·복귀 카드 각 0개 |
+| `summary-deload` | 7종목 1세트씩 150kg×30. PR 카드 0개(디로드는 PR 판정 제외), 증량 카드 1개, `디로드 세션` 문구 3개, 홈으로 1개 |
+
+### 결함 복원 (이번)
+
+한 번의 ui-check에 세 결함을 같이 넣고(`cp` 백업 → 결함 → 실행 → 복구, `cmp` 같음, 결함 문구 `grep` 0건):
+
+| 되살린 결함 | 실패한 흐름 | 종료 코드 |
+|---|---|---|
+| `StackItem`을 걷어 `{end}`를 그냥 자식으로 | `RR9 summary-memo 390·375 …` `꺾임 1건 /점`, `RR9 summary-deload 390·375 …` 375 `꺾임 3건 k/g 유`(`kg`가 꺾임) | 1 |
+| `{false && reverts.length > 0 && (` | `RR9 요약 감각 저하 복귀 카드` — 복귀 카드 0개·프리필 문구 0개·순서에서 감각 저하 빠짐 | 1 |
+| `endButtonRaw`가 `summary-cardio`에서 던짐(판정은 통과한 뒤) | `RR9 summary-cardio 맨 아래 홈으로 버튼`: `예외: 결함 복원 테스트` (고치기 전에는 흐름이 실패 없이 빠졌다) | 1 |
+
+`size="static"` 한 단어를 빼는 결함은 기본값이 같아 화면이 안 바뀐다(위 참고).
+
+### 실행 결과 (이번)
+
+- `npm test`: `Test Files  77 passed (77)` / `Tests  1788 passed (1788)` (테스트 수는 그대로 — 기존 테스트의 판정을 바꿨고 `v120 RR9 — ui-check`에 판정을 더했다)
+- `node scripts/ui-check.mjs after --check --ver=v1.20`: **종료 코드 0**, 흐름 통과 102·실패 0. RR9 흐름 24개(기본 3 + 장면 일곱 × 3)
+- `className=`(SummaryScreen): 이름 둘 — `ax-summary` 1곳·`ax-text-warning` 2곳. `ax-row-end` 없음. `astryx-inventory --check` 통과
+- 무관한 스크린샷(`v1.19`에 잘못 쓴 것 포함)은 `git show HEAD:`로 되돌렸다. 바뀐 것은 `summary*`만
+- `git rev-list --count main..HEAD`: 커밋 전 55(이 커밋 뒤 56)
+- 경미한 점: `List density="compact"`는 재 보지 않았다(결론 `Row`가 `안쪽 대칭` 실측 근거라 바뀌지 않는다고 본다). `inPageInnerOverflow`의 `checked > 0`과 `.ax-tip` 규칙 끼임은 이번 범위가 아니다
