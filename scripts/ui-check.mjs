@@ -729,6 +729,72 @@ async function runScenes(browser, port, scheme) {
         await settle(page, 400)
       }
     })
+  /** SS3 화면 검증: 시트 안을 끝까지 스크롤한 뒤 — 맨 아래 버튼 위치, 부품 겹침, 시트 밖으로 나간 부품, 44 미만 누르는 영역(elementFromPoint), 맨 글자 버튼, 경고 글자색을 390·375에서 잰다 */
+  const ss3Probe = (name) =>
+    guardedFlow([name], async () => {
+      const out = []
+      try {
+        for (const w of [390, 375]) {
+          if (w === 375) {
+            await page.setViewportSize({ width: 375, height: 812 })
+            await settle(page, 400)
+          }
+          out.push([w, await page.evaluate(() => {
+            const dlg = document.querySelector('dialog[open]')
+            const dr = dlg.getBoundingClientRect()
+            const scrollers = [dlg, ...dlg.querySelectorAll('*')].filter((e) => e.scrollHeight > e.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(e).overflowY))
+            for (const s of scrollers) s.scrollTop = s.scrollHeight
+            const vh = window.innerHeight
+            const items = [...dlg.querySelectorAll('button, input, textarea, [role=radio], [role=button]')].filter((e) => { const r = e.getBoundingClientRect(); if (!(r.width > 0 && r.height > 0)) return false
+              // 스크롤 칸 안에서 칸 밖으로 밀려나 잘린 부품은 안 보이니 뺀다
+              return !scrollers.some((sc) => { if (sc === dlg || !sc.contains(e)) return false; const q = sc.getBoundingClientRect(); const cx = r.left + r.width / 2, cy = r.top + r.height / 2; return cy < q.top || cy > q.bottom || cx < q.left || cx > q.right })
+            })
+            const nm = (e) => (e.getAttribute('aria-label') || e.innerText || e.getAttribute('placeholder') || e.tagName).trim().split('\n')[0].slice(0, 14)
+            const rects = items.map((e) => ({ e, r: e.getBoundingClientRect() }))
+            const overlaps = []
+            for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
+              const a = rects[i], b = rects[j]
+              if (a.e.contains(b.e) || b.e.contains(a.e)) continue
+              const ox = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left)
+              const oy = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top)
+              if (ox > 1 && oy > 1) overlaps.push(nm(a.e) + '×' + nm(b.e))
+            }
+            const outside = rects.filter(({ r }) => r.left < dr.left - 0.5 || r.right > dr.right + 0.5).map(({ e }) => nm(e))
+            const small = rects.filter(({ r }) => r.width < 44 || r.height < 44).map(({ e, r }) => {
+              const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+              const ok = hit === e || e.contains(hit)
+              return `${nm(e)} ${Math.round(r.width)}x${Math.round(r.height)}${ok ? '' : ' 가려짐'}`
+            })
+            const covered = small.filter((s) => s.endsWith('가려짐'))
+            const bare = rects.filter(({ e }) => {
+              if (e.tagName === 'INPUT' || e.getAttribute('role') === 'radio' || e.closest('li')) return false
+              const cs = getComputedStyle(e)
+              const noBg = cs.backgroundColor === 'rgba(0, 0, 0, 0)' || cs.backgroundColor === 'transparent'
+              return noBg && parseFloat(cs.borderTopWidth) === 0 && parseFloat(cs.borderLeftWidth) === 0 && e.getAttribute('aria-pressed') !== 'true'
+            }).map(({ e }) => nm(e))
+            const close = [...dlg.querySelectorAll('button')].filter((b) => b.innerText.trim() === '닫기').pop()
+            const cb = close?.getBoundingClientRect()
+            const lis = [...dlg.querySelectorAll('li')].map((l) => l.getBoundingClientRect())
+            const gaps = lis.slice(1).map((r, i) => Math.round(r.top - lis[i].bottom))
+            const warn = [...dlg.querySelectorAll('.ax-text-warning, .ax-text-error')].map((e) => getComputedStyle(e).color)
+            const pad = getComputedStyle(dlg.firstElementChild ?? dlg).paddingBottom
+            return { vh, dlgBottom: Math.round(dr.bottom), closeTop: cb && Math.round(cb.top), closeBottom: cb && Math.round(cb.bottom), scrolled: scrollers.length, overlaps, outside, small, covered, bare, gaps: [...new Set(gaps)], warn, pad }
+          })])
+        }
+      } finally {
+        await page.setViewportSize({ width: 390, height: 844 })
+        await settle(page, 400)
+      }
+      const bad = []
+      for (const [w, r] of out) {
+        if (r.closeBottom === null || r.closeBottom === undefined) bad.push(`${w}: 닫기 버튼 없음`)
+        else if (r.closeBottom > r.vh + 0.5 || r.closeTop < 0) bad.push(`${w}: 닫기 화면 밖`)
+        if (r.overlaps.length) bad.push(`${w}: 겹침 ${r.overlaps.join(',')}`)
+        if (r.outside.length) bad.push(`${w}: 시트 밖 ${r.outside.join(',')}`)
+        if (r.covered.length) bad.push(`${w}: 가려진 누르는 영역 ${r.covered.join(',')}`)
+      }
+      flows.push([name, { ok: bad.length === 0, detail: bad.join(' / ') || out.map(([w, r]) => `${w}: 닫기 y ${r.closeTop}~${r.closeBottom}/${r.vh}(아래 여백 ${r.vh - r.closeBottom}) · 스크롤칸 ${r.scrolled} · 겹침 0 · 시트 밖 0 · 44 미만 ${r.small.length}개 [${r.small.join(', ')}] · 맨 글자 [${r.bare.join(', ')}] · 줄 간격 [${r.gaps.join('/')}] · 경고색 [${[...new Set(r.warn)].join(' ')}] · 안쪽 아래 패딩 ${r.pad}`).join(' || ') }])
+    })
   /** 새 브라우저 문맥 하나(다른 장면 데이터에 안 닿는 장면용: 온보딩 홈 화면 앱·빈 분석). 끝나면 닫는다 */
   const withFreshPage = async (init, fn) => {
     const c = await browser.newContext({ ...DEVICE, locale: 'ko-KR', colorScheme: scheme, serviceWorkers: 'block' })
@@ -1926,12 +1992,14 @@ async function runScenes(browser, port, scheme) {
       await dlg.waitFor({ timeout: 3000 })
       await settle(page)
       await snap('sheet-diet-plan')
+      await ss3Probe(`SS3 검증 sheet-diet-plan 끝까지 스크롤·겹침·누르는 영역${light ? ' (라이트)' : ''}`)
       await wrapProbe('sheet-diet-plan', 'dialog[open]')
       if (!light) await screenWrapFlow('SS3 sheet-diet-plan 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', 'dialog[open]')
       await dlg.getByRole('button', { name: /^내일부터 / }).first().click()
       await dlg.getByText('내일부터 며칠').waitFor({ timeout: 3000 })
       await settle(page, 300)
       await snap('sheet-diet-plan-ahead')
+      await ss3Probe(`SS3 검증 sheet-diet-plan-ahead 끝까지 스크롤·겹침·누르는 영역${light ? ' (라이트)' : ''}`)
       if (!light) await screenWrapFlow('SS3 sheet-diet-plan-ahead 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', 'dialog[open]')
       await closeSheet('식단 플랜 전환')
     })
@@ -1942,12 +2010,14 @@ async function runScenes(browser, port, scheme) {
       await dlg.waitFor({ timeout: 3000 })
       await settle(page)
       await snap('sheet-diet-slot')
+      await ss3Probe(`SS3 검증 sheet-diet-slot 끝까지 스크롤·겹침·누르는 영역${light ? ' (라이트)' : ''}`)
       await wrapProbe('sheet-diet-slot', 'dialog[open]')
       if (!light) await screenWrapFlow('SS3 sheet-diet-slot 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', 'dialog[open]')
       await dlg.getByRole('button', { name: '대체했어요', exact: true }).click()
       await dlg.getByText('어느 쪽이었나요').waitFor({ timeout: 3000 })
       await settle(page, 300)
       await snap('sheet-diet-slot-edit')
+      await ss3Probe(`SS3 검증 sheet-diet-slot-edit 끝까지 스크롤·겹침·누르는 영역${light ? ' (라이트)' : ''}`)
       if (!light) await screenWrapFlow('SS3 sheet-diet-slot-edit 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', 'dialog[open]')
       await closeSheet(/기록$/)
     })
@@ -1957,6 +2027,7 @@ async function runScenes(browser, port, scheme) {
       await page.getByRole('dialog', { name: /단백질원 고르기$/ }).waitFor({ timeout: 3000 })
       await settle(page)
       await snap('sheet-diet-variant')
+      await ss3Probe(`SS3 검증 sheet-diet-variant 끝까지 스크롤·겹침·누르는 영역${light ? ' (라이트)' : ''}`)
       await wrapProbe('sheet-diet-variant', 'dialog[open]')
       if (!light) await screenWrapFlow('SS3 sheet-diet-variant 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', 'dialog[open]')
       await closeSheet(/단백질원 고르기$/)
@@ -1966,12 +2037,14 @@ async function runScenes(browser, port, scheme) {
       await page.getByRole('dialog', { name: '먹은 것 추가' }).waitFor({ timeout: 3000 })
       await settle(page)
       await snap('sheet-food')
+      await ss3Probe(`SS3 검증 sheet-food 끝까지 스크롤·겹침·누르는 영역${light ? ' (라이트)' : ''}`)
 
       if (!light) await screenWrapFlow('SS3 sheet-food 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', 'dialog[open]')      // 새 음식 등록 폼 — 이름·분량·kcal·단백질 칸이 펼쳐진 상태
       await page.getByRole('dialog', { name: '먹은 것 추가' }).getByRole('button', { name: '새 음식 등록', exact: true }).click()
       await page.getByRole('dialog', { name: '먹은 것 추가' }).getByRole('textbox', { name: '음식 이름' }).waitFor({ timeout: 3000 })
       await settle(page, 300)
       await snap('sheet-food-new')
+      await ss3Probe(`SS3 검증 sheet-food-new 끝까지 스크롤·겹침·누르는 영역${light ? ' (라이트)' : ''}`)
       if (!light) await screenWrapFlow('SS3 sheet-food-new 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', 'dialog[open]')
       await page.getByRole('dialog', { name: '먹은 것 추가' }).getByRole('button', { name: '취소', exact: true }).click()
       await settle(page, 300)
