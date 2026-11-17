@@ -390,9 +390,23 @@
 | 커밋 | 이 커밋(`feat(SS3): …`) — 해시는 `git log`. |
 | 바뀐 파일 | `src/components/DietPlanSheet.tsx`·`DietSlotSheet.tsx`·`DietVariantSheet.tsx`·`FoodLogSheet.tsx`(Astryx `Sheet`로), `src/components/SheetFrame.tsx`(삭제), `src/ax/diet.tsx`(`RadioList`·`RadioListItem`·`ScrollableArea`), `src/ax/parts.css`(한글 줄바꿈 시트 목록 +넷)·`ax.css`·`src/styles/global.css`·`motion.css`(legacy 시트 규칙·뿌리 `.sheet-backdrop` 삭제), `scripts/ui-check.mjs`·`lib/ui-check-lib.mjs`·`lib/ui-space.mjs`(`.sheet` 선택자·움직임 검사 정리, SS3 흐름·장면 선택자), 테스트, `docs/ASTRYX-INVENTORY.md`·`eslint-suppressions.json`(줄어든 만큼 다시 씀·`--prune-suppressions`), 스크린샷(`sheet-diet-*`·`sheet-food*`·`layout.json`만) |
 | 테스트 | `Test Files 82 passed (82)` · `Tests 1850 passed (1850)` (SS2 뒤 81/1839 → 새 파일 1 `scripts/ss3.test.mjs`, 새 테스트 `v121` SS3 7 + `ss3.test.mjs` 6 = 13, v119 QQ3 SheetFrame 테스트 둘 삭제) |
-| Astryx 인벤토리 | 인라인 18→13 파일·legacy 클래스 쓰임 235→194(PLAN 예상과 같음) |
-| 첫 화면 | gzip 353.63KB(한계 360KB) — 새 부품을 `src/ax/diet.tsx`에 둬 메인 청크가 안 큼 |
-| 수정표 밖 | `legacy-scope.test.mjs` RR1(`.sheet-backdrop` 뿌리 → 없다)·RRM(`.sheet` 규칙 → 없다) · `rr10.test.mjs`(`.sheet`·`is-closing` 눌림 규칙 → 지움) · `ss2.test.mjs`(시트가 쓰느라 남긴 `.diet-item` 등 → 지웠다) · `inputProps.test.ts`(맨 입력 바닥 10 → 0 초과: 4개만 남음) · `uiConsistency.test.ts`(AA3 `대체 지우기` 창이 글자 뒤쪽으로: Astryx는 label이 앞) · `v119.test.ts` QQ3(legacy 시트 4 → 0, SheetFrame 두 테스트 삭제) · `v120.test.ts`(RRM 보완의 aria-label 스캔을 `ListItem` 기준으로, RR8 legacy 목록 → 빔, RR7 `LEGACY` 문자열). `ui-check-lib.mjs`의 `inPageMotionDurations`와 정적 검사 3(`.sheet` 키프레임)은 legacy 시트가 없어져 지웠다 |
+| Astryx 인벤토리 | `node scripts/astryx-inventory.mjs --check` 출력: `✓ Astryx를 안 읽는 화면 파일: 13 → 13` · `✓ 인라인 스타일: 38 → 38` · `✓ legacy 클래스 쓰임: 194 → 194` · `✓ 안 쓰는 legacy 선택자: 0 → 0`. SS2 뒤 → SS3 뒤: 안 읽는 화면 파일 18→13, 인라인 스타일 45→38, legacy 쓰임 235→194(PLAN 예상과 같음). `docs/ASTRYX-INVENTORY.md` 합계 줄: 읽는 것 34개·인라인 38곳·legacy 194곳·안 쓰는 선택자 0개 |
+| 첫 화면 | `node scripts/first-load.mjs`(빌드 뒤) 출력 — JS `assets/index-B0c4joCN.js` 304.34 · CSS `assets/index-Bsuk-U7p.css` 49.29 · 합 **353.63**kB gzip(한계 360KB). 새 부품을 `src/ax/diet.tsx`에 둬 메인 청크가 안 큼 |
+| 수정표 밖 | `legacy-scope.test.mjs` RR1(`.sheet-backdrop` 뿌리 → 없다)·RRM(`.sheet` 규칙 → 없다) · `rr10.test.mjs`(`.sheet`·`is-closing` 눌림 규칙 → 지움) · `ss2.test.mjs`(시트가 쓰느라 남긴 `.diet-item` 등 → 지웠다) · `inputProps.test.ts`(맨 입력 바닥 10 → 0 초과: 4개만 남음) · `uiConsistency.test.ts`(처음엔 AA3 창을 고쳤으나 리뷰 반려로 되돌림 — 지금은 변경 없음) · `v119.test.ts` QQ3(legacy 시트 4 → 0, SheetFrame 두 테스트 삭제) · `v120.test.ts`(RRM 보완의 aria-label 스캔을 `ListItem` 기준으로, RR8 legacy 목록 → 빔, RR7 `LEGACY` 문자열). `ui-check-lib.mjs`의 `inPageMotionDurations`와 정적 검사 3(`.sheet` 키프레임)은 legacy 시트가 없어져 지웠다 |
+
+### 옮긴 스캔 (수정표 밖 테스트 — 이름·전→후·같은 뜻인 이유)
+
+| 이름 | 전 | 후 | 같은 뜻인 이유 |
+|---|---|---|---|
+| `legacy-scope` RR1 | legacy 뿌리 목록에 `.sheet-backdrop`이 **있다** | 뿌리 네 개(`.screen`·`.onboarding`·`.center-note`·`.banner`)가 있고 `.sheet-backdrop`은 **없다** | 뿌리 목록이 global.css·ax.css에서 같다는 검사는 그대로. 시트가 모두 Astryx가 되어 `.sheet-backdrop` 뿌리를 지웠고, 남았으면 오히려 실패하게 뒤집었다 |
+| `legacy-scope` RRM(시트 규칙) | `.sheet`가 막은 표면·테두리, `.sheet-backdrop`이 `--color-overlay`라는 규칙 | global.css에 `.sheet`·`.sheet-backdrop` 규칙이 **없다** | 표면·막은 이제 Astryx 시트가 정한다(ax.css가 덧칠하지 않는다는 RRM의 다음 테스트가 그대로 잠금). 규칙이 사라졌으니 "있는 규칙의 값" 검사는 "없다"로 바뀐다 |
+| `rr10` 눌림 규칙 | 남는 규칙: `.btn`·`.pill`·`.chip`·`.segment button`·`.back-link`·`.sheet`·`.sheet-backdrop`·`is-closing` | `.sheet`·`.sheet-backdrop`·`is-closing` 뺀 다섯 | "안 옮긴 화면이 쓰는 규칙은 남는다"는 뜻은 그대로. 시트가 안 옮긴 화면에서 빠져 해당 세 개는 쓰는 곳이 없다 |
+| `ss2` 남는다 → 지웠다 | `.diet-item`·`.diet-item-group`·`.diet-variant-btn`·`.diet-sheet-state`·`.diet-plan-diff`가 **남는다**(시트가 쓰느라) | 다섯 개가 **없다** | 남긴 이유가 "SS3까지 legacy 시트가 쓴다"였다. 시트가 Astryx가 되어 이유가 사라졌고, 쓰는 곳 없는 선택자를 두면 인벤토리 넷째 숫자(0)를 못 지킨다 |
+| `inputProps` | 맨 입력 수 > 10 | > 0 (남은 맨 입력 4개) | 이 바닥은 "스캔이 헛돌지 않는다"(0개 통과 방지)가 뜻이다. 화면을 Astryx로 옮겨 맨 입력이 줄었을 뿐이고 0개면 여전히 실패한다 |
+| `v119` QQ3 지운 둘 | `SheetFrame.tsx`가 `../ax`를 import 안 한다 · `SheetFrame`이 `once`로 닫힘을 감싼다 | 두 테스트 삭제(옆의 둘은 "legacy 시트 0개·SheetFrame 파일 없음", "sheet-backdrop 글자가 나오는 .tsx 없음"으로 바뀜) | 둘 다 `SheetFrame.tsx` 내용을 읽는 검사라 파일이 없으면 대상이 없다. `once` 자체의 동작 테스트(`once는 두 번 불러도…`)는 그대로 남음 |
+| `v120` RR7 `LEGACY` | `const LEGACY = '.screen, .onboarding, .sheet-backdrop, .center-note, .banner'` | `.sheet-backdrop` 뺀 문자열 | 스캔 대상이 `ui-check-lib`의 같은 상수라 상수를 따라 바꿨다. "legacy 범위 안의 Astryx 버튼도 잰다"는 뜻은 그대로 |
+| `v120` RR8 | legacy 시트 목록이 식단 시트 넷 | 목록이 **빔** | 같은 스캔(`*Sheet.tsx` 중 `../ax`를 안 읽는 것)이다. 넷을 옮겼으니 기대값이 4개 → 0개 |
+| `v120` RRM 보완 | `.diet-item` 버튼 여는 태그에 `aria-label`이 없다 | `ListItem`(음식 줄)에 없다 + 안의 편집 `Button`에는 `편집 — 이름` 있다 | "줄 전체에 aria-label을 달면 안에서 읽는 이름을 덮는다"는 뜻은 같다. 줄이 `button.diet-item` → `ListItem`이 됐을 뿐이다 |
 
 ### PLAN과 다르게 한 것 (이유)
 
@@ -408,10 +422,10 @@
 |---|---|
 | 네 파일 `Sheet`·0건 목록·`SheetFrame` 없음·`*Sheet.tsx` 전부 `../ax` | `v121 SS3: 네 파일이 ../ax의 Sheet를 쓰고 …` · `v121 SS3: SheetFrame.tsx가 없고 …` |
 | `dismiss()`·`purpose` | `v121 SS3: 고른 뒤 닫힘은 …` · `v121 SS3: 끼니·먹은 것 추가는 purpose="form" …` |
-| `RadioList value={quality}`·`mode` null·`onClearSubstitution` | `v121 SS3: 끼니 시트의 RadioList는 …` + `uiConsistency` AA3(안 고치고 통과) |
+| `RadioList value={quality}`·`mode` null·`onClearSubstitution` | `v121 SS3: 끼니 시트의 RadioList는 …` + `uiConsistency` AA3(리뷰 반려 뒤 안 고치고 통과 — 아래 리뷰 반영) |
 | `ScrollableArea`·새 부품 위치, 문구 | `v121 SS3: 먹은 것 추가는 …` · `v121 SS3: 문구가 그대로다 …` |
 | `ss3.test.mjs`(fs) | 6건: SheetFrame 파일·global.css·motion.css·뿌리 목록 두 파일 같음·한글 목록 네 시트·`SHEET_SELECTOR` |
-| 안 고치고 통과: `v19` DD1·`v115` MM2·AA3 | 통과 |
+| 안 고치고 통과: `v19` DD1·`v115` MM2·AA3 | DD1·MM2는 처음부터 통과. **AA3는 처음 커밋(`e307de4`)에서 테스트의 창을 글자 뒤쪽으로 고쳐서 통과시켰다(PLAN과 다름) → 리뷰 반려 뒤 테스트를 `48fd07f` 내용으로 되돌리고 코드 쪽(`대체 지우기` Button의 `onClick`을 `label` 앞으로)에서 통과시켰다.** `git diff 48fd07f -- src/lib/uiConsistency.test.ts` 비어 있음 |
 | `ui-check after --check`: 시트 장면 일곱 | 종료 코드 0, 일곱 장면 전 칸 통과(안쪽 대칭·시트 버튼·가로 넘침·접근성 serious·critical 0) |
 | 흐름 ①~⑧ | 아래 |
 
@@ -447,3 +461,9 @@
 ### 실행 결과 요약
 
 - `npm run check` 통과. `Test Files  82 passed (82)`, `Tests  1850 passed (1850)`. 빌드 성공. `git rev-list --count main..HEAD`: 커밋 전 12 → 이 커밋 후 13.
+
+### 리뷰 반영 (SS3 리뷰 반려 — 고칠 것 1~3)
+
+1. AA3: `uiConsistency.test.ts`를 `48fd07f` 내용으로 되돌렸다(`git diff 48fd07f -- src/lib/uiConsistency.test.ts` 비어 있음). 코드 쪽에서 통과시켰다 — `DietSlotSheet.tsx`의 `대체 지우기`·`추가 지우기` `Button`에서 `onClick`을 `label` 앞에 둠. `v121.test.ts`의 두 정규식은 같은 `<Button …/>` 안에 `label`과 `act(…)`가 있으면 통과하게(속성 순서 무관) 고쳤다.
+2. 이 절의 "옮긴 스캔" 표를 더하고 AA3·인벤토리·첫 화면 사실을 맞췄다.
+3. 환경: 작업 트리의 `scripts/ui-check.mjs`가 CRLF라(`grep -cU $'\r'` 3324) `git show HEAD:`로 LF로 되돌렸다(커밋 내용 변화 없음).

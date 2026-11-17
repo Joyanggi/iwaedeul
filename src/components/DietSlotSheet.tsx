@@ -134,7 +134,7 @@ export default function DietSlotSheet({
                     onClick={() => openMode('substitution')}
                   />
                   {record?.substitution && (
-                    <Button variant="secondary" label="대체 지우기" onClick={() => act(onClearSubstitution)} />
+                    <Button variant="secondary" onClick={() => act(onClearSubstitution)} label="대체 지우기" />
                   )}
                 </HStack>
                 {/*

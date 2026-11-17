@@ -206,8 +206,9 @@ describe('v121 SS3 — 식단 시트 넷은 Astryx 부품뿐이고 SheetFrame은
     const s = ss3Code(slotSheet)
     expect(s).toMatch(/<RadioList[\s\S]*?value=\{quality\}/)
     expect(s).toMatch(/useState<EditMode \| null>\(null\)/)
-    expect(s).toMatch(/label="대체 지우기" onClick=\{\(\) => act\(onClearSubstitution\)\}/)
-    expect(s).toMatch(/label="추가 지우기" onClick=\{\(\) => act\(onClearAddition\)\}/)
+    // 같은 <Button …/> 안에 label과 onClick이 있으면 된다 (속성 순서는 무관)
+    expect(s).toMatch(/<Button(?=(?:(?!\/>)[\s\S])*label="대체 지우기")(?=(?:(?!\/>)[\s\S])*act\(onClearSubstitution\))/)
+    expect(s).toMatch(/<Button(?=(?:(?!\/>)[\s\S])*label="추가 지우기")(?=(?:(?!\/>)[\s\S])*act\(onClearAddition\))/)
   })
 
   it('v121 SS3: 먹은 것 추가는 음식 목록이 ScrollableArea(40vh) 안 List이고 새 부품은 src/ax/diet.tsx에서 읽는다(index.tsx에 두면 첫 화면이 커진다)', () => {
