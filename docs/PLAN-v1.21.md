@@ -90,7 +90,10 @@ E3 뒤 메인 청크(927KB, 소스맵으로 나눔): `react-dom` 22.7%, `dexie` 
 | `v120.test.ts:903-904`, `v119.test.ts:45-90` | legacy 시트가 정확히 `DietPlanSheet`·`DietSlotSheet`·`DietVariantSheet`·`FoodLogSheet` 넷이고 `SheetFrame`을 쓴다, `SheetFrame.tsx`가 `../ax`를 안 읽는다 | SS3: **옮긴다** — "`components/*Sheet.tsx` 전부가 `../ax`의 `Sheet`를 쓰고 `SheetFrame.tsx`가 없다"(시트 껍데기가 하나라는 뜻 그대로) |
 | `v119.test.ts:111`·`:171` | `space.css`의 `layer(legacy)` import와 유틸 클래스 일곱 | SS8: **옮긴다** — `src/styles`가 없고 `.tsx`에 `mt-`·`mb-`·`ml-`·`mr-` 클래스가 없다 |
 | `v117.test.ts:95-104` | `main.tsx`가 `./styles/index.css`를 읽는다 | SS8: **뜻이 바뀐다** — "`main.tsx`는 CSS를 읽지 않는다. 앱 CSS는 `src/ax`가 읽는다". 나머지 줄(Astryx 직접 안 읽음, App은 `./ax`의 `AppRoot`)은 그대로 |
-| `v117.test.ts:151-153` | App이 `lazy(() => import('./screens/RoutineEditorScreen'))` | SS1: 안 고치고 통과(그 글자를 그대로 둔다) |
+| `v117.test.ts:151-153` | App이 `lazy(() => import('./screens/RoutineEditorScreen'))` | SS1: 안 고치고 통과(그 글자를 그대로 둔다 — 루틴 편집·분석은 `LOADERS`에 넣지 않는다, SS1 설계) |
+| `scripts/check.test.mjs:15-17` | `STEPS` 중 `slow`인 명령이 `['npm run build']` 하나 | SS1: **옮긴다** — `['npm run build', 'node scripts/first-load.mjs --check']`(뜻: "`--fast`는 `dist`가 있어야 도는 단계만 뺀다". 이름도 `빌드와 첫 화면 크기만 --fast에서 빠진다`로) |
+| `v120.test.ts:389-395` (RR3) | `App.tsx`에 `<Spinner />` | SS2: **옮긴다** — `Loading`이 `src/ax/index.tsx`로 가므로 `<Spinner />`는 `src/ax/index.tsx`의 `export function Loading(` 본문에서 본다. 같은 테스트의 나머지 줄(`<Loading text="…" />` 둘, `Banner status="error"`, IndexedDB 문구)은 `App.tsx`에서 그대로 통과 |
+| `scripts/ui-space.test.mjs:44` (RR12) | `home-resume`·`home-safe`·`settings`의 `EXPECTED_PAIRS`가 `['bar', 'tab-indicator', 'tab-content']` | SS6: **옮긴다** — 그 줄의 목록에서 `settings`를 빼고(홈 둘은 그대로), `settings`는 SS6이 정한 쌍(SS6 검증)을 `toEqual`로 따로 단언한다(RR4가 홈에 한 꼴) |
 | `scripts/legacy-scope.test.mjs`·`rr3`·`rr7`·`rr8`·`rr10.test.mjs` | `global.css`·`motion.css`·`space.css`를 읽어 "X가 없다"·"Y가 남는다" | SS8: 파일이 없으면 `readFileSync`가 던진다(빈 통과가 아니다). **옮긴다** — "없다" 검사는 "`src/styles`가 없다" 하나로 모으고, "남는다" 검사(옮긴 화면이 쓰는 규칙)는 `parts.css`에 그 규칙이 있는지로. 테스트 이름·전·후를 DEV-RECORD "옮긴 스캔" 표에 |
 
 **4. 검사 도구가 legacy에 묶인 곳** (`scripts/`를 읽어 확인. 그대로 두면 화면을 옮긴 커밋에서 검사가 **아무것도 안 재고 지나가거나** SS8에서 던진다)
@@ -208,19 +211,21 @@ E3 뒤 메인 청크(927KB, 소스맵으로 나눔): `react-dom` 22.7%, `dexie` 
 | 분석 | `lazy` | 그대로 | **아니오**(헬스장 경로가 차트 코드를 파싱하지 않는다 — README 결정 그대로) |
 | 루틴 편집 | `lazy` | 그대로(`lazy(() => import('./screens/RoutineEditorScreen'))` 글자 그대로) | 아니오 |
 
-- 읽는 함수는 `App.tsx`의 한 표에 둔다: `const LOADERS = { session: () => import('./screens/SessionScreen'), summary: …, diet: …, history: …, settings: …, onboarding: …, analyze: …, routineEdit: … } as const`, 화면은 `lazy(LOADERS.session)` 꼴. 미리 읽는 목록은 `const PRELOAD = ['session', 'summary', 'diet', 'history', 'settings'] as const` 한 줄.
+- 새로 나누는 화면의 읽는 함수는 `App.tsx`의 한 표에 둔다: `const LOADERS = { session: () => import('./screens/SessionScreen'), summary: …, diet: …, history: …, settings: …, onboarding: … } as const`(열쇠 **여섯**), 화면은 `lazy(LOADERS.session)` 꼴. 미리 읽는 목록은 `const PRELOAD = ['session', 'summary', 'diet', 'history', 'settings'] as const` 한 줄.
+- **분석·루틴 편집은 `LOADERS`에 넣지 않는다.** 지금의 두 줄(`const AnalyzeScreen = lazy(() => import('./screens/AnalyzeScreen'))`·`const RoutineEditorScreen = lazy(() => import('./screens/RoutineEditorScreen'))`)과 그 위 주석을 한 글자도 안 바꾼다. 미리 읽지 않는 화면이라 표에 있을 까닭이 없고, `v117` OO3이 그 글자를 본다.
 - **미리 읽기:** `AppBody`에서 `seed && loaded && onboardingDone`이 처음 참이 된 뒤 `PRELOAD_DELAY_MS`(1000) 뒤에 `PRELOAD`의 함수와 `preloadSheet()`를 한 번씩 부른다(`useEffect` + `setTimeout`, 정리 함수에서 `clearTimeout`). 실패는 삼키지 않고 무시만 한다 — `void p.catch(() => undefined)`: 미리 읽기는 최선일 뿐이고, 실제로 그 화면을 열 때 `lazy`가 다시 읽고 실패를 드러낸다.
 - **`Suspense` 자리:** ① 탭 내용 자리 하나(아래 띠 `Bar`는 밖 — 탭을 바꾸는 동안에도 탭바가 보인다) ② 세션·요약·루틴 편집 화면 ③ 온보딩. 대체 화면은 지금의 `Loading`(`Spinner` + "불러오는 중…"). 분석의 "차트를 불러오는 중…"은 그대로.
 - **시트 지연** (`src/ax/index.tsx`): `const BottomSheet = lazy(() => import('@astryxdesign/core/BottomSheet').then((m) => ({ default: m.BottomSheet })))`, 타입은 `import type { BottomSheetProps }`. `Sheet`가 `<Suspense fallback={null}>`로 감싼다. `export function preloadSheet()`가 같은 `import()`를 부른다(한 함수 `loadBottomSheet`를 둘이 쓴다). `Sheet`의 닫기(`closing`·`SHEET_CLOSE_MS`·`once`·`clearTimeout`)는 한 줄도 안 바꾼다.
 - 세션 화면의 로직, 휴식 타이머의 단일 소유(`useRestTimer()`는 App에), `openSession && bundle && (`, 오디오·동기화 배선은 그대로다.
-- `scripts/check.mjs`의 `STEPS`에 `{ name: '첫 화면 크기', cmd: 'node scripts/first-load.mjs --check', slow: true }`를 빌드 **다음**에, `.github/workflows/ci.yml`에도 같은 줄(`scripts/check.test.mjs`가 둘을 견준다).
+- `scripts/check.mjs`의 `STEPS`에 `{ name: '첫 화면 크기', cmd: 'node scripts/first-load.mjs --check', slow: true }`를 빌드 **다음**에, `.github/workflows/ci.yml`에도 같은 줄(`scripts/check.test.mjs`가 둘을 견준다). `slow`인 단계가 둘이 되므로 `scripts/check.test.mjs:15-17`의 단언을 같은 커밋에서 옮긴다("확인한 것" 3).
 
 ### 검증
 
-- `v121` SS1: `App.tsx`에 `import (SessionScreen|SummaryScreen|DietScreen|HistoryScreen|SettingsScreen|Onboarding) from`이 0건이고 `import HomeScreen from './screens/HomeScreen'`이 있다. `LOADERS`의 열쇠가 여덟이고 `PRELOAD`에 `analyze`·`routineEdit`·`onboarding`이 없다.
+- `v121` SS1: `App.tsx`에 `import (SessionScreen|SummaryScreen|DietScreen|HistoryScreen|SettingsScreen|Onboarding) from`이 0건이고 `import HomeScreen from './screens/HomeScreen'`이 있다. `LOADERS`의 열쇠가 여섯(`session`·`summary`·`diet`·`history`·`settings`·`onboarding`)이고 `PRELOAD`에 `onboarding`이 없다. `import('./screens/AnalyzeScreen')`·`import('./screens/RoutineEditorScreen')`이 `App.tsx`에 **각각 한 번**, `lazy(() => ` 바로 뒤에만 나온다(미리 읽기 쪽에서 부르지 않는다).
+- 옮긴 스캔: `scripts/check.test.mjs`의 `slow` 단언("확인한 것" 3). `ci.yml`·`STEPS` 같음 단언은 안 고치고 통과.
 - `v121` SS1: `src/ax/index.tsx`에 `from '@astryxdesign/core/BottomSheet'`가 `import type` 한 줄뿐이고, `lazy(() => import('@astryxdesign/core/BottomSheet')`가 있고, `preloadSheet`를 내보낸다.
 - `v121` SS1: `App.tsx`에서 `<Bar position="bottom">`이 탭 내용의 `<Suspense`보다 뒤에, 그 `Suspense` 밖에 있다(탭바가 대체 화면에 안 가려진다).
-- 안 고치고 통과: `timerOwnership.test.ts`, `v117.test.ts`(`lazy(() => import('./screens/RoutineEditorScreen'))`), `v120.test.ts` RR1·RR3(App의 `AppRoot`·`Bar`), `audioRecovery.test.ts`.
+- 안 고치고 통과: `timerOwnership.test.ts`, `v117.test.ts`(`lazy(() => import('./screens/RoutineEditorScreen'))`), `v120.test.ts` RR1·RR3(App의 `AppRoot`·`Bar`·`Loading` — `Loading`은 SS1에서는 아직 `App.tsx`에 있다. RR3의 `<Spinner />` 줄은 SS2가 옮긴다), `audioRecovery.test.ts`.
 - `npm run build && node scripts/first-load.mjs --check`: **360KB 이하**(E3 실험 약 353KB). 출력을 DEV-RECORD에.
 - `node scripts/first-screen.mjs`(캐시 없는 첫 방문·다시 열기 중앙값)를 RR10 값(740ms·300ms)과 나란히 DEV-RECORD에. 판정하지 않는다.
 - `ui-check after --check`: 전 장면 통과(화면이 그대로다 — `--same-layout=all`을 직전 커밋의 배치 기록과 견줘 통과). 새 흐름 셋(`guardedFlow`):
@@ -268,7 +273,18 @@ E3 뒤 메인 청크(927KB, 소스맵으로 나눔): `react-dom` 22.7%, `dexie` 
 |---|---|
 | `Loading({ text })` | `App.tsx`의 `Loading`을 옮긴다(`Center` + `VStack` + `Spinner` + `Text color="secondary"`). App도 이것을 쓴다 |
 | `TimeField` | `TimeInput`을 감싼다: `presentation="native"`(OS 시각 고르기), `controlStyle`에 16px 하한, `AX_NO_AUTOFILL`. 값은 `'HH:MM'` 그대로 주고받는다(`ISOTimeString`) |
-| 내보내기 | `ToggleButton`(이미), `CheckboxList`·`CheckboxListItem`, `Collapsible`(이미), `Icon`(이미) |
+| 내보내기 | `ToggleButton`(이미), `CheckboxList`·`CheckboxListItem`(`@astryxdesign/core/CheckboxList`), `Collapsible`(이미), `Icon`(이미) |
+
+**이 PLAN이 `src/ax/index.tsx`에 더하는 재내보내기 전부** (화면은 `@astryxdesign/core`를 직접 읽지 않는다 — 처음 쓰는 작업의 커밋에서 더한다. 경로는 `node_modules/@astryxdesign/core/package.json`의 `exports`로 확인)
+
+| 작업 | 더하는 것 (`export { … } from '@astryxdesign/core/<경로>'`) |
+|---|---|
+| SS2 | `CheckboxList`·`CheckboxListItem` (`CheckboxList`). `TimeInput`은 내보내지 않는다 — `TimeField`가 감싼다 |
+| SS3 | `RadioList`·`RadioListItem` (`RadioList`), `ScrollableArea` (`ScrollableArea`) |
+| SS4 | 없음(`Row`·`Rows`는 `src/ax`의 함수, `SegmentedControl`은 이미) |
+| SS5 | 없음(`ScrollableArea`는 SS3이 더했다) |
+| SS6 | `CodeBlock` (`CodeBlock`), `Link` (`Link`). `Switch`·`SegmentedControl`은 이미 |
+| SS7 | 없음(`List`·`ListItem`은 이미) |
 
 **`parts.css`에 더하는 것** (v1.20 규칙 그대로: `@layer astryx-theme`, 색 리터럴 0, 길이는 토큰·`%`·`fr`·`1px`·`0`)
 
@@ -317,7 +333,7 @@ E3 뒤 메인 청크(927KB, 소스맵으로 나눔): `react-dom` 22.7%, `dexie` 
 - `v121` SS2: `DietDayEditor.tsx`에서 `전부 먹음` 접근성 이름의 `ToggleButton`이 `isPressed={grade === 'full'}`를 갖고, 품목 `ToggleButton`이 `isPressed={on}`을 갖는다(`aria-pressed`의 뜻이 그대로 남는다).
 - `v121` SS2 — 문구: `대체·안 먹음`, `단백질 (추정)`, `먹은 것 (시간별)`, `＋ 먹은 것 추가`, `메모 (선택)`, `위험 구역`, `이 날 식단 기록 지우기`, `정말 삭제`, `식사 알림`, `캘린더로 내보내기`, 연속 경고 본문이 세 파일에 있다.
 - `v121` SS2: `src/ax/index.tsx`가 `Loading`·`TimeField`를 내보내고, `TimeField`에 `presentation="native"`·`AX_NO_AUTOFILL`이 있다. `App.tsx`에 `function Loading`이 없다.
-- 옮긴 스캔("확인한 것" 3): `uiConsistency` X6(식단 줄), `v120` RR7의 `DietDayEditor` 줄. 안 고치고 통과: `v19`·`v110`·`v1112`·`v115`·`dietBackup`·`strengthWork`·`uiConsistency`의 나머지.
+- 옮긴 스캔("확인한 것" 3): `uiConsistency` X6(식단 줄), `v120` RR7의 `DietDayEditor` 줄, `v120` RR3의 `<Spinner />` 줄(`App.tsx` → `src/ax/index.tsx`의 `Loading`). 안 고치고 통과: `v19`·`v110`·`v1112`·`v115`·`dietBackup`·`strengthWork`·`uiConsistency`의 나머지.
 - `ui-check after --check` — 장면 `diet` `diet-end` `diet-375` `diet-log-open` `diet-streak` `history-day`(편집기가 legacy 화면 안 — 섬) `history-detail-end`(같다):
   - `안쪽 대칭`(카드·뱃지·버튼 — `SYMMETRY_JUDGED`·`EXPECTED_PAIRS`에 `diet*`를 더한다), `같은 역할`(화면 좌우·카드 사이·묶음 사이·카드 안쪽이 `home`·`summary`·`editor`와 같다), `가까움 순서` 통과.
   - `섬 버튼`이 `history-day`·`history-detail-end`에서 통과(legacy 44px가 안 걸린다).
@@ -564,7 +580,8 @@ E3 뒤 메인 청크(927KB, 소스맵으로 나눔): `react-dom` 22.7%, `dexie` 
 - `v121` SS6: 일곱 파일에 `className=`은 `ax-` 이름뿐, `style=`·`<button`·`<input`·`<a `·`<pre`·`var(--`·`padding=` 0건.
 - `v121` SS6 — 순서: 주석을 뗀 `SettingsScreen.tsx`에서 `Phase` < `<RoutineListPanel` < `소리 크기` < `템포 가이드` < `<ExportPanel` < `<GistPanel` < `<ImportPanel` < `<RoutineIoPanel` < `<DietIoPanel` < `진단` < `위험 구역`.
 - `v121` SS6: `SettingsScreen.tsx`에 `<Switch`가 하나(`템포 가이드 사용`), `<SegmentedControl`이 다섯(Phase·소리 크기·음악·이완 초·준비 시간)이고 `A_ECCENTRIC_OPTIONS.map`·`COUNT_IN_OPTIONS.map`이 그 안에 있다.
-- 옮긴 스캔: `polish` BB5(버전 줄), `v116` NN2(편집 `isDisabled`)·NN4(루틴 삭제 `destructive`). 안 고치고 통과: `soundCancel`(`템포 경계음 미리 듣기`·`previewTempoTones(`), `v18` CC16, `v116`의 나머지, `backupTime`·`dietExport`, `scripts/legacy-scope.test.mjs`의 RRM 줄(유리 글자 없음).
+- `EXPECTED_PAIRS`(`scripts/lib/ui-space.mjs`): `settings`를 `['bar', 'tab-indicator', 'tab-content', 'button', 'card']`로(지금 값에 둘을 더한다), 나머지 설정 장면 아홉(`settings-375`·`settings-open`·`settings-end`·`settings-routines`·`settings-routines-375`·`settings-routines-confirm-375`·`settings-gist`·`settings-export-preview`·`settings-reset-confirm`)을 `['button', 'card']`로(이 표는 "종류마다 1쌍 이상"을 요구하는 최소 목록이다 — 띠 쌍은 v1.20이 `settings`에서만 기대했으니 그대로 둔다. 뱃지는 Day를 펼친 장면에만 있어 기대에 넣지 않는다 — 넣으면 펼치지 않은 장면이 0개로 실패한다). 그 장면들을 `SYMMETRY_JUDGED`에 더한다.
+- 옮긴 스캔: `polish` BB5(버전 줄), `v116` NN2(편집 `isDisabled`)·NN4(루틴 삭제 `destructive`), `scripts/ui-space.test.mjs:44`(목록에서 `settings`를 빼고 `expect(EXPECTED_PAIRS.settings).toEqual(['bar', 'tab-indicator', 'tab-content', 'button', 'card'])`를 따로). 안 고치고 통과: `soundCancel`(`템포 경계음 미리 듣기`·`previewTempoTones(`), `v18` CC16, `v116`의 나머지, `backupTime`·`dietExport`, `scripts/legacy-scope.test.mjs`의 RRM 줄(유리 글자 없음).
 - `ui-check after --check` — `settings` `settings-375` `settings-open` `settings-end` `settings-routines` `settings-routines-375` `settings-routines-confirm-375` `settings-gist` `settings-export-preview` `settings-reset-confirm`: `안쪽 대칭`·`같은 역할`·`가까움 순서`(묶음 사이 > 카드 사이), `줄 안 버튼`(새 정의), `가로 넘침` 0(미리보기 칸 안은 뺀다), 접근성 0.
 - 흐름: ① `SS6 Phase 바꾸기`: Phase 1 1탭 → 설명 줄이 바뀌고, 다시 0으로(끝에 되돌린다) ② `SS6 템포 가이드 켜기`: 스위치 1탭 → 세션 화면의 세트 행에 ♩ 버튼이 생긴다(끝에 끈다) ③ `SS6 미리 듣기`: 버튼 1탭에 예외 없음(소리는 못 듣는다 — 제약 2) ④ `SS6 Day 펼치기` ⑤ `SS6 내보내기 미리보기`: 미리보기 1탭 → Markdown 칸에 `## ` 줄이 있다 → 닫기 ⑥ `SS6 초기화 2단 확인`(취소로 끝낸다) ⑦ `SS6 Gist 저장됨`: 마스킹된 토큰 줄이 보이고 토큰 원문이 화면 글자에 없다 ⑧ `SS6 <장면> 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안` ⑨ `SS6 오류·성공 글자색`: 전환 조건 ✓의 계산된 색 = 성공 토큰, 초기화 확인 문구 = 오류 토큰(다크·라이트).
 - 경계: 루틴이 하나뿐(삭제 버튼 없음), 진행 중 세션(편집·이 루틴 쓰기·새 루틴 비활성 + 안내), Phase 3(전환 조건 없음), 전환 조건 전부 충족(전환 버튼), 시드 문제 있음, 저장 공간 모름(`—`).
@@ -771,7 +788,7 @@ SS0의 `before`는 다른 작업 뒤에 못 찍는다. **SS1(분할)을 화면�
 - 파일 편집은 Edit 도구로, 커밋 전 `grep -c $'\r' <파일>`로 CRLF가 없는지 본다(제약 17·30).
 - **새 스캔 결함 복원 확인:** `cp` 백업 뒤 결함을 되살려 실패를 보고 되돌린다(`cmp`로 같음 확인). 최소:
   ① (SS1) `App.tsx`에서 `DietScreen`을 다시 정적 import로 → `v121` SS1 실패
-  ② (SS1) `PRELOAD`에 `'analyze'`를 넣는다 → `v121` SS1 실패 + 흐름 `미리 읽기` 실패(분석 청크가 요청된다)
+  ② (SS1) 미리 읽기 `useEffect`에 `void import('./screens/AnalyzeScreen')`을 더한다 → `v121` SS1 실패(그 `import(`가 두 번) + 흐름 `미리 읽기` 실패(분석 청크가 요청된다)
   ③ (SS1) `first-load.mjs`의 상수를 300으로 → `--check` 종료 코드 1. `dist/index.html`을 지운 상태에서 → 종료 코드 1(빈 통과가 아니다)
   ④ (SS2) 끼니 원형 버튼의 `isPressed`를 `grade !== 'none'`으로 → `v121` SS2 실패 + 흐름 `끼니 전부 먹음 1탭`(부분 등급에서 눌린 상태)
   ⑤ (SS2) `DietDayEditor`의 `ax-scope` 감싸기를 뺀다 → `history-day`의 `섬 버튼` 실패
@@ -834,3 +851,24 @@ SS0의 `before`는 다른 작업 뒤에 못 찍는다. **SS1(분할)을 화면�
 - 식단 시트(플랜·단백질원·끼니)에서 고르면 시트가 바로 사라지지 않고 **내려가며 닫힌다.** 끼니 시트와 먹은 것 추가 시트는 입력 도중 막을 눌러도 닫히지 않는다(세션 시트와 같은 규칙).
 - 인벤토리의 "Astryx를 안 읽는 화면 파일"에서 `main.tsx`(진입점)와 `icons.tsx`(앱의 SVG 그림 — Astryx에 불꽃·식기·저울 같은 그림이 없다)를 뺀다. 그래서 그 숫자가 23에서 21로 시작한다. 숨기지 않고 표에 `제외`로 남긴다.
 - 끝나면 `src/styles/` 폴더가 없어진다. 앱의 CSS는 Astryx와 `src/ax`의 두 파일(`ax.css`·`parts.css`)뿐이고, 인벤토리가 되살아나지 않게 지킨다.
+
+---
+
+## 검토 반영 기록
+
+검토: `.reports/v1.21-codex.md`(그대로 진행 가능), `.reports/v1.21-antigravity.md`(수정 필요). 둘 다 커밋 `9c52c90`을 봤다. 지적마다 코드를 열어 확인했다.
+
+| # | 지적 (검토자) | 코드로 확인한 것 | 판단 | 고친 곳 |
+|---|---|---|---|---|
+| 1 | `check.mjs`에 `slow` 단계를 더하면 `check.test.mjs`의 `빌드만 --fast에서 빠진다`가 깨진다 (Antigravity) | `scripts/check.test.mjs:15-17`이 `toEqual(['npm run build'])`, `check.mjs:24`의 빌드만 `slow: true` | **반영** | "확인한 것" 3 표, SS1 설계·검증 |
+| 2 | `Loading`을 `src/ax`로 옮기면 `v120` RR3의 `App.tsx`에 `<Spinner />` 단언이 깨진다 (Antigravity) | `v120.test.ts:390`, `App.tsx:206-210`의 `Loading`이 유일한 `<Spinner />`. 다만 SS1 시점에는 아직 통과한다 — 깨지는 것은 SS2 | **반영**(시점을 바로잡아) — SS1 "안 고치고 통과"는 맞고, SS2에서 옮긴다. 같은 테스트의 `<Loading text=…>` 줄들은 `App.tsx`가 계속 쓰므로 그대로 통과 | "확인한 것" 3 표, SS1 검증 주석, SS2 검증 |
+| 3 | 설정이 Astryx가 되면 `ui-space.test.mjs:44`의 `settings` 고정 배열 단언이 깨진다 (Antigravity) | `ui-space.test.mjs:44`, `ui-space.mjs:246` `settings: ['bar', 'tab-indicator', 'tab-content']`. SS6 검증이 `안쪽 대칭`을 걸면서 `EXPECTED_PAIRS` 값을 적지 않았다 | **반영** — 설정 장면의 `EXPECTED_PAIRS` 값도 함께 정했다 | "확인한 것" 3 표, SS6 검증 |
+| 4 | SS3·SS6이 쓰는 `RadioList`·`ScrollableArea`·`CodeBlock`·`Link`의 `src/ax` 재내보내기가 표에 없다 (Antigravity, 경미) | `src/ax/index.tsx:259-277`에 다섯 다 없다. SS2의 `CheckboxList`도 없다. 서브 경로는 `package.json` `exports`에 있다 | **반영** | SS2 설계에 작업별 재내보내기 표 |
+| 5 | `LOADERS`로 묶다가 `v117`이 보는 `lazy(() => import('./screens/RoutineEditorScreen'))` 글자가 빠지기 쉽다 (Antigravity, 경미) | 주의 수준이 아니라 **PLAN이 모순**이었다: `LOADERS`에 `routineEdit`·`analyze`를 넣고 "화면은 `lazy(LOADERS.x)` 꼴"이라 하면서 그 글자를 그대로 둔다고 했다(`v117.test.ts:152`) | **반영** — 분석·루틴 편집은 `LOADERS`에서 빼고 지금 줄을 그대로 둔다. `LOADERS` 열쇠 8 → 6, 결함 복원 ②를 그에 맞게 | SS1 설계·검증, 결함 복원 ② |
+| 6 | 진단·놓치는 경우·검증·범위·원칙 모두 통과 (Codex) | — | 이견 없음 | — |
+
+**두 검토가 갈린 곳:** Codex는 검증 항목을 통과로, Antigravity는 스캔 갱신 셋이 빠졌다고 봤다. 코드로는 Antigravity가 맞다 — 세 단언(`check.test.mjs:16`, `v120.test.ts:390`, `ui-space.test.mjs:44`)은 PLAN대로 구현하면 그 작업 커밋에서 실패한다. Codex는 "확인한 것" 3이 `.tsx` 마크업 스캔만 모은 것을 넘어서 도구 테스트까지는 보지 않았다.
+
+**기각:** 없음.
+
+**"사람이 정할 것":** 0건 그대로. "알려 둘 것"에 두 검토자 모두 반대가 없다(Antigravity는 식사 알림 접힘·기록 상세 식단 위치·설정 묶음·템포 스위치에 명시적으로 동의). 그대로 확정한다.
