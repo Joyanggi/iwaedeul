@@ -81,7 +81,8 @@
 | `scripts/ui-check.mjs` | `requiredScene`(준비가 던지거나 기대한 장면을 못 찍으면 칸 전부 `실패`·`장면 실패 N건`·종료 코드 1, `--check` 없이도), 새 장면 24개(다크·라이트), 도우미 `wrapProbe`·`at375`·`withFreshPage`, 시드 도우미(`inPageDietSeed/Restore`·`inPageNoteSeed`), GitHub 호출 막기·세기 |
 | `scripts/first-load.mjs`, `scripts/lib/first-load-lib.mjs` | 첫 화면 gzip 크기 도구(`collectFirstLoad`). `--check`는 360KB 한계. SS0에서는 `check.mjs`에 안 넣는다 |
 | `scripts/astryx-inventory.mjs`, `docs/ASTRYX-INVENTORY.md` | `NOT_SCREENS`(`main.tsx`·`icons.tsx`)를 첫째 숫자에서 뺀다. 합계 줄에 `화면이 아니라 뺀 것 2개`가 늘었고 `--check` 정규식도 맞췄다 |
-| `scripts/ss0.test.mjs` | SS0 스캔·`collectFirstLoad`·`first-load.mjs` 종료 코드 테스트 14개 |
+| `scripts/ss0.test.mjs` | SS0 스캔·`collectFirstLoad`·`first-load.mjs` 종료 코드·알려진 실패 테스트 24개(최초 14 → 리뷰 반영 후 24) |
+| `scripts/lib/ui-check-lib.mjs` | (리뷰 반영) `KNOWN_FAILURES`·`applyKnownFailures` |
 | `docs/screenshots/v1.21/before/` | 153장 + `layout.json` (장면 77개 × 다크·라이트, 온보딩 홈 화면 앱·빈 분석은 별도 문맥) |
 | `docs/DEV-RECORD-v1.21.md` | 이 기록 |
 
@@ -150,6 +151,17 @@
 |---|---|---|
 | 새 장면 준비 선택자를 틀리게(`onboarding-standalone`의 `홈 화면 앱으로 실행 중입니다X`, `settings-gist`의 `토큰 저장됨X`) — PLAN ⑳ | 두 장면 `장면 실패`(칸 전부 실패), 종료 코드 **1**. `settings-gist`의 `finally`로 가짜 토큰이 지워졌다 | `cmp`로 백업과 같음 |
 | `settings-open`을 `optional(`로 되돌림 | `ss0.test.mjs` `…장면 다섯이 optional( 호출 안에 없다` 실패 | `cmp` 같음, 14개 통과 |
+| (리뷰 반영) `first-load.mjs` 35행(`fail('index.html에 모듈 스크립트 태그가 없다')`) 지움 | `…스크립트 태그가 0개면 종료 코드 1 (적힌 CSS는 실제로 있다)`, `…빈 index.html(<html></html>)도 종료 코드 1` 둘 실패(전엔 14개 그대로 통과했다) | `cmp` 같음 |
+| (리뷰 반영, ㉔) `applyKnownFailures`의 상세 비교(`cell.detail === k.detail`)를 지움 | `…상세가 한 글자 다르면 실패 그대로`, `…장면 실패 행…은 하나도 안 바뀐다` 실패 | `cmp` 같음 |
+| (리뷰 반영, ㉔) `KNOWN_FAILURES`에 넷째 항목(`settings-gist`·`접근성`)을 더함 | `…KNOWN_FAILURES는 늘지 않는다…` 외 3개 실패 | `cmp` 같음 |
+| (리뷰 반영, ㉔) `KNOWN_FAILURES`의 `analyze-empty` 항목 `detail`을 한 글자(`13px`→`12px`) 바꿈 → `ui-check after --check --only=analyze-empty,settings-export-preview` | 그 칸이 `실패`로 남고 `알려진 실패 2건`, 종료 코드 **1** (정상은 3건·종료 코드 0) | `cmp` 같음 |
+
+### 리뷰 반영 (SS0 반려 → 고침 커밋, PLAN 개정 1)
+
+- **고칠 것 1:** `first-load.mjs` 종료 코드 1 테스트가 이유(`stderr`)까지 단언한다. 스크립트 0개 테스트는 적힌 `a.css`를 실제로 만들고, 빈 `<html></html>` 테스트를 더했다. (`ss0.test.mjs` 14 → 15 + 알려진 실패 9 = 24개.) `firstLoadScript`는 `fileURLToPath`로 바꿨다.
+- **고칠 것 2 — 알려진 실패(개정 1):** `scripts/lib/ui-check-lib.mjs`에 `KNOWN_FAILURES`(`analyze-empty`·여백 격자·SS5, `settings-export-preview`·접근성·SS6, `settings-export-preview`·눌림 반응·SS6)와 `applyKnownFailures`. `ui-check.mjs`의 `printResults`가 `after`에서만 건다: `알려진 실패`는 실패에 세지 않고 `- 알려진 실패 … (<until>이 고친다)`와 `알려진 실패 N건`을 찍고, `stale`은 `실패`로 센다. `before`에는 안 건다. `detail`은 `before --check`를 이 커밋에서 다시 돌려 얻은 글자 그대로. 테스트 9개(`v121 SS0 — 알려진 실패 (개정 1)` 묶음: PLAN ①~⑥, 속성, 늘지 않음, 스캔).
+- **재실행 결과** (`--ver=v9.99`로 찍고 지움): `ui-check after --check` 종료 코드 **0**, `장면 실패 0건`, **`알려진 실패 3건`**(세 칸 모두 `- 알려진 실패 … (SS5/SS6이 고친다)`로 찍힘). `before --check`는 알려진 실패를 걸지 않는 기준선이라(PLAN) 종료 코드 **1** 그대로이고 `실패`는 같은 세 칸뿐, `장면 실패 0건`. 결함 복원 ㉔ 확인은 결함 복원 표.
+- 경미한 점: `v121.test.ts`(PLAN 설계 표)는 이 SS0에서 안 만든다 — 스캔을 `ss0.test.mjs`에 뒀고 빈 vitest 파일은 실패하므로 처음 쓰는 SS1에서 만든다. 흐름 RR8·`Day 선택 시트 375`의 재는 뿌리를 `'dialog[open]'` → `'dialog[open], .sheet'`로 넓힌 이유: 식단·기록 시트 일부가 아직 legacy `.sheet`(`<dialog>`가 아님)라 `dialog[open]`만으로는 시트를 못 찾아 글자 꺾임 기록이 빈 채로 나왔다(Astryx 시트로 옮겨지면 `dialog[open]`이 잡는다). `querySelector`는 문서 순서상 첫 요소를 고르지만 legacy `.sheet`는 열릴 때만 렌더돼 둘이 함께 떠 있지 않다.
 
 ### 하지 않은 것
 
@@ -164,5 +176,5 @@
 
 ### 실행 결과 요약
 
-- `npm run check` 통과(흔적·Astryx 뒷걸음·린트·knip·테스트·빌드). `Test Files  79 passed (79)`, `Tests  1808 passed (1808)`. 빌드 성공.
+- `npm run check` 통과(흔적·Astryx 뒷걸음·린트·knip·테스트·빌드). `Test Files  79 passed (79)`, `Tests  1818 passed (1818)`(리뷰 반영 후 — 최초 1808). 빌드 성공.
 - `git rev-list --count main..HEAD`: 커밋 전 0 → 이 작업 커밋 1개.

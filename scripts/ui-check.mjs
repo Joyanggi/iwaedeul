@@ -63,6 +63,8 @@ import {
   motionStaticChecks,
   pressVerdict,
   rowButtonStaticChecks,
+  KNOWN_FAILURES,
+  applyKnownFailures,
 } from './lib/ui-check-lib.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -2382,11 +2384,13 @@ function printResults() {
       if (!c.ok) failed++
     }
   } else console.log('\n정적 검사: before에서는 건너뜀')
+  // 알려진 실패(PLAN v1.21 개정 1): after에서만. before는 기준선이라 걸지 않는다
+  const known = phase === 'after' ? applyKnownFailures(rows, KNOWN_FAILURES) : { rows, known: 0, stale: [] }
   const mark = (c) => (c === null ? '·' : c.status)
   console.log(`\n| 장면 | ${COLUMNS.join(' | ')} |\n|---|${COLUMNS.map(() => '---').join('|')}|`)
-  for (const r of rows) console.log(`| ${r.scene} | ${COLUMNS.map((c) => mark(r.cells[c])).join(' | ')} |`)
+  for (const r of known.rows) console.log(`| ${r.scene} | ${COLUMNS.map((c) => mark(r.cells[c])).join(' | ')} |`)
   const lines = []
-  for (const r of rows) {
+  for (const r of known.rows) {
     for (const c of COLUMNS) {
       const cell = r.cells[c]
       if (!cell) continue
@@ -2394,9 +2398,15 @@ function printResults() {
       if (cell.status === '실패') {
         failed++
         lines.push(`- 실패 ${r.scene} · ${c}: ${cell.detail}`)
+      } else if (cell.status === '알려진 실패') {
+        lines.push(`- 알려진 실패 ${r.scene} · ${c}: ${cell.detail} (${KNOWN_FAILURES.find((k) => k.scene === r.scene && k.column === c)?.until}이 고친다)`)
       } else if (cell.status === '건너뜀') lines.push(`- 건너뜀 ${r.scene} · ${c}: ${cell.detail}`)
       else if (cell.status === '기록') lines.push(`- 기록 ${r.scene} · ${c}: ${cell.detail}`)
     }
+  }
+  for (const s of known.stale) {
+    failed++
+    lines.push(`- 실패 ${s.scene} · ${s.column}: 알려진 실패가 고쳐졌다 — KNOWN_FAILURES에서 지운다`)
   }
   if (lines.length) console.log(`\n상세:\n${lines.join('\n')}`)
   // 테마 토큰: 라이트 장면의 문서 배경이 다크 장면과 달라야 한다 (RR1부터 전 장면, 그 전 before는 테마가 있는 editor 장면만)
@@ -2472,6 +2482,7 @@ function printResults() {
   if (sceneFailures.length) console.log(`\n장면 실패 ${sceneFailures.length}건 (requiredScene):\n${sceneFailures.map(([n, d]) => `- ${n}: ${d}`).join('\n')}`)
   else console.log('\n장면 실패 0건 (requiredScene)')
   failed += sceneFailures.length
+  if (phase === 'after') console.log(`알려진 실패 ${known.known}건`)
   console.log('\n접근성(axe) 결과 — color-contrast는 찍기만 한다 (위반 노드 / incomplete 노드):')
   for (const a of axeInfo) console.log(`- ${a.scene}: serious·critical ${a.hard}건, color-contrast 위반 ${a.contrast} · incomplete ${a.incomplete}`)
   return failed

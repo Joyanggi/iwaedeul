@@ -806,3 +806,35 @@ export const inPageNotClipped = (needle) => {
   }
   return { found: true, ok: bad.length === 0 && boxOk, lines, detail: `${lines}줄 · ${bad.join(', ') || '자르는 조상 없음'} · 마지막 글자가 상자 안 ${boxOk}` }
 }
+
+/**
+ * 알려진 실패 (PLAN v1.21 개정 1). SS0 before --check가 처음 드러낸 legacy 화면의 칸 실패 셋.
+ * 그 화면을 옮기는 작업(until)이 고치고 **같은 커밋에서 항목을 지운다**. 늘리지 않는다 — 다른 실패는 멈추고 보고한다.
+ * detail은 `- 실패 <장면> · <칸>: ` 뒤 글자 그대로.
+ */
+export const KNOWN_FAILURES = [
+  { scene: 'analyze-empty', column: '여백 격자', detail: 'p.center-note marginTop 13px · p.center-note marginBottom 13px', until: 'SS5' },
+  { scene: 'settings-export-preview', column: '접근성', detail: 'scrollable-region-focusable 1건 [pre]', until: 'SS6' },
+  { scene: 'settings-export-preview', column: '눌림 반응', detail: '1/5건: "GitHub에서 토큰 발급" .ext-link 변화 없음', until: 'SS6' },
+]
+
+/**
+ * 알려진 실패를 `알려진 실패` 상태로 바꾼다(숨기기만 하고 만들지 않는다). rows는 건드리지 않고 새 배열을 돌려준다.
+ * (행 이름, 칸, 상세)가 항목과 글자까지 같은 `실패` 칸만 바뀐다. 장면 실패 행(상세가 예외 줄)이나 다른 상세는 그대로 `실패`.
+ * 행은 있는데 그 칸이 `실패`가 아닌 항목은 stale(고쳐졌으니 목록에서 지운다). 행이 없는 항목(--only로 거른 장면)은 둘 다 아니다.
+ */
+export const applyKnownFailures = (rows, known) => {
+  let count = 0
+  const stale = []
+  const out = rows.map((r) => ({ ...r, cells: { ...r.cells } }))
+  for (const k of known) {
+    const row = out.find((r) => r.scene === k.scene)
+    if (!row) continue
+    const cell = row.cells[k.column]
+    if (cell && cell.status === '실패' && cell.detail === k.detail) {
+      row.cells[k.column] = { ...cell, status: '알려진 실패' }
+      count++
+    } else if (!cell || (cell.status !== '실패' && cell.status !== '알려진 실패')) stale.push({ scene: k.scene, column: k.column, until: k.until })
+  }
+  return { rows: out, known: count, stale }
+}

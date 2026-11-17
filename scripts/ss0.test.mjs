@@ -5,12 +5,14 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { collectFirstLoad } from './lib/first-load-lib.mjs'
+import { applyKnownFailures, KNOWN_FAILURES } from './lib/ui-check-lib.mjs'
 
 const uiCheck = readFileSync(new URL('./ui-check.mjs', import.meta.url), 'utf8')
 const inventory = readFileSync(new URL('./astryx-inventory.mjs', import.meta.url), 'utf8')
-const firstLoadScript = new URL('./first-load.mjs', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
+const firstLoadScript = fileURLToPath(new URL('./first-load.mjs', import.meta.url))
 
 describe('v121 SS0 — 필수 장면', () => {
   it('v121 SS0: ui-check.mjs에 requiredScene이 있고 장면 실패를 표(칸 전부 실패)와 종료 코드로 센다', () => {
@@ -118,14 +120,30 @@ describe('v121 SS0 — first-load.mjs 종료 코드', () => {
     setup(dir)
     return spawnSync(process.execPath, [firstLoadScript, `--dist=${dir}`], { encoding: 'utf8' })
   }
+  // 종료 코드만 보면 다른 갈래의 1에 헛통과한다 — 이유 문구(stderr)도 단언한다
   it('v121 SS0: dist/index.html이 없으면 종료 코드 1', () => {
-    expect(run(() => {}).status).toBe(1)
+    const r = run(() => {})
+    expect(r.status).toBe(1)
+    expect(r.stderr).toContain('index.html가 없다')
   })
-  it('v121 SS0: 스크립트 태그가 0개면 종료 코드 1', () => {
-    expect(run((d) => writeFileSync(join(d, 'index.html'), '<html><link rel="stylesheet" href="/workout-tracker/a.css"></html>')).status).toBe(1)
+  it('v121 SS0: 스크립트 태그가 0개면 종료 코드 1 (적힌 CSS는 실제로 있다)', () => {
+    const r = run((d) => {
+      writeFileSync(join(d, 'a.css'), 'a{}')
+      writeFileSync(join(d, 'index.html'), '<html><link rel="stylesheet" href="/workout-tracker/a.css"></html>')
+    })
+    expect(r.status).toBe(1)
+    expect(r.stderr).toContain('모듈 스크립트 태그가 없다')
+  })
+  it('v121 SS0: 빈 index.html(<html></html>)도 종료 코드 1', () => {
+    const r = run((d) => writeFileSync(join(d, 'index.html'), '<html></html>'))
+    expect(r.status).toBe(1)
+    expect(r.stderr).toContain('모듈 스크립트 태그가 없다')
   })
   it('v121 SS0: index.html이 적은 파일이 없으면 종료 코드 1', () => {
-    expect(run((d) => writeFileSync(join(d, 'index.html'), '<script type="module" src="/workout-tracker/assets/none.js"></script>')).status).toBe(1)
+    const r = run((d) => writeFileSync(join(d, 'index.html'), '<script type="module" src="/workout-tracker/assets/none.js"></script>'))
+    expect(r.status).toBe(1)
+    expect(r.stderr).toContain('none.js')
+    expect(r.stderr).toContain('없다')
   })
   it('v121 SS0: 파일이 다 있으면 종료 코드 0(--check 없이)', () => {
     const r = run((d) => {
@@ -135,5 +153,91 @@ describe('v121 SS0 — first-load.mjs 종료 코드', () => {
     })
     expect(r.status).toBe(0)
     expect(r.stdout).toContain('assets/a.js')
+  })
+})
+
+describe('v121 SS0 — 알려진 실패 (개정 1)', () => {
+  const fail = (detail) => ({ status: '실패', detail })
+  const rowsFor = () => [
+    { scene: 'analyze-empty', cells: { '여백 격자': fail(KNOWN_FAILURES[0].detail), '접근성': { status: '통과' } } },
+    { scene: 'settings-export-preview', cells: { '접근성': fail(KNOWN_FAILURES[1].detail), '눌림 반응': fail(KNOWN_FAILURES[2].detail) } },
+  ]
+  const count = (rows, status) => rows.flatMap((r) => Object.values(r.cells)).filter((c) => c && c.status === status).length
+
+  it('v121 SS0 알려진 실패: 세 칸이 항목과 글자까지 같으면 알려진 실패 셋, 실패 0', () => {
+    const r = applyKnownFailures(rowsFor(), KNOWN_FAILURES)
+    expect(r.known).toBe(3)
+    expect(count(r.rows, '알려진 실패')).toBe(3)
+    expect(count(r.rows, '실패')).toBe(0)
+    expect(r.stale).toEqual([])
+  })
+  it('v121 SS0 알려진 실패: 상세가 한 글자 다르면 실패 그대로', () => {
+    const rows = rowsFor()
+    rows[0].cells['여백 격자'] = fail(KNOWN_FAILURES[0].detail.replace('13px', '14px'))
+    const r = applyKnownFailures(rows, KNOWN_FAILURES)
+    expect(r.rows[0].cells['여백 격자'].status).toBe('실패')
+    expect(r.known).toBe(2)
+  })
+  it('v121 SS0 알려진 실패: 같은 상세가 다른 칸·다른 장면(-light 행 포함)에 있으면 실패 그대로', () => {
+    const rows = [
+      { scene: 'analyze-empty-light', cells: { '여백 격자': fail(KNOWN_FAILURES[0].detail) } },
+      { scene: 'analyze', cells: { '여백 격자': fail(KNOWN_FAILURES[0].detail) } },
+      { scene: 'analyze-empty', cells: { '가로 넘침': fail(KNOWN_FAILURES[0].detail) } },
+    ]
+    const r = applyKnownFailures(rows, KNOWN_FAILURES)
+    expect(r.known).toBe(0)
+    expect(count(r.rows, '실패')).toBe(3)
+  })
+  it('v121 SS0 알려진 실패: 칸이 통과인 항목은 stale', () => {
+    const rows = rowsFor()
+    rows[0].cells['여백 격자'] = { status: '통과' }
+    const r = applyKnownFailures(rows, KNOWN_FAILURES)
+    expect(r.stale).toEqual([{ scene: 'analyze-empty', column: '여백 격자', until: 'SS5' }])
+    expect(r.known).toBe(2)
+  })
+  it('v121 SS0 알려진 실패: 행이 없는 항목은 stale도 아니고 바뀐 칸도 없다', () => {
+    const r = applyKnownFailures([], KNOWN_FAILURES)
+    expect(r).toEqual({ rows: [], known: 0, stale: [] })
+  })
+  it('v121 SS0 알려진 실패: 장면 실패 행(칸 전부 실패, 상세는 예외 줄)은 하나도 안 바뀐다', () => {
+    const cells = Object.fromEntries(['여백 격자', '접근성', '눌림 반응'].map((c) => [c, fail('Error: 선택자를 못 찾았다')]))
+    const rows = [{ scene: 'analyze-empty', cells }, { scene: 'settings-export-preview', cells: { ...cells } }]
+    const r = applyKnownFailures(rows, KNOWN_FAILURES)
+    expect(r.rows).toEqual(rows)
+    expect(r.known).toBe(0)
+  })
+  it('v121 SS0 알려진 실패 속성: 숨기기만 하고 만들지 않으며 두 번 걸어도 같다', () => {
+    const cell = fc.oneof(
+      fc.constant(null),
+      fc.constantFrom('통과', '건너뜀', '기록').map((status) => ({ status })),
+      fc.constantFrom('x', ...KNOWN_FAILURES.map((k) => k.detail)).map((detail) => ({ status: '실패', detail })),
+    )
+    const row = fc
+      .record({
+        scene: fc.constantFrom('analyze-empty', 'analyze-empty-light', 'settings-export-preview', 'home'),
+        cells: fc.dictionary(fc.constantFrom('여백 격자', '접근성', '눌림 반응', '가로 넘침'), cell),
+      })
+    fc.assert(
+      fc.property(fc.array(row, { maxLength: 6 }), fc.subarray(KNOWN_FAILURES), (rows, known) => {
+        const r = applyKnownFailures(rows, known)
+        expect(count(r.rows, '실패') + count(r.rows, '알려진 실패')).toBe(count(rows, '실패'))
+        expect(count(r.rows, '알려진 실패')).toBe(r.known)
+        rows.forEach((row0, i) => {
+          for (const [c, v] of Object.entries(row0.cells)) if (!v || v.status !== '실패') expect(r.rows[i].cells[c]).toEqual(v)
+        })
+        expect(applyKnownFailures(r.rows, known).rows).toEqual(r.rows)
+      }),
+    )
+  })
+  it('v121 SS0 알려진 실패: KNOWN_FAILURES는 늘지 않는다(세 쌍의 부분집합, 길이 3 이하)', () => {
+    const allowed = new Set(['analyze-empty·여백 격자', 'settings-export-preview·접근성', 'settings-export-preview·눌림 반응'])
+    expect(KNOWN_FAILURES.length).toBeLessThanOrEqual(3)
+    for (const k of KNOWN_FAILURES) expect(allowed.has(`${k.scene}·${k.column}`), `${k.scene}·${k.column}`).toBe(true)
+    expect(new Set(KNOWN_FAILURES.map((k) => `${k.scene}·${k.column}`)).size).toBe(KNOWN_FAILURES.length)
+  })
+  it('v121 SS0 알려진 실패: printResults는 after에서만 걸고 stale을 실패로 센다', () => {
+    expect(uiCheck).toMatch(/phase === 'after' \? applyKnownFailures\(rows, KNOWN_FAILURES\)/)
+    expect(uiCheck).toContain('알려진 실패가 고쳐졌다 — KNOWN_FAILURES에서 지운다')
+    expect(uiCheck).toMatch(/for \(const s of known\.stale\) \{\s*failed\+\+/)
   })
 })
