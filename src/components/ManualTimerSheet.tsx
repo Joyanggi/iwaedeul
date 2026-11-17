@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { unlockAudio } from '../lib/beep'
 import { mmss } from '../lib/dates'
-import { SheetFrame } from './SheetFrame'
+import { Button, Heading, HStack, Sheet, Text, ToggleButton, VStack } from '../ax'
 
 /**
  * 휴식 타이머 단독 시작 (CC3).
@@ -46,48 +46,44 @@ export default function ManualTimerSheet({
   }
 
   return (
-    <SheetFrame label="휴식 타이머" onClose={onClose}>
+    <Sheet label="휴식 타이머" purpose="info" onClose={onClose}>
       {(dismiss) => (
-        <>
-          <div className="card-label">휴식 타이머</div>
-          <p className="row-sub" style={{ whiteSpace: 'normal' }}>
-            세트 체크와 무관하게 시작합니다. 시작한 뒤에는 바에서 ±30초·건너뛰기가 됩니다.
-          </p>
+        <VStack gap={5} paddingBlockEnd={3}>
+          <VStack gap={2}>
+            <Heading level={2}>휴식 타이머</Heading>
+            <Text color="secondary">
+              세트 체크와 무관하게 시작합니다. 시작한 뒤에는 바에서 ±30초·건너뛰기가 됩니다.
+            </Text>
+          </VStack>
 
-          <div className="segment mt-row" style={{ flexWrap: 'wrap' }}>
+          {/* 프리셋과 "이 종목 휴식"이 한 선택을 나눠 갖는다: 고른 값이 프리셋 밖일 수 있다 */}
+          <HStack gap={2} wrap="wrap">
             {TIMER_PRESETS.map((sec) => (
-              <button key={sec} aria-pressed={selected === sec} onClick={() => setSelected(sec)}>
-                {mmss(sec)}
-                {sec === defaultSec && (
-                  <span className="row-sub ml-inline">
-                    기본
-                  </span>
-                )}
-              </button>
+              <ToggleButton
+                key={sec}
+                className="ax-toggle"
+                label={sec === defaultSec ? `${mmss(sec)} 기본` : mmss(sec)}
+                isPressed={selected === sec}
+                onPressedChange={() => setSelected(sec)}
+              />
             ))}
-          </div>
+            {/* 종목 휴식이 프리셋에 없는 값이면 그 값도 고를 수 있어야 한다 */}
+            {defaultSec !== undefined && !TIMER_PRESETS.includes(defaultSec as never) && (
+              <ToggleButton
+                className="ax-toggle"
+                label={`${defaultLabel ? `${defaultLabel} · ` : ''}${mmss(defaultSec)} (기본)`}
+                isPressed={selected === defaultSec}
+                onPressedChange={() => setSelected(defaultSec)}
+              />
+            )}
+          </HStack>
 
-          {/* 종목 휴식이 프리셋에 없는 값이면 그 값도 고를 수 있어야 한다 */}
-          {defaultSec !== undefined && !TIMER_PRESETS.includes(defaultSec as never) && (
-            <button
-              className="btn btn-sm mt-row"
-              
-              aria-pressed={selected === defaultSec}
-              onClick={() => setSelected(defaultSec)}
-            >
-              {defaultLabel ? `${defaultLabel} · ` : ''}
-              {mmss(defaultSec)} (기본)
-            </button>
-          )}
-
-          <button className="btn btn-primary mt-group" onClick={startNow}>
-            {mmss(selected)} 시작
-          </button>
-          <button className="btn mt-row" onClick={dismiss}>
-            닫기
-          </button>
-        </>
+          <VStack gap={3}>
+            <Button variant="primary" width="100%" label={`${mmss(selected)} 시작`} onClick={startNow} />
+            <Button variant="secondary" width="100%" label="닫기" onClick={dismiss} />
+          </VStack>
+        </VStack>
       )}
-    </SheetFrame>
+    </Sheet>
   )
 }

@@ -6,8 +6,7 @@ import {
   round2,
   type WeightScale,
 } from '../lib/weightScale'
-import { NO_AUTOFILL } from '../lib/inputProps'
-import { SheetFrame } from './SheetFrame'
+import { Button, Heading, HStack, SegmentedControl, SegmentedControlItem, Sheet, Text, TextAreaField, TextField, ToggleButton, VStack } from '../ax'
 
 /**
  * 종목별 무게 단위 설정 (T9).
@@ -69,96 +68,87 @@ export default function WeightScaleSheet({
   }
 
   return (
-    <SheetFrame label="무게 단위 설정" onClose={onClose}>
+    <Sheet label="무게 단위 설정" purpose="form" onClose={onClose}>
       {(dismiss) => (
-        <>
-          <div className="card-label">무게 단위 · {exerciseName}</div>
-          <p className="row-sub">
-            이 종목의 머신 한 핀이 몇 kg인지. 증량 제안과 ± 버튼이 이 값을 따릅니다.
-          </p>
+        <VStack gap={5} paddingBlockEnd={3}>
+          <VStack gap={2}>
+            <Heading level={2}>무게 단위 · {exerciseName}</Heading>
+            <Text color="secondary">
+              이 종목의 머신 한 핀이 몇 kg인지. 증량 제안과 ± 버튼이 이 값을 따릅니다.
+            </Text>
+          </VStack>
 
-          <div className="segment mt-group">
-            <button aria-pressed={mode === 'step'} onClick={() => setMode('step')}>
-              균일 간격
-            </button>
-            <button aria-pressed={mode === 'ladder'} onClick={() => setMode('ladder')}>
-              불규칙 (핀 목록)
-            </button>
-          </div>
+          <SegmentedControl label="방식" layout="fill" value={mode} onChange={(v) => setMode(v as 'step' | 'ladder')}>
+            <SegmentedControlItem value="step" label="균일 간격" />
+            <SegmentedControlItem value="ladder" label="불규칙 (핀 목록)" />
+          </SegmentedControl>
 
           {mode === 'step' ? (
-            <>
-              <div className="chip-row mt-group">
+            <VStack gap={2}>
+              <HStack gap={2} wrap="wrap">
                 {STEP_PRESETS.map((preset) => (
-                  <button
+                  <ToggleButton
                     key={preset}
-                    className={`chip chip-btn${parsedStep === preset ? ' chip-btn-on' : ''}`}
-                    aria-pressed={parsedStep === preset}
-                    onClick={() => setStepText(String(preset))}
-                  >
-                    {preset}kg
-                  </button>
+                    className="ax-toggle"
+                    label={`${preset}kg`}
+                    isPressed={parsedStep === preset}
+                    onPressedChange={() => setStepText(String(preset))}
+                  />
                 ))}
-              </div>
-              <input
-                {...NO_AUTOFILL}
-                className="field mt-row"
-                
+              </HStack>
+              <TextField
+                label="무게 단위 직접 입력 (kg)"
+                isLabelHidden
                 inputMode="decimal"
                 value={stepText}
-                onChange={(e) => setStepText(e.target.value)}
-                aria-label="무게 단위 직접 입력 (kg)"
+                onChange={setStepText}
                 placeholder="직접 입력 (kg)"
               />
-            </>
+            </VStack>
           ) : (
-            <>
-              <p className="row-sub mt-group">
+            <VStack gap={2}>
+              <Text color="secondary">
                 머신에 적힌 핀 값을 순서 상관없이 나열하세요. 예: 5, 10, 15, 20, 25, 30, 35, 41, 47
-              </p>
-              <textarea
-                {...NO_AUTOFILL}
-                className="field"
+              </Text>
+              <TextAreaField
+                label="핀 목록"
+                isLabelHidden
                 rows={3}
                 value={ladderText}
-                onChange={(e) => setLadderText(e.target.value)}
-                aria-label="핀 목록"
+                onChange={setLadderText}
                 placeholder="5, 10, 15, 20, 25, 30, 35, 41, 47"
               />
-            </>
+            </VStack>
           )}
 
-          <p className="row-sub mt-row">
-            {error ? (
-              <strong style={{ color: 'var(--warn)' }}>{error}</strong>
-            ) : mode === 'ladder' && preview?.ladder ? (
-              <>
-                핀 {preview.ladder.length}개 · {formatLadder(preview.ladder)}
-              </>
-            ) : (
-              <>± 버튼과 증량 제안이 {preview?.step}kg 단위로 움직입니다</>
-            )}
-          </p>
+          {/* 오류 문구는 경고 색(Text의 색 이름에 경고가 없어 ax-text-warning) */}
+          {error ? (
+            <Text className="ax-text-warning">{error}</Text>
+          ) : mode === 'ladder' && preview?.ladder ? (
+            <Text color="secondary">
+              핀 {preview.ladder.length}개 · {formatLadder(preview.ladder)}
+            </Text>
+          ) : (
+            <Text color="secondary">± 버튼과 증량 제안이 {preview?.step}kg 단위로 움직입니다</Text>
+          )}
 
-          <button className="btn btn-primary mt-row" onClick={save} disabled={!preview}>
-            저장
-          </button>
-          <div className="btn-row mt-row">
-            <button
-              className="btn"
-              onClick={() => {
-                onSave({})
-                onClose()
-              }}
-            >
-              기본값({defaultStep}kg)으로
-            </button>
-            <button className="btn" onClick={dismiss}>
-              취소
-            </button>
-          </div>
-        </>
+          <VStack gap={3}>
+            <Button variant="primary" width="100%" label="저장" isDisabled={!preview} onClick={save} />
+            <HStack gap={3}>
+              <Button
+                variant="secondary"
+                width="100%"
+                label={`기본값(${defaultStep}kg)으로`}
+                onClick={() => {
+                  onSave({})
+                  onClose()
+                }}
+              />
+              <Button variant="secondary" width="100%" label="취소" onClick={dismiss} />
+            </HStack>
+          </VStack>
+        </VStack>
       )}
-    </SheetFrame>
+    </Sheet>
   )
 }

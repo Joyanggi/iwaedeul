@@ -1,7 +1,7 @@
 import type { CompensationWatch } from '../lib/compensationWatch'
 import { WATCH_WINDOW } from '../lib/compensationWatch'
 import { describeScale, easierWeight, type WeightScale } from '../lib/weightScale'
-import { SheetFrame } from './SheetFrame'
+import { Badge, Button, Heading, Item, Sheet, Text, VStack } from '../ax'
 
 /**
  * 반복 보상작용 → 무게 하향 제안 (T11).
@@ -35,60 +35,50 @@ export default function CompensationWatchSheet({
   const canLower = lowered !== currentWeight
 
   return (
-    <SheetFrame label="보상작용 반복 — 무게 하향" onClose={onClose}>
+    <Sheet label="보상작용 반복 — 무게 하향" purpose="info" onClose={onClose}>
       {(dismiss) => (
-        <>
-          <div className="card-label">보상작용 반복 · {exerciseName}</div>
-          <p className="row-sub">
-            최근 {WATCH_WINDOW}회 수행 중 {watch.count}회에서 기록됐습니다. 루틴 문서 13장:
-            세트 중 이 신호가 보이면 무게가 과한 것입니다.
-          </p>
+        <VStack gap={5} paddingBlockEnd={3}>
+          <VStack gap={2}>
+            <Heading level={2}>보상작용 반복 · {exerciseName}</Heading>
+            <Text color="secondary">
+              최근 {WATCH_WINDOW}회 수행 중 {watch.count}회에서 기록됐습니다. 루틴 문서 13장: 세트 중 이 신호가 보이면 무게가
+              과한 것입니다.
+            </Text>
+            <VStack gap={2}>
+              {watch.notes.map((note) => (
+                <Item key={note} label={note} startContent={<Badge variant="warning" label="보상작용" />} />
+              ))}
+            </VStack>
+          </VStack>
 
-          <div className="check-list mt-group">
-            {watch.notes.map((note) => (
-              <div className="row" key={note}>
-                <div className="row-main">
-                  <div className="row-title" style={{ color: 'var(--warn)' }}>
-                    {note}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <p className="row-sub mt-group">
-            {canLower ? (
-              <>
+          {canLower ? (
+            <VStack gap={1}>
+              <Text>
                 {scale.inverse ? '보조 +' : '한 단위 하향: '}
-                <strong>
-                  {currentWeight}kg → {lowered}kg
-                </strong>{' '}
-                ({describeScale(scale)})
+                {currentWeight}kg → {lowered}kg ({describeScale(scale)})
                 {scale.inverse && ' — 보조를 늘리면 더 쉬워집니다'}
-                <br />
-                체크하지 않은 세트에만 적용됩니다. 이미 기록한 세트는 그대로입니다.
-              </>
-            ) : (
-              <>더 조절할 단위가 없습니다 ({describeScale(scale)}).</>
-            )}
-          </p>
+              </Text>
+              <Text color="secondary">체크하지 않은 세트에만 적용됩니다. 이미 기록한 세트는 그대로입니다.</Text>
+            </VStack>
+          ) : (
+            <Text color="secondary">더 조절할 단위가 없습니다 ({describeScale(scale)}).</Text>
+          )}
 
-          <button
-            className="btn btn-primary mt-row"
-            
-            disabled={!canLower}
-            onClick={() => {
-              onApply(lowered)
-              onClose()
-            }}
-          >
-            {lowered}kg로 {scale.inverse ? '보조 늘리기' : '낮추기'}
-          </button>
-          <button className="btn mt-row" onClick={dismiss}>
-            그대로 두기
-          </button>
-        </>
+          <VStack gap={3}>
+            <Button
+              variant="primary"
+              width="100%"
+              label={`${lowered}kg로 ${scale.inverse ? '보조 늘리기' : '낮추기'}`}
+              isDisabled={!canLower}
+              onClick={() => {
+                onApply(lowered)
+                onClose()
+              }}
+            />
+            <Button variant="secondary" width="100%" label="그대로 두기" onClick={dismiss} />
+          </VStack>
+        </VStack>
       )}
-    </SheetFrame>
+    </Sheet>
   )
 }

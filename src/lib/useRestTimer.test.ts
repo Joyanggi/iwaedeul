@@ -187,7 +187,7 @@ describe('휴식 종료 확인 버튼 부재 (W4)', () => {
   })
 
   it('닫기 영역은 실제 button이다 (div onClick은 키보드로 닿지 않는다)', () => {
-    expect(bar()).toMatch(/<button className="rest-dismiss"/)
+    expect(bar()).toMatch(/<button className="ax-bar-dismiss"/)
     expect(bar()).toMatch(/aria-label="휴식 완료 — 닫기"/)
   })
 })

@@ -7,8 +7,10 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#0b0b0d" />
-    <meta name="color-scheme" content="dark" />
+    <!-- 값은 테마의 --color-background-body(light-dark(A, B))와 같아야 한다 — v120 RR11 테스트가 견준다 -->
+    <meta name="theme-color" content="#f1f1f1" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1b1b1b" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
 
     <!--
       아래 절대 경로들은 vite.config.ts의 BASE와 같은 값이어야 한다.

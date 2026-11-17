@@ -93,17 +93,18 @@ describe('AA1 — 시트가 세션을 만들지 않는다', () => {
       화면은 그 결과(card.*, displayed)만 읽어야 한다.
     */
     const src = home()
-    const card = /className="card today-card[\s\S]*?<\/button>/.exec(src)?.[0]
+    // RR4: 카드는 "다음 운동" 글자에서 시작 버튼(label={card.cta})까지다 (뜻은 그대로 — 카드가 파생 상태만 읽는다)
+    const card = /다음 운동[\s\S]*?label=\{card\.cta\}/.exec(src)?.[0]
     expect(card, '카드를 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
     expect(card).not.toMatch(/suggestion\.day\./)
     expect(card).toMatch(/displayed\./)
     expect(card).toMatch(/card\.reason/)
 
-    const startBtn = /className="btn-row start-row"[\s\S]*?<\/div>/.exec(src)?.[0]
+    const startBtn = /<Button\s+variant="primary"[\s\S]*?\/>/.exec(src)?.[0]
     expect(startBtn, '시작 버튼 행을 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
     expect(startBtn).toMatch(/start\(displayed\)/)
     // 라벨도 파생값이다 (CC11: 진행 중이면 "이어서 하기")
-    expect(startBtn).toMatch(/\{card\.cta\}/)
+    expect(startBtn).toMatch(/label=\{card\.cta\}/)
   })
 
   it('시작하면 override를 지운다', () => {
@@ -139,10 +140,20 @@ describe('AA2 — 변경이 보이는 버튼이다', () => {
     expect(home()).not.toContain('탭해서 다른 Day 선택')
   })
 
-  it('카드 탭 지름길은 남아 있다', () => {
+  it('카드 전체를 누르는 지름길은 없어졌다 — 같은 일은 카드 머리의 [변경]이 한다 (v1.20 RR4: 카드 안에 시작 버튼이 들어가 버튼 안에 버튼을 못 넣는다)', () => {
     const src = home()
-    const card = /className="card today-card[^"]*"\s*onClick=\{([^}]*)\}/.exec(src)?.[1]
-    expect(card).toMatch(/setPicking\(true\)/)
+    // 카드는 "다음 운동"보다 앞에서 열린 <Card>/<ClickableCard> 여는 태그부터 시작 버튼까지다.
+    const at = src.indexOf('다음 운동')
+    const start = Math.max(src.lastIndexOf('<Card', at), src.lastIndexOf('<ClickableCard', at))
+    const end = src.indexOf('label={card.cta}')
+    expect(at > -1 && start > -1 && end > start, '카드를 찾지 못했다 — 이 검사가 헛돌고 있다').toBe(true)
+    const card = src.slice(start, end)
+    // 여는 태그: 속성 안의 화살표 =>에서 끊기지 않게 읽는다 (옛 [^>]*는 onClick={() => …}에서 끊겼다)
+    const openTag = /^<(?:Clickable)?Card\b(?:=>|[^>])*>/.exec(card)?.[0]
+    expect(openTag, '카드 여는 태그를 찾지 못했다').toBeDefined()
+    expect(openTag).not.toMatch(/ClickableCard|onClick|setPicking/)
+    expect(card.match(/setPicking\(true\)/g)).toHaveLength(1)
+    expect(card).toMatch(/onClick=\{\(\) => setPicking\(true\)\}\s+label="변경"/)
   })
 })
 
@@ -199,11 +210,11 @@ describe('EE3 — 복귀 배너가 두 답을 나란히 보여준다', () => {
     expect(src).not.toContain('setApplyReturn(!applyReturn)')
   })
 
-  it('두 버튼이 각각 적용 / 안 함을 고르고, 고른 쪽이 aria-pressed다', () => {
-    const choice = /className="banner-choice"[\s\S]*?<\/div>/.exec(home())?.[0]
+  it('두 버튼이 각각 적용 / 안 함을 고르고, 고른 쪽이 눌린 상태(isPressed)다', () => {
+    const choice = /aria-label="복귀 프로토콜 적용 여부"[\s\S]*?<\/HStack>/.exec(home())?.[0]
     expect(choice, '복귀 선택 버튼을 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
-    expect(choice).toMatch(/aria-pressed=\{applyReturn\}[\s\S]*setApplyReturn\(true\)/)
-    expect(choice).toMatch(/aria-pressed=\{!applyReturn\}[\s\S]*setApplyReturn\(false\)/)
+    expect(choice).toMatch(/isPressed=\{applyReturn\}[\s\S]*setApplyReturn\(true\)/)
+    expect(choice).toMatch(/isPressed=\{!applyReturn\}[\s\S]*setApplyReturn\(false\)/)
   })
 
   it('카드 문구가 returnChoiceReason을 거친다 — 선택의 결과가 화면에 남아야 한다', () => {

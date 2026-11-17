@@ -5,6 +5,28 @@ import DayPickerSheet from '../components/DayPickerSheet'
 import MuscleVolumeBars from '../components/MuscleVolumeBars'
 import OpenSessionSheet from '../components/OpenSessionSheet'
 import WeekDots from '../components/WeekDots'
+import {
+  AxRoot,
+  Badge,
+  Banner,
+  Button,
+  Card,
+  Center,
+  ClickableCard,
+  Collapsible,
+  Divider,
+  Group,
+  Groups,
+  Heading,
+  HStack,
+  List,
+  ListItem,
+  ProgressBar,
+  Spinner,
+  Text,
+  ToggleButton,
+  VStack,
+} from '../ax'
 import { db } from '../db'
 import {
   deloadState,
@@ -133,15 +155,24 @@ export default function HomeScreen({
 
   if (!bundle || !dash) {
     return (
-      <div className="screen">
-        <p className="center-note">루틴을 불러오는 중…</p>
-      </div>
+      <AxRoot>
+        <Center>
+          <Spinner />
+          <Text color="secondary">루틴을 불러오는 중…</Text>
+        </Center>
+      </AxRoot>
     )
   }
 
   const { routine, catalog } = bundle
   const { suggestion, dots, volume, deload, phase0, progressions, phase, watches } = dash
   const done = completedSessions(sessions)
+  const dietLabel = dietChip
+    ? dietChip.next
+      ? `다음 식단 ${dietChip.next.name} ${dietChip.next.timeHint}`
+      : `오늘 식단 ${ADHERENCE_MARK[dietChip.summary.adherence]}`
+    : ''
+  const dietValue = dietChip ? `단백질 ${dietChip.summary.proteinG}/${dietChip.summary.targetProteinG}g ▸` : ''
 
   /**
    * 새 세션을 만든다.
@@ -271,351 +302,327 @@ export default function HomeScreen({
    */
   const BANNER_VIEW: Record<BannerId, JSX.Element> = {
     return: (
-      <div className="banner banner-info" style={{ alignItems: 'flex-start' }} key="return">
-        <span>
-          {suggestion.gapDays}일 공백 —{' '}
-          {suggestion.returnStep ? `${returnStepText(suggestion.returnStep)}로` : '조정 없이'} 복귀할까요?
-          <br />
-          <small>복귀 조정은 이번 세션에만 적용</small>
-        </span>
-        {/*
-          **한 칸짜리 토글을 쓰지 않는다** (EE3).
+      <Banner
+        key="return"
+        status="info"
+        collapsible={false}
+        title={`${suggestion.gapDays}일 공백 — ${
+          suggestion.returnStep ? `${returnStepText(suggestion.returnStep)}로` : '조정 없이'
+        } 복귀할까요?`}
+        description="복귀 조정은 이번 세션에만 적용"
+        endContent={
+          /*
+            **한 칸짜리 토글을 쓰지 않는다** (EE3).
 
-          피드백: "적용됐다는 건지 무시가 됐다는 건지 모르겠다." 라벨이 한 번은 상태
-          ("적용됨")를, 한 번은 동작("무시")을 말했다 — 같은 자리의 글자가 문법을 바꾸면
-          지금 상태를 읽은 것인지 누르면 벌어질 일을 읽은 것인지 구분할 방법이 없다.
-          게다가 배너가 던진 것은 "복귀할까요?"라는 **질문**인데 답이 하나만 보였다.
+            피드백: "적용됐다는 건지 무시가 됐다는 건지 모르겠다." 라벨이 한 번은 상태
+            ("적용됨")를, 한 번은 동작("무시")을 말했다 — 같은 자리의 글자가 문법을 바꾸면
+            지금 상태를 읽은 것인지 누르면 벌어질 일을 읽은 것인지 구분할 방법이 없다.
+            게다가 배너가 던진 것은 "복귀할까요?"라는 **질문**인데 답이 하나만 보였다.
 
-          두 답을 나란히 놓고 고른 쪽을 채운다. 어느 것이 켜져 있는지는 비교로 읽히고,
-          누르면 벌어질 일은 라벨이 그대로 말한다. 결과는 아래 카드 문구가 받는다
-          (`returnChoiceReason`) — 눌렀는데 화면이 그대로면 눌린 줄 모른다.
-        */}
-        <div className="banner-choice" role="group" aria-label="복귀 프로토콜 적용 여부">
-          <button aria-pressed={applyReturn} onClick={() => setApplyReturn(true)}>
-            <span>적용</span>
-          </button>
-          <button aria-pressed={!applyReturn} onClick={() => setApplyReturn(false)}>
-            <span>안 함</span>
-          </button>
-        </div>
-      </div>
+            두 답을 나란히 놓고 고른 쪽을 채운다. 어느 것이 켜져 있는지는 비교로 읽히고,
+            누르면 벌어질 일은 라벨이 그대로 말한다. 결과는 위 카드 문구가 받는다
+            (`returnChoiceReason`) — 눌렀는데 화면이 그대로면 눌린 줄 모른다.
+          */
+          <HStack gap={2} role="group" aria-label="복귀 프로토콜 적용 여부">
+            <ToggleButton label="적용" isPressed={applyReturn} onPressedChange={() => setApplyReturn(true)} />
+            <ToggleButton label="안 함" isPressed={!applyReturn} onPressedChange={() => setApplyReturn(false)} />
+          </HStack>
+        }
+      />
     ),
     deload: (
-      <div className="banner banner-warn" style={{ alignItems: 'flex-start' }} key="deload">
-        <span>
-          디로드 권장 — 세트 50%, 무게 유지
-          <br />
-          <small>
-            {deload.due ? `수행 ${deload.performedWeeks}주 도달` : `조기 신호: ${deload.earlyDetail}`}
-          </small>
-        </span>
-        {/*
-          디로드는 그대로 1단이다 (라벨이 이미 "시작"이므로 맞다). 다만 **카드에 보이는
-          Day**로 시작한다 — 직접 고른 Day가 있는데 배너가 제안 Day를 시작하면 화면이
-          말한 것과 다른 세션이 만들어진다 (AA1).
-        */}
-        <button onClick={() => start(displayed, 'deload')}>
-          <span>디로드로 시작</span>
-        </button>
-        <button
-          onClick={() => dismiss(BANNER_DELOAD)}
-          className="banner-dismiss" style={{ background: 'transparent' }}
-        >
-          <span style={{ color: 'var(--warn)' }}>나중에</span>
-        </button>
-      </div>
+      <Banner
+        key="deload"
+        status="warning"
+        collapsible={false}
+        title="디로드 권장 — 세트 50%, 무게 유지"
+        description={deload.due ? `수행 ${deload.performedWeeks}주 도달` : `조기 신호: ${deload.earlyDetail}`}
+        endContent={
+          <HStack gap={2}>
+            {/*
+              디로드는 그대로 1단이다 (라벨이 이미 "시작"이므로 맞다). 다만 **카드에 보이는
+              Day**로 시작한다 — 직접 고른 Day가 있는데 배너가 제안 Day를 시작하면 화면이
+              말한 것과 다른 세션이 만들어진다 (AA1).
+            */}
+            <Button variant="ghost" onClick={() => start(displayed, 'deload')} label="디로드로 시작" />
+            <Button variant="ghost" onClick={() => dismiss(BANNER_DELOAD)} label="나중에" />
+          </HStack>
+        }
+      />
     ),
     backup: (
-      <div className="banner banner-warn" style={{ alignItems: 'flex-start' }} key="backup">
-        {/* 설정돼 있고 오래된 경우만 여기 온다 (후속 2) — 문구가 한 가지만 말한다 */}
-        <span>
-          마지막 백업이 {reminder.daysSince ?? '—'}일 전이에요
-          <br />
-          <small>세션을 마치면 자동으로 올라갑니다. 지금 올리려면 설정 → Gist 백업</small>
-        </span>
-        <button
-          onClick={() => dismiss(BANNER_BACKUP)}
-          className="banner-dismiss" style={{ background: 'transparent' }}
-        >
-          <span style={{ color: 'var(--warn)' }}>나중에</span>
-        </button>
-      </div>
+      <Banner
+        key="backup"
+        status="warning"
+        collapsible={false}
+        /* 설정돼 있고 오래된 경우만 여기 온다 (후속 2) — 문구가 한 가지만 말한다 */
+        title={`마지막 백업이 ${reminder.daysSince ?? '—'}일 전이에요`}
+        description="세션을 마치면 자동으로 올라갑니다. 지금 올리려면 설정 → Gist 백업"
+        endContent={<Button variant="ghost" onClick={() => dismiss(BANNER_BACKUP)} label="나중에" />}
+      />
     ),
     phase: (
-      <div className="banner banner-ok" style={{ alignItems: 'flex-start' }} key="phase">
-        <span>
-          Phase {phase.from} 조건을 모두 충족했어요
-          <br />
-          <small>{phase.checks.map((c) => c.detail).join(' · ')}</small>
-        </span>
-        <button onClick={() => void setPhase(phase.to as Phase)}>
-          <span>Phase {phase.to}로 전환</span>
-        </button>
-        <button
-          onClick={() => dismiss(BANNER_PHASE)}
-          className="banner-dismiss" style={{ background: 'transparent' }}
-        >
-          <span style={{ color: 'var(--ok)' }}>나중에</span>
-        </button>
-      </div>
+      <Banner
+        key="phase"
+        status="success"
+        collapsible={false}
+        title={`Phase ${phase.from} 조건을 모두 충족했어요`}
+        description={phase.checks.map((c) => c.detail).join(' · ')}
+        endContent={
+          <HStack gap={2}>
+            <Button variant="ghost" onClick={() => void setPhase(phase.to as Phase)} label={`Phase ${phase.to}로 전환`} />
+            <Button variant="ghost" onClick={() => dismiss(BANNER_PHASE)} label="나중에" />
+          </HStack>
+        }
+      />
     ),
     compensation: (
-      <div className="banner banner-warn" style={{ alignItems: 'flex-start' }} key="compensation">
-        <span>
-          보상작용 반복 — 무게 하향 검토
-          <br />
-          <small>
-            {watches
-              .map(
-                (w) =>
-                  `${exerciseLabel(catalog, parseRecordKey(w.recordKey).exerciseId)} ${w.streak}회 연속`,
-              )
-              .join(' · ')}
-          </small>
-        </span>
-        <button
-          onClick={() => dismiss(BANNER_COMPENSATION)}
-          className="ml-auto" style={{ background: 'transparent' }}
-        >
-          <span style={{ color: 'var(--warn)' }}>나중에</span>
-        </button>
-      </div>
+      <Banner
+        key="compensation"
+        status="warning"
+        collapsible={false}
+        title="보상작용 반복 — 무게 하향 검토"
+        description={watches
+          .map((w) => `${exerciseLabel(catalog, parseRecordKey(w.recordKey).exerciseId)} ${w.streak}회 연속`)
+          .join(' · ')}
+        endContent={<Button variant="ghost" onClick={() => dismiss(BANNER_COMPENSATION)} label="나중에" />}
+      />
     ),
     progression: (
-      <div className="banner banner-info" style={{ alignItems: 'flex-start' }} key="progression">
-        <span>
-          증량 제안
-          <br />
-          <small>
-            {progressions
-              .map(
-                (p) =>
-                  `${exerciseLabel(catalog, p.exerciseId)} ${formatProgression(p.from, p.to, p.inverse)}`,
-              )
-              .join(' · ')}
-          </small>
-        </span>
-      </div>
+      <Banner
+        key="progression"
+        status="info"
+        collapsible={false}
+        title="증량 제안"
+        description={progressions
+          .map((p) => `${exerciseLabel(catalog, p.exerciseId)} ${formatProgression(p.from, p.to, p.inverse)}`)
+          .join(' · ')}
+      />
     ),
   }
 
+  /*
+   * 순서: 저장소 위험 → 머리 → **오늘**(운동 카드 → 알림 → 식단 줄) → 이번 주 → 주기.
+   * 시작 버튼이 카드 안에 있어 알림이 몇 개 떠도 시작 버튼의 자리가 같다 (RR4).
+   */
   return (
-    <div className="screen">
-      {storageAtRisk() && (
-        <div className="banner banner-danger">
-          <span>
-            홈 화면에 추가하지 않으면 기록이 삭제될 수 있어요. Safari 공유 → 홈 화면에 추가.
-          </span>
-        </div>
-      )}
+    <AxRoot>
+      <Groups>
+        {storageAtRisk() && (
+          <Banner
+            status="error"
+            collapsible={false}
+            title="홈 화면에 추가하지 않으면 기록이 삭제될 수 있어요. Safari 공유 → 홈 화면에 추가."
+          />
+        )}
 
-      <h1 className="screen-title">운동 기록</h1>
-      <p className="screen-sub">
-        <span className="chip chip-accent">{routine.name}</span>{' '}
-        <span className="chip">Phase {currentPhase}</span>{' '}
-        <span className="chip">누적 {done.length}세션</span>
-      </p>
+        <Group>
+          <Heading level={1}>운동 기록</Heading>
+          <HStack gap={2} wrap="wrap">
+            <Badge variant="info" label={routine.name} />
+            <Badge variant="neutral" label={`Phase ${currentPhase}`} />
+            <Badge variant="neutral" label={`누적 ${done.length}세션`} />
+          </HStack>
+        </Group>
 
-      {/*
-        백업 **미설정**은 큐 밖에서 항상 보여준다 (v1.7 후속 2).
-        설정된 뒤 오래된 것("마지막 백업이 N일 전")은 큐에 들어가 접힐 수 있지만,
-        아예 백업이 없는 상태는 데이터 유실 축이라 다른 배너에 밀려 접히면 안 된다.
+        <Group>
+          <Card elevation="low">
+            <VStack gap={3}>
+              <VStack gap={1}>
+                {/*
+                  카드 전체를 누르는 길은 없다 — 안에 시작 버튼이 있어 버튼 안에 버튼을 못 넣는다.
+                  같은 일을 하는 [변경]이 카드 머리에 있다 (AA2: 보이는 버튼이 힌트 글보다 낫다).
+                */}
+                <HStack justify="between" align="center">
+                  <Text type="supporting" color="secondary">
+                    다음 운동
+                  </Text>
+                  <Button variant="ghost" size="sm" onClick={() => setPicking(true)} label="변경" />
+                </HStack>
+                <Heading level={2}>{displayed.name}</Heading>
+                <Text color="secondary">{card.resuming ? sessionProgress : displayed.subtitle}</Text>
+                <Text color="accent" weight="semibold">
+                  {card.reason}
+                </Text>
+                {gapNotice && <Text color="secondary">{gapNotice}</Text>}
+                {staleLine && <Text color="secondary">{staleLine}</Text>}
+                <Text type="supporting" color="secondary">
+                  {displayed.exercises
+                    .slice()
+                    .sort((a, b) => a.plannedOrder - b.plannedOrder)
+                    .map((ex) => exerciseLabel(catalog, ex.exerciseId))
+                    .join(' · ')}
+                </Text>
+              </VStack>
+              {/*
+                시작이 주 동작이고 [변경]은 곁이다 (AA2). 진행 중 세션이면 **이어서 하기**다 (CC11) —
+                라벨이 정확해야 "실수로 누르면 세션이 날아갈까"라는 불안이 사라진다.
+              */}
+              <Button
+                variant="primary"
+                size="lg"
+                width="100%"
+                label={card.cta}
+                onClick={() => (card.resuming ? onEnterSession() : start(displayed))}
+              />
+            </VStack>
+          </Card>
 
-        **제목 아래에 둔다.** `storageAtRisk`처럼 제목 위로 올리지 않는다 — 그쪽은 danger
-        (지금 기록이 삭제될 수 있다)이고 이쪽은 warn이다. 요구는 "접히지 않는다"이지
-        "모든 것보다 위"가 아니어서, 화면이 경고로 시작하게 만들 이유가 없다.
+          {/*
+            백업 **미설정**은 큐 밖에서 항상 보여준다 (v1.7 후속 2).
+            설정된 뒤 오래된 것("마지막 백업이 N일 전")은 큐에 들어가 접힐 수 있지만,
+            아예 백업이 없는 상태는 데이터 유실 축이라 다른 배너에 밀려 접히면 안 된다.
+            "나중에"는 남긴다: dismiss는 저장되지 않으므로(store/ui) 다음 실행에 다시 뜬다.
+          */}
+          {reminder.show && !reminder.configured && !dismissed[BANNER_BACKUP] && (
+            <Banner
+              status="warning"
+              collapsible={false}
+              title="백업이 설정되지 않았어요"
+              description="설정 → Gist 백업에서 연결하면 세션 종료마다 자동으로 올라갑니다"
+              endContent={<Button variant="ghost" onClick={() => dismiss(BANNER_BACKUP)} label="나중에" />}
+            />
+          )}
 
-        "나중에"는 남긴다: dismiss는 저장되지 않으므로(store/ui) 다음 실행에 다시 뜬다.
-        큐 밖이라는 것은 "접히지 않는다"이지 "닫을 수 없다"가 아니다.
-      */}
-      {reminder.show && !reminder.configured && !dismissed[BANNER_BACKUP] && (
-        <div className="banner banner-warn" style={{ alignItems: 'flex-start' }}>
-          <span>
-            백업이 설정되지 않았어요
-            <br />
-            <small>설정 → Gist 백업에서 연결하면 세션 종료마다 자동으로 올라갑니다</small>
-          </span>
-          <button
-            onClick={() => dismiss(BANNER_BACKUP)}
-            className="banner-dismiss" style={{ background: 'transparent' }}
-          >
-            <span style={{ color: 'var(--warn)' }}>나중에</span>
-          </button>
-        </div>
-      )}
+          {/*
+            §11 리스크 대응(세션 도중 앱이 죽어도 이어서 진행)은 **재개 줄**이 대신한다 (Z5).
 
-      {/*
-        §11 리스크 대응(세션 도중 앱이 죽어도 이어서 진행)은 **재개 스트립**이 대신한다 (Z5).
-        스트립은 탭바 위에 고정되어 어느 탭에서든 보이므로 홈 전용 배너보다 넓게 커버하고,
-        같은 정보가 홈에서만 두 줄로 뜨는 것을 피한다.
-      */}
+            배너는 **첫 번째만 펼친다** (BB4). 나머지는 "다른 알림 N개"로 접어 둔다 —
+            조건 배제 규칙이 있어도 백업 + 증량 + 보상작용처럼 축이 다른 배너는 함께 쌓이고,
+            첫 화면이 경고로 가득 차면 어느 것도 읽히지 않는다.
+            순서·배제 판정은 `bannerQueue`가 한다. 여기서 다시 조건을 쓰지 않는 것이 요점이다.
+          */}
+          {queue.slice(0, bannersOpen ? queue.length : 1).map((id) => BANNER_VIEW[id])}
 
-      {/*
-        배너는 **첫 번째만 펼친다** (BB4). 나머지는 "다른 알림 N개"로 접어 둔다 —
-        조건 배제 규칙이 있어도 백업 + 증량 + 보상작용처럼 축이 다른 배너는 함께 쌓이고,
-        첫 화면이 경고로 가득 차면 어느 것도 읽히지 않는다.
+          {queue.length > 1 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setBannersOpen(!bannersOpen)}
+              label={bannersOpen ? '알림 접기 ▴' : `다른 알림 ${queue.length - 1}개 ▾`}
+            />
+          )}
 
-        순서·배제 판정은 `bannerQueue`가 한다. 여기서 다시 조건을 쓰지 않는 것이 요점이다.
-      */}
-      {queue.slice(0, bannersOpen ? queue.length : 1).map((id) => BANNER_VIEW[id])}
-
-      {queue.length > 1 && (
-        <button className="banner-more" onClick={() => setBannersOpen(!bannersOpen)}>
-          {bannersOpen ? '알림 접기 ▴' : `다른 알림 ${queue.length - 1}개 ▾`}
-        </button>
-      )}
-
-      {dietChip && (
-        <button className="diet-chip" onClick={onOpenDiet}>
-          <span>
-            {/*
+          {dietChip && (
+            /*
               전부 기록한 날에 "완료"라고 쓰면 안 된다 — 모든 끼니를 치팅으로 기록한 날도
               "완료"가 되어 성공처럼 읽힌다 (실측에서 단백질 0g인데 "기록 완료"가 떴다).
               기록을 다 했으면 **판정 마크**를 보여준다.
-            */}
-            {dietChip.next
-              ? `다음 식단 ${dietChip.next.name} ${dietChip.next.timeHint}`
-              : `오늘 식단 ${ADHERENCE_MARK[dietChip.summary.adherence]}`}
-          </span>
-          <span className="diet-chip-value">
-            단백질 {dietChip.summary.proteinG}/{dietChip.summary.targetProteinG}g ▸
-          </span>
-        </button>
-      )}
+            */
+            <ClickableCard onClick={onOpenDiet} label={`${dietLabel} ${dietValue}`}>
+              <HStack justify="between" align="center" gap={2}>
+                <Text color="secondary">{dietLabel}</Text>
+                <Text weight="semibold" hasTabularNumbers>
+                  {dietValue}
+                </Text>
+              </HStack>
+            </ClickableCard>
+          )}
+        </Group>
 
-      {/*
-        카드 탭으로 시트가 열리는 경로는 유지한다 (아는 사람의 지름길). 다만 하단
-        텍스트 힌트("탭해서 다른 Day 선택 ▸")는 제거했다 (AA2) — 보이는 [변경] 버튼이
-        생겼으므로 중복이고, 힌트는 **읽는 사람**에게만 보이고 버튼은 훑는 사람에게도 보인다.
-      */}
-      <button className="card today-card today-card-btn" onClick={() => setPicking(true)}>
-        <div className="card-label">다음 운동</div>
-        <div className="today-day">{displayed.name}</div>
-        <div className="today-sub">
-          {card.resuming ? sessionProgress : displayed.subtitle}
-        </div>
-        <div className="today-reason">{card.reason}</div>
-        {gapNotice && <div className="today-sub">{gapNotice}</div>}
-        {staleLine && <div className="today-sub">{staleLine}</div>}
-        <div className="today-sub mt-row">
-          {displayed.exercises
-            .slice()
-            .sort((a, b) => a.plannedOrder - b.plannedOrder)
-            .map((ex) => exerciseLabel(catalog, ex.exerciseId))
-            .join(' · ')}
-        </div>
-      </button>
-
-      {/*
-        시작이 주 동작이고 [변경]은 곁이다 (AA2). "변경 → 고르기 → 시작"이 AA1의 선택
-        모델과 정확히 짝이 맞는다 — 시트는 선택만 바꾸고 시작은 항상 이 버튼이다.
-      */}
-      <div className="btn-row start-row">
-        {/*
-          진행 중 세션이면 **이어서 하기**다 (CC11). 라벨이 정확해야 "실수로 누르면
-          세션이 날아갈까"라는 불안이 사라진다 — 데이터는 원래 안전했고 화면이
-          그 사실을 말하지 않고 있었다.
-        */}
-        <button
-          className="btn btn-primary btn-start"
-          onClick={() => (card.resuming ? onEnterSession() : start(displayed))}
-        >
-          {card.cta}
-        </button>
-        <button className="btn btn-change" onClick={() => setPicking(true)}>
-          변경
-        </button>
-      </div>
-
-      <div className="mt-group">
-        <WeekDots dots={dots} target={routine.days.length} strengthCount={dash.strengthWeek} />
-      </div>
-
-      <MuscleVolumeBars
-        bars={volume.bars}
-        sessionCount={volume.sessionCount}
-        minSessionsToJudge={routine.rules.deloadMinSessionsPerWeek}
-      />
-
-      {currentPhase === 0 && (
-        <div className="card">
-          <div className="week-head">
-            <div className="card-label label-flush">
-              Phase 0 진행
-            </div>
-            <div className="week-count">
-              {phase0.streak}/{phase0.target}주
-            </div>
-          </div>
-          <div className="mbar-track mt-row">
-            <div
-              className={`mbar-fill${phase0.achieved ? ' mbar-fill-met' : ''}`}
-              style={{ transform: `scaleX(${Math.min(1, phase0.streak / phase0.target)})` }}
-            />
-          </div>
-          <p className="row-sub mt-row">
-            주 {routine.rules.deloadMinSessionsPerWeek}회 이상 연속
-            {phase0.allowanceUsed > 0 && ` · 주 ${routine.rules.deloadMinSessionsPerWeek - 1}회 통과 ${phase0.allowanceUsed}회 사용`}
-            {phase0.achieved && ' · 조건 충족! 설정에서 Phase 1로 전환할 수 있어요'}
-          </p>
-        </div>
-      )}
-
-      <div className="card">
-        <div className="week-head">
-          <div className="card-label label-flush">
-            디로드 카운터
-          </div>
-          <div className="week-count">
-            {deload.performedWeeks}/{deload.target}주
-          </div>
-        </div>
-        <div className="mbar-track mt-row">
-          <div
-            className={`mbar-fill${deload.due ? ' mbar-fill-warn' : ''}`}
-            style={{ transform: `scaleX(${Math.min(1, deload.performedWeeks / deload.target)})` }}
+        <Group>
+          <WeekDots dots={dots} target={routine.days.length} strengthCount={dash.strengthWeek} />
+          <MuscleVolumeBars
+            bars={volume.bars}
+            sessionCount={volume.sessionCount}
+            minSessionsToJudge={routine.rules.deloadMinSessionsPerWeek}
           />
-        </div>
-        <p className="row-sub mt-row">
-          주 {routine.rules.deloadMinSessionsPerWeek}회 이상인 주만 카운트 · 4주+ 공백이나 디로드
-          수행 시 리셋
-        </p>
-      </div>
+        </Group>
 
-      {suggestion.scores.length > 0 && (
-        <details className="card">
-          <summary className="card-label label-flush" style={{ cursor: 'pointer' }}>
-            제안 근거 (부족분 점수)
-          </summary>
-          <div className="mt-row">
-            {suggestion.scores.map((s) => (
-              <div className="row" key={s.dayId}>
-                <div className="row-main">
-                  <div className="row-title">
-                    {findDayForRecord(routine, s.dayId)?.name ?? s.dayId}
-                    {s.penalized && (
-                      <span className="chip chip-warn ml-inline">
-                        회복 감쇠
-                      </span>
-                    )}
-                  </div>
-                  <div className="row-sub">
-                    {s.contributions.length === 0
-                      ? '목표 충족'
-                      : s.contributions
-                          .map((c) => `${c.muscle} ${c.sets}${c.firstExposure ? '★' : ''}`)
-                          .join(' · ')}
-                  </div>
-                </div>
-                <div className="row-meta">{s.score.toFixed(1)}</div>
-              </div>
-            ))}
-            <p className="row-sub mt-row">
-              ★ = 이번 주 첫 노출 (주 2회 빈도 확보 우선)
-            </p>
-          </div>
-        </details>
-      )}
+        <Group>
+          <Card elevation="low">
+            <VStack gap={3}>
+              {currentPhase === 0 && (
+                <>
+                  <VStack gap={2}>
+                    <HStack justify="between" align="center">
+                      <Text type="supporting" color="secondary">
+                        Phase 0 진행
+                      </Text>
+                      <Text weight="bold" hasTabularNumbers>
+                        {phase0.streak}/{phase0.target}주
+                      </Text>
+                    </HStack>
+                    <ProgressBar
+                      label="Phase 0 진행"
+                      isLabelHidden
+                      value={Math.min(phase0.streak, phase0.target)}
+                      max={phase0.target}
+                      variant={phase0.achieved ? 'success' : 'accent'}
+                    />
+                    <Text type="supporting" color="secondary">
+                      주 {routine.rules.deloadMinSessionsPerWeek}회 이상 연속
+                      {phase0.allowanceUsed > 0 &&
+                        ` · 주 ${routine.rules.deloadMinSessionsPerWeek - 1}회 통과 ${phase0.allowanceUsed}회 사용`}
+                      {phase0.achieved && ' · 조건 충족! 설정에서 Phase 1로 전환할 수 있어요'}
+                    </Text>
+                  </VStack>
+                  <Divider />
+                </>
+              )}
+              <VStack gap={2}>
+                <HStack justify="between" align="center">
+                  <Text type="supporting" color="secondary">
+                    디로드 카운터
+                  </Text>
+                  <Text weight="bold" hasTabularNumbers>
+                    {deload.performedWeeks}/{deload.target}주
+                  </Text>
+                </HStack>
+                <ProgressBar
+                  label="디로드 카운터"
+                  isLabelHidden
+                  value={Math.min(deload.performedWeeks, deload.target)}
+                  max={deload.target}
+                  variant={deload.due ? 'warning' : 'accent'}
+                />
+                <Text type="supporting" color="secondary">
+                  주 {routine.rules.deloadMinSessionsPerWeek}회 이상인 주만 카운트 · 4주+ 공백이나 디로드 수행 시 리셋
+                </Text>
+              </VStack>
+            </VStack>
+          </Card>
+
+          {suggestion.scores.length > 0 && (
+            <Card elevation="low">
+              <Collapsible
+                trigger={
+                  <Text type="supporting" color="secondary">
+                    제안 근거 (부족분 점수)
+                  </Text>
+                }
+              >
+                <VStack gap={3}>
+                  <List>
+                    {suggestion.scores.map((s) => (
+                      <ListItem
+                        key={s.dayId}
+                        label={
+                          <HStack gap={2} align="center">
+                            <Text>{findDayForRecord(routine, s.dayId)?.name ?? s.dayId}</Text>
+                            {s.penalized && <Badge variant="warning" label="회복 감쇠" />}
+                          </HStack>
+                        }
+                        description={
+                          s.contributions.length === 0
+                            ? '목표 충족'
+                            : s.contributions
+                                .map((c) => `${c.muscle} ${c.sets}${c.firstExposure ? '★' : ''}`)
+                                .join(' · ')
+                        }
+                        endContent={<Text hasTabularNumbers>{s.score.toFixed(1)}</Text>}
+                      />
+                    ))}
+                  </List>
+                  <Text type="supporting" color="secondary">
+                    ★ = 이번 주 첫 노출 (주 2회 빈도 확보 우선)
+                  </Text>
+                </VStack>
+              </Collapsible>
+            </Card>
+          )}
+        </Group>
+      </Groups>
 
       {pending && openSession && (
         <OpenSessionSheet
@@ -648,6 +655,6 @@ export default function HomeScreen({
           onClose={() => setPicking(false)}
         />
       )}
-    </div>
+    </AxRoot>
   )
 }

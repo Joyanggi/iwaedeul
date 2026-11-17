@@ -1,0 +1,402 @@
+/*
+ * 이 앱만의 부품(띠, 요일 점, 세트 행, 템포 무대)의 CSS를 두는 한 곳 (v1.20 RR3).
+ * 색 리터럴 0건. 길이는 Astryx 토큰(`--spacing-*`)·`%`·`1px`(선)·`0`·`env()`·`rem`·`100dvh`만 쓴다 — v120 스캔이 지킨다.
+ * 클래스 이름은 `ax-`로 시작한다(예외: RR7의 `set-row*`, 식단 편집 줄의 legacy 요소 둘 `.btn-row:has(> .ax-scope) > input[type='time']`·`> .btn-danger`).
+ */
+@layer astryx-theme {
+  /*
+   * 띠 — 화면 위나 아래에 붙어 있는 줄들. 재질은 여기 한 곳이다(불투명 면 + 본문과 맞닿는 쪽의 선).
+   * 안쪽 여백은 위·아래가 같은 단계이고, 아래 안전 영역은 그 바깥에 더한다. 좌우는 화면 좌우와 같다.
+   */
+  .ax-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    box-sizing: border-box;
+    max-width: 40rem;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    padding-block: var(--spacing-2);
+    padding-inline: var(--spacing-4);
+    background: var(--color-background-surface);
+  }
+
+  .ax-bar-bottom {
+    bottom: 0;
+    padding-bottom: calc(var(--spacing-2) + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--color-border);
+  }
+
+  .ax-bar-top {
+    top: 0;
+    padding-top: calc(var(--spacing-2) + env(safe-area-inset-top));
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  /*
+   * 끝난 휴식 바를 아무 데나 탭해서 닫는 영역(RR6). 내용 **뒤에** 깔아 버튼과 겹치지 않게 하고(버튼 안에 버튼을 못 넣는다),
+   * 띠의 나머지 내용은 눌림을 이 버튼에 넘기고 그 안의 버튼만 되살린다.
+   */
+  .ax-bar-dismiss {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .ax-bar-dismiss ~ * {
+    position: relative;
+    pointer-events: none;
+  }
+
+  .ax-bar-dismiss ~ * :is(button, a, input) {
+    pointer-events: auto;
+  }
+
+  /*
+   * 탭은 눌리는 영역이 띠의 높이 전체여야 한다(보이는 높이만 눌리면 띠의 위·아래 끝에서 안 눌린다).
+   * 레이아웃은 그대로 두고 눌림 영역만 띠의 안쪽 여백만큼 위·아래로 늘린다.
+   */
+  /* 탭 다섯이 줄 폭을 균등하게 나눈다. 줄어들 수 있어야(min-width 0) 375에서 설정이 안 잘린다 */
+  .ax-bar nav[aria-label='화면'] button {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: var(--spacing-1);
+    gap: var(--spacing-1);
+  }
+
+  .ax-bar nav[aria-label='화면'] button::after {
+    content: '';
+    position: absolute;
+    inset-block: calc(-1 * var(--spacing-2));
+    inset-inline: 0;
+  }
+
+  /* 화면 위에 붙어 있는 알림(업데이트 알림). 화면 좌우와 같은 값을 쓴다 */
+  .ax-sticky-top {
+    position: sticky;
+    top: env(safe-area-inset-top);
+    z-index: 30;
+    width: calc(100% - 2 * var(--spacing-4));
+    max-width: calc(40rem - 2 * var(--spacing-4));
+    margin-block: var(--spacing-3);
+    margin-inline: auto;
+  }
+
+  /*
+   * 요일 점 일곱 (v1.20 RR4 — Astryx에 요일 점이 없다). 빈 점은 면 + 1px 테두리라
+   * 다크에서 카드 면에 묻히지 않는다(면 색만으로는 카드와 거의 같다). 상태는 data-state.
+   */
+  .ax-week-dots {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: var(--spacing-1);
+  }
+
+  .ax-week-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-1);
+  }
+
+  .ax-week-dot {
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: var(--spacing-10);
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid var(--color-border-emphasized);
+    background: var(--color-background-muted);
+    font-size: 1.125rem;
+    line-height: 1;
+  }
+
+  .ax-week-dot[data-state='done'] {
+    border-color: var(--color-accent);
+    background: var(--color-accent-muted);
+  }
+
+  .ax-week-dot[data-state='today'] {
+    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 1px var(--color-accent);
+  }
+
+  .ax-week-dot[data-state='future'] {
+    border-style: dashed;
+  }
+
+  .ax-week-multi {
+    position: absolute;
+    right: calc(-1 * var(--spacing-1));
+    bottom: calc(-1 * var(--spacing-1));
+    padding-inline: var(--spacing-1);
+    border-radius: var(--radius-full);
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: var(--color-accent);
+    background: var(--color-background-surface);
+  }
+
+  /*
+   * 부위별 볼륨 한 줄: 이름 · 막대 · n/m · 빈도. 열 폭은 fr·auto만(RR4).
+   * 막대 바닥(트랙)은 면보다 한 단계 진한 색 + 1px 테두리로 다크에서도 보인다.
+   */
+  .ax-vol-rows {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    column-gap: var(--spacing-2);
+    row-gap: var(--spacing-2);
+  }
+
+  .ax-vol-row {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    align-items: center;
+  }
+
+  .ax-vol-row [role='progressbar'] {
+    background: var(--color-background-muted);
+    outline: 1px solid var(--color-border-emphasized);
+    outline-offset: 0;
+  }
+  /*
+   * Day 선택 시트의 글은 단어(공백) 사이에서만 줄을 바꾼다 (RR5 재검증).
+   * 한글은 기본이 음절 단위 줄바꿈이라 375 폭에서 부제가 "기록 없/음"처럼 글자 중간에서 꺾였다.
+   * Astryx `Text`의 `wordBreak`는 `break-word`·`break-all`만 받아 `keep-all`을 못 넘기고, `Sheet`는 className을 안 받는다.
+   * 그래서 시트 이름(aria-label)으로 좁혀 여기서 건다. 한 단어가 줄보다 길 때만 `anywhere`로 끊어 넘치지 않게 한다.
+   */
+  dialog[aria-label='Day 선택'] :is(p, span, div) {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  /*
+   * 세션이 여는 시트 여덟의 글도 같은 규칙이다(RR8) — 시트 이름(aria-label)으로 좁힌다.
+   * 제목(h1·h2)까지 건다: 긴 종목 이름이 든 제목이 "대/체"처럼 글자 중간에서 꺾이지 않게.
+   */
+  dialog:is(
+      [aria-label='세션 종료'],
+      [aria-label='종목 추가'],
+      [aria-label='휴식 타이머'],
+      [aria-label='대체운동 선택'],
+      [aria-label='보상작용 입력'],
+      [aria-label='보상작용 반복 — 무게 하향'],
+      [aria-label='무게 단위 설정'],
+      [aria-label='템포 가이드']
+    )
+    :is(p, span, div, h1, h2) {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  /*
+   * 세트 표 (RR7 — Astryx에 세트 표가 없다). 머리(.ax-set-head)와 행(.set-row)이 **같은 열 정의**를 읽는다:
+   * 세트 번호 · 무게 · 횟수. 머리의 열 폭이 따로 있던 옛 CSS는 "세트"를 두 줄로 꺾었다.
+   * 행은 두 줄이다 — 위 줄(고스트·템포·완료)은 두 열에 걸치고, 아래 줄에 스테퍼 둘이 각자의 열에 앉는다.
+   */
+  .ax-set-head,
+  .set-row {
+    display: grid;
+    grid-template-columns: var(--spacing-6) minmax(0, 1.2fr) minmax(0, 1fr);
+    column-gap: var(--spacing-2);
+    align-items: center;
+  }
+
+  .ax-set-head {
+    padding-bottom: var(--spacing-1);
+    text-align: center;
+  }
+
+  .ax-set-head > * {
+    white-space: nowrap;
+  }
+
+  .set-row {
+    row-gap: var(--spacing-1);
+    padding-block: var(--spacing-2);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .ax-set-no {
+    grid-row: span 2;
+    text-align: center;
+  }
+
+  .ax-set-meta {
+    grid-column: 2 / -1;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+  }
+
+  .ax-set-meta > :first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* 워밍업 세트 — 작업 세트와 구분되게 흐리게. 볼륨·PR에 안 들어간다는 신호 */
+  .set-row-warmup {
+    opacity: 0.62;
+  }
+
+  /* 완료한 세트는 행 전체가 옅은 성공색이라 "몇 세트 남았나"가 훑어 읽힌다. 워밍업 완료는 틴트가 흐림에 묻혀 번호 색만 바꾼다 */
+  .set-row-done {
+    background: color-mix(in srgb, var(--color-success) 7%, transparent);
+  }
+
+  .set-row-done .ax-set-no,
+  .set-row-done-warmup .ax-set-no {
+    color: var(--color-text-success);
+  }
+
+  /*
+   * 경고(무게 미입력·오류)의 글자색. Astryx `Text`의 색 이름에 경고가 없다.
+   * `Text`는 같은 층에서 `.astryx-text[data-color="primary"]`(0,2,0)로 색을 걸어서 클래스 하나(0,1,0)로는 진다 — 그래서 세 겹으로 올린다 (RR8 화면 검증 반려).
+   */
+  .ax-text-warning.ax-text-warning.ax-text-warning {
+    color: var(--color-text-warning);
+  }
+
+  /*
+   * 스테퍼(NumberStepper)는 스스로 섬이다(`ax-scope`). 줄 안에서 남는 폭을 나눠 쓰되 입력칸의 고유 폭이 줄을 밀어내지 않게
+   * 줄어들 수 있어야(min-width 0) 한다. 세트 행에서는 열이, 식단 편집에서는 .btn-row 줄이 폭을 준다.
+   */
+  .set-row > .ax-scope {
+    min-width: 0;
+  }
+
+  /* 식단 편집 줄: 남는 폭을 나눠 쓰되 단추 둘과 숫자 칸이 들어갈 만큼(36px 둘 + 숫자 칸)은 줄지 않는다 */
+  .btn-row > .ax-scope {
+    flex: 1;
+    min-width: calc(2 * var(--spacing-9) + var(--spacing-12));
+  }
+
+  .set-row > .ax-scope > :nth-child(2),
+  .btn-row > .ax-scope > :nth-child(2),
+  .set-row > .ax-scope input,
+  .btn-row > .ax-scope input {
+    min-width: 0;
+  }
+
+  /* 숫자 칸 (TextField의 isNumeric·isProminent). 글자는 입력칸 자신에 건다. 크게 켠 칸은 테마의 제목 글자 단계이고 16px 아래로 안 내려간다 */
+  .ax-num input,
+  .ax-num-prominent input {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ax-num-prominent input {
+    font-size: max(1rem, var(--text-heading-2-size));
+    font-weight: 700;
+  }
+
+  .ax-set-head > * {
+    text-align: center;
+  }
+
+  /*
+   * 자극 요령 카드(RR7 재검증). 한글은 단어(공백) 사이에서만 줄을 바꾼다 — 375 폭에서 "상/태"로 꺾였다.
+   * 다크에서는 muted 카드가 바탕과 같은 색이라 카드 모양이 안 보여, 라이트와 한 벌로 테두리를 더한다.
+   */
+  .ax-tip {
+    border: 1px solid var(--color-border-emphasized);
+  }
+
+  /* 요약(RR9): 한글이 "0세/트"처럼 글자 중간에서 꺾이던 것(375 폭)을 단어 사이에서만 꺾는다. 한 단어가 줄보다 길 때만 anywhere */
+  .ax-summary :is(p, span, div, h1, h2) {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  .ax-tip :is(p, span, div) {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  /*
+   * 켜고 끄는 글자 버튼(감각 점수·통증, RR7 재검증). 안 눌렸을 때도 "+ 세트" 알약처럼 바탕과 테두리가 보이고,
+   * 눌리면 더 진한 바탕과 굵은 글씨로 구분한다. 높이는 36px 이상.
+   */
+  .ax-toggle {
+    min-height: var(--spacing-9);
+    min-width: var(--spacing-9);
+    /* 안쪽 여백을 보상작용 줄(ListItem)과 맞춰 두 줄의 글자가 같은 자리에서 시작한다 */
+    padding-inline: var(--spacing-2);
+    background: var(--color-background-muted);
+    border: 1px solid var(--color-border-emphasized);
+  }
+
+  .ax-toggle[aria-pressed='true'] {
+    background: var(--color-accent-muted);
+    border-color: var(--color-accent);
+    font-weight: 700;
+  }
+
+  /* 식단 편집 줄: 시각 칸이 줄어들 수 있어야 삭제 버튼이 카드 안쪽 폭을 넘지 않는다 */
+  .btn-row:has(> .ax-scope) > input[type='time'] {
+    flex: 0 1 8rem;
+    min-width: 0;
+  }
+
+  .btn-row:has(> .ax-scope) > .btn-danger {
+    width: auto;
+    flex: 0 0 auto;
+  }
+
+  /*
+   * 템포 무대 (RR8 — Astryx에 박자 표시가 없다). 링 크기는 `--ax-tempo-scale`(TempoGuideSheet가 80ms마다 건넨다)이고
+   * 수축에서 커지고 이완에서 작아진다. 마지막 사이클은 링 색으로도 알린다(무음 스위치로 소리를 못 들을 때 대비).
+   */
+  .ax-tempo-stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 12.5rem;
+  }
+
+  .ax-tempo-ring {
+    position: absolute;
+    width: 10rem;
+    height: 10rem;
+    border-radius: 50%;
+    border: var(--spacing-1) solid var(--color-border);
+    transform: scale(var(--ax-tempo-scale, 0.5));
+    transition: transform 120ms linear, border-color 160ms ease-out;
+  }
+
+  .ax-tempo-ring-concentric {
+    border-color: var(--color-accent);
+  }
+
+  .ax-tempo-ring-eccentric {
+    border-color: var(--color-text-success);
+  }
+
+  .ax-tempo-ring-squeeze,
+  .ax-tempo-ring-stretch,
+  .ax-tempo-ring-last {
+    border-color: var(--color-text-warning);
+  }
+
+  .ax-tempo-center {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-1);
+  }
+}

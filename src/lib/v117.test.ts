@@ -85,26 +85,28 @@ describe("OO2 — Astryx 바탕", () => {
 
   it("@astryxdesign/을 import하는 파일은 src/ax/ 밖에 없다", () => {
     const offenders = Object.keys(SOURCES).filter(
-      (p) => !p.startsWith("/src/ax/") && p !== "/src/lib/v117.test.ts" && /@astryxdesign\//.test(stripComments(SOURCES[p])),
+      (p) => !p.startsWith("/src/ax/") && p !== "/src/lib/v117.test.ts" &&
+        // v1.20 RR11: theme-color 값을 테마 패키지와 글자 그대로 견주는 테스트만 패키지를 직접 읽는다(PLAN RR11 검증)
+        p !== "/src/lib/v120.test.ts" && /@astryxdesign\//.test(stripComments(SOURCES[p])),
     )
     expect(offenders).toEqual([])
   })
 
-  it("main.tsx·App.tsx는 Astryx를 정적으로 읽지 않고, main.tsx는 styles/index.css를 읽는다", () => {
-    for (const f of ["src/main.tsx", "src/App.tsx"]) {
-      const s = src(f)
-      expect(s).not.toContain("@astryxdesign")
-      expect(s).not.toMatch(/from\s+['"]\.{1,2}\/ax(\/[^'"]*)?['"]/)
-      expect(s).not.toMatch(/^\s*import\s+['"]\.{1,2}\/ax/m)
-    }
-    const main = raw("src/main.tsx")
-    expect(main).toContain("./styles/index.css")
-    expect(main).not.toContain("global.css")
+  it("main.tsx는 Astryx를 직접 읽지 않고 styles/index.css를 읽는다, App.tsx는 ./ax만 읽는다 (v1.20 RR1이 뒤집음: 앱 뿌리에 테마를 거는 것이 README 결정 2의 새 뜻)", () => {
+    const main = src("src/main.tsx")
+    expect(main).not.toContain("@astryxdesign")
+    expect(main).not.toMatch(/from\s+['"]\.{1,2}\/ax/)
+    expect(raw("src/main.tsx")).toContain("./styles/index.css")
+    expect(raw("src/main.tsx")).not.toContain("global.css")
+    const app = src("src/App.tsx")
+    expect(app).not.toContain("@astryxdesign")
+    expect(app).toMatch(/import \{ AppRoot[^}]*\} from ['"]\.\/ax['"]/)
   })
 
-  it("AxRoot는 mode=system만 쓰고 reset.css·fonts.css를 읽지 않는다", () => {
+  it("AppRoot는 mode=system만 쓰고 reset.css·fonts.css를 읽지 않는다 (v1.20 RR1: 테마가 AxRoot에서 AppRoot로 옮겨 감)", () => {
     const s = src("src/ax/index.tsx")
-    expect(s).toContain('mode="system"')
+    const appRoot = s.slice(s.indexOf("export function AppRoot"), s.indexOf("export function AxRoot"))
+    expect(appRoot).toContain('mode="system"')
     expect(s).not.toContain('mode="dark"')
     expect(s).not.toContain('mode="light"')
     expect(s).not.toMatch(/reset\.css|fonts\.css/)

@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { dayTotalSets } from '../lib/useRoutine'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { makeRecordKey, recordDayIdOf, type RecordKey } from '../types'
-import { SheetFrame } from './SheetFrame'
+import { Button, Heading, List, ListItem, Sheet, Text, VStack } from '../ax'
 
 /**
  * 종목 얹기 (CC15) — "그 Day 머신이 다 차 있을 때".
@@ -45,54 +45,57 @@ export default function AddExerciseSheet({
   }, [bundle, existing])
 
   return (
-    <SheetFrame label="종목 추가" onClose={onClose}>
+    <Sheet label="종목 추가" purpose="info" onClose={onClose}>
       {(dismiss) => (
-        <>
-          <div className="card-label">종목 추가</div>
-          <p className="row-sub" style={{ whiteSpace: 'normal' }}>
-            루틴의 다른 종목을 이 세션에 얹습니다. 기록은 <b>그 종목의 원래 Day 라인</b>에
-            남고, 주간 볼륨에 정상 반영됩니다. 몸 풀기 수준이면 세트를 워밍업으로 표시하세요.
-          </p>
+        <VStack gap={5} paddingBlockEnd={3}>
+          <VStack gap={2}>
+            <Heading level={2}>종목 추가</Heading>
+            <Text color="secondary">
+              루틴의 다른 종목을 이 세션에 얹습니다. 기록은 그 종목의 원래 Day 라인에 남고, 주간 볼륨에 정상 반영됩니다.
+              몸 풀기 수준이면 세트를 워밍업으로 표시하세요.
+            </Text>
+          </VStack>
 
           {groups.length === 0 ? (
-            <p className="row-sub mt-group">
-              추가할 수 있는 종목이 없습니다 (전부 이 세션에 있습니다).
-            </p>
+            <Text color="secondary">추가할 수 있는 종목이 없습니다 (전부 이 세션에 있습니다).</Text>
           ) : (
             groups.map(({ day, items }) => (
-              <div key={day.id}>
-                <div className="card-label mt-group">
+              <VStack gap={2} key={day.id}>
+                <Heading level={2}>
                   {day.name} · {day.exercises.length}종목 {dayTotalSets(day)}세트
-                </div>
-                {items.map(({ ex, recordKey, name }) => (
-                  <button
-                    className="row sheet-row"
-                    key={recordKey}
-                    onClick={() => {
-                      onAdd({ recordKey, setCount: ex.sets, repMin: ex.repMin })
-                      onClose()
-                    }}
-                  >
-                    <div className="row-main">
-                      <div className="row-title">{name}</div>
-                      <div className="row-sub mono">{recordKey}</div>
-                    </div>
-                    <div className="row-meta">
-                      {ex.group}그룹
-                      <br />
-                      {ex.sets}×{ex.repMin}~{ex.repMax}
-                    </div>
-                  </button>
-                ))}
-              </div>
+                </Heading>
+                <List>
+                  {items.map(({ ex, recordKey, name }) => (
+                    <ListItem
+                      key={recordKey}
+                      label={name}
+                      description={
+                        <Text type="code" color="secondary">
+                          {recordKey}
+                        </Text>
+                      }
+                      endContent={
+                        <VStack gap={0} align="end">
+                          <Text color="secondary">{ex.group}그룹</Text>
+                          <Text color="secondary">
+                            {ex.sets}×{ex.repMin}~{ex.repMax}
+                          </Text>
+                        </VStack>
+                      }
+                      onClick={() => {
+                        onAdd({ recordKey, setCount: ex.sets, repMin: ex.repMin })
+                        onClose()
+                      }}
+                    />
+                  ))}
+                </List>
+              </VStack>
             ))
           )}
 
-          <button className="btn mt-group" onClick={dismiss}>
-            닫기
-          </button>
-        </>
+          <Button variant="secondary" width="100%" label="닫기" onClick={dismiss} />
+        </VStack>
       )}
-    </SheetFrame>
+    </Sheet>
   )
 }

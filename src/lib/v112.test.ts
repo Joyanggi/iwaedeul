@@ -812,7 +812,7 @@ describe('JJ3', () => {
       expect(fs).not.toContain('.sets.length')
       for (const n of ['partialEntries(', 'sessionAdjustText(', 'resolveSessionAdjust(']) expect(fs).toContain(n)
       expect(fs).not.toContain('조정')
-      expect(fs).toContain('{adjustLine && <p className="row-sub">{adjustLine}</p>}') // 한 줄을 실제로 그린다
+      expect(fs).toContain('{adjustLine && <Text color="secondary">{adjustLine}</Text>}') // 한 줄을 실제로 그린다
     })
   })
 })

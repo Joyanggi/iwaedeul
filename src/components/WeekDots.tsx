@@ -1,5 +1,6 @@
 import { weekdayKo } from '../lib/dates'
 import type { WeekDot } from '../lib/dashboard'
+import { Card, HStack, Text, VStack } from '../ax'
 
 /**
  * 이번 주 월~일 도트 (DESIGN.md §5.1).
@@ -22,41 +23,38 @@ export default function WeekDots({
   const total = dots.reduce((n, d) => n + d.count, 0)
 
   return (
-    <div className="card">
-      <div className="week-head">
-        <div className="card-label label-flush">
-          이번 주
-        </div>
-        <div className="week-count">
-          {total}/{target}회
-        </div>
-      </div>
-      {total !== strengthCount && (
-        <p className="row-sub mb-row" style={{ whiteSpace: 'normal' }}>
-          유산소만 한 날도 불꽃으로 표시합니다 — 디로드·Phase 카운터는 근력 {strengthCount}회로
-          셉니다.
-        </p>
-      )}
-      <div className="week-dots">
-        {dots.map((dot) => (
-          <div key={dot.date} className="week-day">
-            <div
-              className={[
-                'week-dot',
-                dot.count > 0 ? 'week-dot-done' : '',
-                dot.isToday ? 'week-dot-today' : '',
-                dot.isFuture ? 'week-dot-future' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-            >
-              {dot.count > 0 ? '🔥' : ''}
-              {dot.count > 1 && <span className="week-dot-multi">×{dot.count}</span>}
+    <Card elevation="low">
+      <VStack gap={3}>
+        <HStack justify="between" align="center">
+          <Text type="supporting" color="secondary">
+            이번 주
+          </Text>
+          <Text weight="bold" hasTabularNumbers>
+            {total}/{target}회
+          </Text>
+        </HStack>
+        {total !== strengthCount && (
+          <Text type="supporting" color="secondary">
+            유산소만 한 날도 불꽃으로 표시합니다 — 디로드·Phase 카운터는 근력 {strengthCount}회로 셉니다.
+          </Text>
+        )}
+        <div className="ax-week-dots">
+          {dots.map((dot) => (
+            <div key={dot.date} className="ax-week-day">
+              <div
+                className="ax-week-dot"
+                data-state={dot.isToday ? 'today' : dot.count > 0 ? 'done' : dot.isFuture ? 'future' : 'empty'}
+              >
+                {dot.count > 0 ? '🔥' : ''}
+                {dot.count > 1 && <span className="ax-week-multi">×{dot.count}</span>}
+              </div>
+              <Text type="supporting" color="secondary">
+                {weekdayKo(dot.date)}
+              </Text>
             </div>
-            <div className="week-day-label">{weekdayKo(dot.date)}</div>
-          </div>
-        ))}
-      </div>
-    </div>
+          ))}
+        </div>
+      </VStack>
+    </Card>
   )
 }

@@ -1,4 +1,5 @@
 import type { MuscleBar } from '../lib/dashboard'
+import { Badge, Card, ProgressBar, Text, VStack } from '../ax'
 
 /**
  * 주간 부위별 볼륨 대시보드 (DESIGN.md §5.1).
@@ -17,39 +18,40 @@ export default function MuscleVolumeBars({
   minSessionsToJudge: number
 }) {
   return (
-    <div className="card">
-      <div className="card-label">주간 부위별 볼륨</div>
-      {bars.map((bar) => {
-        const ratio = bar.target > 0 ? Math.min(1, bar.performed / bar.target) : 0
-        const met = bar.performed >= bar.target
-        return (
-          <div className="mbar" key={bar.muscle}>
-            <div className="mbar-head">
-              <span className="mbar-name">{bar.muscle}</span>
-              <span
-                className={`chip${bar.underFrequency ? ' chip-warn' : ''}`}
-                title={`기대 ${bar.expectedExposures}회 / 실제 ${bar.exposures}회`}
-              >
-                {bar.exposures}x
-              </span>
-              <span className={`mbar-num${met ? ' mbar-num-met' : ''}`}>
-                {bar.performed}/{bar.target}
-              </span>
-            </div>
-            <div className="mbar-track">
-              <div
-                className={`mbar-fill${met ? ' mbar-fill-met' : ''}`}
-                style={{ transform: `scaleX(${ratio})` }}
-              />
-            </div>
-          </div>
-        )
-      })}
-      <p className="row-sub mt-row">
-        {sessionCount < minSessionsToJudge
-          ? `이번 주 ${sessionCount}회 — ${minSessionsToJudge}회부터 빈도 미달을 표시합니다`
-          : '노란 뱃지 = 주 2회 노출이 기대되는데 아직 1회 이하'}
-      </p>
-    </div>
+    <Card elevation="low">
+      <VStack gap={3}>
+        <Text type="supporting" color="secondary">
+          주간 부위별 볼륨
+        </Text>
+        <div className="ax-vol-rows">
+          {bars.map((bar) => {
+            const met = bar.performed >= bar.target
+            return (
+              <div className="ax-vol-row" key={bar.muscle}>
+                <Text>{bar.muscle}</Text>
+                <ProgressBar
+                  label={`${bar.muscle} 주간 볼륨`}
+                  isLabelHidden
+                  value={Math.min(bar.performed, bar.target)}
+                  max={bar.target}
+                  variant={met ? 'success' : 'accent'}
+                />
+                <Text type="supporting" color="secondary" hasTabularNumbers>
+                  {bar.performed}/{bar.target}
+                </Text>
+                <span title={`기대 ${bar.expectedExposures}회 / 실제 ${bar.exposures}회`}>
+                  <Badge variant={bar.underFrequency ? 'warning' : 'neutral'} label={`${bar.exposures}x`} />
+                </span>
+              </div>
+            )
+          })}
+        </div>
+        <Text type="supporting" color="secondary">
+          {sessionCount < minSessionsToJudge
+            ? `이번 주 ${sessionCount}회 — ${minSessionsToJudge}회부터 빈도 미달을 표시합니다`
+            : '노란 뱃지 = 주 2회 노출이 기대되는데 아직 1회 이하'}
+        </Text>
+      </VStack>
+    </Card>
   )
 }

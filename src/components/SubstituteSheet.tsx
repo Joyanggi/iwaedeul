@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { CALIBRATION_RIR, type SubstitutePreview } from '../lib/substitute'
-import { NO_AUTOFILL } from '../lib/inputProps'
-import { SheetFrame } from './SheetFrame'
+import { Button, Heading, HStack, List, ListItem, Sheet, Text, TextField, VStack } from '../ax'
 
 /**
  * 대체운동 선택 (T8).
@@ -35,94 +34,75 @@ export default function SubstituteSheet({
   const bodyWeightValid = Number.isFinite(parsedBodyWeight) && parsedBodyWeight > 20
 
   return (
-    <SheetFrame label="대체운동 선택" onClose={onClose}>
+    <Sheet label="대체운동 선택" purpose="form" onClose={onClose}>
       {(dismiss) => (
-        <>
-          <div className="card-label">자리 없음 · {originalName} 대체</div>
+        <VStack gap={5} paddingBlockEnd={3}>
+          <Heading level={2}>자리 없음 · {originalName} 대체</Heading>
 
           {previews.length === 0 ? (
-            <p className="row-sub mt-group">
+            <Text color="secondary">
               이 종목에는 등록된 대체가 없습니다. 순서를 바꿔 다른 종목을 먼저 하세요.
-            </p>
+            </Text>
           ) : (
             <>
-              <p className="row-sub">
-                첫 세트는 <strong>{CALIBRATION_RIR}</strong>로 — 그 결과로 2세트 무게를 다시
-                계산합니다. 아래 무게는 시작점 추정이고, 기록은 대체 종목 자신의 라인에 남습니다.
-              </p>
+              <Text color="secondary">
+                첫 세트는 {CALIBRATION_RIR}로 — 그 결과로 2세트 무게를 다시 계산합니다. 아래 무게는 시작점 추정이고,
+                기록은 대체 종목 자신의 라인에 남습니다.
+              </Text>
 
               {needsBodyWeight && (
-                <div className="sub-field">
-                  <div className="card-label">체중 (kg)</div>
-                  <p className="row-sub">
+                <VStack gap={2}>
+                  <Heading level={2}>체중 (kg)</Heading>
+                  <Text color="secondary">
                     어시스티드 머신은 보조 무게를 체중에서 역산합니다. 이 값만 여기에 쓰입니다.
-                  </p>
-                  <div className="setup-edit">
-                    <input
-                      {...NO_AUTOFILL}
-                      className="field"
+                  </Text>
+                  <HStack gap={2} align="end">
+                    <TextField
+                      label="체중 (kg)"
+                      isLabelHidden
                       inputMode="decimal"
                       value={bodyWeightText}
-                      onChange={(e) => setBodyWeightText(e.target.value)}
-                      aria-label="체중 (kg)"
+                      onChange={setBodyWeightText}
                       placeholder="예: 72"
                     />
-                    <button
-                      className="btn btn-sm"
-                      disabled={!bodyWeightValid}
+                    <Button
+                      variant="secondary"
+                      label="저장"
+                      isDisabled={!bodyWeightValid}
                       onClick={() => onSaveBodyWeight(Math.round(parsedBodyWeight * 10) / 10)}
-                    >
-                      저장
-                    </button>
-                  </div>
-                </div>
+                    />
+                  </HStack>
+                </VStack>
               )}
 
-              <div className="check-list mt-group">
+              <List>
                 {previews.map((preview) => {
                   const { option, exercise } = preview
                   const notes: string[] = []
                   if (option.perSide) notes.push('한쪽 무게로 기록')
                   if (option.assisted) notes.push('보조 무게 — 클수록 쉽다')
                   if (preview.lastRecord) notes.push('기록 있음 — 지난 무게 사용')
+                  if (preview.blocked === 'no-history') notes.push('원 종목 기록이 없어 시작 무게를 추정할 수 없습니다')
+                  if (preview.blocked === 'no-bodyweight') notes.push('체중을 입력하면 보조 무게를 계산합니다')
 
                   return (
-                    <button
+                    <ListItem
                       key={option.exerciseId}
-                      className="check-item"
-                      disabled={preview.startWeight === undefined}
+                      label={exercise.shortName}
+                      description={notes.length > 0 ? <Text color="secondary">{notes.join(' · ')}</Text> : undefined}
+                      endContent={preview.startWeight !== undefined ? <Text color="accent">{preview.startWeight}kg</Text> : undefined}
+                      isDisabled={preview.startWeight === undefined}
                       onClick={() => onSelect(preview)}
-                    >
-                      {/* row-title/row-sub는 블록 전제 스타일이라 span 안에서는 한 줄로 붙는다 */}
-                      <span className="stack-tight" style={{ flex: 1, textAlign: 'left' }}>
-                        <span className="row-title">{exercise.shortName}</span>
-                        {notes.length > 0 && <span className="row-sub">{notes.join(' · ')}</span>}
-                        {preview.blocked === 'no-history' && (
-                          <span className="row-sub">
-                            원 종목 기록이 없어 시작 무게를 추정할 수 없습니다
-                          </span>
-                        )}
-                        {preview.blocked === 'no-bodyweight' && (
-                          <span className="row-sub">체중을 입력하면 보조 무게를 계산합니다</span>
-                        )}
-                      </span>
-                      {preview.startWeight !== undefined && (
-                        <span className="row-meta" style={{ color: 'var(--accent)' }}>
-                          {preview.startWeight}kg
-                        </span>
-                      )}
-                    </button>
+                    />
                   )
                 })}
-              </div>
+              </List>
             </>
           )}
 
-          <button className="btn mt-row" onClick={dismiss}>
-            취소
-          </button>
-        </>
+          <Button variant="secondary" width="100%" label="취소" onClick={dismiss} />
+        </VStack>
       )}
-    </SheetFrame>
+    </Sheet>
   )
 }

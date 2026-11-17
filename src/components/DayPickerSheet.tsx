@@ -1,7 +1,7 @@
 import type { RoutineDay, RoutineTemplate } from '../types'
 import { lastDoneText } from '../lib/dayGap'
 import { dayTotalSets } from '../lib/useRoutine'
-import { SheetFrame } from './SheetFrame'
+import { Badge, Button, Heading, HStack, List, ListItem, Sheet, Text, VStack } from '../ax'
 
 /**
  * Day 선택 바텀시트 (DESIGN.md §4).
@@ -30,67 +30,58 @@ export default function DayPickerSheet({
   onClose: () => void
 }) {
   const renderDay = (day: RoutineDay) => (
-    <button className="row sheet-row" key={day.id} onClick={() => onPick(day)}>
-      <div className="row-main">
-        <div className="row-title">
-          {day.name}
-          {day.id === suggestedDayId && (
-            <span className="chip chip-accent ml-inline">
-              제안
-            </span>
-          )}
-          {day.id === pickedDayId && day.id !== suggestedDayId && (
-            <span className="chip ml-inline">
-              선택
-            </span>
-          )}
-          {day.isBuffer && (
-            <span className="chip chip-warn ml-inline">
-              완충
-            </span>
-          )}
-        </div>
-        <div className="row-sub">
+    <ListItem
+      key={day.id}
+      label={
+        <HStack gap={2} align="center" wrap="wrap">
+          <span>{day.name}</span>
+          {day.id === suggestedDayId && <Badge variant="info" label="제안" />}
+          {day.id === pickedDayId && day.id !== suggestedDayId && <Badge variant="neutral" label="선택" />}
+          {day.isBuffer && <Badge variant="warning" label="완충" />}
+        </HStack>
+      }
+      description={
+        // 부제와 "마지막 수행" 글이 한 줄에 안 들어가면 줄을 바꾼다(말줄임표로 잘리면 며칠 전인지가 안 보인다)
+        <Text color="secondary" textWrap="wrap">
           {lastDone && lastDone.has(day.id)
             ? `${day.subtitle} · ${lastDoneText(lastDone.get(day.id) ?? null)}`
             : day.subtitle}
-        </div>
-      </div>
-      <div className="row-meta">
-        {day.exercises.length}종목
-        <br />
-        {dayTotalSets(day)}세트
-      </div>
-    </button>
+        </Text>
+      }
+      endContent={
+        // 두 줄로 쌓아 오른쪽 폭을 줄인다(한 줄이면 부제가 글자 중간에서 꺾인다)
+        <VStack gap={0} align="end">
+          <Text color="secondary">{day.exercises.length}종목</Text>
+          <Text color="secondary">{dayTotalSets(day)}세트</Text>
+        </VStack>
+      }
+      onClick={() => onPick(day)}
+    />
   )
 
   return (
-    <SheetFrame label="Day 선택" onClose={onClose}>
+    <Sheet label="Day 선택" purpose="info" onClose={onClose}>
       {(dismiss) => (
-        <>
-          <div className="card-label label-flush">오늘 할 운동</div>
-          <p className="row-sub mb-row">
-            고르면 홈 카드가 바뀝니다. 시작은 시작 버튼으로.
-          </p>
-          {routine.days.map(renderDay)}
+        <VStack gap={5} paddingBlockEnd={3}>
+          <VStack gap={2}>
+            <Heading level={2}>오늘 할 운동</Heading>
+            <Text color="secondary">고르면 홈 카드가 바뀝니다. 시작은 시작 버튼으로.</Text>
+            <List>{routine.days.map(renderDay)}</List>
+          </VStack>
 
           {routine.fallbackDays.length > 0 && (
-            <>
-              <div className="card-label label-flush mt-section">
-                하한 모드 · 30분
-              </div>
-              <p className="row-sub mb-row">
+            <VStack gap={2}>
+              <Heading level={2}>하한 모드 · 30분</Heading>
+              <Text color="secondary">
                 시간이 없거나 컨디션이 나쁜 날. 기록은 정규 Day 라인에 이어서 남습니다.
-              </p>
-              {routine.fallbackDays.map(renderDay)}
-            </>
+              </Text>
+              <List>{routine.fallbackDays.map(renderDay)}</List>
+            </VStack>
           )}
 
-          <button className="btn mt-group" onClick={dismiss}>
-            닫기
-          </button>
-        </>
+          <Button variant="secondary" width="100%" label="닫기" onClick={dismiss} />
+        </VStack>
       )}
-    </SheetFrame>
+    </Sheet>
   )
 }

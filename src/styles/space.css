@@ -21,7 +21,6 @@
  */
 .mt-row { margin-top: var(--space-row); }
 .mt-group { margin-top: var(--space-group); }
-.mt-section { margin-top: var(--space-section); }
 .mb-row { margin-bottom: var(--space-row); }
 .mb-group { margin-bottom: var(--space-group); }
 .ml-inline { margin-left: var(--space-inline); }
@@ -36,10 +35,6 @@
 }
 /* 제목 아래 여백 없이 바로 이어지는 줄(주 헤더 줄 안의 라벨, 보조 줄 바로 위 라벨) */
 .card-label.label-flush { margin-bottom: 0; }
-/* 업데이트 안내 띠 바깥 여백 */
-.update-prompt { margin: var(--space-group); }
-/* 배너 안의 닫기 버튼은 앞 버튼 옆에 붙지 않고 자기 자리에 둔다(.banner button의 auto를 되돌림) */
-.banner button.banner-dismiss { margin-left: 0; }
 /* 알림 시간 선택 아래 안내 — 28px은 체크 칸 폭에 맞춘 들여쓰기 */
 .meal-note { margin: 0 0 var(--space-row) 28px; }
 /* 루틴 목록 줄 아래에 펼쳐지는 확인 문구 */

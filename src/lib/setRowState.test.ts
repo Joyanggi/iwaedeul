@@ -97,7 +97,8 @@ describe('화면 배선 (2층 잠금)', () => {
 
   it('경고가 문구와 숫자 양쪽에 걸린다', () => {
     const src = card()
-    expect(src).toContain('set-ghost set-ghost-warn')
-    expect(src).toMatch(/stepper-slot-warn/)
+    // v1.20 RR7: 문구는 `ax-text-warning`, 숫자는 NumberStepper의 `status` 속성(옛 stepper-slot-warn 대신)
+    expect(src).toContain('className="ax-text-warning"')
+    expect(src).toMatch(/status=\{zeroHint \? 'warning' : undefined\}/)
   })
 })

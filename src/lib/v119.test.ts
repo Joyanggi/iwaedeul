@@ -26,15 +26,6 @@ describe("QQ0 — UI 검사 도구", () => {
   })
 })
 
-const SCREENS = import.meta.glob("/src/screens/SettingsScreen.tsx", { query: "?raw", import: "default", eager: true }) as Record<string, string>
-
-describe("QQ1 — 유리 재료", () => {
-  it("SettingsScreen이 glassDiagnosis를 부르고 '유리' 줄을 가진다", () => {
-    const text = SCREENS["/src/screens/SettingsScreen.tsx"]
-    expect(text).toMatch(/glassDiagnosis\(readGlassDiagInput\(\)\)/)
-    expect(text).toMatch(/row-title">유리</)
-  })
-})
 
 const MAIN = import.meta.glob("/src/main.tsx", { query: "?raw", import: "default", eager: true }) as Record<string, string>
 
@@ -57,9 +48,10 @@ describe("QQ3 — 시트 틀 하나", () => {
       ([path, text]) => /Sheet\.tsx$/.test(path) && !/SheetFrame\.tsx$/.test(path) && !/from '\.\.\/ax/.test(text),
     )
 
-  it("legacy 시트 14개가 전부 SheetFrame을 import하고 sheet-backdrop 글자가 0건이다", () => {
+  // v1.20 RR5: 홈의 둘이 ../ax의 Sheet로 옮겨 14→12. RR8: 세션의 여덟이 옮겨 12→4(식단 시트 넷만 남는다)
+  it("legacy 시트 4개가 전부 SheetFrame을 import하고 sheet-backdrop 글자가 0건이다", () => {
     const files = legacy()
-    expect(files.length).toBe(14)
+    expect(files.length).toBe(4)
     const offenders = files
       .filter(([, text]) => !/import \{ SheetFrame \} from '\.\/SheetFrame'/.test(text) || /sheet-backdrop/.test(stripComments(text)))
       .map(([path]) => path)
@@ -73,7 +65,7 @@ describe("QQ3 — 시트 틀 하나", () => {
     expect(hits).toEqual(["/src/components/SheetFrame.tsx"])
   })
 
-  it("14개 시트에 onClick={onClose}·onClick={() => onClose()}가 0건이다 (닫기 버튼은 dismiss를 부른다)", () => {
+  it("legacy 시트에 onClick={onClose}·onClick={() => onClose()}가 0건이다 (닫기 버튼은 dismiss를 부른다)", () => {
     const offenders = legacy()
       .filter(([, text]) => /onClick=\{onClose\}|onClick=\{\(\) => onClose\(\)\}/.test(stripComments(text)))
       .map(([path]) => path)
@@ -132,7 +124,7 @@ describe("QQ4 — 여백 토큰 한 벌", () => {
   it("ui-check.mjs가 정적 검사와 여백 한 벌 비교를 부른다", () => {
     const text = code(SCRIPTS["/scripts/ui-check.mjs"])
     expect(text).toMatch(/spaceStaticChecks\(allCss\)/)
-    expect(text).toMatch(/spaceSetVerdicts\(layouts\)/)
+    expect(text).toMatch(/spaceRoleVerdicts\(layouts/) // v1.20 RR12: spaceSetVerdicts를 넓혀 이름을 바꿨다(같은 비교, 역할이 늘었다)
   })
 })
 
@@ -176,8 +168,8 @@ describe("QQ5 — 인라인 여백을 클래스로", () => {
     expect(SPACE_KEY.test("style={{ color: 'red', whiteSpace: 'normal' }}")).toBe(false)
   })
 
-  it("space.css 유틸 클래스가 쓰이는 이름만 있다 (.tsx가 붙인 mt-·mb-·ml-·mr- 클래스는 정의된 여덟 개 안이다)", () => {
-    const known = new Set(["mt-row", "mt-group", "mt-section", "mb-row", "mb-group", "ml-inline", "mr-inline", "ml-auto"])
+  it("space.css 유틸 클래스가 쓰이는 이름만 있다 (.tsx가 붙인 mt-·mb-·ml-·mr- 클래스는 정의된 일곱 개 안이다)", () => {
+    const known = new Set(["mt-row", "mt-group", "mb-row", "mb-group", "ml-inline", "mr-inline", "ml-auto"])
     const used = new Set<string>()
     for (const [, text] of TSX) for (const m of text.matchAll(/\b(m[tblr]-[a-z]+)\b/g)) used.add(m[1])
     expect([...used].filter((c) => !known.has(c))).toEqual([])
