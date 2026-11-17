@@ -26,6 +26,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, devices, webkit } from 'playwright'
 import { preview } from 'vite'
+import { collectFirstLoad } from './lib/first-load-lib.mjs'
 import { EXPECTED_PAIRS, inPageInsetSymmetry, inPageLayout, insetSymmetryVerdict, spaceRoleVerdicts, spaceStaticChecks } from './lib/ui-space.mjs'
 import {
   THEME_TOKENS,
@@ -2360,6 +2361,115 @@ async function runOffline(browser, port) {
   }
 }
 
+/** 흐름 하나(이름 하나)를 돌린다. 예외가 나도 건너뜀으로 삼켜지지 않고 그 이름의 흐름 실패가 된다 (RR5 반려 — guardedFlow와 같은 뜻, runScenes 밖 버전) */
+async function guardedLazyFlow(name, fn) {
+  try {
+    flows.push([name, await fn()])
+  } catch (e) {
+    flows.push([name, { ok: false, detail: `예외: ${String(e.message).split('\n')[0]}` }])
+  }
+}
+
+/** 온보딩을 끝내고 홈의 아래 띠(설정 탭)가 뜰 때까지 */
+async function finishOnboarding(page) {
+  await page.getByRole('button', { name: /^(시작하기|확인했어요, 그래도 계속)$/ }).click()
+  await page.getByRole('button', { name: '설정', exact: true }).waitFor()
+}
+
+/** 미리 읽기가 부르는 화면 청크의 파일 이름 접두사 (App.tsx의 PRELOAD). 시트 부품 청크는 이름이 `index-…`라(Rollup이 짓는다) 따로 가린다. 분석은 부르지 않아야 한다 */
+const PRELOAD_CHUNKS = ['SessionScreen-', 'SummaryScreen-', 'DietScreen-', 'HistoryScreen-', 'SettingsScreen-']
+const NEVER_PRELOADED_CHUNK = 'AnalyzeScreen-'
+const chunkName = (url) => new URL(url).pathname.split('/').pop() ?? ''
+/** 시트 부품 청크: 처음 여는 순간 읽는 `index-…js`(index.html이 적은 것)가 아닌, 두 번째 `index-…js` */
+const isSheetChunk = (name) => /^index-.+\.js$/.test(name) && !collectFirstLoad(readFileSync(join(ROOT, 'dist', 'index.html'), 'utf8')).some((f) => f.endsWith(`/${name}`))
+
+/**
+ * 지연 읽기 (PLAN v1.21 SS1) — 새 흐름 셋. 전부 guardedLazyFlow라 예외가 흐름 실패로 센다.
+ * ① 지연 화면 오프라인: precache가 끝난 뒤 네트워크를 끊고 새로 고침 → 홈 → 세션 시작 → 요약, 식단·기록·설정·분석 탭을 차례로 연다. 하나라도 안 뜨면 실패.
+ * ② 미리 읽기: 부팅 뒤 2초 안에 다섯 화면과 시트 청크가 요청된다(0개면 실패). 분석 청크는 요청되지 않는다.
+ * ③ 시트 첫 열기: 새로 고침 직후(미리 읽기 전) 홈의 [변경]을 누르면 Day 선택 시트가 뜬다 — 청크를 그때 읽는다.
+ */
+async function runLazyFlows(browser, port) {
+  const offlineName = '지연 화면 오프라인'
+  await guardedLazyFlow(offlineName, async () => {
+    const ctx = await browser.newContext({ ...DEVICE, locale: 'ko-KR', colorScheme: 'dark' })
+    try {
+      const page = await ctx.newPage()
+      await page.goto(`http://localhost:${port}${BASE}`)
+      await finishOnboarding(page)
+      await page.evaluate(() => navigator.serviceWorker.ready.then(() => true))
+      await settle(page, 2500) // precache 끝난 뒤 한 박자
+      await ctx.setOffline(true)
+      await page.reload()
+      await page.getByRole('button', { name: '설정', exact: true }).waitFor({ timeout: 15000 })
+      await page.getByRole('button', { name: /시작$|이어서 하기/ }).first().click()
+      await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor({ timeout: 15000 })
+      await page.getByRole('button', { name: '1세트 완료', exact: true }).first().click()
+      await btn(page, '종료').click()
+      await page.getByRole('dialog', { name: '세션 종료' }).waitFor({ timeout: 15000 })
+      await btn(page, '기록 마치기').click()
+      await btn(page, '홈으로').waitFor({ timeout: 15000 })
+      await btn(page, '홈으로').click()
+      const seen = ['세션', '요약']
+      for (const tab of ['식단', '기록', '설정', '분석']) {
+        await btn(page, tab).click()
+        await page.getByRole('heading', { name: tab, exact: true }).first().waitFor({ timeout: 15000 })
+        seen.push(tab)
+      }
+      return { ok: seen.length === 6, detail: `네트워크를 끊고 새로 고침 → 홈 → ${seen.join('·')} 화면이 열렸다` }
+    } finally {
+      await ctx.close()
+    }
+  })
+
+  const preloadName = '미리 읽기'
+  await guardedLazyFlow(preloadName, async () => {
+    const ctx = await browser.newContext({ ...DEVICE, locale: 'ko-KR', colorScheme: 'dark', serviceWorkers: 'block' })
+    try {
+      const page = await ctx.newPage()
+      const names = []
+      page.on('request', (r) => names.push(chunkName(r.url())))
+      await page.goto(`http://localhost:${port}${BASE}`)
+      await finishOnboarding(page)
+      // 온보딩을 마친 시점부터 센다(온보딩 때까지 읽은 것은 미리 읽기가 아니다)
+      names.length = 0
+      await settle(page, 2000)
+      const count = (prefix) => names.filter((n) => n.startsWith(prefix) && n.endsWith('.js')).length
+      const sheet = names.filter(isSheetChunk).length
+      const missing = [...PRELOAD_CHUNKS.filter((prefix) => count(prefix) === 0), ...(sheet === 0 ? ['시트'] : [])]
+      const analyze = count(NEVER_PRELOADED_CHUNK)
+      return {
+        ok: missing.length === 0 && analyze === 0,
+        detail: `요청된 청크 ${PRELOAD_CHUNKS.map((p) => `${p}${count(p)}`).join(' ')} 시트 ${sheet} · 분석 ${analyze}${missing.length ? ` — 안 읽은 것: ${missing.join(' ')}` : ''}`,
+      }
+    } finally {
+      await ctx.close()
+    }
+  })
+
+  const sheetName = '시트 첫 열기'
+  await guardedLazyFlow(sheetName, async () => {
+    const ctx = await browser.newContext({ ...DEVICE, locale: 'ko-KR', colorScheme: 'dark', serviceWorkers: 'block' })
+    try {
+      const page = await ctx.newPage()
+      await page.goto(`http://localhost:${port}${BASE}`)
+      await finishOnboarding(page)
+      let sheetRequested = false
+      page.on('request', (r) => {
+        if (isSheetChunk(chunkName(r.url()))) sheetRequested = true
+      })
+      await page.reload()
+      await btn(page, '변경').waitFor({ timeout: 15000 })
+      const early = !sheetRequested // 미리 읽기(1초 뒤)보다 먼저 눌러야 청크를 그때 읽는 경로를 본다
+      await btn(page, '변경').click()
+      await page.getByRole('dialog', { name: 'Day 선택' }).waitFor({ timeout: 10000 })
+      return { ok: early && sheetRequested, detail: `미리 읽기 전에 눌렀다(청크 요청 전) ${early} · 누른 뒤 시트 청크 요청 ${sheetRequested} · Day 선택 시트가 떴다` }
+    } finally {
+      await ctx.close()
+    }
+  })
+}
+
 /** src/**\/*.css를 전부 읽는다 (정적 검사용) */
 function readAllCss() {
   const out = {}
@@ -2497,6 +2607,7 @@ let exitCode = 0
 try {
   await runScenes(browser, port, 'dark')
   if (CHECK && phase === 'after' && !ONLY) await runOffline(browser, port)
+  if (CHECK && phase === 'after' && !ONLY) await runLazyFlows(browser, port)
   if (!ONLY || [...ONLY].some((s) => s.endsWith('-light'))) await runScenes(browser, port, 'light')
   if (CHECK && phase === 'after' && !ONLY) await runSchemeFlow(chromium, port, null)
   if (SAFE_AREA) await runSafeArea(browser, port)

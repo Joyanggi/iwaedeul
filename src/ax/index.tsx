@@ -6,7 +6,7 @@ import '@astryxdesign/core/astryx.css'
 import './ax.css'
 import './parts.css'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Theme } from '@astryxdesign/core/theme'
 import { SizeProvider } from '@astryxdesign/core/SizeContext'
 import { Button } from '@astryxdesign/core/Button'
@@ -17,11 +17,18 @@ import { ClickableCard as AstryxClickableCard, type ClickableCardProps } from '@
 import { NumberInput } from '@astryxdesign/core/NumberInput'
 import { TextInput, type TextInputProps } from '@astryxdesign/core/TextInput'
 import { TextArea, type TextAreaProps } from '@astryxdesign/core/TextArea'
-import { BottomSheet, type BottomSheetProps } from '@astryxdesign/core/BottomSheet'
+import type { BottomSheetProps } from '@astryxdesign/core/BottomSheet'
 import { AX_NO_AUTOFILL } from '../lib/inputProps'
 import { once } from '../lib/once'
 import { appTheme } from './theme'
 import { clampStep } from './clampStep'
+
+/** 시트 부품은 처음 열 때 읽는다(첫 화면 코드 — PLAN v1.21 SS1). `preloadSheet`가 부팅 뒤 미리 읽는다. */
+const loadBottomSheet = () => import('@astryxdesign/core/BottomSheet').then((m) => ({ default: m.BottomSheet }))
+const BottomSheet = lazy(loadBottomSheet)
+export function preloadSheet() {
+  return loadBottomSheet()
+}
 
 /** 입력칸 글자 16px 이상 (iOS가 포커스 시 확대하지 않게) */
 const CONTROL_STYLE = { fontSize: 'max(16px, 1em)' } as const
@@ -241,18 +248,20 @@ export function Sheet({ label, purpose = 'info', height = 'hug', onClose, childr
   const dismiss = () => setClosing(true)
 
   return (
-    <BottomSheet
-      label={label}
-      purpose={purpose}
-      height={height}
-      isOpen={!closing}
-      onOpenChange={(next) => {
-        if (!next) dismiss()
-      }}
-    >
-      {/* 시트는 화면과 다른 층에 그려져 크기 기본값이 새로 시작한다 → 화면과 같은 크기를 다시 건다 */}
-      <SizeProvider value="lg">{typeof children === 'function' ? children(dismiss) : children}</SizeProvider>
-    </BottomSheet>
+    <Suspense fallback={null}>
+      <BottomSheet
+        label={label}
+        purpose={purpose}
+        height={height}
+        isOpen={!closing}
+        onOpenChange={(next) => {
+          if (!next) dismiss()
+        }}
+      >
+        {/* 시트는 화면과 다른 층에 그려져 크기 기본값이 새로 시작한다 → 화면과 같은 크기를 다시 건다 */}
+        <SizeProvider value="lg">{typeof children === 'function' ? children(dismiss) : children}</SizeProvider>
+      </BottomSheet>
+    </Suspense>
   )
 }
 

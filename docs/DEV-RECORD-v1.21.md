@@ -178,3 +178,74 @@
 
 - `npm run check` 통과(흔적·Astryx 뒷걸음·린트·knip·테스트·빌드). `Test Files  79 passed (79)`, `Tests  1818 passed (1818)`(리뷰 반영 후 — 최초 1808). 빌드 성공.
 - `git rev-list --count main..HEAD`: 커밋 전 0 → 이 작업 커밋 1개.
+
+## SS1. 첫 화면 코드 분할
+
+### 범위
+
+| 항목 | 내용 |
+|---|---|
+| 커밋 | 이 커밋(`feat(SS1): …`) — 해시는 `git log`. 바뀐 파일 9개 |
+| 바뀐 파일 | `src/App.tsx`(`LOADERS`·`PRELOAD`·미리 읽기·`Suspense`), `src/ax/index.tsx`(시트 `lazy`·`preloadSheet`), `scripts/check.mjs`·`.github/workflows/ci.yml`(`첫 화면 크기` 단계), `scripts/check.test.mjs`, `scripts/ui-check.mjs`(`runLazyFlows`), `src/lib/v121.test.ts`(새), `README.md`, 이 기록 |
+| 테스트 | `Test Files 80 passed (80)` · `Tests 1825 passed (1825)` (SS0 뒤 79/1818 → 새 파일 1, 새 테스트 7) |
+| 수정표 안 | `scripts/check.test.mjs`: `빌드만 --fast에서 빠진다` → `빌드와 첫 화면 크기만 --fast에서 빠진다` |
+| 수정표 밖 | 없음(`v117`의 "astryxdesign은 src/ax 밖" 스캔이 새 테스트의 패키지 이름 글자를 잡아, 그 테스트가 이름을 조립해 적는다 — 기존 테스트는 안 고쳤다) |
+
+### PLAN 검증 항목 ↔ 확인
+
+| PLAN 검증 | 확인 |
+|---|---|
+| 정적 import 0건·홈 정적 | `v121 SS1: 홈 밖 화면 여섯은 정적 import가 0건이고 홈은 정적이다` |
+| `LOADERS` 여섯·`PRELOAD`에 onboarding 없음 | `v121 SS1: LOADERS의 열쇠가 여섯이고 PRELOAD에 onboarding이 없다` |
+| 분석·루틴 편집 import 각 한 번, `lazy(() => ` 뒤에만 | `v121 SS1: 분석·루틴 편집 import는 각각 한 번, …` |
+| 미리 읽기(1초·`catch`·`clearTimeout`) | `v121 SS1: 미리 읽기는 PRELOAD와 preloadSheet를 setTimeout 뒤에 …` |
+| `Bar`가 탭 내용 `Suspense` 밖 | `v121 SS1: 탭바(<Bar position="bottom">)는 탭 내용 Suspense 뒤에 있고 그 Suspense 밖에 있다` |
+| 시트 `import type` 한 줄·`lazy`·`preloadSheet` | `v121 SS1: BottomSheet는 import type 한 줄뿐이고 …` (+ 닫기 로직 그대로 1건) |
+| `check.test.mjs` `slow` 단언 옮김 | `빌드와 첫 화면 크기만 --fast에서 빠진다` (`ci.yml`·`STEPS` 같음 단언은 안 고치고 통과) |
+| 안 고치고 통과 | `timerOwnership`·`v117`·`v120` RR1·RR3·`audioRecovery` 전부 통과 |
+| 새 흐름 ①②③ | 아래 `ui-check` 표 |
+
+### 첫 화면 크기 (`npm run build && node scripts/first-load.mjs --check`)
+
+| 파일 | gzip(kB) |
+|---|---|
+| `assets/index-DPQmOdO6.js` | 303.52 |
+| `assets/index-Deurkv2C.css` | 49.98 |
+| **합** | **353.50** (한계 360KB, 통과. SS0 기준선 473.89KB) |
+
+`node scripts/first-screen.mjs`(판정 안 함): 캐시 없는 첫 방문 **786ms**, 다시 열기 **601ms** (RR10 값 740ms·300ms과 나란히).
+서비스워커 precache: **45개, 2668.75 KiB** (청크가 늘었다 — 오프라인에서 여는 데 새로 필요한 것은 없다).
+인벤토리 `--check`: 화면 아닌 파일 21→21, 인라인 스타일 51→51, legacy 클래스 쓰임 270→270, 안 쓰는 선택자 0→0(표 안 바뀜 — 화면 파일을 안 고쳤다).
+
+### `ui-check after --check --ver=v1.21 --same-layout=all`
+
+- 종료 코드 0 상당: `장면 실패 0건`, `알려진 실패 3건`(`KNOWN_FAILURES` 세 칸만), `- 실패` 0줄, 흐름 통과 107건·실패 0건, 배치 같음 전 장면 통과(화면이 그대로다).
+- 새 흐름 셋(`runLazyFlows` — 전부 `guardedLazyFlow`라 예외는 흐름 실패로 센다. 0개 통과 없음: ②는 화면 다섯·시트 청크를 각각 1개 이상 세고 하나라도 0이면 실패, ③은 미리 읽기 전에 눌렀는지도 판정):
+
+| 흐름 | 결과 |
+|---|---|
+| `지연 화면 오프라인` | 통과: 네트워크를 끊고 새로 고침 → 홈 → 세션·요약·식단·기록·설정·분석 화면이 열렸다 |
+| `미리 읽기` | 통과: `SessionScreen-`1 `SummaryScreen-`1 `DietScreen-`1 `HistoryScreen-`1 `SettingsScreen-`1 시트 1 · 분석 0 |
+| `시트 첫 열기` | 통과: 미리 읽기 전에 눌렀고(청크 요청 전) 누른 뒤 시트 청크가 요청돼 Day 선택 시트가 떴다 |
+
+- 시트 청크는 Rollup이 `index-….js`로 이름 짓는다(`BottomSheet-` 접두사가 아니다). 흐름은 `dist/index.html`이 적은 것이 아닌 두 번째 `index-…js`로 가린다.
+- 390·375 폭 글자 꺾임: 이 작업은 화면 마크업을 안 바꿔서(배치 같음 통과) 기존 흐름의 `390·375 글자 중간 꺾임 없음`이 전부 통과한 것으로 갈음한다. 로딩 대체 화면("불러오는 중…")은 `Center` 안 한 줄이다.
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 것 | 원상복구 |
+|---|---|---|
+| ① `DietScreen`을 다시 정적 import | `v121 SS1: 홈 밖 화면 여섯은 정적 import가 0건이고 …` | `cmp` 같음 |
+| ② `PRELOAD` 줄 앞에 `void import('./screens/AnalyzeScreen')` | `v121 SS1: 분석·루틴 편집 import는 각각 한 번, …` | `cmp` 같음 |
+| ③ `FIRST_LOAD_BUDGET_KB`를 300으로 / `dist` 치움 | `first-load --check` 종료 코드 1 / 종료 코드 1(빈 통과 아님) | 되돌림·`git status` 확인 |
+
+### 하지 않은 것
+
+- 결함 ②의 `미리 읽기` 흐름 쪽 실패 확인(ui-check 전체가 10분쯤 걸려 안 돌렸다 — 소스 스캔 쪽 실패만 확인). 흐름은 분석 청크 요청 수가 0이 아니면 실패하도록 짰다.
+- `src/lib` 판정 함수는 안 바꿨다 → 변이·속성 테스트 대상 없음.
+- `docs/screenshots/v1.21/after/`는 커밋하지 않는다(재생성 가능).
+
+### 실행 결과 요약
+
+- `npm run check` 통과(흔적·Astryx 뒷걸음·린트·knip·테스트·빌드·첫 화면 크기). `Test Files  80 passed (80)`, `Tests  1825 passed (1825)`. 빌드 성공.
+- `git rev-list --count main..HEAD`: 커밋 전 3 → 이 작업 커밋 후 4.

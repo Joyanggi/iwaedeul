@@ -236,11 +236,13 @@
   떠 있는 띠와 시트도 테마의 표면색입니다(v1.20에서 유리를 걷었습니다).
   이 앱만의 부품(세트 행, 요일 점, 띠)의 CSS는 `src/ax/parts.css`에 있고 값은 테마 토큰에서만 가져옵니다.
 
-- **recharts는 분석 탭만 지연 로딩한다**
-  차트 3개를 위해 gzip 112KB가 붙어 앱 전체가 두 배가 됩니다. 설계 문서(§2 스택 표)가
-  지정한 스택이므로 바꾸지 않되, `React.lazy`로 분리해 **헬스장에서 쓰는 경로(홈 → 세션)가
-  차트 코드를 파싱하지 않게** 했습니다. 서비스워커가 두 청크를 모두 precache하므로
-  오프라인에서 분석 탭도 그대로 열립니다.
+- **화면은 나눠 읽는다 — 처음 여는 순간에는 홈만**
+  앱을 처음 여는 순간 읽는 코드는 홈과 앱 틀(탭·띠·테마)뿐입니다. 세션·요약·식단·기록·설정은 `React.lazy`로 나눠,
+  홈이 뜬 1초 뒤 미리 읽어 둡니다(누르기 전에 준비된다). 시트 부품도 처음 열 때 읽습니다. 분석 탭은 미리 읽지 않습니다 —
+  recharts가 gzip 110KB가 넘어 **헬스장에서 쓰는 경로(홈 → 세션)가 차트 코드를 파싱하지 않게** 하려는 것이고
+  (설계 문서 §2가 지정한 스택이라 바꾸지 않는다), 분석 탭을 열 때 읽습니다. 서비스워커가 모든 청크를 precache하므로
+  오프라인에서도 전부 열립니다. 처음 여는 순간 읽는 크기는 `node scripts/first-load.mjs`가 재고 `npm run check`가
+  360KB(gzip)를 넘지 않게 지킵니다.
 
   분석 탭 청크가 메인 번들과 비슷한 크기입니다 (recharts). 정확한 값은
   `npm run build` 출력이 말해줍니다 — 여기 적어두면 코드가 커질 때마다 낡습니다.
@@ -252,7 +254,7 @@
   Astryx의 리셋은 반대로 legacy 화면 밖에만 걸립니다. 화면을 옮기면 그 화면이 쓰던 `global.css` 규칙을 지웁니다.
   테마가 앱 전체에 걸리면서 번지는 글꼴·글자색·제목/문단 규칙은 legacy 화면 안에서 예전 값으로 되돌립니다(`global.css`의 같은 `@scope` 블록).
   헬스장 경로(홈 → 세션)도 Astryx를 읽습니다. 서비스워커가 전부 precache하므로 오프라인에서 그대로 열리고,
-  처음 여는 순간 읽는 코드는 늘었습니다(`npm run build` 출력과 `node scripts/first-screen.mjs`).
+  처음 여는 순간 읽는 크기는 `node scripts/first-load.mjs`가 지킵니다(위 '화면은 나눠 읽는다').
 - **눌림과 움직임은 Astryx 테마의 값을 따르고, "동작 줄이기"를 존중한다**
   아직 안 옮긴 화면(식단·기록·분석·설정)의 버튼은 눌린 순간 바로 덮개가 얹히고(기본 규칙 하나가 모든 버튼에 걸립니다), 버튼·알약은
   작아지기도 하며, 뗄 때 돌아옵니다.
@@ -358,7 +360,7 @@ suggestNextDay(sessions, routine, today):
 flowchart TB
   subgraph device["iOS 홈 화면 앱 (standalone)"]
     UI["React 화면<br/>홈 · 세션 · 기록 · 설정"]
-    Lazy["분석 탭 (React.lazy)<br/>recharts"]
+    Lazy["세션·요약·식단·기록·설정·분석<br/>(React.lazy — 분석 말고는 미리 읽기)"]
     Store["zustand<br/>설정 · 진행 중 세션"]
     Dexie["Dexie / IndexedDB<br/>routines · exercises · sessions · settings"]
     LS["localStorage<br/>Gist 토큰 · 휴식 타이머"]
@@ -368,7 +370,7 @@ flowchart TB
     UI -.->|탭 진입 시| Lazy
     Lazy --> Dexie
     UI <--> LS
-    SW -->|오프라인 셸 + 두 청크| UI
+    SW -->|오프라인 셸 + 모든 청크| UI
   end
 
   Seed["src/data/routine-v2.4.json<br/>+ exercises.json"] -->|최초 실행 시 주입| Dexie
@@ -383,7 +385,7 @@ flowchart TB
 - 상태: zustand (설정 · 진행 중 세션 · 휘발성 UI 상태만. 나머지는 `dexie-react-hooks` live query로 직접 읽음)
 - 저장: Dexie (IndexedDB, 스키마 v3) + localStorage (비밀값·휴식 타이머·백업 대기 플래그)
 - UI 부품: Astryx 0.7.13 (@astryxdesign/core, 베타 — 버전 고정. 앱 틀·홈·세션·요약·루틴 편집)
-- 차트: recharts (분석 탭만 `React.lazy`로 지연 로딩)
+- 차트: recharts (분석 탭 청크 — 미리 읽지 않는다)
 - PWA: vite-plugin-pwa (manifest + Workbox SW), iOS 스플래시 8종
 - 테스트: Vitest (알고리즘·파생 계산 단위 테스트, CI에서 배포 전 실행). 개수는 `npm test`가 말해줍니다
 - 검사: `npm run check` 하나가 CI와 같은 목록을 돕니다 — 흔적 검사(자체 스크립트), ESLint(React 훅·접근성), Knip(안 쓰는 파일·의존성), Astryx 뒷걸음 검사, 테스트(fast-check 속성 테스트 포함), 빌드. 변이 테스트(StrykerJS, `npm run mutation`)와 화면 검사(Playwright + axe-core, `scripts/ui-check.mjs`)는 로컬에서 돌리고, CodeQL·OSV-Scanner는 별도 워크플로로 돕니다
