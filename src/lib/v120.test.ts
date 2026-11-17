@@ -1148,6 +1148,9 @@ describe("v120 RR9 — 요약", () => {
     expect(t).toContain("vol === '0'")
     expect(t).toContain("memo.lines >= 3")
     expect(t).toMatch(/warnColorBothSchemes\('\.ax-text-warning'\)/)
+    // 복귀 카드 장면의 경고색 검사는 복귀 카드 값("→")만 본다 — 첫 .ax-text-warning이 감각 약한 종목의 "0점"이어도 통과하지 않게
+    expect(t).toContain("warnColorBothSchemes('.ax-text-warning', '→')")
+    expect(text(LIB, "/scripts/lib/ui-check-lib.mjs")).toContain("!text || e.textContent.includes(text)")
     expect(t).toMatch(/r390\.chars > 0 && r375\.chars > 0/)
   })
 

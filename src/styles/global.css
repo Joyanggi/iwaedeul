@@ -883,17 +883,6 @@ textarea.field {
 
 /* ─── 식단 (D2) ─────────────────────────────────────────── */
 
-.diet-head {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.diet-head .btn-sm {
-  width: auto;
-  flex: 1;
-}
-
 /* 단백질이 이 화면의 핵심 지표 — 가장 크게 */
 .diet-protein {
   display: flex;
@@ -976,10 +965,6 @@ textarea.field {
 .diet-slot-name {
   font-size: 15px;
   font-weight: 600;
-}
-
-.diet-mark {
-  font-size: 18px;
 }
 
 /*

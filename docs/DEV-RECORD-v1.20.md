@@ -1323,3 +1323,134 @@ PLAN 표의 셋: `dayChoice.test.ts` `카드와 시작 버튼이 같은 파생 �
 - 무관한 스크린샷(`v1.19`에 잘못 쓴 것 포함)은 `git show HEAD:`로 되돌렸다. 바뀐 것은 `summary*`만
 - `git rev-list --count main..HEAD`: 커밋 전 55(이 커밋 뒤 56)
 - 경미한 점: `List density="compact"`는 재 보지 않았다(결론 `Row`가 `안쪽 대칭` 실측 근거라 바뀌지 않는다고 본다). `inPageInnerOverflow`의 `checked > 0`과 `.ax-tip` 규칙 끼임은 이번 범위가 아니다
+
+---
+
+## RR10. 사본 정리와 기록 (마지막 작업) + v1.20 전체 정리
+
+### 범위
+
+| 파일 | 바뀐 것 |
+|---|---|
+| `src/styles/motion.css` | 눌림 제외 목록에서 `.stepper button` 삭제(가리키는 요소 없음), 쓰는 곳 없는 `.chip-btn`·`.diet-chip` 규칙 삭제, 머리 주석을 "안 옮긴 화면이 쓰는 사본, 다 옮기면 없어진다"로. `.btn`·`.pill`·`.chip`·`.segment button`·`.back-link`·`.sheet*`는 남김(안 옮긴 화면이 쓴다) |
+| `src/styles/space.css` | `.mt-section`(쓰는 `.tsx` 0)·`.banner button.banner-dismiss`(쓰는 곳 0) 삭제. 토큰 여덟 개는 그대로(`--space-section`은 순서 검사가 본다) |
+| `src/styles/global.css` | 안 쓰던 `.diet-head`(+`.btn-sm` 규칙)·`.diet-mark` 삭제 → 넷째 숫자 2→**0** |
+| `scripts/lib/ui-check-lib.mjs` | 눌림 정적 검사의 필수 낱말에서 `.stepper` 뺌(`['.ax-screen', 'astryx-']`). `inPageWarnColor`가 `{ sel, text }`를 받아 그 글을 담은 요소만 잰다 |
+| `scripts/ui-check.mjs` | 리뷰의 경미한 점 둘: ① `summary-revert`의 경고색 검사를 복귀 카드 값(`→`)으로 좁혔다(전에는 첫 `.ax-text-warning`이라 감각 약한 종목의 "0점"을 잴 수 있었다) ② 디로드 흐름 이름 "홈으로 1탭" → "맨 아래 홈으로 버튼 하나"(검사는 버튼 수만 센다 — 이름이 하지 않는 일을 말하지 않게) |
+| `README.md` | "눌림과 움직임은…" 항목: "아직 안 옮긴 화면(식단·기록·분석·설정)의 버튼은", 값 문장을 PLAN 문구로, 이미 거짓이 된 "스테퍼 `−`·`+`는 원래의 누름 표시를 씁니다" 문장 삭제. "여백" 항목은 RR12가 이미 고쳤다(PLAN: 여기서는 안 고친다) |
+| `package.json`·`package-lock.json` | `1.19.0` → **`1.20.0`** (이 커밋에서만) |
+| `docs/ASTRYX-INVENTORY.md` | `--write`: 합계 줄이 `안 쓰는 legacy 선택자 0개.`로 끝난다 |
+| 테스트 | `scripts/rr10.test.mjs`(신규 6), `src/lib/v119.test.ts`(유틸 클래스 여덟→일곱, 기계적), `src/lib/v120.test.ts`(경고색 좁힘 판정 줄 +2) |
+
+PLAN의 "README 반영"을 한 줄씩 맞췄다(앞 작업에서 문구 누락으로 반려된 적이 있다).
+
+### 테스트 ↔ PLAN 검증
+
+| PLAN 검증 | 테스트·흐름 |
+|---|---|
+| 합계 줄이 `안 쓰는 legacy 선택자 0개.`로 끝난다 | `scripts/rr10.test.mjs` 첫 테스트 + `astryx-inventory --check`(0을 지킴) |
+| `ui-check after --check` 전 장면 통과, 안 옮긴 화면의 `눌림 반응`·`여백 한 벌` 그대로 | 아래 ui-check 절 |
+| 사본을 너무 많이 지우지 않았다 | `rr10.test.mjs` "남는다" 테스트(`.btn`·`.pill`·`.chip`·`.segment button`·`.back-link`·`.sheet`·`is-closing`, 유틸 일곱) |
+| `motion.css`에서 `.stepper` 등이 없다, 정적 검사가 `.stepper`를 안 요구한다 | `rr10.test.mjs` 둘째·여섯째 테스트 |
+| `npm run check` 통과 | 아래 실행 결과 |
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 것 | 복구 |
+|---|---|---|
+| `global.css` 끝에 `.zz-unused { color: red; }` | `astryx-inventory --check`: `✗ 안 쓰는 legacy 선택자: 0 → 1` | `cmp` 같음 |
+| `ui-check-lib.mjs`의 필수 낱말에 `.stepper`를 되돌림 | `rr10.test.mjs` "ui-check-lib의 눌림 정적 검사가 .stepper를 더는 요구하지 않는다" | `cmp` 같음 |
+| `space.css`에 `.mt-section` 되돌림 | `rr10.test.mjs` "유틸 클래스는 일곱 개뿐이다" | `cmp` 같음 |
+
+### ui-check (`node scripts/ui-check.mjs after --check --ver=v1.20` → **종료 코드 0**)
+
+- 장면 전부(다크·라이트) 통과, 접근성 serious·critical 0건, 흐름 실패 0.
+- **안 옮긴 화면의 `눌림 반응`·`여백 한 벌`**: `history`·`history-detail`·`history-detail-edit`·`diet`·`sheet-food`·`diet-log-open`·`settings`·`settings-open`·`settings-end`·`settings-375`·`settings-routines*` 모두 `통과`(사본을 너무 많이 안 지웠다). `analyze`의 눌림 반응은 `건너뜀 — 누를 요소가 없다`로 RR5 이후 로그와 같다(예시 데이터에 그 화면의 버튼이 없다. 건너뜀이지 통과가 아니다). Astryx 화면의 눌림 반응 `건너뜀`도 전부터 그랬다(Astryx 부품이 제 눌림을 가진다).
+- 정적 검사 `기본 규칙에 Astryx(.ax-screen·astryx-) 제외: 통과`.
+- 스크린샷: 전 장면을 다시 찍었고, 달라진 62개는 사본 정리가 화면을 바꾼 것이 아니라 다시 찍은 잡음이라 `git show HEAD:`로 전부 되돌렸다. 다크·라이트 짝을 사람 눈으로 한 번 더 보는 것은 화면 검증자 몫이다.
+- 로그: `.reports/ui-RR10.log`(git 밖).
+
+### 실행 결과
+
+- `npm test`: `Test Files  78 passed (78)` / `Tests  1794 passed (1794)` (RR9 때 77·1788 — 파일 +1, 테스트 +6)
+- `npm run check`: 전부 통과(흔적·Astryx 뒷걸음·린트·knip·테스트 78/1794·빌드)
+- 변이 테스트: `src/lib`의 판정 파일을 안 바꿨다(테스트 둘뿐) → **대상 없음**
+- 과거 판정 불변: `src/db`·`src/store`·판정 파일을 이 작업에서 안 건드렸다.
+
+---
+
+## v1.20 전체 정리 (다음 기획이 이어받는 것)
+
+### RR0~RR10 결과
+
+| 작업 | 한 일 | 구현 커밋 | 세 숫자 |
+|---|---|---|---|
+| RR0 | 검사 도구·기준선(다크·라이트 before, 요소 단위 눌림, 첫 화면 시간, 안 쓰는 선택자 세기) | `20df230` | 45·97·520·2 (기준선: 안 읽는 파일·인라인·legacy 쓰임·안 쓰는 선택자) |
+| RR1 | 테마를 앱 뿌리에(`AppRoot`), legacy CSS를 `@scope`로 가둠 | `171d509` | 늘지 않음 |
+| RR2 | 안 옮긴 화면의 색을 테마 토큰에 잇기 | `e159efc` | 늘지 않음 |
+| RRM | 유리를 걷고 Astryx 표면으로(접근성 이름 둘 보완 `34d1a9c`) | `1e5cb01` | 늘지 않음 |
+| RR11 | 라이트/다크가 폰 설정을 따른다(`theme-color` 둘, 상태바 받침) | `c46f359`(+`6e68f92`) | 늘지 않음 |
+| RRT | 테마 확정: Neutral + 파랑 강조 | `bb8a9a3` | 늘지 않음 |
+| RR12 | 여백 — 맞물림 기준(`안쪽 대칭`·`같은 역할`·`가까움 순서`)과 `Groups`·`Group`·`Card` | `e12d6a9` | 늘지 않음 |
+| RR3 | 앱 틀과 아래 탭 | `8deebcd`(+`65eef85`) | 44→41 · 97→94 · 520→504 |
+| RR4 | 홈 — 운동 카드·시작 버튼을 위로, 알림은 아래로 | `c9d3400` | 41→38 · 94→72 · 504→447 |
+| RR5 | 홈의 시트 둘 | `b1aec81` | legacy 447→426 |
+| RR6 | 세션 화면 틀과 휴식 바 | `e230ec5` | legacy 426→404, 인라인 71→70 |
+| RR7 | 운동 카드와 스테퍼 | `57389fa` | legacy 404→363, 인라인 70→66, 안 읽는 파일 → 32 |
+| RR8 | 세션의 시트 8개 | `21f1e81` | 32→24 · 66→55 · 363→288 |
+| RR9 | 요약 | `d6c9977` | 24→23 · 55→51 · 288→270 |
+| RR10 | 사본 정리·기록·버전 | 이 커밋 | 23 · 51 · 270 · 선택자 2→**0** |
+
+시작(RR0 기준선) → 끝: **Astryx를 안 읽는 파일 45 → 23, 인라인 스타일 97 → 51, legacy 클래스 쓰임 520 → 270, 안 쓰는 legacy 선택자 2 → 0.**
+(RR5~RR7 줄은 각 절에 적힌 값 그대로라 RR4의 72와 RR5 시작의 값이 한 칸씩 어긋나 보일 수 있다. 각 작업의 자기 몫은 그 절을 본다.)
+테스트: RR0 직후 69파일·1640 → RR10 78파일·1794. 변이 테스트는 RR 전체에서 `src/lib` 판정 파일을 안 고쳐 대상이 없었다.
+
+### 남은 화면 — 다음 기획이 옮길 것 (`docs/ASTRYX-INVENTORY.md`에서 `—`인 줄, 23개 파일)
+
+(인라인 스타일/legacy 클래스 쓰임. 이 23개가 legacy 쓰임 270과 인라인 46을 쥔다 — 인라인 51은 여기에 이미 옮긴 `RoutineEditorScreen`의 5가 더해진 값이다.)
+
+| 묶음 | 파일 (인라인/legacy 쓰임) |
+|---|---|
+| 식단 | `DietScreen`(0/3), `DietDayEditor`(4/27), `DietPlanSheet`(1/10), `DietSlotSheet`(0/11), `DietVariantSheet`(3/7), `DietIoPanel`(2/10), `FoodLogSheet`(3/12), `MealReminderPanel`(2/5) |
+| 기록 | `HistoryScreen`(3/14), `SessionDetailScreen`(2/31), `ExerciseHistoryScreen`(3/13), `MonthCalendar`(0/11) |
+| 분석 | `AnalyzeScreen`(4/22) |
+| 설정 | `SettingsScreen`(7/20), `RoutineListPanel`(2/8), `RoutineIoPanel`(2/14), `ExportPanel`(1/10), `ImportPanel`(2/14), `GistPanel`(2/16) |
+| 온보딩 | `Onboarding`(3/11) |
+| 기타 | `SheetFrame`(0/1 — 식단 시트 넷이 아직 쓴다), `icons.tsx`·`main.tsx`(0/0 — 옮길 화면이 아니라 Astryx를 안 읽을 뿐) |
+
+이 화면들을 다 옮기면 `global.css`·`motion.css`·`space.css`·`SheetFrame`이 없어진다(이 PLAN의 범위 제외). 순서 제안(쓰임 수·인라인 기준): 식단(가장 크다) → 설정(패널 여섯, 인라인 가장 많다) → 기록·분석 → 온보딩. 루틴 편집(`RoutineEditorScreen`·`RoutineLineSheet`)은 이미 Astryx다(인라인 5는 그 화면의 것).
+
+### 배포 영향 (PR 본문 맨 위에도 넣는다)
+
+- 앱 틀·탭·홈·세션·요약과 그 시트 10개가 Astryx 부품과 테마 한 벌로 바뀌었다. 테마: Astryx Neutral + 파랑 강조(주황이 아니다). 띠와 시트: 불투명한 표면(유리를 걷었다). 기록·판정·내보내기·백업은 그대로다.
+- 홈의 순서가 바뀌었다: 운동 카드와 시작 버튼이 맨 위, 알림과 식단 줄은 그 아래. 시작 버튼은 알림이 몇 개든 같은 자리다. 운동 카드 전체를 누르는 지름길은 없어지고 카드 머리의 [변경]을 쓴다. 요약은 카드 순서가 바뀌었다.
+- 앱 전체가 폰의 라이트/다크를 따른다(v1.19까지는 다크 고정). 수동 전환 버튼은 없다. 식단·기록·분석·설정은 색만 따르고 모양은 예전 그대로다(다음 기획). 라이트에서 앱을 여는 순간 어두운 스플래시가 잠깐 보인다.
+- 세트 하나를 적는 탭 수는 그대로다(✓ 1탭, `+`·`−` 1탭 — 뗄 때 한 단계).
+- **iOS 17.5 미만에서는 화면이 깨진다.** 그런 폰에서는 "업데이트"를 누르지 않는다.
+- **처음 여는 순간 읽는 코드가 늘었다**(`npm run build` 뒤 `node scripts/first-screen.mjs`, RR10 시점):
+
+| | v1.19(RR0 기준선) | RR10 | 배수 |
+|---|---|---|---|
+| `index.js`+`index.css` gzip | 약 190KB | 422.43 + 49.95 ≈ **472KB** | 약 2.5 |
+| 캐시 없는 첫 방문(CPU 4배 느리게) | 415ms | **740ms** (795, 740, 723, 721, 741) | 1.78 |
+| 서비스워커 캐시로 다시 열기 | 146ms | **300ms** (349, 297, 300, 317, 284) | 2.05 |
+| precache | 28개 · 2,569.51 KiB(PLAN 확인) | 28개 · **2,654.34 KiB** | |
+
+  - 첫 화면 시간은 멈춤 선(3배: 1245ms·438ms) 아래다. **그러나 gzip 합계 472KB는 PLAN이 적은 위쪽 한계 449KB를 넘었다**(RR1 때 397KB, RR3~RR9에서 Astryx 부품이 더 들어오며 늘었다). 코드 분할(`React.lazy`)이 다음 기획 후보다. 판단은 실기기 확인 ⑨. 오프라인은 `ui-check`의 오프라인 흐름이 통과한다.
+- 화면 비교: Argos 빌드 주소(`node scripts/argos-upload.mjs after`의 출력은 화면 검증 보고), `docs/screenshots/v1.20/before`·`after`, 후보 비교 `docs/screenshots/v1.20/candidates/`.
+- 고칠 자리: 테마 `src/ax/theme.ts`, 이 앱만의 부품 `src/ax/parts.css`, 안 옮긴 화면의 색 `src/styles/global.css`의 `:root`.
+- Astryx 적용 현황: `docs/ASTRYX-INVENTORY.md`(안 읽는 파일 45 → 23, 인라인 97 → 51, legacy 클래스 쓰임 520 → 270, 안 쓰는 선택자 2 → 0).
+- **다음 기획이 이어받는 것:** 위 "남은 화면" 표의 파일(식단·기록·분석·설정·온보딩과 그 시트)과 세 숫자의 남은 값(23 · 51 · 270). 이슈 #48의 완료 기준 1이 스스로 정한 범위("앱 틀·탭·홈·세션·요약까지")를 이 PR이 채운다. `docs/DESIGN.md` 9.1의 "모든 화면을 Astryx 부품으로"는 도달할 상태로 남는다.
+
+### 사람이 실기기에서 볼 것 (홈 화면에 추가한 앱 — 흉내로 못 보는 것만)
+
+1. 폰 설정 → 디스플레이에서 다크 ↔ 라이트를 바꾼 뒤 앱으로 돌아오면 앱 전체가 따라 바뀐다(홈·세션·요약·식단·기록·분석·설정). 어둡게(밝게) 남은 곳은 화면과 자리를 적는다. (PLAN ①)
+2. 헬스장에서 세션 하나를 끝까지: ✓ 1탭에 세트 완료와 휴식 바, `+`·`−`가 한 번에 한 단계, 목록을 끌어 스크롤할 때 손가락 아래 `+`·`−`·✓가 안 눌린다. (②)
+3. 팔 뻗은 거리에서 세트 행의 무게·횟수·휴식 남은 시간이 읽히고, 땀 난 손가락으로 ✓와 `+`·`−`가 한 번에 눌린다(작으면 그렇게 적는다 — 고칠 자리는 테마). 참고: 36×36 터치 영역 15곳이 `ui-check`의 `RR7 … 터치 영역 참고` 흐름에 찍혀 있다(판정 아님). (③)
+4. 숫자 칸을 눌러 직접 입력: 키패드가 숫자(무게는 소수점 있음)로 뜨고 화면이 확대되지 않는다. 메모 칸도. (④)
+5. 아래 탭 다섯이 엄지로 한 번에 눌린다. (⑤)
+6. 시트(종료·대체·보상작용·무게 단위)가 올라오고, 입력 도중 끌어내리거나 막을 눌러도 **닫히지 않으며**(친 값 그대로) 닫기 버튼으로 내려간다. 키보드가 올라와도 입력칸이 안 가린다. (⑥)
+7. 세션을 최소화하고 식단 탭에 갔다가 재개 줄로 돌아온다. 그 사이 휴식이 끝나면 소리가 난다. (⑦)
+8. 비행기 모드에서 앱을 완전히 닫았다 열어 홈이 뜬다(검사가 보지만 한 번 더). (⑧)
+9. 앱을 완전히 닫았다 열 때 첫 화면이 v1.19보다 눈에 띄게 느린가(위 표: 흉내로 1.8~2배)와 열 때 색·모양 없이 잠깐 뜨는가. (⑨)
+10. 폰이 라이트일 때 화면 맨 위 시계·배터리 글자가 읽힌다. (⑬)

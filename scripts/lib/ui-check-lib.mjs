@@ -395,8 +395,8 @@ export function motionStaticChecks(allCss) {
   const q = (s) => s.replace(/"/g, "'")
   const baseOk = base !== null && q(base).includes("[role='button']")
   add('눌림 기본 규칙: :where(button, [role=button]):active 하나', baseOk, baseOk ? ':where( … ):active' : '없음')
-  const miss = ['.ax-screen', 'astryx-', '.stepper'].filter((k) => base === null || !base.includes(k))
-  add('기본 규칙에 Astryx(.ax-screen·astryx-)·.stepper 제외', miss.length === 0, miss.length ? `없음: ${miss.join(', ')}` : '.ax-screen · astryx- · .stepper')
+  const miss = ['.ax-screen', 'astryx-'].filter((k) => base === null || !base.includes(k))
+  add('기본 규칙에 Astryx(.ax-screen·astryx-) 제외', miss.length === 0, miss.length ? `없음: ${miss.join(', ')}` : '.ax-screen · astryx-')
   // 2. 움직임 줄이기
   add('motion.css에 prefers-reduced-motion', motion.includes('prefers-reduced-motion'), motion.includes('prefers-reduced-motion') ? '있음' : '없음')
   // 3. 시트·막 키프레임이 opacity를 움직이지 않는다
@@ -696,8 +696,9 @@ export const inPageNumberFit = () => {
  * 경고 글자색 (RR8 화면 검증 반려): 선택자로 찾은 첫 요소의 계산된 color가 `--color-text-warning`을 풀어 쓴 색과 같은가.
  * 클래스가 붙었는지만 세면 Astryx `Text`의 `[data-color]` 규칙에 져서 일반 글자색으로 보이는 결함을 못 잡는다.
  */
-export const inPageWarnColor = (sel) => {
-  const el = document.querySelector(sel)
+export const inPageWarnColor = ({ sel, text }) => {
+  // text가 있으면 그 글을 담은 요소만 본다(요약의 복귀 카드 값 "60 → 20kg"처럼 같은 클래스가 여러 곳에 있을 때)
+  const el = [...document.querySelectorAll(sel)].find((e) => !text || e.textContent.includes(text))
   if (!el) return { found: false, same: false, actual: '', token: '' }
   const probe = document.createElement('span')
   probe.style.color = 'var(--color-text-warning)'

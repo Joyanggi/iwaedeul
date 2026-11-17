@@ -558,11 +558,11 @@ async function runScenes(browser, port, scheme) {
     }
   }
   // 경고 글자색: 지금 체계와 반대 체계 둘 다 계산된 color가 --color-text-warning과 같은가 (흐름은 한 체계로만 돌아서 emulateMedia로 바꿔 잰다)
-  const warnColorBothSchemes = async (sel = ':is(dialog,[role=dialog],[aria-modal=true]) .ax-text-warning') => {
-    const now = await page.evaluate(inPageWarnColor, sel)
+  const warnColorBothSchemes = async (sel = ':is(dialog,[role=dialog],[aria-modal=true]) .ax-text-warning', text = '') => {
+    const now = await page.evaluate(inPageWarnColor, { sel, text })
     await page.emulateMedia({ colorScheme: light ? 'dark' : 'light' })
     await settle(page, 200)
-    const other = await page.evaluate(inPageWarnColor, sel)
+    const other = await page.evaluate(inPageWarnColor, { sel, text })
     await page.emulateMedia({ colorScheme: scheme })
     await settle(page, 200)
     return { same: now.same && other.same, actual: `${now.actual} / ${other.actual}`, token: `${now.token} / ${other.token}` }
@@ -1186,7 +1186,7 @@ async function runScenes(browser, port, scheme) {
         assist: 'RR9 요약 어시스트 종목만: 볼륨 0 + 제외 안내',
         revert: 'RR9 요약 감각 저하 복귀 카드: 1개·프리필 문구·카드 순서·오른쪽 값 한 줄·경고 글자색',
         cardio: 'RR9 요약 유산소만: 체크된 세트 없음 문구·유산소 줄·증량·PR·복귀 카드 없음',
-        deload: 'RR9 요약 디로드 세션: 홈으로 1탭·PR 카드 없음·디로드 문구',
+        deload: 'RR9 요약 디로드 세션: 맨 아래 홈으로 버튼 하나·PR 카드 없음·디로드 문구',
         memo: 'RR9 요약 긴 메모·감각 약함: 메모가 안 잘림·경고 글자색(다크·라이트)·유산소 줄',
       }
       const finishToSummary = async (kind) => {
@@ -1282,7 +1282,7 @@ async function runScenes(browser, port, scheme) {
         const ord = await orderFlow('summary-revert')
         const needed = [NEXT, REVERT, '감각이 약했던 종목']
         const lines = await page.evaluate(inPageLineCount, '^\\d+(\\.\\d+)? → \\d+(\\.\\d+)?kg$')
-        const warn = await warnColorBothSchemes('.ax-text-warning')
+        const warn = await warnColorBothSchemes('.ax-text-warning', '→') // 복귀 카드의 값만 — 감각 약한 종목의 "0점"이 아니라
         const oneLine = lines.length >= 1 && lines.every((l) => l.lines === 1)
         return { ok: cards === 1 && auto === 1 && ord.ok && needed.every((t) => ord.order.includes(t)) && oneLine && warn.same, detail: `복귀 카드 ${cards}개 · 프리필 문구 ${auto}개 · ${ord.detail} · 오른쪽 값 ${lines.map((l) => `"${l.text}" ${l.lines}줄`).join(', ') || '없음'} · 경고 글자 계산된 색 ${warn.actual} (토큰 ${warn.token})` }
       }, 2)

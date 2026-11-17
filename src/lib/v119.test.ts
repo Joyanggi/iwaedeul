@@ -168,8 +168,8 @@ describe("QQ5 — 인라인 여백을 클래스로", () => {
     expect(SPACE_KEY.test("style={{ color: 'red', whiteSpace: 'normal' }}")).toBe(false)
   })
 
-  it("space.css 유틸 클래스가 쓰이는 이름만 있다 (.tsx가 붙인 mt-·mb-·ml-·mr- 클래스는 정의된 여덟 개 안이다)", () => {
-    const known = new Set(["mt-row", "mt-group", "mt-section", "mb-row", "mb-group", "ml-inline", "mr-inline", "ml-auto"])
+  it("space.css 유틸 클래스가 쓰이는 이름만 있다 (.tsx가 붙인 mt-·mb-·ml-·mr- 클래스는 정의된 일곱 개 안이다)", () => {
+    const known = new Set(["mt-row", "mt-group", "mb-row", "mb-group", "ml-inline", "mr-inline", "ml-auto"])
     const used = new Set<string>()
     for (const [, text] of TSX) for (const m of text.matchAll(/\b(m[tblr]-[a-z]+)\b/g)) used.add(m[1])
     expect([...used].filter((c) => !known.has(c))).toEqual([])
