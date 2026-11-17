@@ -49,6 +49,8 @@ export default function NumberStepper({
   isProminent = false,
   /** 무게 0 경고 같은 상태 표시 */
   status,
+  /** 숫자 칸 폭. 기본은 남는 폭을 다 쓴다. 한 줄에 다른 부품이 함께 놓이면(식단 먹은 것 줄) 고정 폭을 준다 */
+  fieldWidth = '100%',
 }: {
   value: number
   step: number
@@ -60,6 +62,7 @@ export default function NumberStepper({
   ladder?: number[]
   isProminent?: boolean
   status?: 'warning'
+  fieldWidth?: number | string
 }) {
   const [text, setText] = useState<string | null>(null)
   /** pointerdown 좌표 — pointerup에서 탭인지 판정한다 (CC12) */
@@ -118,7 +121,7 @@ export default function NumberStepper({
         isNumeric
         isProminent={isProminent}
         status={status === 'warning' ? { type: 'warning' } : undefined}
-        width="100%"
+        width={fieldWidth}
         inputMode={decimals === 2 ? 'decimal' : 'numeric'}
         label={ariaLabel}
         isLabelHidden

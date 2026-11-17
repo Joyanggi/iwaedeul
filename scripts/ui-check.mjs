@@ -2005,7 +2005,8 @@ async function runScenes(browser, port, scheme) {
       const card = row ? row.closest('[class*="astryx-card"]') : null
       const cardBox = card ? card.getBoundingClientRect() : null
       const tBox = time.getBoundingClientRect()
-      const centers = [mid(time), mid(input), mid(del)]
+      // 삭제는 폭이 모자라면 아래 줄로 감기므로 세로 가운데 비교에서 뺀다(잘림·겹침은 'SS2 검증 먹은 것 줄'이 잰다)
+      const centers = [mid(time), mid(input)]
       return {
         width,
         smaller: parseFloat(getComputedStyle(input).fontSize) < big,
@@ -2054,8 +2055,8 @@ async function runScenes(browser, port, scheme) {
       flows.push(['RR7 식단 스테퍼: 1탭 0.5 단위·입력 패턴·글자 크기·삭제 버튼 44px·넘침 없음', { ok, detail: `+1탭 ${c0}→${c1} · −1탭 ${c2} · 1.555→${typed} · ${widths.map((w) => (w.missing ? `${w.width}: 없음 ${w.missing}` : `${w.width}: 글자 작음 ${w.smaller} 삭제 ${w.delH}px 삭제 오른쪽 끝≤카드 ${w.delInside} 시각 칸 ${w.timeW}px 카드 안 ${w.timeInside} 넘침 없음 ${w.docOk}`)).join(' / ')}` }])
     })
     // SS2 ③ 먹은 것 줄: 줄을 1탭으로 펼치면 시각 칸·스테퍼·삭제가 한 줄에(세로 가운데 차이 ≤ 2px, 390·375), + 1탭에 0.5 오른다
-    await guardedFlow(['SS2 먹은 것 줄: 펼침 1탭 · 시각 칸·스테퍼·삭제 한 줄(가운데 차이 ≤ 2px, 390·375) · + 1탭에 0.5'], async () => {
-      const name = 'SS2 먹은 것 줄: 펼침 1탭 · 시각 칸·스테퍼·삭제 한 줄(가운데 차이 ≤ 2px, 390·375) · + 1탭에 0.5'
+    await guardedFlow(['SS2 먹은 것 줄: 펼침 1탭 · 시각 칸·스테퍼 한 줄(가운데 차이 ≤ 2px, 삭제는 폭이 모자라면 아래 줄로 감긴다, 390·375) · + 1탭에 0.5'], async () => {
+      const name = 'SS2 먹은 것 줄: 펼침 1탭 · 시각 칸·스테퍼 한 줄(가운데 차이 ≤ 2px, 삭제는 폭이 모자라면 아래 줄로 감긴다, 390·375) · + 1탭에 0.5'
       const trigger = page.locator('.ax-diet button[aria-expanded]').filter({ hasNotText: '식사 알림' }).last()
       // diet-log-open에서 이미 펼쳐 있다: 1탭에 접히고 1탭에 다시 펼쳐지는지 본다
       await trigger.click()
@@ -2161,9 +2162,19 @@ async function runScenes(browser, port, scheme) {
         for (const [k, el] of Object.entries(parts)) {
           if (!el) { out[k] = null; continue }
           const r = el.getBoundingClientRect()
-          const text = k === '삭제' ? [...el.querySelectorAll('*')].find((n) => n.children.length === 0 && n.textContent.trim() === '삭제') ?? el : el
-          const tr = text.getBoundingClientRect()
-          out[k] = { l: Math.round(r.left), r: Math.round(r.right), w: Math.round(r.width), clipText: k === '삭제' ? tr.right > r.right + 1 || tr.left < r.left - 1 || r.width < tr.width : el.scrollWidth > el.clientWidth + 1, cs: getComputedStyle(el).overflow }
+          // 시각 칸: 값 'HH:MM' 글자 폭이 칸의 안쪽 폭(안쪽 여백 뺀 것)보다 크면 값이 잘린 것이다(17:12가 5:1로 보이던 결함).
+          // 삭제: 글자가 보이는 최소 크기(폭 48·높이 36)
+          let valueClip = false
+          if (k === '시각') {
+            const cs = getComputedStyle(el)
+            const c = document.createElement('canvas').getContext('2d')
+            c.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
+            const inner = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+            // 시각 칸은 OS 형식(예 '12:59 PM')으로 보이므로 가장 긴 모양으로 잰다
+            valueClip = c.measureText('12:59 PM').width > inner
+          }
+          const tooSmall = k === '삭제' && (r.width < 48 || r.height < 36)
+          out[k] = { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height), clipText: valueClip || tooSmall || (k === '삭제' || k === '감소' || k === '증가' ? [...el.querySelectorAll('*')].some((n) => n.children.length === 0 && n.getBoundingClientRect().width && (n.getBoundingClientRect().right > r.right + 1 || n.getBoundingClientRect().left < r.left - 1)) : el.scrollWidth > el.clientWidth + 1), cs: getComputedStyle(el).overflow }
         }
         return out
       }
@@ -2179,16 +2190,24 @@ async function runScenes(browser, port, scheme) {
         await settle(page, 300)
       }
       const order = ['시각', '감소', '개수', '증가', '삭제']
+      // 줄이 감겨 두 줄이 돼도 되므로 가로로만 비교하지 않고 상자 둘이 가로·세로 모두 겹치는 쌍을 센다
+      const pairOverlaps = (r) => {
+        let n = 0
+        for (let i = 0; i < order.length; i++) for (let j = i + 1; j < order.length; j++) {
+          const a = r[order[i]], b = r[order[j]]
+          if (a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1) n++
+        }
+        return n
+      }
       const lines = res.map((r) => {
         const miss = order.filter((k) => !r[k])
         if (miss.length) return `${r.width}: 없음 ${miss.join(',')}`
         let overlap = 0
-        const boxes = order.map((k) => r[k]).sort((a, b) => a.l - b.l)
-        for (let i = 1; i < boxes.length; i++) if (boxes[i].l < boxes[i - 1].r - 1) overlap++
+        overlap = pairOverlaps(r)
         const clipped = order.filter((k) => r[k].clipText)
-        return `${r.width}: ${order.map((k) => `${k} ${r[k].w}px`).join(' · ')} · 겹침 ${overlap}쌍 · 잘림 ${clipped.length ? clipped.join(',') : '없음'}`
+        return `${r.width}: ${order.map((k) => `${k} ${r[k].w}px`).join(' · ')} · 삭제 높이 ${r.삭제.h}px · 겹침 ${overlap}쌍 · 잘림 ${clipped.length ? clipped.join(',') : '없음'}`
       })
-      const ok = res.every((r) => order.every((k) => r[k]) && !order.some((k) => r[k].clipText) && order.map((k) => r[k]).sort((a, b) => a.l - b.l).every((b, i, a) => i === 0 || b.l >= a[i - 1].r - 1))
+      const ok = res.every((r) => order.every((k) => r[k]) && !order.some((k) => r[k].clipText) && pairOverlaps(r) === 0)
       flows.push([name, { ok, detail: lines.join(' / ') }])
     })
     await guardedFlow(['SS2 검증 식단 탭 상태: 끼니 등급 색·눌린 품목·맨 글자 버튼·누르는 영역·맨 아래'], async () => {

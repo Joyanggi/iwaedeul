@@ -307,7 +307,7 @@ export default function DietDayEditor({
                       */}
                           {hasVariants(item) && (
                             <Button
-                              variant="ghost"
+                              variant="secondary"
                               size="sm"
                               label="바꾸기"
                               icon={<Icon icon="chevronDown" />}
@@ -354,8 +354,9 @@ export default function DietDayEditor({
                 isOpen={openLogId === entry.id}
                 onOpenChange={(open) => setOpenLogId(open ? entry.id : null)}
               >
-                <HStack gap={2} align="center">
+                <HStack gap={2} align="center" wrap="wrap">
                   <TimeField
+                    width={112}
                     label="먹은 시각"
                     isLabelHidden
                     value={entry.time}
@@ -369,6 +370,7 @@ export default function DietDayEditor({
                     min={0.5}
                     decimals={2}
                     ariaLabel="먹은 개수"
+                    fieldWidth={64}
                     onChange={(count) => mutate((d) => applyUpdateLog(d, entry.id, { count }))}
                   />
                   <Button
