@@ -1276,6 +1276,8 @@ async function runScenes(browser, port, scheme) {
       const REVERT = '감각 저하 — 이전 무게로 복귀'
       await scene('revert', 'summary-revert', async () => {
         const cards = await has(REVERT)
+        await page.getByText(REVERT, { exact: true }).first().scrollIntoViewIfNeeded()
+        await snap('summary-revert-card') // 복귀 카드가 처음·맨 아래 스크린샷 어디에도 안 찍혀서 (RR9 재검증)
         const auto = await page.getByText(/^다음 세션 프리필이 자동으로 .+kg로 내려갑니다\.$/).count()
         const ord = await orderFlow('summary-revert')
         const needed = [NEXT, REVERT, '감각이 약했던 종목']
