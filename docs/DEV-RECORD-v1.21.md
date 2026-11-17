@@ -378,3 +378,72 @@
 
 - `npm run check` 통과(흔적·Astryx 뒷걸음·린트·knip·테스트·빌드·첫 화면 크기). `Test Files  81 passed (81)`, `Tests  1839 passed (1839)`. 빌드 성공.
 - `git rev-list --count main..HEAD`: 커밋 전 5 → 이 작업 커밋 후 6.
+
+---
+
+## SS3. 식단 시트 넷 + `SheetFrame` 삭제
+
+### 범위
+
+| 항목 | 내용 |
+|---|---|
+| 커밋 | 이 커밋(`feat(SS3): …`) — 해시는 `git log`. |
+| 바뀐 파일 | `src/components/DietPlanSheet.tsx`·`DietSlotSheet.tsx`·`DietVariantSheet.tsx`·`FoodLogSheet.tsx`(Astryx `Sheet`로), `src/components/SheetFrame.tsx`(삭제), `src/ax/diet.tsx`(`RadioList`·`RadioListItem`·`ScrollableArea`), `src/ax/parts.css`(한글 줄바꿈 시트 목록 +넷)·`ax.css`·`src/styles/global.css`·`motion.css`(legacy 시트 규칙·뿌리 `.sheet-backdrop` 삭제), `scripts/ui-check.mjs`·`lib/ui-check-lib.mjs`·`lib/ui-space.mjs`(`.sheet` 선택자·움직임 검사 정리, SS3 흐름·장면 선택자), 테스트, `docs/ASTRYX-INVENTORY.md`·`eslint-suppressions.json`(줄어든 만큼 다시 씀·`--prune-suppressions`), 스크린샷(`sheet-diet-*`·`sheet-food*`·`layout.json`만) |
+| 테스트 | `Test Files 82 passed (82)` · `Tests 1850 passed (1850)` (SS2 뒤 81/1839 → 새 파일 1 `scripts/ss3.test.mjs`, 새 테스트 `v121` SS3 7 + `ss3.test.mjs` 6 = 13, v119 QQ3 SheetFrame 테스트 둘 삭제) |
+| Astryx 인벤토리 | 인라인 18→13 파일·legacy 클래스 쓰임 235→194(PLAN 예상과 같음) |
+| 첫 화면 | gzip 353.63KB(한계 360KB) — 새 부품을 `src/ax/diet.tsx`에 둬 메인 청크가 안 큼 |
+| 수정표 밖 | `legacy-scope.test.mjs` RR1(`.sheet-backdrop` 뿌리 → 없다)·RRM(`.sheet` 규칙 → 없다) · `rr10.test.mjs`(`.sheet`·`is-closing` 눌림 규칙 → 지움) · `ss2.test.mjs`(시트가 쓰느라 남긴 `.diet-item` 등 → 지웠다) · `inputProps.test.ts`(맨 입력 바닥 10 → 0 초과: 4개만 남음) · `uiConsistency.test.ts`(AA3 `대체 지우기` 창이 글자 뒤쪽으로: Astryx는 label이 앞) · `v119.test.ts` QQ3(legacy 시트 4 → 0, SheetFrame 두 테스트 삭제) · `v120.test.ts`(RRM 보완의 aria-label 스캔을 `ListItem` 기준으로, RR8 legacy 목록 → 빔, RR7 `LEGACY` 문자열). `ui-check-lib.mjs`의 `inPageMotionDurations`와 정적 검사 3(`.sheet` 키프레임)은 legacy 시트가 없어져 지웠다 |
+
+### PLAN과 다르게 한 것 (이유)
+
+1. `RadioList`·`ScrollableArea`는 `src/ax/diet.tsx`에 있다(PLAN 표: `index.tsx`) — SS2 기록 1번과 같은 이유(첫 화면 크기).
+2. 안 쓰게 된 `.diet-sheet-state`·`.diet-plan-diff`·`.diet-item-group`도 지웠다(PLAN은 `.diet-item*`·`.diet-variant-btn`만 적음 — 쓰는 곳이 없어졌다). `ss2.test.mjs`의 "남는다" 테스트를 "지웠다"로 뒤집음.
+3. 정적 검사 `.screen·.ax-screen·.card·.sheet의 좌우 여백` → `.sheet` 뺀 셋(`ui-space.mjs`), `inPageLayout`의 `.sheet` 선택자 제거 — PLAN은 `SHEET_SELECTOR`만 적었으나 같은 `.sheet`를 읽는 곳이라 같이 정리.
+4. SS2 검증자 흐름(`SS2 검증 식단 탭 상태`)이 끼니 시트의 품질 선택을 `button[aria-pressed]`로 찾았다 → 라디오(`getByRole('radio')`)로 바꿈.
+5. 흐름 ③⑥⑦은 끝에 데이터를 원래대로 돌린다(대체 → 기록 지우기, 먹은 것·새 음식 삭제, 플랜·변형 복귀). 처음엔 `대체 지우기`만 해 슬롯 기록이 남아 `SS2 끼니 전부 먹음 1탭`이 깨졌다.
+
+### PLAN 검증 항목 ↔ 확인
+
+| PLAN 검증 | 확인 |
+|---|---|
+| 네 파일 `Sheet`·0건 목록·`SheetFrame` 없음·`*Sheet.tsx` 전부 `../ax` | `v121 SS3: 네 파일이 ../ax의 Sheet를 쓰고 …` · `v121 SS3: SheetFrame.tsx가 없고 …` |
+| `dismiss()`·`purpose` | `v121 SS3: 고른 뒤 닫힘은 …` · `v121 SS3: 끼니·먹은 것 추가는 purpose="form" …` |
+| `RadioList value={quality}`·`mode` null·`onClearSubstitution` | `v121 SS3: 끼니 시트의 RadioList는 …` + `uiConsistency` AA3(안 고치고 통과) |
+| `ScrollableArea`·새 부품 위치, 문구 | `v121 SS3: 먹은 것 추가는 …` · `v121 SS3: 문구가 그대로다 …` |
+| `ss3.test.mjs`(fs) | 6건: SheetFrame 파일·global.css·motion.css·뿌리 목록 두 파일 같음·한글 목록 네 시트·`SHEET_SELECTOR` |
+| 안 고치고 통과: `v19` DD1·`v115` MM2·AA3 | 통과 |
+| `ui-check after --check`: 시트 장면 일곱 | 종료 코드 0, 일곱 장면 전 칸 통과(안쪽 대칭·시트 버튼·가로 넘침·접근성 serious·critical 0) |
+| 흐름 ①~⑧ | 아래 |
+
+### ui-check (전체 `after --check --ver=v1.21`, 종료 코드 0, 알려진 실패 3건(SS5·SS6 몫), 흐름 통과 149)
+
+| 흐름 | 결과 |
+|---|---|
+| `SS3 플랜 고르기` | 줄 2개, 감량 1,800 → 보정 1,500, 사라짐 397ms(300ms 안팎+측정 지연), 되돌린 뒤 원래 |
+| `SS3 내일부터 2일` | 일수 버튼 3개, 402ms |
+| `SS3 끼니 대체 저장` | 글 없을 때 저장 꺼짐, 라디오 3개, 401ms, 카드 메모 1 → 지운 뒤 0 |
+| `SS3 입력 중 막 누름` | 막 누른 뒤·끌어내린 뒤 시트 1개, 친 글 그대로, Esc로 닫힘 |
+| `SS3 단백질원 바꾸기` | 줄 3개, 닭가슴살 2팩 → 닭안심 180g, 392ms, 되돌림 |
+| `SS3 먹은 것 추가 1탭` | "방금 추가" 1개, 시트 열림, 1 → 2줄 → 1줄, 음식 줄 aria-label 없음 |
+| `SS3 새 음식 등록하고 추가` | `inputmode=decimal`, 목록에 새 음식, 삭제 뒤 0개, 먹은 것 1 → 2 → 1 |
+| `SS3 <장면> 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안` | 일곱 장면 모두 꺾임 0건(글자 33~389개 — 0개면 실패) |
+
+(`ui-check`는 `--ver=v1.21`을 줘야 한다 — 안 주면 package.json 버전 v1.20 폴더에 찍힌다. 처음에 그렇게 찍혀 `git show HEAD:`로 되돌리고 새 파일은 지웠다.)
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 것 | 원상복구 |
+|---|---|---|
+| ⑧ 플랜 줄 `dismiss()` → `onClose()` | `v121 SS3: 고른 뒤 닫힘은 …` + 흐름 `SS3 플랜 고르기`(사라짐·움직임 검사 실패) | `cmp` 같음 |
+| ⑨ 끼니 시트 `purpose="info"` | `v121 SS3: 끼니·먹은 것 추가는 purpose …` + 흐름 `SS3 입력 중 막 누름`(시트 0개·글 사라짐) | `cmp` 같음 |
+| ⑩ `SheetFrame.tsx` 되살림 | `v121 SS3: SheetFrame.tsx 파일이 없다` 외 1건 | 파일 삭제 후 `git status`로 확인 |
+
+### 과거 판정 불변·하지 않은 것
+
+- `src/lib`는 테스트뿐, 판정 로직 변경 없음. 변이·속성 테스트 대상 없음. README 반영: PLAN이 "없음"이라 안 고침.
+- `docs/screenshots/v1.21/after`는 `sheet-diet-*`·`sheet-food*`·`layout.json`만 갱신, 무관한 장면 변경은 `git show HEAD:<경로>`로 되돌림.
+- 사람 확인 필요: 실기기에서 시트 열고 내려가는 움직임, 음식 목록 스크롤 칸 끝, 시각 칸(iOS 휠).
+
+### 실행 결과 요약
+
+- `npm run check` 통과. `Test Files  82 passed (82)`, `Tests  1850 passed (1850)`. 빌드 성공. `git rev-list --count main..HEAD`: 커밋 전 12 → 이 커밋 후 13.

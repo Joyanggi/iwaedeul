@@ -179,7 +179,8 @@ describe('AA3 — 식단 시트는 항상 메뉴로 연다', () => {
       expect(src, `"${label}"`).toContain(label)
     }
     // 대체 지우기가 슬롯 전체 삭제로 이어지면 안 된다 (그게 고치기 전 상태였다)
-    const around = src.slice(src.indexOf('대체 지우기') - 200, src.indexOf('대체 지우기'))
+    // Astryx 부품은 label이 앞이고 onClick이 뒤라 글자 뒤쪽을 본다 (SS3)
+    const around = src.slice(src.indexOf('대체 지우기'), src.indexOf('대체 지우기') + 200)
     expect(around).toMatch(/onClearSubstitution/)
     expect(around).not.toMatch(/onClear\b/)
   })

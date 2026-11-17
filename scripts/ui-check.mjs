@@ -46,7 +46,6 @@ import {
   compareRects,
   inPageIslandButtons,
   inPageLastVisible,
-  inPageMotionDurations,
   inPageRects,
   inPageRowButtons,
   inPageSetNumber,
@@ -257,12 +256,10 @@ async function runChecks(page, scene) {
   if (!matches) cells['움직임 줄이기'] = { status: '건너뜀', detail: 'reducedMotion 흉내가 안 먹는다' }
   else if (!sheetUp) cells['움직임 줄이기'] = { status: '건너뜀', detail: '시트 장면에서만 잰다' }
   else {
-    const dur = await page.evaluate(inPageMotionDurations)
     const press = await measurePress(page)
     const bad = []
-    if (!dur.skip && !dur.ok) bad.push(dur.detail)
     if (press.transformed.length) bad.push(`크기 변화 ${press.transformed.length}개: ${press.transformed.slice(0, 3).join(', ')}`)
-    cells['움직임 줄이기'] = { status: bad.length ? '실패' : '통과', detail: bad.join(' / ') || dur.detail + ' · 크기 변화 0개' }
+    cells['움직임 줄이기'] = { status: bad.length ? '실패' : '통과', detail: bad.join(' / ') || '크기 변화 0개' }
   }
   await page.emulateMedia({ reducedMotion: null })
   // 여백 격자·가로 넘침
@@ -808,10 +805,10 @@ async function runScenes(browser, port, scheme) {
     if (light) return
     const name = `RR8 ${label} 390·375 글자 중간 꺾임 없음`
     await guardedFlow([name], async () => {
-      const r390 = await page.evaluate(inPageMidWordBreaks, 'dialog[open], .sheet')
+      const r390 = await page.evaluate(inPageMidWordBreaks, 'dialog[open]')
       await page.setViewportSize({ width: 375, height: 812 })
       await settle(page, 400)
-      const r375 = await page.evaluate(inPageMidWordBreaks, 'dialog[open], .sheet')
+      const r375 = await page.evaluate(inPageMidWordBreaks, 'dialog[open]')
       await page.setViewportSize({ width: 390, height: 844 })
       await settle(page, 400)
       const bad = [...r390.samples, ...r375.samples]
@@ -889,7 +886,7 @@ async function runScenes(browser, port, scheme) {
       // RR5 재검증: 375 폭에서 한글이 글자 중간에서 꺾이지 않는다 (공백 없는 두 글자 사이에서 줄이 바뀌면 실패)
       if (!light) {
         await guardedFlow(['Day 선택 시트 375 글자 중간 꺾임 없음'], async () => {
-          const r = await page.evaluate(inPageMidWordBreaks, 'dialog[open], .sheet')
+          const r = await page.evaluate(inPageMidWordBreaks, 'dialog[open]')
           flows.push(['Day 선택 시트 375 글자 중간 꺾임 없음', { ok: r.count === 0 && r.chars > 0, detail: r.chars === 0 ? '잰 글자 0개' : `글자 ${r.chars}개 · 중간 꺾임 ${r.count}건${r.count ? ': ' + r.samples.join(' | ') : ''}` }])
         })
       }
@@ -1929,11 +1926,13 @@ async function runScenes(browser, port, scheme) {
       await dlg.waitFor({ timeout: 3000 })
       await settle(page)
       await snap('sheet-diet-plan')
-      await wrapProbe('sheet-diet-plan', 'dialog[open], .sheet')
+      await wrapProbe('sheet-diet-plan', 'dialog[open]')
+      if (!light) await screenWrapFlow('SS3 sheet-diet-plan 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', 'dialog[open]')
       await dlg.getByRole('button', { name: /^내일부터 / }).first().click()
       await dlg.getByText('내일부터 며칠').waitFor({ timeout: 3000 })
       await settle(page, 300)
       await snap('sheet-diet-plan-ahead')
+      if (!light) await screenWrapFlow('SS3 sheet-diet-plan-ahead 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', 'dialog[open]')
       await closeSheet('식단 플랜 전환')
     })
     // 끼니 시트(메뉴)와 "대체했어요"를 누른 입력 상태
@@ -1943,11 +1942,13 @@ async function runScenes(browser, port, scheme) {
       await dlg.waitFor({ timeout: 3000 })
       await settle(page)
       await snap('sheet-diet-slot')
-      await wrapProbe('sheet-diet-slot', 'dialog[open], .sheet')
+      await wrapProbe('sheet-diet-slot', 'dialog[open]')
+      if (!light) await screenWrapFlow('SS3 sheet-diet-slot 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', 'dialog[open]')
       await dlg.getByRole('button', { name: '대체했어요', exact: true }).click()
       await dlg.getByText('어느 쪽이었나요').waitFor({ timeout: 3000 })
       await settle(page, 300)
       await snap('sheet-diet-slot-edit')
+      if (!light) await screenWrapFlow('SS3 sheet-diet-slot-edit 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', 'dialog[open]')
       await closeSheet(/기록$/)
     })
     // 단백질원 시트
@@ -1956,7 +1957,8 @@ async function runScenes(browser, port, scheme) {
       await page.getByRole('dialog', { name: /단백질원 고르기$/ }).waitFor({ timeout: 3000 })
       await settle(page)
       await snap('sheet-diet-variant')
-      await wrapProbe('sheet-diet-variant', 'dialog[open], .sheet')
+      await wrapProbe('sheet-diet-variant', 'dialog[open]')
+      if (!light) await screenWrapFlow('SS3 sheet-diet-variant 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', 'dialog[open]')
       await closeSheet(/단백질원 고르기$/)
     })
     await requiredScene(['sheet-food', 'sheet-food-new'], async () => {
@@ -1964,17 +1966,242 @@ async function runScenes(browser, port, scheme) {
       await page.getByRole('dialog', { name: '먹은 것 추가' }).waitFor({ timeout: 3000 })
       await settle(page)
       await snap('sheet-food')
-      // 새 음식 등록 폼 — 이름·분량·kcal·단백질 칸이 펼쳐진 상태
+
+      if (!light) await screenWrapFlow('SS3 sheet-food 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', 'dialog[open]')      // 새 음식 등록 폼 — 이름·분량·kcal·단백질 칸이 펼쳐진 상태
       await page.getByRole('dialog', { name: '먹은 것 추가' }).getByRole('button', { name: '새 음식 등록', exact: true }).click()
       await page.getByRole('dialog', { name: '먹은 것 추가' }).getByRole('textbox', { name: '음식 이름' }).waitFor({ timeout: 3000 })
       await settle(page, 300)
       await snap('sheet-food-new')
+      if (!light) await screenWrapFlow('SS3 sheet-food-new 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', 'dialog[open]')
       await page.getByRole('dialog', { name: '먹은 것 추가' }).getByRole('button', { name: '취소', exact: true }).click()
       await settle(page, 300)
       // 시트에서 먹은 것을 하나 더해 두고 닫는다 — 아래 diet-log-open이 쓴다
       await page.getByRole('dialog', { name: '먹은 것 추가' }).getByRole('button', { name: /(kcal|g|영양 미입력)$/ }).first().click()
       await settle(page, 400)
       await closeSheet('먹은 것 추가')
+    })
+    // ─── SS3 흐름 — 식단 시트 넷. 흐름은 guardedFlow 안이라 예외가 나도 건너뜀이 아니라 흐름 실패가 된다. 끝나면 데이터를 원래대로 돌린다(뒤 장면이 같은 데이터를 쓴다)
+    // 시트가 DOM에서 빠질 때까지 브라우저 안에서 잰다(첫 눌림 직전에 시작 — v1.20 RR5의 재는 방법)
+    const goneTimer = (label) =>
+      page.evaluate(
+        (l) =>
+          new Promise((resolve) => {
+            const t0 = performance.now()
+            const tick = () => (document.querySelector(`[aria-label="${l}"]`) ? requestAnimationFrame(tick) : resolve(Math.round(performance.now() - t0)))
+            requestAnimationFrame(tick)
+          }),
+        label,
+      )
+    // Astryx 목록 줄(li > button)의 이름은 제목 + 설명이라 첫 줄이 줄 이름이다. 설명에 다른 줄 이름이 들어 있을 수 있어(예: "감량 1,800 대비") hasText가 아니라 첫 줄로 가른다
+    const rowsOf = (dlg) => dlg.locator('li button')
+    const firstLine = async (loc) => ((await loc.innerText()).split(String.fromCharCode(10))[0] ?? '').trim()
+    const rowWhere = async (dlg, pred) => {
+      for (const row of await rowsOf(dlg).all()) if (pred(await firstLine(row))) return row
+      return null
+    }
+    const dietEntryCount = () => page.locator('.ax-diet button[aria-expanded]').filter({ hasNotText: '식사 알림' }).count()
+    const slotSheetOpen = async () => {
+      await toTop()
+      await page.getByRole('button', { name: /^대체·안 먹음 — 아침$/ }).click({ timeout: 3000 })
+      const dlg = page.getByRole('dialog', { name: /기록$/ })
+      await dlg.waitFor({ timeout: 3000 })
+      await settle(page, 450)
+      return dlg
+    }
+    const planBtn = () => page.locator('.ax-diet button').first()
+    const planSheetOpen = async () => {
+      await toTop()
+      await planBtn().click({ timeout: 3000 })
+      const dlg = page.getByRole('dialog', { name: '식단 플랜 전환' })
+      await dlg.waitFor({ timeout: 3000 })
+      await settle(page, 450)
+      return dlg
+    }
+    const SS3_PLAN = 'SS3 플랜 고르기: 다른 플랜 줄 1탭 → 시트가 내려가며 닫힌다(300ms 안팎) → 요약 카드의 플랜 이름이 바뀐다(원래대로 돌림)'
+    await guardedFlow([SS3_PLAN], async () => {
+      const before = (await planBtn().innerText()).trim()
+      let dlg = await planSheetOpen()
+      const nRows = await rowsOf(dlg).count()
+      const pick = await rowWhere(dlg, (t) => t !== before)
+      if (!pick) throw new Error('고를 다른 줄이 없다')
+      const picked = await firstLine(pick)
+      const goneIn = goneTimer('식단 플랜 전환')
+      await pick.click()
+      const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
+      const ms = await goneIn
+      await settle(page, 400)
+      const after = (await planBtn().innerText()).trim()
+      // 원래 플랜으로 돌린다
+      dlg = await planSheetOpen()
+      await (await rowWhere(dlg, (t) => t === before))?.click()
+      await dlg.waitFor({ state: 'detached', timeout: 1500 }).catch(() => undefined)
+      await settle(page, 400)
+      const restored = (await planBtn().innerText()).trim()
+      flows.push([SS3_PLAN, { ok: nRows >= 2 && gone && ms >= 150 && ms <= 600 && after === picked && after !== before && restored === before, detail: `플랜 줄 ${nRows}개 · ${before} → ${after}(고른 줄 ${picked}) · 사라짐 ${gone}(${ms}ms) · 되돌린 뒤 ${restored}` }])
+    })
+    const SS3_AHEAD = 'SS3 내일부터 2일: 내일부터 → 1~3일 → 2일 1탭에 시트가 내려가며 닫힌다'
+    await guardedFlow([SS3_AHEAD], async () => {
+      const dlg = await planSheetOpen()
+      await dlg.getByRole('button', { name: /^내일부터 / }).first().click()
+      await dlg.getByText('내일부터 며칠').waitFor({ timeout: 3000 })
+      const days = await dlg.getByRole('button', { name: /^[1-3]일$/ }).count()
+      const goneIn = goneTimer('식단 플랜 전환')
+      await dlg.getByRole('button', { name: '2일', exact: true }).click()
+      const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
+      const ms = await goneIn
+      await settle(page, 400)
+      flows.push([SS3_AHEAD, { ok: days === 3 && gone && ms >= 150 && ms <= 600, detail: `일수 버튼 ${days}개 · 사라짐 ${gone}(${ms}ms)` }])
+    })
+    const SS3_SAVE = 'SS3 끼니 대체 저장: 대체했어요 → 글 입력 → 치팅 고름 → 저장 → 카드에 대체 메모 → 대체 지우기로 돌림'
+    await guardedFlow([SS3_SAVE], async () => {
+      const text = '회사 앞 샌드위치'
+      let dlg = await slotSheetOpen()
+      await dlg.getByRole('button', { name: '대체했어요', exact: true }).click()
+      const field = dlg.getByRole('textbox', { name: '무엇으로 대체했나요' })
+      await field.waitFor({ timeout: 3000 })
+      const saveDisabled = await dlg.getByRole('button', { name: '저장', exact: true }).isDisabled()
+      await field.fill(text)
+      await dlg.getByRole('radio', { name: /치팅/ }).check()
+      const radios = await dlg.getByRole('radio').count()
+      const goneIn = goneTimer(await dlg.getAttribute('aria-label'))
+      await dlg.getByRole('button', { name: '저장', exact: true }).click()
+      const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
+      const ms = await goneIn
+      await settle(page, 400)
+      const note = await page.locator('.ax-diet').getByText(`대체: “${text}” · 치팅`).count()
+      // 지운다: 시트를 다시 열면 메뉴가 먼저 나오고(AA3) 대체 지우기가 있다
+      dlg = await slotSheetOpen()
+      const hasClear = await dlg.getByRole('button', { name: '대체 지우기', exact: true }).count()
+      await dlg.getByRole('button', { name: '대체 지우기', exact: true }).click()
+      await dlg.waitFor({ state: 'detached', timeout: 1500 }).catch(() => undefined)
+      await settle(page, 400)
+      const noteAfter = await page.locator('.ax-diet').getByText(`대체: “${text}”`).count()
+      // 대체 지우기는 슬롯 기록을 비워 두기만 한다(슬롯 기록이 남아 "기록 n/5슬롯"이 늘어난다) — 뒤 흐름이 같은 데이터를 쓰므로 기록 지우기로 슬롯째 돌린다
+      dlg = await slotSheetOpen()
+      const clearAll = await dlg.getByRole('button', { name: '기록 지우기', exact: true }).count()
+      if (clearAll > 0) await dlg.getByRole('button', { name: '기록 지우기', exact: true }).click()
+      else await dlg.getByRole('button', { name: '닫기', exact: true }).click()
+      await dlg.waitFor({ state: 'detached', timeout: 1500 }).catch(() => undefined)
+      await settle(page, 400)
+      flows.push([SS3_SAVE, { ok: saveDisabled && radios === 3 && gone && ms >= 150 && ms <= 600 && note === 1 && hasClear === 1 && noteAfter === 0, detail: `글 없을 때 저장 꺼짐 ${saveDisabled} · 라디오 ${radios}개 · 사라짐 ${gone}(${ms}ms) · 카드 메모 ${note}개 → 지운 뒤 ${noteAfter}개` }])
+    })
+    const SS3_BACKDROP = 'SS3 입력 중 막 누름: 끼니 입력 상태에서 막을 누르고 끌어내려도 시트가 남고 친 글이 그대로(form)'
+    await guardedFlow([SS3_BACKDROP], async () => {
+      const text = '입력 중인 글'
+      const dlg = await slotSheetOpen()
+      await dlg.getByRole('button', { name: '추가로 먹었어요', exact: true }).click()
+      const field = dlg.getByRole('textbox', { name: '무엇을 더 먹었나요' })
+      await field.waitFor({ timeout: 3000 })
+      await field.fill(text)
+      const box = await dlg.boundingBox()
+      // 막: 시트 위쪽 빈 곳
+      await page.mouse.click(195, Math.max(5, Math.round((box?.y ?? 400) / 2)))
+      await settle(page, 600)
+      const afterBackdrop = await dlg.count()
+      // 끌어내림: 시트 윗부분에서 아래로 300px
+      if (box) {
+        await page.mouse.move(box.x + box.width / 2, box.y + 8)
+        await page.mouse.down()
+        await page.mouse.move(box.x + box.width / 2, box.y + 320, { steps: 10 })
+        await page.mouse.up()
+        await settle(page, 700)
+      }
+      const afterDrag = await dlg.count()
+      const kept = afterDrag === 1 ? await field.inputValue() : ''
+      // Esc로는 닫힌다(닫는 길이 막힌 것이 아니다)
+      await page.keyboard.press('Escape')
+      const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
+      await settle(page, 400)
+      flows.push([SS3_BACKDROP, { ok: afterBackdrop === 1 && afterDrag === 1 && kept === text && gone, detail: `막 누른 뒤 시트 ${afterBackdrop}개 · 끌어내린 뒤 ${afterDrag}개 · 친 글 "${kept}" · Esc로 닫힘 ${gone}` }])
+    })
+    const SS3_VARIANT = 'SS3 단백질원 바꾸기: 다른 줄 1탭 → 시트가 내려가며 닫히고 품목이 바뀐다(원래대로 돌림)'
+    await guardedFlow([SS3_VARIANT], async () => {
+      await toTop()
+      const open = async () => {
+        await page.getByRole('button', { name: /^바꾸기 — .*다른 단백질원으로$/ }).first().click({ timeout: 3000 })
+        const d = page.getByRole('dialog', { name: /단백질원 고르기$/ })
+        await d.waitFor({ timeout: 3000 })
+        await settle(page, 450)
+        return d
+      }
+      const chip = () => page.getByRole('button', { name: /^바꾸기 — .*다른 단백질원으로$/ }).first().locator('xpath=preceding::button[1]')
+      const chipText = async () => ((await chip().getAttribute('aria-label')) ?? (await chip().innerText())).trim()
+      const before = await chipText()
+      let dlg = await open()
+      const nRows = await rowsOf(dlg).count()
+      const pick = await rowWhere(dlg, (t) => !before.includes(t))
+      if (!pick) throw new Error('고를 다른 줄이 없다')
+      const picked = await firstLine(pick)
+      const goneIn = goneTimer(await dlg.getAttribute('aria-label'))
+      await pick.click()
+      const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
+      const ms = await goneIn
+      await settle(page, 400)
+      const after = await chipText()
+      dlg = await open()
+      await (await rowWhere(dlg, (t) => before.includes(t)))?.click()
+      await dlg.waitFor({ state: 'detached', timeout: 1500 }).catch(() => undefined)
+      await settle(page, 400)
+      const restored = await chipText()
+      flows.push([SS3_VARIANT, { ok: nRows >= 2 && gone && ms >= 150 && ms <= 600 && after.includes(picked) && after !== before && restored === before, detail: `변형 줄 ${nRows}개 · ${before} → ${after}(고른 줄 ${picked}) · 사라짐 ${gone}(${ms}ms) · 되돌린 뒤 ${restored}` }])
+    })
+    const SS3_FOOD = 'SS3 먹은 것 추가 1탭: 음식 줄 1탭 → "방금 추가: 이름", 시트는 열린 채, 닫으면 먹은 것 카드에 한 줄(지움)'
+    await guardedFlow([SS3_FOOD], async () => {
+      await toTop()
+      const n0 = await dietEntryCount()
+      await btn(page, '＋ 먹은 것 추가').click({ timeout: 3000 })
+      const dlg = page.getByRole('dialog', { name: '먹은 것 추가' })
+      await dlg.waitFor({ timeout: 3000 })
+      await settle(page, 450)
+      const row = rowsOf(dlg).filter({ hasText: /(kcal|영양 미입력)/ }).first()
+      const rowText = await firstLine(row)
+      const rowAria = await row.getAttribute('aria-label')
+      await row.click()
+      await settle(page, 400)
+      const note = await dlg.getByText('방금 추가: ').count()
+      const stillOpen = await dlg.count()
+      await closeSheet('먹은 것 추가')
+      await settle(page, 450)
+      const n1 = await dietEntryCount()
+      // 지운다: 방금 줄(마지막)을 펼쳐 삭제
+      await page.locator('.ax-diet button[aria-expanded]').filter({ hasNotText: '식사 알림' }).last().click()
+      await btn(page, '삭제').first().click()
+      await settle(page, 400)
+      const n2 = await dietEntryCount()
+      flows.push([SS3_FOOD, { ok: note === 1 && stillOpen === 1 && n1 === n0 + 1 && n2 === n0 && rowAria === null, detail: `"${rowText}" 1탭 → 방금 추가 ${note}개 · 시트 열림 ${stillOpen} · 먹은 것 ${n0} → ${n1}줄 → 지운 뒤 ${n2}줄 · 음식 줄 aria-label ${rowAria}` }])
+    })
+    const SS3_NEW = 'SS3 새 음식 등록하고 추가: 이름·분량·칼로리·단백질 → 등록하고 추가 → 목록에 새 음식·먹은 것 카드에 한 줄(편집 → 목록에서 삭제로 돌림)'
+    await guardedFlow([SS3_NEW], async () => {
+      await toTop()
+      const n0 = await dietEntryCount()
+      await btn(page, '＋ 먹은 것 추가').click({ timeout: 3000 })
+      const dlg = page.getByRole('dialog', { name: '먹은 것 추가' })
+      await dlg.waitFor({ timeout: 3000 })
+      await settle(page, 450)
+      await dlg.getByRole('button', { name: '새 음식 등록', exact: true }).click()
+      await dlg.getByRole('textbox', { name: '음식 이름' }).fill('검사용 닭가슴살')
+      await dlg.getByRole('textbox', { name: '분량' }).fill('100g')
+      await dlg.getByRole('textbox', { name: '칼로리' }).fill('165')
+      await dlg.getByRole('textbox', { name: '단백질' }).fill('31')
+      const decimal = await dlg.getByRole('textbox', { name: '칼로리' }).getAttribute('inputmode')
+      await dlg.getByRole('button', { name: '등록하고 추가', exact: true }).click()
+      await settle(page, 500)
+      const listed = await dlg.getByRole('button', { name: /^검사용 닭가슴살/ }).count()
+      const note = await dlg.getByText('방금 추가: 검사용 닭가슴살').count()
+      // 지운다: 편집 → 목록에서 삭제 → 정말 삭제
+      await dlg.getByRole('button', { name: '편집 — 검사용 닭가슴살', exact: true }).click()
+      await dlg.getByRole('button', { name: '목록에서 삭제', exact: true }).click()
+      await dlg.getByRole('button', { name: '정말 삭제', exact: true }).click()
+      await settle(page, 400)
+      const listedAfter = await dlg.getByRole('button', { name: /^검사용 닭가슴살/ }).count()
+      await closeSheet('먹은 것 추가')
+      await settle(page, 450)
+      const n1 = await dietEntryCount()
+      await page.locator('.ax-diet button[aria-expanded]').filter({ hasNotText: '식사 알림' }).last().click()
+      await btn(page, '삭제').first().click()
+      await settle(page, 400)
+      const n2 = await dietEntryCount()
+      flows.push([SS3_NEW, { ok: decimal === 'decimal' && listed >= 1 && note === 1 && listedAfter === 0 && n1 === n0 + 1 && n2 === n0, detail: `inputmode ${decimal} · 목록의 새 음식 ${listed}개·방금 추가 ${note}개 → 삭제 뒤 ${listedAfter}개 · 먹은 것 ${n0} → ${n1}줄 → 지운 뒤 ${n2}줄` }])
     })
     // 먹은 기록 한 줄을 펼친 상태 — 시각 입력칸·"먹은 개수" 스테퍼·삭제 버튼이 한 줄에 보인다
     await requiredScene('diet-log-open', async () => {
@@ -2329,7 +2556,7 @@ async function runScenes(browser, port, scheme) {
         await settle(page, 300)
         await dlg2.getByRole('button', { name: '대체했어요', exact: true }).click()
         await dlg2.getByRole('textbox').fill('회식 삼겹살')
-        await dlg2.locator('button[aria-pressed]').nth(2).click() // 어느 쪽이었나요: 비슷한 구성·다른 음식·치팅
+        await dlg2.getByRole('radio').nth(2).check() // 어느 쪽이었나요(RadioList — SS3): 비슷한 구성·다른 음식·치팅
         await dlg2.getByRole('button', { name: '저장', exact: true }).click()
         await dlg2.waitFor({ state: 'detached', timeout: 3000 }).catch(() => {})
         await settle(page, 500)

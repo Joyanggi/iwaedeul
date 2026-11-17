@@ -1,6 +1,6 @@
 # Astryx 적용 현황
 
-> 2026-11-17, 커밋 8268f58. `node scripts/astryx-inventory.mjs --write`가 만든다. `--check`가 맨 아래 합계 줄을 기준으로 뒷걸음을 막는다.
+> 2026-11-17, 커밋 48fd07f. `node scripts/astryx-inventory.mjs --write`가 만든다. `--check`가 맨 아래 합계 줄을 기준으로 뒷걸음을 막는다.
 
 | 파일 | Astryx | 인라인 | 인라인 여백 | legacy 클래스 |
 |---|---|---|---|---|
@@ -13,14 +13,14 @@
 | src/components/DayPickerSheet.tsx | 예 | 0 | 0 | 0 |
 | src/components/DietDayEditor.tsx | 예 | 0 | 0 | 0 |
 | src/components/DietIoPanel.tsx | — | 2 | 0 | 10 |
-| src/components/DietPlanSheet.tsx | — | 1 | 0 | 10 |
-| src/components/DietSlotSheet.tsx | — | 0 | 0 | 11 |
-| src/components/DietVariantSheet.tsx | — | 3 | 0 | 7 |
+| src/components/DietPlanSheet.tsx | 예 | 0 | 0 | 0 |
+| src/components/DietSlotSheet.tsx | 예 | 0 | 0 | 0 |
+| src/components/DietVariantSheet.tsx | 예 | 0 | 0 | 0 |
 | src/components/ExerciseCard.tsx | 예 | 0 | 0 | 0 |
 | src/components/ExercisePickerSheet.tsx | 예 | 0 | 0 | 0 |
 | src/components/ExportPanel.tsx | — | 1 | 0 | 10 |
 | src/components/FinishSheet.tsx | 예 | 0 | 0 | 0 |
-| src/components/FoodLogSheet.tsx | — | 3 | 0 | 12 |
+| src/components/FoodLogSheet.tsx | 예 | 0 | 0 | 0 |
 | src/components/GistPanel.tsx | — | 2 | 0 | 16 |
 | src/components/ImportPanel.tsx | — | 2 | 0 | 14 |
 | src/components/ManualTimerSheet.tsx | 예 | 0 | 0 | 0 |
@@ -34,7 +34,6 @@
 | src/components/RoutineLineSheet.tsx | 예 | 0 | 0 | 0 |
 | src/components/RoutineListPanel.tsx | — | 2 | 0 | 8 |
 | src/components/SessionResumeStrip.tsx | 예 | 0 | 0 | 0 |
-| src/components/SheetFrame.tsx | — | 0 | 0 | 1 |
 | src/components/SubstituteSheet.tsx | 예 | 0 | 0 | 0 |
 | src/components/TabBar.tsx | 예 | 0 | 0 | 0 |
 | src/components/TempoGuideSheet.tsx | 예 | 0 | 0 | 0 |
@@ -55,4 +54,4 @@
 | src/screens/SettingsScreen.tsx | — | 7 | 0 | 20 |
 | src/screens/SummaryScreen.tsx | 예 | 0 | 0 | 0 |
 
-합계: `.tsx` 50개 가운데 Astryx를 읽는 것 30개, 화면이 아니라 뺀 것 2개, 인라인 스타일 45곳(여백 0), legacy 클래스 쓰임 235곳, 안 쓰는 legacy 선택자 0개.
+합계: `.tsx` 49개 가운데 Astryx를 읽는 것 34개, 화면이 아니라 뺀 것 2개, 인라인 스타일 38곳(여백 0), legacy 클래스 쓰임 194곳, 안 쓰는 legacy 선택자 0개.

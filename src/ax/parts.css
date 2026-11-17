@@ -185,7 +185,7 @@
   }
 
   /*
-   * 세션이 여는 시트 여덟의 글도 같은 규칙이다(RR8) — 시트 이름(aria-label)으로 좁힌다.
+   * 세션이 여는 시트 여덟과 식단 시트 넷(SS3 — 이름이 끼니마다 다른 둘은 끝 일치)의 글도 같은 규칙이다(RR8) — 시트 이름(aria-label)으로 좁힌다.
    * 제목(h1·h2)까지 건다: 긴 종목 이름이 든 제목이 "대/체"처럼 글자 중간에서 꺾이지 않게.
    */
   dialog:is(
@@ -196,7 +196,11 @@
       [aria-label='보상작용 입력'],
       [aria-label='보상작용 반복 — 무게 하향'],
       [aria-label='무게 단위 설정'],
-      [aria-label='템포 가이드']
+      [aria-label='템포 가이드'],
+      [aria-label='식단 플랜 전환'],
+      [aria-label='먹은 것 추가'],
+      [aria-label$=' 기록'],
+      [aria-label$=' 단백질원 고르기']
     )
     :is(p, span, div, h1, h2) {
     word-break: keep-all;

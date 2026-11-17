@@ -48,7 +48,8 @@ describe('자동완성 억제 전수 적용', () => {
     ).toEqual([])
 
     // 스캔 자체가 헛돌지 않는지 (입력이 하나도 안 잡히면 정규식이 깨진 것)
-    expect(counts.reduce((n, c) => n + c.fields, 0)).toBeGreaterThan(10)
+    // (화면을 Astryx로 옮기며 맨 입력이 줄어 SS3 뒤 4개 — 바닥을 0 초과로 낮췄다. 0이 되면 옮김이 끝난 것이니 이 검사의 쓰임을 다시 본다)
+    expect(counts.reduce((n, c) => n + c.fields, 0)).toBeGreaterThan(0)
   })
 
   it('name 속성을 쓰지 않는다 — iOS가 그 이름으로 필드 종류를 추측한다', () => {

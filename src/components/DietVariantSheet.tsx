@@ -1,6 +1,6 @@
 import { itemVariant, variantsOf } from '../lib/diet'
 import type { DietItem, DietSlot } from '../types'
-import { SheetFrame } from './SheetFrame'
+import { Button, Heading, Icon, List, ListItem, Sheet, Text, VStack } from '../ax'
 
 /**
  * 단백질원 고르기 (DD3) — 변형 선택 시트.
@@ -30,40 +30,28 @@ export default function DietVariantSheet({
   const base = itemVariant(item, 0)
 
   return (
-    <SheetFrame label={`${slot.name} 단백질원 고르기`} onClose={onClose}>
+    <Sheet label={`${slot.name} 단백질원 고르기`} purpose="info" onClose={onClose}>
       {(dismiss) => (
-        <>
-          <div className="card-label">
-            {slot.name} · 단백질원
-          </div>
-          <p className="row-sub" style={{ whiteSpace: 'normal' }}>
-            루틴 문서 15장 로테이션 — <b>등가 기준은 단백질</b>입니다. 어느 것을 골라도 준수
-            점수는 같습니다 (물림이 이행률을 깎기 때문에 셋 다 허용됩니다).
-          </p>
+        <VStack gap={5} paddingBlockEnd={3}>
+          <VStack gap={2}>
+            <Heading level={2}>{slot.name} · 단백질원</Heading>
+            <Text color="secondary">
+              루틴 문서 15장 로테이션 — <strong>등가 기준은 단백질</strong>입니다. 어느 것을 골라도 준수
+              점수는 같습니다 (물림이 이행률을 깎기 때문에 셋 다 허용됩니다).
+            </Text>
+          </VStack>
 
-          <div className="check-list mt-row">
+          <List>
             {variants.map((variant, index) => {
               const kcalDelta = variant.kcal - base.kcal
               const proteinDelta = variant.proteinG - base.proteinG
               return (
-                <button
+                <ListItem
                   key={index}
-                  className={`check-item${index === choice ? ' check-item-on' : ''}`}
-                  aria-pressed={index === choice}
-                  onClick={() => {
-                    onPick(index)
-                    onClose()
-                  }}
-                >
-                  <span className="check-box" aria-hidden="true">
-                    {index === choice ? '✓' : ''}
-                  </span>
-                  <span className="stack-tight" style={{ flex: 1 }}>
-                    <span className="row-title">
-                      {variant.name} {variant.qty}
-                    </span>
-                    {/* 차이는 기본 변형 대비로 파생시킨다 — 손으로 적으면 시드를 고칠 때 낡는다 */}
-                    <span className="row-sub">
+                  label={`${variant.name} ${variant.qty}`}
+                  /* 차이는 기본 변형 대비로 파생시킨다 — 손으로 적으면 시드를 고칠 때 낡는다 */
+                  description={
+                    <Text color="secondary" textWrap="wrap">
                       {variant.kcal}kcal · 단백질 {variant.proteinG}g
                       {index > 0 && (kcalDelta !== 0 || proteinDelta !== 0)
                         ? ` (기본 대비 ${kcalDelta >= 0 ? '+' : '−'}${Math.abs(kcalDelta)}kcal${
@@ -72,21 +60,25 @@ export default function DietVariantSheet({
                               : ''
                           })`
                         : ''}
-                    </span>
-                  </span>
-                </button>
+                    </Text>
+                  }
+                  isSelected={index === choice}
+                  endContent={index === choice ? <Icon icon="check" /> : null}
+                  onClick={() => {
+                    onPick(index)
+                    dismiss()
+                  }}
+                />
               )
             })}
-          </div>
+          </List>
 
-          <p className="row-sub mt-row" style={{ whiteSpace: 'normal' }}>
-            고른 것이 <b>다음 날의 기본</b>이 됩니다. 이미 적어 둔 날의 기록은 바뀌지 않습니다.
-          </p>
-          <button className="btn mt-row" onClick={dismiss}>
-            닫기
-          </button>
-        </>
+          <Text color="secondary">
+            고른 것이 <strong>다음 날의 기본</strong>이 됩니다. 이미 적어 둔 날의 기록은 바뀌지 않습니다.
+          </Text>
+          <Button variant="secondary" width="100%" label="닫기" onClick={dismiss} />
+        </VStack>
       )}
-    </SheetFrame>
+    </Sheet>
   )
 }

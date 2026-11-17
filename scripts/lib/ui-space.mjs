@@ -31,10 +31,10 @@ export function spaceStaticChecks(allCss) {
   add('global.css 여백 값이 전부 Astryx 단계(0·2·4·6·8·12·16·20·24·28·32·36·40·44·48)', bad.length === 0, bad.length ? bad.slice(0, 6).join(' · ') + (bad.length > 6 ? ` 외 ${bad.length - 6}` : '') : '단계 밖 0건')
   // 2. 틀의 좌우 여백이 var(--inset-
   const body = (css, sel) => (css === undefined ? null : (strip(css).match(new RegExp(`(?:^|\\n)\\s*${sel.replace('.', '\\.')}\\s*\\{([^{}]*)\\}`))?.[1] ?? null))
-  const miss = ['.screen', '.card', '.sheet'].filter((s) => !/var\(--inset-/.test(body(g, s) ?? ''))
+  const miss = ['.screen', '.card'].filter((s) => !/var\(--inset-/.test(body(g, s) ?? ''))
   const axBody = ax === undefined ? null : (strip(ax).match(/\.ax-screen\s*\{([^{}]*)\}/)?.[1] ?? null)
   if (!/var\(--inset-/.test(axBody ?? '')) miss.push('.ax-screen')
-  add('.screen·.ax-screen·.card·.sheet의 좌우 여백이 var(--inset-)', miss.length === 0, miss.length ? `안 씀: ${miss.join(', ')}` : '넷 다 씀')
+  add('.screen·.ax-screen·.card의 좌우 여백이 var(--inset-)', miss.length === 0, miss.length ? `안 씀: ${miss.join(', ')}` : '셋 다 씀')
   add('.ax-screen 좌우가 --inset-screen (두 체계가 같은 값)', /var\(--inset-screen\)/.test(axBody ?? ''), /var\(--inset-screen\)/.test(axBody ?? '') ? 'var(--inset-screen)' : '안 씀')
   // 3. space.css 토큰 값 순서
   if (sp === undefined) return [...out, { name: 'space.css 있음', ok: false, detail: '없음' }]
@@ -53,7 +53,7 @@ export const inPageLayout = () => {
   const vis = (el) => window.__vis(el)
   const half = (v) => Math.round(v * 2) / 2
   const res = { screenX: null, cardGaps: [], sectionGaps: [], cardInset: null, rowMax: null, sheetInset: null }
-  const sheet = [...document.querySelectorAll('.sheet, .astryx-bottom-sheet')].find(vis)
+  const sheet = [...document.querySelectorAll('.astryx-bottom-sheet')].find(vis)
   if (sheet) {
     const sr = sheet.getBoundingClientRect()
     const w = document.createTreeWalker(sheet, NodeFilter.SHOW_TEXT)

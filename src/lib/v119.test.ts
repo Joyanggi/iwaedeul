@@ -48,21 +48,17 @@ describe("QQ3 — 시트 틀 하나", () => {
       ([path, text]) => /Sheet\.tsx$/.test(path) && !/SheetFrame\.tsx$/.test(path) && !/from '\.\.\/ax/.test(text),
     )
 
-  // v1.20 RR5: 홈의 둘이 ../ax의 Sheet로 옮겨 14→12. RR8: 세션의 여덟이 옮겨 12→4(식단 시트 넷만 남는다)
-  it("legacy 시트 4개가 전부 SheetFrame을 import하고 sheet-backdrop 글자가 0건이다", () => {
-    const files = legacy()
-    expect(files.length).toBe(4)
-    const offenders = files
-      .filter(([, text]) => !/import \{ SheetFrame \} from '\.\/SheetFrame'/.test(text) || /sheet-backdrop/.test(stripComments(text)))
-      .map(([path]) => path)
-    expect(offenders).toEqual([])
+  // v1.20 RR5: 홈의 둘이 ../ax의 Sheet로 옮겨 14→12. RR8: 세션의 여덟이 옮겨 12→4. v1.21 SS3: 식단 시트 넷이 옮겨 4→0(SheetFrame 삭제)
+  it("legacy 시트가 0개이고 SheetFrame 파일이 없다", () => {
+    expect(legacy().map(([path]) => path)).toEqual([])
+    expect(Object.keys(COMPONENTS).some((p) => /SheetFrame/.test(p))).toBe(false)
   })
 
-  it("sheet-backdrop·className=\"sheet\"·sheet-grip이 나오는 .tsx는 SheetFrame.tsx 하나뿐이다", () => {
+  it("sheet-backdrop·className=\"sheet\"·sheet-grip이 나오는 .tsx가 없다 (SheetFrame 삭제)", () => {
     const hits = Object.entries(ALL_SRC)
       .filter(([path, text]) => /\.tsx$/.test(path) && /sheet-backdrop|className="sheet"|sheet-grip/.test(stripComments(text)))
       .map(([path]) => path)
-    expect(hits).toEqual(["/src/components/SheetFrame.tsx"])
+    expect(hits).toEqual([])
   })
 
   it("legacy 시트에 onClick={onClose}·onClick={() => onClose()}가 0건이다 (닫기 버튼은 dismiss를 부른다)", () => {
@@ -77,19 +73,6 @@ describe("QQ3 — 시트 틀 하나", () => {
       .filter(([path, text]) => !/v119\.test\.ts$/.test(path) && /useSheetDismiss/.test(text))
       .map(([path]) => path)
     expect(hits).toEqual([])
-  })
-
-  it("SheetFrame.tsx가 ../ax·Astryx 패키지를 import하지 않는다 (헬스장 경로)", () => {
-    const text = stripComments(COMPONENTS["/src/components/SheetFrame.tsx"])
-    // 글자를 쪼갠 것은 v117 OO2 스캔(src/ax 밖 import 금지)이 이 테스트 파일을 위반으로 세지 않게 하려는 것
-    expect(text).not.toMatch(new RegExp("from '\\.\\./ax|@astryx" + "design"))
-  })
-
-  it("SheetFrame이 닫힘을 once로 감싸고 움직임 줄이기면 기다리지 않는다 (두 번 누르기·animationend 안 옴 대비)", () => {
-    const text = stripComments(COMPONENTS["/src/components/SheetFrame.tsx"])
-    expect(text).toMatch(/once\(/)
-    expect(text).toMatch(/prefers-reduced-motion: reduce/)
-    expect(text).toMatch(/setTimeout\(finish/)
   })
 
   it("once는 두 번 불러도 한 번, 다른 인자로 불러도 한 번만 통과시킨다", () => {

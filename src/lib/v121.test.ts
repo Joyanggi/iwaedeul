@@ -8,6 +8,10 @@ import axDiet from '../ax/diet.tsx?raw'
 import dietScreen from '../screens/DietScreen.tsx?raw'
 import dietEditor from '../components/DietDayEditor.tsx?raw'
 import mealPanel from '../components/MealReminderPanel.tsx?raw'
+import planSheet from '../components/DietPlanSheet.tsx?raw'
+import slotSheet from '../components/DietSlotSheet.tsx?raw'
+import variantSheet from '../components/DietVariantSheet.tsx?raw'
+import foodSheet from '../components/FoodLogSheet.tsx?raw'
 
 describe('v121 SS1 — App은 홈만 정적으로 읽는다', () => {
   it('v121 SS1: 홈 밖 화면 여섯은 정적 import가 0건이고 홈은 정적이다', () => {
@@ -154,5 +158,72 @@ describe('v121 SS2 — 식단 세 파일은 Astryx 부품뿐이다', () => {
     expect(ax).not.toMatch(/TimeInput|CheckboxList|from '\.\/diet'/)
     expect(app).not.toContain('function Loading')
     expect(app).toContain('Loading,')
+  })
+})
+
+// PLAN v1.21 SS3 — 식단 시트 넷 + SheetFrame 삭제. 소스 스캔이다. 태그 끝을 `>`로 찾지 않는다(onClick의 `=>`에서 끊긴다) —
+// 글자 포함·`[\s\S]` 구간 자르기만 쓴다.
+
+const SS3_SHEETS = { DietPlanSheet: planSheet, DietSlotSheet: slotSheet, DietVariantSheet: variantSheet, FoodLogSheet: foodSheet }
+const ss3Code = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+const ALL_COMPONENTS = import.meta.glob('/src/components/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+
+describe('v121 SS3 — 식단 시트 넷은 Astryx 부품뿐이고 SheetFrame은 없다', () => {
+  it('v121 SS3: 네 파일이 ../ax의 Sheet를 쓰고 SheetFrame·style=·<button·<input·패키지 이름이 0건, className=은 ax- 이름뿐이다', () => {
+    for (const [name, text] of Object.entries(SS3_SHEETS)) {
+      const s = ss3Code(text)
+      expect(s, name).toMatch(/import \{[^}]*\bSheet\b[^}]*\} from '\.\.\/ax'/)
+      expect(s, name).not.toMatch(/SheetFrame|style=|<button|<input|<textarea/)
+      expect(s, name).not.toContain(['@astryx', 'design'].join(''))
+      const classes = [...s.matchAll(/className=("[^"]*"|\{[^}]*\})/g)].map((m) => m[1])
+      for (const c of classes) expect(c, name).toMatch(/^"ax-[\w -]+"$/)
+    }
+  })
+
+  it('v121 SS3: SheetFrame.tsx가 없고 components/*Sheet.tsx 전부가 ../ax를 읽는다(시트 껍데기가 하나다)', () => {
+    expect(Object.keys(ALL_COMPONENTS).filter((p) => /SheetFrame/.test(p))).toEqual([])
+    const sheets = Object.entries(ALL_COMPONENTS).filter(([p]) => /Sheet\.tsx$/.test(p))
+    expect(sheets.length).toBeGreaterThanOrEqual(12)
+    expect(sheets.filter(([, t]) => !/from '\.\.\/ax/.test(t)).map(([p]) => p)).toEqual([])
+  })
+
+  it('v121 SS3: 고른 뒤 닫힘은 onClose()가 아니라 dismiss()다 — onPickToday·onPick·onPickAhead·act 뒤', () => {
+    for (const [name, text] of Object.entries(SS3_SHEETS)) expect(ss3Code(text), name).not.toMatch(/\bonClose\(\)/)
+    expect(ss3Code(planSheet)).toMatch(/onPickToday\(plan\.id\)\s*dismiss\(\)/)
+    expect(ss3Code(planSheet)).toMatch(/onPickAhead\(ahead, n\)\s*dismiss\(\)/)
+    expect(ss3Code(variantSheet)).toMatch(/onPick\(index\)\s*dismiss\(\)/)
+    expect(ss3Code(slotSheet)).toMatch(/const act = \(fn: \(\) => void\) => \{\s*fn\(\)\s*dismiss\(\)\s*\}/)
+  })
+
+  it('v121 SS3: 끼니·먹은 것 추가는 purpose="form", 플랜·단백질원은 purpose="info"다', () => {
+    expect(slotSheet).toMatch(/<Sheet label=\{`\$\{slot\.name\} 기록`\} purpose="form"/)
+    expect(foodSheet).toMatch(/<Sheet label="먹은 것 추가" purpose="form"/)
+    expect(planSheet).toMatch(/<Sheet label="식단 플랜 전환" purpose="info"/)
+    expect(variantSheet).toMatch(/<Sheet label=\{`\$\{slot\.name\} 단백질원 고르기`\} purpose="info"/)
+  })
+
+  it('v121 SS3: 끼니 시트의 RadioList는 value={quality}이고 초기 mode는 null이다(AA3), 대체 지우기는 onClearSubstitution이다', () => {
+    const s = ss3Code(slotSheet)
+    expect(s).toMatch(/<RadioList[\s\S]*?value=\{quality\}/)
+    expect(s).toMatch(/useState<EditMode \| null>\(null\)/)
+    expect(s).toMatch(/label="대체 지우기" onClick=\{\(\) => act\(onClearSubstitution\)\}/)
+    expect(s).toMatch(/label="추가 지우기" onClick=\{\(\) => act\(onClearAddition\)\}/)
+  })
+
+  it('v121 SS3: 먹은 것 추가는 음식 목록이 ScrollableArea(40vh) 안 List이고 새 부품은 src/ax/diet.tsx에서 읽는다(index.tsx에 두면 첫 화면이 커진다)', () => {
+    const s = ss3Code(foodSheet)
+    expect(s).toMatch(/<ScrollableArea axis="block" height="40vh" label="음식 목록">/)
+    expect(s).toContain("from '../ax/diet'")
+    expect(ss3Code(slotSheet)).toContain("from '../ax/diet'")
+    expect(axDiet).toContain("export { RadioList, RadioListItem } from '" + ['@astryx', 'design'].join('') + "/core/RadioList'")
+    expect(axDiet).toContain("export { ScrollableArea } from '" + ['@astryx', 'design'].join('') + "/core/ScrollableArea'")
+    expect(ax).not.toMatch(/core\/RadioList|core\/ScrollableArea/)
+  })
+
+  it('v121 SS3: 문구가 그대로다 — 플랜 전환·끼니 메뉴·입력·단백질원·먹은 것 추가', () => {
+    const all = Object.values(SS3_SHEETS).join('\n')
+    for (const t of ['식단 플랜', '고르면 ', '내일부터 며칠', '전부 먹음 (', '대체했어요', '추가로 먹었어요', '안 먹음', '기록 지우기', '어느 쪽이었나요', '무엇으로 대체했나요', '무엇을 더 먹었나요', '다음 날의 기본', '새 음식 등록', '등록하고 추가', '정말 삭제', '방금 추가: ', '음식 검색', '먹은 시각을 먼저 골라 주세요']) {
+      expect(all, t).toContain(t)
+    }
   })
 })

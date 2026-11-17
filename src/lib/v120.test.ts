@@ -208,12 +208,13 @@ describe("v120 RRM 보완 — 접근성 이름 둘과 종료 코드", () => {
     expect(SRC["/src/components/ExerciseCard.tsx"]).not.toMatch(/aria-label="자리 없음 — 대체운동 고르기/)
   })
 
-  it("v120 RRM 보완: FoodLogSheet의 .diet-item 버튼 여는 태그에 aria-label이 없다", () => {
+  it("v120 RRM 보완 → v121 SS3: FoodLogSheet의 음식 줄(ListItem)에 aria-label이 없다(안의 편집 버튼에는 있다)", () => {
     const src = SRC["/src/components/FoodLogSheet.tsx"]
-    // 여는 태그 안의 onClick={() => …}에 '>'가 있어 정규식으로 끝을 못 찾는다 — className 위치부터 첫 </button> 앞까지 자른다
-    const parts = src.split('className="diet-item"').slice(1).map((s) => s.slice(0, s.indexOf("</button>")))
+    // onClick={() => …}에 '>'가 있어 태그 끝을 정규식으로 못 찾는다 — <ListItem부터 줄의 onClick(add)까지 자르고, 안의 <Button …/>(첫 '/>'가 끝)만 뺀다
+    const parts = src.replace(/\/\*[\s\S]*?\*\//g, '').split('<ListItem').slice(1).map((s) => s.slice(0, s.indexOf('onClick={() => add(f)}')).replace(/<Button[\s\S]*?\/>/g, ''))
     expect(parts.length).toBeGreaterThan(0)
     for (const p of parts) expect(p).not.toContain("aria-label")
+    expect(src).toMatch(/<Button[^>]*label="편집"[^>]*aria-label=\{`편집 — \$\{f\.name\}`\}/)
   })
 
   it("v120 RRM 보완: ui-check.mjs가 접근성 판정에서 규칙을 빼는 곳은 color-contrast 하나뿐이다", () => {
@@ -866,7 +867,7 @@ describe("v120 RR7 — 운동 카드와 스테퍼", () => {
     // 누르는 영역은 중심에서 21px 네 방향이다
     expect(lib).toMatch(/const REACH = 21/)
     // `섬 버튼`은 섬 안만이 아니라 legacy 범위 안의 Astryx 버튼도 잰다 — 카드가 섬을 잃어도 스테퍼가 스스로 섬이라 섬 안만 재면 못 잡는다(결함 복원 ⑭)
-    expect(lib).toContain("const LEGACY = '.screen, .onboarding, .sheet-backdrop, .center-note, .banner'")
+    expect(lib).toContain("const LEGACY = '.screen, .onboarding, .center-note, .banner'")
     expect(lib).toMatch(/b\.closest\(LEGACY\)/)
   })
 })
@@ -904,9 +905,9 @@ describe("v120 RR8 — 세션의 시트 8개", () => {
     }
   })
 
-  it("v120 RR8: v119 QQ3의 legacy 시트 목록이 식단 시트 넷만 남는다", () => {
+  it("v120 RR8 → v121 SS3: v119 QQ3의 legacy 시트 목록이 비었다(식단 시트 넷도 옮겼다)", () => {
     const legacyLeft = Object.keys(SRC).filter((p) => /\/components\/\w*Sheet\.tsx$/.test(p) && !/SheetFrame\.tsx$/.test(p) && !/from '\.\.\/ax/.test(SRC[p]))
-    expect(legacyLeft.sort()).toEqual(["/src/components/DietPlanSheet.tsx", "/src/components/DietSlotSheet.tsx", "/src/components/DietVariantSheet.tsx", "/src/components/FoodLogSheet.tsx"])
+    expect(legacyLeft).toEqual([])
   })
 
   it("v120 RR8: FinishSheet의 버리기 문구 앞(같은 <Button 태그)에 variant=\"destructive\"가 있다 — 이 세션 버리기·정말 버리기", () => {

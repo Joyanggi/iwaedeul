@@ -61,9 +61,11 @@ describe('v120 RR1 — legacy 규칙의 범위', () => {
     const g = rootsOf(globalCss, GLOBAL_SCOPE)
     const a = rootsOf(axCss, AX_SCOPE)
     expect(g).toBe(a)
-    for (const root of ['.screen', '.onboarding', '.sheet-backdrop', '.center-note', '.banner']) {
+    for (const root of ['.screen', '.onboarding', '.center-note', '.banner']) {
       expect(g.split(',').map((x) => x.trim()), root).toContain(root)
     }
+    // SS3: 식단 시트 넷이 Astryx로 옮겨 .sheet-backdrop 뿌리가 없다
+    expect(g.split(',').map((x) => x.trim())).not.toContain('.sheet-backdrop')
   })
 
   it('v120 RR1: legacy 범위 안에서 테마의 h1·p 규칙이 번지지 않게 글꼴·크기·줄 높이·색을 되돌린다 (PLAN이 못 본 번짐 — theme.css가 reset 레이어에 요소 규칙을 건다)', () => {
@@ -139,16 +141,8 @@ describe('v120 RRM — 유리를 걷는다', () => {
     expect(t).toContain('오디오')
   })
 
-  it('v120 RRM: 시트(.sheet) — 띠(.ax-bar)는 parts.css와 막은 테마 표면·테두리·막 색이다', () => {
-    const rule = (sel) => {
-      const at = globalCss.indexOf('\n' + sel + ' {')
-      return at < 0 ? '' : globalCss.slice(at, globalCss.indexOf('}', at))
-    }
-    for (const sel of ['.sheet']) {
-      expect(rule(sel), sel).toContain('background: var(--color-background-surface);')
-      expect(rule(sel), sel).toMatch(/border(-top|-bottom)?: 1px solid var\(--color-border\);/)
-    }
-    expect(rule('.sheet-backdrop')).toContain('background: var(--color-overlay);')
+  it('v120 RRM → v121 SS3: legacy 시트(.sheet·.sheet-backdrop) 규칙이 global.css에 없다 (시트가 모두 Astryx가 되어 표면·막은 Astryx 시트가 정한다)', () => {
+    expect(globalCss).not.toMatch(/(^|[\s,}])\.sheet(-backdrop)?(?![\w-])/m)
   })
 
   it('v120 RRM: ax.css에 Astryx 시트를 덧칠하는 규칙이 없다 (Astryx가 정한 표면과 막을 그대로 쓴다)', () => {

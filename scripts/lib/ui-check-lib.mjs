@@ -8,7 +8,7 @@ import { createServer } from 'node:net'
 
 /** 띠 선택자 — 이 한 줄이 유일한 출처다. 페이지에는 window.__ui.BARS로 한 번 깔린다 (v1.20 RR0, RRM에서 RRM에서 옮김). 시트는 따로 */
 export const BAR_SELECTOR = '.ax-bar'
-export const SHEET_SELECTOR = '.sheet, .astryx-bottom-sheet'
+export const SHEET_SELECTOR = '.astryx-bottom-sheet'
 
 /** 보이는 요소만 (크기 1px 이하·display none·visibility hidden은 뺀다). 판정은 여기 한 곳. 페이지에는 window.__vis로 깔린다 */
 export const inPageVisibleDef = (el) => {
@@ -243,22 +243,6 @@ export const inPagePressStyle = (i) => {
   }
 }
 
-/** 시트 장면(legacy 시트·막만 — Astryx 시트의 움직임은 Astryx가 정한다): 움직임 줄이기 뒤 시트 요소의 animation/transition 길이가 0.01s 이하인가 */
-export const inPageMotionDurations = () => {
-  const bad = []
-  let n = 0
-  const secs = (v) => v.split(',').map((x) => Number.parseFloat(x) * (x.trim().endsWith('ms') ? 0.001 : 1))
-  for (const el of document.querySelectorAll('.sheet, .sheet-backdrop')) {
-    if (!window.__vis(el)) continue
-    n++
-    const cs = getComputedStyle(el)
-    const worst = Math.max(...secs(cs.animationDuration), ...secs(cs.transitionDuration))
-    if (worst > 0.01) bad.push(`${el.className.toString().split(' ')[0]} ${worst}s`)
-  }
-  if (n === 0) return { skip: true, detail: '시트가 없다' }
-  return { ok: bad.length === 0, detail: bad.length ? bad.join(' · ') : `${n}개 0.01s 이하` }
-}
-
 /** 줄 안 버튼 (QQ6): 보이는 `.row > .btn`마다 폭이 줄 폭의 절반 미만, 높이 44px 이상, 글자 한 줄. 0개면 실패(아무것도 안 쟀다). */
 export const inPageRowButtons = () => {
   const bad = []
@@ -399,21 +383,6 @@ export function motionStaticChecks(allCss) {
   add('기본 규칙에 Astryx(.ax-screen·astryx-) 제외', miss.length === 0, miss.length ? `없음: ${miss.join(', ')}` : '.ax-screen · astryx-')
   // 2. 움직임 줄이기
   add('motion.css에 prefers-reduced-motion', motion.includes('prefers-reduced-motion'), motion.includes('prefers-reduced-motion') ? '있음' : '없음')
-  // 3. 시트·막 키프레임이 opacity를 움직이지 않는다
-  const names = new Set()
-  const sheetUse = Object.values(allCss).flatMap((css) =>
-    [...strip(css).matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-      .filter((m) => /(^|[\s,])\.(sheet|sheet-backdrop)(?![\w-])/.test(m[1]))
-      .flatMap((m) => [...m[2].matchAll(/animation(?:-name)?\s*:\s*([\w-]+)/g)].map((a) => a[1])),
-  )
-  sheetUse.forEach((n) => names.add(n))
-  const badKf = []
-  for (const css of Object.values(allCss)) {
-    for (const m of strip(css).matchAll(/@keyframes\s+([\w-]+)\s*\{((?:[^{}]*\{[^{}]*\})*)\s*\}/g)) {
-      if (names.has(m[1]) && /(^|[^-\w])opacity\s*:/.test(m[2])) badKf.push(m[1])
-    }
-  }
-  add('.sheet·.sheet-backdrop 키프레임이 opacity를 움직이지 않는다', names.size > 0 && badKf.length === 0, badKf.length ? `opacity: ${badKf.join(', ')}` : `${[...names].join(' · ') || '키프레임 없음'}`)
   // 4. will-change 0건 (Astryx 패키지는 src 밖이라 애초에 없다)
   const wc = Object.entries(allCss).filter(([, css]) => /will-change\s*:/.test(strip(css))).map(([f]) => f)
   add('src/**/*.css에 will-change 0건', wc.length === 0, wc.length ? wc.join(' · ') : `${Object.keys(allCss).length}개 파일 0건`)
@@ -502,7 +471,7 @@ export const inPageLastVisible = () => {
  * 섬도 legacy 안 Astryx 버튼도 없는 장면은 건너뛴다. 있는데 버튼이 0개면 실패.
  */
 export const inPageIslandButtons = () => {
-  const LEGACY = '.screen, .onboarding, .sheet-backdrop, .center-note, .banner'
+  const LEGACY = '.screen, .onboarding, .center-note, .banner'
   const islands = [...document.querySelectorAll('.ax-scope')].filter((el) => window.__vis(el))
   const inLegacy = [...document.querySelectorAll("button[class*='astryx-']")].filter((b) => window.__vis(b) && b.closest(LEGACY))
   if (islands.length === 0 && inLegacy.length === 0) return { skip: true, detail: '.ax-scope 섬도 legacy 안 Astryx 버튼도 없다' }

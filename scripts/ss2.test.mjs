@@ -66,10 +66,10 @@ describe('v121 SS2 — global.css에서 지운 것과 남긴 것', () => {
     expect(bad).toEqual([])
   })
 
-  it('v121 SS2: 시트(SS3까지 legacy)가 쓰는 .diet-item·.diet-item-group·.diet-variant-btn·.diet-sheet-state·.diet-plan-diff는 남는다', () => {
+  it('v121 SS3: SS2 때 시트가 쓰느라 남겼던 .diet-item·.diet-item-group·.diet-variant-btn·.diet-sheet-state·.diet-plan-diff를 시트가 Astryx가 되어 지웠다', () => {
     const all = selectors(globalCss).join('\n')
     for (const c of ['.diet-item', '.diet-item-group', '.diet-variant-btn', '.diet-sheet-state', '.diet-plan-diff']) {
-      expect(all, c).toContain(c)
+      expect(all, c).not.toContain(c)
     }
   })
 })

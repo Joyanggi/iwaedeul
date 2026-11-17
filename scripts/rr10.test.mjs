@@ -19,9 +19,9 @@ describe('v120 RR10 — 사본 정리', () => {
     expect(css).toContain("[class*='astryx-']")
   })
 
-  it('v120 RR10: 안 옮긴 화면이 쓰는 눌림 규칙(.btn·.pill·.chip·.segment button·.sheet)은 남는다 — 사본을 너무 많이 지우지 않았다', () => {
+  it('v120 RR10: 안 옮긴 화면이 쓰는 눌림 규칙(.btn·.pill·.chip·.segment button)은 남는다(SS3: .sheet·is-closing은 시트가 모두 Astryx가 되어 지웠다) — 사본을 너무 많이 지우지 않았다', () => {
     const css = noComments(read('../src/styles/motion.css'))
-    for (const keep of ['.btn', '.pill', '.chip', '.segment button', '.back-link', '.sheet', '.sheet-backdrop', 'is-closing']) expect(css, keep).toContain(keep)
+    for (const keep of ['.btn', '.pill', '.chip', '.segment button', '.back-link']) expect(css, keep).toContain(keep)
   })
 
   it('v120 RR10: space.css의 유틸 클래스는 .tsx가 쓰는 일곱 개뿐이다(.mt-section·.banner-dismiss 없음)', () => {
