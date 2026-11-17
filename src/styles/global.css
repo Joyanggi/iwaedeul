@@ -632,11 +632,6 @@ body {
   font-weight: 500;
 }
 
-.banner-warn {
-  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
-  color: var(--warn);
-}
-
 details.card > summary {
   list-style: none;
 }
@@ -883,110 +878,7 @@ textarea.field {
 
 /* ─── 식단 (D2) ─────────────────────────────────────────── */
 
-/* 단백질이 이 화면의 핵심 지표 — 가장 크게 */
-.diet-protein {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.diet-protein-value {
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-.diet-protein-unit {
-  font-size: 17px;
-  font-weight: 500;
-  color: var(--text-dim);
-}
-
-.diet-bar {
-  height: 6px;
-  border-radius: 3px;
-  background: var(--line);
-  overflow: hidden;
-  margin-top: 8px;
-}
-
-.diet-bar-fill {
-  height: 100%;
-  background: var(--color-accent);
-  border-radius: 3px;
-  transition: width 160ms ease-out;
-}
-
-.diet-slot {
-  padding-bottom: 12px;
-}
-
-/*
-  슬롯 헤더는 두 버튼으로 나뉜다: 이름(시트 열기)과 원형 마크(전부 먹음).
-  일괄 체크가 주 경로이므로 시트를 거치지 않고 여기서 바로 눌러야 6탭에 끝난다.
-*/
-.diet-slot-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.diet-slot-name-btn {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-height: 44px;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  padding: 0;
-  text-align: left;
-}
-
-/* 44pt 터치 타깃 */
-.diet-mark-btn {
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  background: transparent;
-  font-size: 18px;
-}
-
-.diet-mark-btn.diet-mark-full,
-.diet-mark-btn.diet-mark-high {
-  border-color: var(--ok);
-  background: color-mix(in srgb, var(--color-success) 12%, transparent);
-}
-
-.diet-slot-name {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-/*
-  슬롯 마크 5단 (Z6). 3단에서는 0.86과 1.0이 같아 보였다.
-  색은 전부 기존 토큰이다 — G6에서 대비를 실측한 것들이라 새로 재지 않아도 된다.
-  full/high는 같은 초록 계열로 두고 마크 모양(● vs ◕)이 차이를 말한다 — 색을 다섯 개로
-  쪼개면 어두운 헬스장에서 구분이 안 되고, G6의 대비 검증을 다시 해야 한다.
-*/
-.diet-mark-full { color: var(--ok); }
-.diet-mark-high { color: var(--ok); }
-.diet-mark-mid { color: var(--accent); }
-.diet-mark-low { color: var(--warn); }
-.diet-mark-zero { color: var(--danger); }
-.diet-mark-none { color: var(--text-faint); }
-
-.diet-items {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-
+/* 먹은 것 추가 시트의 음식 줄(SS3이 옮긴다) */
 .diet-item {
   display: flex;
   align-items: center;
@@ -999,17 +891,6 @@ textarea.field {
   color: var(--text-dim);
   font-size: 14px;
   text-align: left;
-}
-
-.diet-item-on {
-  border-color: var(--ok);
-  color: var(--text);
-  background: color-mix(in srgb, var(--color-success) 10%, transparent);
-}
-
-.diet-note {
-  margin-top: 8px;
-  color: var(--warn);
 }
 
 /*
@@ -1060,11 +941,6 @@ textarea.field {
 /* 선택된 셀은 배경이 오렌지라 점 테두리를 줘서 묻히지 않게 한다 */
 .cal-cell-selected .cal-diet-dot {
   box-shadow: 0 0 0 1.5px var(--color-on-accent);
-}
-
-.diet-plan-btn {
-  width: 100%;
-  margin-bottom: 8px;
 }
 
 /*

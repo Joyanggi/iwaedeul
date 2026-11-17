@@ -126,7 +126,7 @@ export function spaceRoleVerdicts(layouts, judged = new Set()) {
   const sections = SCREENS.flatMap((s) => (layouts[s]?.sectionGaps ?? []).map((g) => [s, g]))
   const sectionSet = [...new Set(sections.map((p) => p[1]))]
   // 카드 안쪽은 Astryx `Card`를 쓰는 장면끼리만 견준다(홈 RR4 · 루틴 편집). 안 옮긴 화면은 legacy `.card`라 값이 다르고, 옮기는 작업(RR5~RR9)이 이 목록에 더한다
-  const INSET_SCENES = new Set(['home', 'home-375', 'home-banner', 'summary', 'editor'])
+  const INSET_SCENES = new Set(['home', 'home-375', 'home-banner', 'summary', 'editor', 'diet'])
   const inset = SCREENS.filter((s) => INSET_SCENES.has(s) && layouts[s]?.cardInset != null).map((s) => [s, layouts[s].cardInset])
   const insetScenes = new Set(inset.map((p) => p[0]))
   const sectionScenes = new Set(sections.map((p) => p[0]))
@@ -177,7 +177,15 @@ export const inPageInsetSymmetry = () => {
       range.selectNodeContents(n)
       add(range.getBoundingClientRect())
     }
-    for (const el of root.querySelectorAll('svg, img, input, textarea')) if (vis(el) && !el.parentElement.closest('svg')) add(el.getBoundingClientRect())
+    // 입력칸의 상자는 눈에 보이는 테두리 상자다(Astryx 입력칸은 <input>이 테두리 상자 안쪽에 들어 있어 <input>만 재면 아래가 헐겁게 읽힌다 — SS2 메모 카드)
+    const fieldBox = (el) => {
+      for (let a = el.parentElement; a && a !== root; a = a.parentElement) {
+        const cs = getComputedStyle(a)
+        if (Number.parseFloat(cs.borderBottomWidth) > 0 && cs.borderBottomStyle !== 'none') return a
+      }
+      return el
+    }
+    for (const el of root.querySelectorAll('svg, img, input, textarea')) if (vis(el) && !el.parentElement.closest('svg')) add((el.matches('input, textarea') ? fieldBox(el) : el).getBoundingClientRect())
     // 버튼·진행 막대는 글자만이 아니라 상자가 내용이다(카드가 버튼으로 끝나면 안쪽은 버튼 상자 기준이다 — RR4)
     for (const el of root.querySelectorAll('button, [role="progressbar"]')) if (vis(el)) add(el.getBoundingClientRect())
     return box
@@ -245,6 +253,14 @@ export const EXPECTED_PAIRS = {
   'home-safe': ['bar', 'tab-indicator', 'tab-content'],
   settings: ['bar', 'tab-indicator', 'tab-content'],
   editor: ['button'],
+  // SS2: 식단 탭 — 아래 띠·탭, 끼니 카드, 버튼(플랜·삭제·추가). 편집기가 든 기록 장면(legacy 화면 안의 섬)은 카드·버튼만
+  diet: ['bar', 'tab-indicator', 'tab-content', 'button', 'card'],
+  'diet-end': ['bar', 'card'],
+  'diet-375': ['bar', 'tab-indicator', 'tab-content', 'button', 'card'],
+  'diet-log-open': ['bar', 'button', 'card'],
+  'diet-streak': ['bar', 'button', 'card'],
+  'history-day': ['button', 'card'],
+  'history-detail-end': ['card'],
   // RR9: 요약 — 홈으로 버튼과 카드. 뱃지는 PR·수행 순서 뱃지가 있는 장면에서
   summary: ['button', 'card'],
   'summary-zero': ['button', 'card'],

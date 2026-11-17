@@ -384,7 +384,7 @@ flowchart TB
 - UI: React 19 (라우터 없음 — 탭 4개라 상태로 충분)
 - 상태: zustand (설정 · 진행 중 세션 · 휘발성 UI 상태만. 나머지는 `dexie-react-hooks` live query로 직접 읽음)
 - 저장: Dexie (IndexedDB, 스키마 v3) + localStorage (비밀값·휴식 타이머·백업 대기 플래그)
-- UI 부품: Astryx 0.7.13 (@astryxdesign/core, 베타 — 버전 고정. 앱 틀·홈·세션·요약·루틴 편집)
+- UI 부품: Astryx 0.7.13 (@astryxdesign/core, 베타 — 버전 고정. 앱 틀·홈·세션·요약·식단·루틴 편집)
 - 차트: recharts (분석 탭 청크 — 미리 읽지 않는다)
 - PWA: vite-plugin-pwa (manifest + Workbox SW), iOS 스플래시 8종
 - 테스트: Vitest (알고리즘·파생 계산 단위 테스트, CI에서 배포 전 실행). 개수는 `npm test`가 말해줍니다

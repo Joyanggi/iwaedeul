@@ -1,7 +1,7 @@
 /*
  * 이 앱만의 부품(띠, 요일 점, 세트 행, 템포 무대)의 CSS를 두는 한 곳 (v1.20 RR3).
  * 색 리터럴 0건. 길이는 Astryx 토큰(`--spacing-*`)·`%`·`1px`(선)·`0`·`env()`·`rem`·`100dvh`만 쓴다 — v120 스캔이 지킨다.
- * 클래스 이름은 `ax-`로 시작한다(예외: RR7의 `set-row*`, 식단 편집 줄의 legacy 요소 둘 `.btn-row:has(> .ax-scope) > input[type='time']`·`> .btn-danger`).
+ * 클래스 이름은 `ax-`로 시작한다(예외: RR7의 `set-row*`).
  */
 @layer astryx-theme {
   /*
@@ -271,24 +271,53 @@
     color: var(--color-text-warning);
   }
 
+  /* 오류·성공 글자색(SS2) — 같은 이유로 같은 세 겹 */
+  .ax-text-error.ax-text-error.ax-text-error {
+    color: var(--color-text-error);
+  }
+
+  .ax-text-success.ax-text-success.ax-text-success {
+    color: var(--color-text-success);
+  }
+
+  /* 끼니 원형 버튼 안의 표시 글자(○◔◐◕●✗) — 등급 여섯의 색. 원형 버튼의 면은 Astryx ToggleButton의 것 */
+  .ax-slot-mark[data-grade='full'],
+  .ax-slot-mark[data-grade='high'] {
+    color: var(--color-text-success);
+  }
+
+  .ax-slot-mark[data-grade='mid'] {
+    color: var(--color-accent);
+  }
+
+  .ax-slot-mark[data-grade='low'] {
+    color: var(--color-text-warning);
+  }
+
+  .ax-slot-mark[data-grade='zero'] {
+    color: var(--color-text-error);
+  }
+
+  .ax-slot-mark[data-grade='none'] {
+    color: var(--color-text-secondary);
+  }
+
+  /* 식단 화면 틀의 한글 줄바꿈(요약의 .ax-summary와 같다). SS8이 앱 전체 규칙으로 모은다 */
+  .ax-diet :is(p, span, div, h1, h2) {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
   /*
    * 스테퍼(NumberStepper)는 스스로 섬이다(`ax-scope`). 줄 안에서 남는 폭을 나눠 쓰되 입력칸의 고유 폭이 줄을 밀어내지 않게
-   * 줄어들 수 있어야(min-width 0) 한다. 세트 행에서는 열이, 식단 편집에서는 .btn-row 줄이 폭을 준다.
+   * 줄어들 수 있어야(min-width 0) 한다. 세트 행에서는 열이 폭을 준다(식단 편집 줄은 HStack이다).
    */
   .set-row > .ax-scope {
     min-width: 0;
   }
 
-  /* 식단 편집 줄: 남는 폭을 나눠 쓰되 단추 둘과 숫자 칸이 들어갈 만큼(36px 둘 + 숫자 칸)은 줄지 않는다 */
-  .btn-row > .ax-scope {
-    flex: 1;
-    min-width: calc(2 * var(--spacing-9) + var(--spacing-12));
-  }
-
   .set-row > .ax-scope > :nth-child(2),
-  .btn-row > .ax-scope > :nth-child(2),
-  .set-row > .ax-scope input,
-  .btn-row > .ax-scope input {
+  .set-row > .ax-scope input {
     min-width: 0;
   }
 
@@ -344,17 +373,6 @@
     background: var(--color-accent-muted);
     border-color: var(--color-accent);
     font-weight: 700;
-  }
-
-  /* 식단 편집 줄: 시각 칸이 줄어들 수 있어야 삭제 버튼이 카드 안쪽 폭을 넘지 않는다 */
-  .btn-row:has(> .ax-scope) > input[type='time'] {
-    flex: 0 1 8rem;
-    min-width: 0;
-  }
-
-  .btn-row:has(> .ax-scope) > .btn-danger {
-    width: auto;
-    flex: 0 0 auto;
   }
 
   /*

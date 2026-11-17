@@ -36,7 +36,6 @@ const legacy = new Set([...css.matchAll(/\.([A-Za-z_][\w-]*)/g)].map((m) => m[1]
  */
 const TEMPLATE_PREFIXES = {
   'cal-diet-dot-': '달력의 식단 점 — `cal-diet-dot-${등급}`',
-  'diet-mark-': '식단 칸의 표시 — `diet-mark-${등급}`',
   'tempo-ring-': '템포 가이드 링 — `tempo-ring-${국면}`',
 }
 /** 소스에 안 써도 쓰이는 이름: 라이브러리가 그리는 요소의 클래스. 이유를 적는다 */

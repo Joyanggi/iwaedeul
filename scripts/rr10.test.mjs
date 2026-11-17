@@ -31,12 +31,11 @@ describe('v120 RR10 — 사본 정리', () => {
     for (const keep of ['.mt-row', '.mt-group', '.mb-row', '.mb-group', '.ml-inline', '.mr-inline', '.ml-auto']) expect(css, keep).toContain(keep)
   })
 
-  it('v120 RR10: global.css에서 쓰는 곳 없는 .diet-head·.diet-mark 규칙이 없다(.diet-mark-btn·.diet-mark-<등급>은 남는다)', () => {
+  // v1.21 SS2: 식단 화면이 Astryx로 옮겨 가 .diet-mark-btn·.diet-mark-<등급>도 지워졌다(PLAN SS2 "global.css에서 지운다") — 남기던 검사를 "전부 없다"로
+  it('v120 RR10: global.css에서 쓰는 곳 없는 .diet-head·.diet-mark 규칙이 없다(SS2 뒤 .diet-mark-btn·.diet-mark-<등급>도 없다)', () => {
     const css = noComments(read('../src/styles/global.css'))
     expect(css).not.toMatch(/\.diet-head\b/)
-    expect(css).not.toMatch(/\.diet-mark\s*\{/)
-    expect(css).toMatch(/\.diet-mark-btn\b/)
-    expect(css).toMatch(/\.diet-mark-full\b/)
+    expect(css).not.toMatch(/\.diet-mark/)
   })
 
   it('v120 RR10: ui-check-lib의 눌림 정적 검사가 .stepper를 더는 요구하지 않는다', () => {

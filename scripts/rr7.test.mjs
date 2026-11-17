@@ -56,12 +56,10 @@ describe('v120 RR7 — parts.css의 세트 표와 숫자 칸', () => {
     expect(parts).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/)
   })
 
-  it('v120 RR7: 스테퍼 줄이 폭을 밀어내지 않는다 — 세트 행의 열 안에서는 min-width 0이고, 식단 편집의 .btn-row 줄에서는 남는 폭을 나눠 쓰되 단추 둘과 숫자 칸이 들어갈 만큼 아래로는 안 줄어든다(0으로 줄면 단추가 삭제 버튼 위에 겹친다)', () => {
+  // v1.21 SS2: 식단 편집 줄이 legacy .btn-row에서 Astryx HStack으로 옮겨 가 `.btn-row > .ax-scope` 규칙이 지워졌다(PLAN SS2).
+  // 줄 안에서 스테퍼가 폭을 밀어내지 않는지는 ui-check 흐름 `SS2 먹은 것 줄`(세 요소 한 줄·안쪽 폭 안)이 잰다
+  it('v120 RR7: 스테퍼 줄이 폭을 밀어내지 않는다 — 세트 행의 열 안에서는 min-width 0이다(식단 줄의 .btn-row 규칙은 SS2가 지웠다)', () => {
     expect(parts).toMatch(/\.set-row > \.ax-scope \{[^}]*min-width:\s*0/)
-    const diet = parts.match(/\.btn-row > \.ax-scope \{[^}]*\}/)
-    expect(diet, '식단 줄 규칙이 있어야 한다').not.toBeNull()
-    expect(diet[0]).toMatch(/flex:\s*1/)
-    expect(diet[0]).toMatch(/min-width:\s*calc\(2 \* var\(--spacing-9\) \+ var\(--spacing-12\)\)/)
-    expect(diet[0]).not.toMatch(/min-width:\s*0/)
+    expect(parts).not.toMatch(/\.btn-row/)
   })
 })

@@ -387,7 +387,10 @@ describe("v120 RR3 — 앱 틀과 아래 탭", () => {
 
   it("v120 RR3: 불러오는 중·시작 실패는 Astryx 부품이고 문구가 그대로다", () => {
     const s = code("/src/App.tsx")
-    expect(s).toContain("<Spinner />")
+    // v1.21 SS2: Loading이 src/ax/index.tsx로 갔다 — <Spinner />는 거기 Loading 본문에서 본다
+    const ax = code("/src/ax/index.tsx")
+    const loading = ax.slice(ax.indexOf("export function Loading("))
+    expect(loading.slice(0, loading.indexOf("\n}\n"))).toContain("<Spinner />")
     expect(s).toContain('<Loading text="차트를 불러오는 중…" />')
     expect(s).toContain('<Loading text="불러오는 중…" />')
     expect(s).toContain("<Banner status=\"error\" title={bootError} collapsible={false} />")
@@ -402,7 +405,8 @@ describe("v120 RR3 — 앱 틀과 아래 탭", () => {
     expect(s).toContain("ResizeObserver")
     expect(s).toMatch(/import '\.\/parts\.css'/)
     for (const n of ["TabList", "Tab", "Center", "Spinner"]) expect(s).toMatch(new RegExp(`export \\{[^}]*\\b${n}\\b[^}]*\\} from '@astryxdesign`))
-    expect(Object.keys(SRC).filter((p) => p.startsWith("/src/ax/") && p.endsWith(".tsx"))).toEqual(["/src/ax/index.tsx"])
+    // v1.21 SS2: 식단 전용 부품(TimeField·CheckboxList)은 index.tsx에 두면 홈의 첫 화면 코드가 87KB 늘어 diet.tsx로 나눴다(식단 화면만 import)
+    expect(Object.keys(SRC).filter((p) => p.startsWith("/src/ax/") && p.endsWith(".tsx")).sort()).toEqual(["/src/ax/diet.tsx", "/src/ax/index.tsx"])
   })
 
   it("v120 RR3: scripts/에 aria-current=page·inPagePillSeparation·inPageTabbarSpot 글자가 없고 BAR_SELECTOR 줄에 .tabbar·.resume-strip이 없다", () => {
@@ -792,7 +796,8 @@ describe("v120 RR7 — 운동 카드와 스테퍼", () => {
     expect(s).toMatch(/status=\{status === 'warning' \? \{ type: 'warning' \} : undefined\}/)
     const card = code(CARD)
     expect(card.match(/\bisProminent\b/g) ?? []).toHaveLength(2)
-    expect(code("/src/components/DietDayEditor.tsx")).not.toMatch(/isProminent|ax-scope/)
+    // v1.21 SS2: 식단 편집기는 기록 화면(legacy)이 SS4까지 쓰므로 맨 바깥에 ax-scope를 단다(SS8이 뗀다). isProminent만 본다
+    expect(code("/src/components/DietDayEditor.tsx")).not.toMatch(/isProminent/)
   })
 
   it("v120 RR7: 순서 — 칩 줄이 본문의 맨 위다: 칩 줄 < 메모·무게 기준 < 자극 요령 < 세팅 메모 줄 < 무게 단위 줄 < 세트 표 머리", () => {

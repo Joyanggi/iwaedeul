@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Button, Card, Collapsible, HStack, Text, VStack } from '../ax'
+import { CheckboxList, CheckboxListItem } from '../ax/diet'
 import {
   allSlots,
   buildMealIcs,
@@ -21,9 +23,6 @@ export default function MealReminderPanel({ plan }: { plan: DietPlan }) {
   const [selected, setSelected] = useState<string[]>(() => defaultSelectedSlots(plan))
   const [message, setMessage] = useState<string | null>(null)
 
-  const toggle = (id: string) =>
-    setSelected((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]))
-
   const onExport = async () => {
     const ics = buildMealIcs({
       plan,
@@ -40,54 +39,48 @@ export default function MealReminderPanel({ plan }: { plan: DietPlan }) {
     setMessage(OUTCOME_MESSAGE[outcome])
   }
 
+  const slotNote = (slotId: string, timeHint: string) =>
+    isTrainingOnlySlot(plan, slotId) && selected.includes(slotId)
+      ? // 훈련일 전용 슬롯은 매일 반복이라 휴식일에도 울린다 — 고르기 전에 알린다
+        `${timeHint} · 휴식일에도 울립니다 (훈련일 전용 끼니인데 매일 반복입니다)`
+      : timeHint
+
   return (
-    <div className="card">
-      <div className="card-label">식사 알림</div>
-      <p className="row-sub" style={{ whiteSpace: 'normal' }}>
-        <b>앱이 직접 알림을 보낼 수는 없습니다</b> (iOS 웹앱 제약). 대신 선택한 끼니를 매일
-        반복되는 캘린더 일정으로 내보내고, <b>아이폰 캘린더가 울립니다.</b>
-      </p>
+    <Card>
+      <Collapsible defaultIsOpen={false} trigger={<Text weight="semibold">식사 알림</Text>}>
+        <VStack gap={3}>
+          <Text>
+            <strong>앱이 직접 알림을 보낼 수는 없습니다</strong> (iOS 웹앱 제약). 대신 선택한 끼니를 매일
+            반복되는 캘린더 일정으로 내보내고, <strong>아이폰 캘린더가 울립니다.</strong>
+          </Text>
 
-      <div className="mt-row">
-        {slots.map((slot) => {
-          const trainingOnly = isTrainingOnlySlot(plan, slot.id)
-          return (
-            <div key={slot.id}>
-              <button
-                className="diet-item-btn"
-                onClick={() => toggle(slot.id)}
-                aria-pressed={selected.includes(slot.id)}
-              >
-                <span aria-hidden="true">{selected.includes(slot.id) ? '☑' : '☐'}</span>
-                <span>
-                  {slot.name} <span className="row-sub">{slot.timeHint}</span>
-                </span>
-              </button>
-              {/* 훈련일 전용 슬롯은 매일 반복이라 휴식일에도 울린다 — 고르기 전에 알린다 */}
-              {trainingOnly && selected.includes(slot.id) && (
-                <p className="row-sub meal-note">
-                  휴식일에도 울립니다 (훈련일 전용 끼니인데 매일 반복입니다)
-                </p>
-              )}
-            </div>
-          )
-        })}
-      </div>
+          <CheckboxList label="알림 받을 끼니" isLabelHidden value={selected} onChange={setSelected}>
+            {slots.map((slot) => (
+              <CheckboxListItem
+                key={slot.id}
+                value={slot.id}
+                label={slot.name}
+                description={slotNote(slot.id, slot.timeHint)}
+              />
+            ))}
+          </CheckboxList>
 
-      <button
-        className="btn btn-sm mt-row"
-        
-        disabled={selected.length === 0}
-        onClick={() => void onExport()}
-      >
-        📅 캘린더로 내보내기 ({selected.length}개)
-      </button>
+          <HStack>
+            <Button
+              variant="secondary"
+              label={`📅 캘린더로 내보내기 (${selected.length}개)`}
+              isDisabled={selected.length === 0}
+              onClick={() => void onExport()}
+            />
+          </HStack>
 
-      <p className="row-sub mt-row" style={{ whiteSpace: 'normal' }}>
-        시간을 바꿔 다시 내보냈다면 <b>캘린더에서 기존 알림을 지우고</b> 추가하세요 —
-        아이폰은 같은 일정을 갱신하지 않고 하나 더 만들 수 있습니다.
-      </p>
-      {message && <p className="row-sub">{message}</p>}
-    </div>
+          <Text type="supporting" color="secondary">
+            시간을 바꿔 다시 내보냈다면 <strong>캘린더에서 기존 알림을 지우고</strong> 추가하세요 —
+            아이폰은 같은 일정을 갱신하지 않고 하나 더 만들 수 있습니다.
+          </Text>
+          {message && <Text type="supporting">{message}</Text>}
+        </VStack>
+      </Collapsible>
+    </Card>
   )
 }

@@ -35,8 +35,6 @@
 }
 /* 제목 아래 여백 없이 바로 이어지는 줄(주 헤더 줄 안의 라벨, 보조 줄 바로 위 라벨) */
 .card-label.label-flush { margin-bottom: 0; }
-/* 알림 시간 선택 아래 안내 — 28px은 체크 칸 폭에 맞춘 들여쓰기 */
-.meal-note { margin: 0 0 var(--space-row) 28px; }
 /* 루틴 목록 줄 아래에 펼쳐지는 확인 문구 */
 .row-confirm { padding-bottom: var(--space-row); }
 /* 설정 → 루틴 Day 펼침 안의 종목 줄 */

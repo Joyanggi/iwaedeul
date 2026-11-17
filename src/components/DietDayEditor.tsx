@@ -50,7 +50,24 @@ import {
   removeDietDay,
 } from '../lib/useDiet'
 import type { DietDay, DietPlan, Food } from '../types'
-import { NO_AUTOFILL } from '../lib/inputProps'
+import {
+  Banner,
+  Button,
+  Card,
+  Center,
+  Collapsible,
+  Group,
+  Heading,
+  HStack,
+  Icon,
+  ProgressBar,
+  StackItem,
+  Text,
+  TextField,
+  ToggleButton,
+  VStack,
+} from '../ax'
+import { TimeField } from '../ax/diet'
 
 /**
  * 하루 식단 기록 편집기 (D2 오늘 화면 · D3 과거 보정 공용).
@@ -103,7 +120,12 @@ export default function DietDayEditor({
 
   const stored = days.find((d) => d.date === date)
   const plan = findPlan(plans, stored?.planId ?? defaultPlanId)
-  if (!plan) return <p className="center-note">식단 플랜이 없습니다.</p>
+  if (!plan)
+    return (
+      <Center>
+        <Text color="secondary">식단 플랜이 없습니다.</Text>
+      </Center>
+    )
 
   const isTrainingDay = trainedThatDay || (stored?.isTrainingDay ?? false)
   const day: DietDay = stored
@@ -137,13 +159,12 @@ export default function DietDayEditor({
     : null
 
   return (
-    <>
-      <div className="card">
-        <button className="btn btn-sm diet-plan-btn" onClick={() => setPlanSheet(true)}>
-          {plan.name} ▾
-        </button>
+    <div className="ax-scope ax-diet">
+      <Group>
+        <Card>
+          <VStack gap={2}>
 
-        {/*
+            {/*
           훈련일/휴식일 세그먼트가 **없어졌다** (DD2). 루틴 문서 15장이 2026-08-06에
           끼니 배치를 통일했다: 두 구성의 총량·단백질이 완전히 같았고 차이는 쉐이크 배치뿐인데,
           실사용에서 훈련일에 휴식일 식단을 먹는 실수가 났고 생리학적 차이는 없었다.
@@ -151,111 +172,131 @@ export default function DietDayEditor({
           그래서 화면에서 고를 것도 잠글 것도 없다 — 매일 같은 5끼다.
           (옛 플랜을 쓰는 과거 날짜는 저장된 구성 그대로 판정된다)
         */}
-        <div className="diet-protein">
-          <span className="diet-protein-value">
-            {summary.proteinG}
-            <span className="diet-protein-unit">/{summary.targetProteinG}g</span>
-          </span>
-          <span className="row-sub">단백질 (추정)</span>
-        </div>
-        <div className="diet-bar" aria-hidden="true">
-          <div
-            className="diet-bar-fill"
-            style={{
-              width: `${Math.min(100, Math.round((summary.proteinG / Math.max(1, summary.targetProteinG)) * 100))}%`,
-            }}
+            {/* 첫 줄은 글자로 시작한다(카드 안쪽 여백을 "같은 역할"로 재는 첫 글자) — 플랜 버튼은 같은 줄 오른쪽(좁으면 아래로 줄바꿈) */}
+            <HStack justify="between" align="center" gap={2} wrap="wrap">
+              <HStack gap={2} align="end" wrap="wrap">
+                <Heading level={2}>
+                  {summary.proteinG}
+                </Heading>
+                <Text color="secondary">/{summary.targetProteinG}g</Text>
+                <Text type="supporting" color="secondary">
+                  단백질 (추정)
+                </Text>
+              </HStack>
+              <Button
+                variant="secondary"
+                size="sm"
+                label={plan.name}
+                icon={<Icon icon="chevronDown" />}
+                onClick={() => setPlanSheet(true)}
+              />
+            </HStack>
+            <ProgressBar
+              label="단백질"
+              isLabelHidden
+              value={Math.min(summary.proteinG, summary.targetProteinG)}
+              max={Math.max(1, summary.targetProteinG)}
+            />
+            <Text type="supporting" color="secondary">
+              {summary.kcal.toLocaleString()} / {summary.targetKcal.toLocaleString()}kcal ·{' '}
+              {dietDayStatusText(summary)}
+            </Text>
+            {summary.logCount > 0 && (
+              <Text type="supporting" color="secondary">
+                먹은 것 {summary.logCount}건 포함
+                {summary.logUnknown > 0 && ` · 영양 미입력 ${summary.logUnknown}건`}
+              </Text>
+            )}
+          </VStack>
+        </Card>
+
+        {warnStreak && (
+          <Banner
+            status="warning"
+            title={`${plan.name} ${streak}일 연속`}
+            description="루틴 문서 15장: 전날 초과분을 만회하려고 덜 먹지 않는다. 소폭 보정은 괜찮지만 장기화는 만회성 절식입니다 — 기본 플랜으로 돌아오세요."
+            collapsible={false}
           />
-        </div>
-        <p className="row-sub mt-row">
-          {summary.kcal.toLocaleString()} / {summary.targetKcal.toLocaleString()}kcal ·{' '}
-          {dietDayStatusText(summary)}
-        </p>
-        {summary.logCount > 0 && (
-          <p className="row-sub">
-            먹은 것 {summary.logCount}건 포함
-            {summary.logUnknown > 0 && ` · 영양 미입력 ${summary.logUnknown}건`}
-          </p>
         )}
-      </div>
 
-      {warnStreak && (
-        <div className="banner banner-warn" style={{ alignItems: 'flex-start' }}>
-          <span>
-            {plan.name} {streak}일 연속
-            <br />
-            <small>
-              루틴 문서 15장: 전날 초과분을 만회하려고 덜 먹지 않는다. 소폭 보정은 괜찮지만
-              장기화는 만회성 절식입니다 — 기본 플랜으로 돌아오세요.
-            </small>
-          </span>
-        </div>
-      )}
-
-      {slots.map((slot) => {
-        const record = day.slots[slot.id]
-        const score = slotScore(slot, record)
-        /*
+        {slots.map((slot) => {
+          const record = day.slots[slot.id]
+          const score = slotScore(slot, record)
+          /*
           마크·임계값을 화면이 들고 있지 않는다 (Z6) — `diet.ts`의 `slotGrade`·`SLOT_MARK`가
           단일 기준이다. 화면이 자기 임계값을 가지면 슬롯 마크와 일 요약이 다른 기준으로 말한다.
         */
-        const grade = slotGrade(score)
-        const mark = SLOT_MARK[grade]
-        return (
-          <div className="card diet-slot" key={slot.id}>
-            <div className="diet-slot-head">
-              <button className="diet-slot-name-btn" onClick={() => setSlotSheet(slot.id)}>
-                <span className="diet-slot-name">
-                  {slot.name}
-                  <span className="row-sub"> {slot.timeHint}</span>
-                </span>
-                <span className="row-sub" aria-hidden="true">
-                  대체·안 먹음 ▸
-                </span>
-              </button>
-              {/*
+          const grade = slotGrade(score)
+          const mark = SLOT_MARK[grade]
+          return (
+            <Card key={slot.id}>
+              <VStack gap={3}>
+                <HStack justify="between" align="center" gap={2}>
+                  <StackItem size="fill">
+                    <HStack gap={2} align="center" wrap="wrap">
+                      <Text weight="semibold">{slot.name}</Text>
+                      <Text type="supporting" color="secondary">
+                        {slot.timeHint}
+                      </Text>
+                    </HStack>
+                  </StackItem>
+                  <StackItem size="static">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      label="대체·안 먹음"
+                      aria-label={`대체·안 먹음 — ${slot.name}`}
+                      endContent={<Icon icon="chevronRight" />}
+                      onClick={() => setSlotSheet(slot.id)}
+                    />
+                  </StackItem>
+                  {/*
                 일괄 체크를 여기 직접 둔다 (주 경로). 이미 전부 체크된 상태에서 다시 누르면
                 기록을 지운다 — 잘못 누른 것을 한 번에 되돌릴 수 있어야 한다.
               */}
-              <button
-                className={`diet-mark-btn diet-mark-${grade}`}
-                aria-label={`${slot.name} 전부 먹음`}
-                aria-pressed={grade === 'full'}
-                onClick={() =>
-                  mutate((d) =>
-                    record && !record.substitution && !record.skipped && grade === 'full'
-                      ? applyClearSlot(d, slot.id)
-                      : applyCheckAllItems(d, slot),
-                  )
-                }
-              >
-                {mark}
-              </button>
-            </div>
+                  <StackItem size="static">
+                    <ToggleButton
+                      className="ax-toggle"
+                      isIconOnly
+                      label={`${slot.name} 전부 먹음`}
+                      isPressed={grade === 'full'}
+                      icon={
+                        <span className="ax-slot-mark" data-grade={grade} aria-hidden="true">
+                          {mark}
+                        </span>
+                      }
+                      onPressedChange={() =>
+                        mutate((d) =>
+                          record && !record.substitution && !record.skipped && grade === 'full'
+                            ? applyClearSlot(d, slot.id)
+                            : applyCheckAllItems(d, slot),
+                        )
+                      }
+                    />
+                  </StackItem>
+                </HStack>
 
-            <div className="diet-items">
-              {/*
+                {/*
                 품목 표기는 **고른 변형**을 따른다 (DD3). 기록이 있으면 기록의 선택,
                 없으면 같은 날 짝(v1.10 EE2) → 기억된 기본값 — `variantChoicesFor`가
                 `pairedVariant` 한 곳으로 그 우선순위를 정한다.
               */}
-              {(() => {
-                const choices = variantChoicesFor(slot, record, variantDefaults, todayVariantChoices(day))
-                return slot.items.map((item) => {
-                  const on = record?.checkedItemIds.includes(item.id) ?? false
-                  const variant = itemVariant(item, choices[item.id])
-                  return (
-                    <div className="diet-item-group" key={item.id}>
-                      <button
-                        className={`diet-item${on ? ' diet-item-on' : ''}`}
-                        aria-pressed={on}
-                        onClick={() => mutate((d) => applyToggleItem(d, slot.id, item.id))}
-                      >
-                        <span aria-hidden="true">{on ? '☑' : '☐'}</span>
-                        <span>
-                          {variant.name} <span className="row-sub">{variant.qty}</span>
-                        </span>
-                      </button>
-                      {/*
+                <HStack wrap="wrap" gap={2}>
+                  {(() => {
+                    const choices = variantChoicesFor(slot, record, variantDefaults, todayVariantChoices(day))
+                    return slot.items.map((item) => {
+                      const on = record?.checkedItemIds.includes(item.id) ?? false
+                      const variant = itemVariant(item, choices[item.id])
+                      return (
+                        <HStack gap={1} key={item.id}>
+                          <ToggleButton
+                            className="ax-toggle"
+                            label={`${variant.name} ${variant.qty}`}
+                            isPressed={on}
+                            pressedIcon={<Icon icon="check" />}
+                            onPressedChange={() => mutate((d) => applyToggleItem(d, slot.id, item.id))}
+                          />
+                          {/*
                         변형 선택은 **예외 경로**다 (DD3.2) — 정상일 마찰(슬롯당 1탭)을
                         건드리지 않도록 별도 버튼 하나로만 열린다.
 
@@ -264,138 +305,151 @@ export default function DietDayEditor({
                         해였던 것과 같은 실패 — 아이콘은 그린 것이 아니라 읽히는 것으로
                         판정한다.
                       */}
-                      {hasVariants(item) && (
-                        <button
-                          className="diet-variant-btn"
-                          aria-label={`${slot.name} ${item.name} 다른 단백질원으로 바꾸기`}
-                          onClick={() => setVariantSheet({ slotId: slot.id, itemId: item.id })}
-                        >
-                          바꾸기 ▾
-                        </button>
-                      )}
-                    </div>
-                  )
-                })
-              })()}
-            </div>
+                          {hasVariants(item) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              label="바꾸기"
+                              icon={<Icon icon="chevronDown" />}
+                              aria-label={`바꾸기 — ${slot.name} ${item.name}, 다른 단백질원으로`}
+                              onClick={() => setVariantSheet({ slotId: slot.id, itemId: item.id })}
+                            />
+                          )}
+                        </HStack>
+                      )
+                    })
+                  })()}
+                </HStack>
 
-            {/* 문구는 시트의 상태 요약과 공유한다 (AA3) — 같은 사실은 같은 말 */}
-            {record?.skipped && <p className="row-sub diet-note">안 먹음</p>}
-            {record?.substitution && (
-              <p className="row-sub diet-note">{substitutionNote(record.substitution)}</p>
+                {/* 문구는 시트의 상태 요약과 공유한다 (AA3) — 같은 사실은 같은 말 */}
+                {record?.skipped && (
+                  <Text type="supporting" color="secondary">
+                    안 먹음
+                  </Text>
+                )}
+                {record?.substitution && (
+                  <Text type="supporting" color="secondary">
+                    {substitutionNote(record.substitution)}
+                  </Text>
+                )}
+                {record?.addition && (
+                  <Text type="supporting" color="secondary">
+                    {additionNote(record.addition)}
+                  </Text>
+                )}
+              </VStack>
+            </Card>
+          )
+        })}
+
+        <Card>
+          <VStack gap={3}>
+            <Text type="supporting" color="secondary">
+              먹은 것 (시간별)
+            </Text>
+            {sortedLog(day.log).map((entry) => (
+              <Collapsible
+                key={entry.id}
+                trigger={<Text>{logEntryText(entry)}</Text>}
+                isOpen={openLogId === entry.id}
+                onOpenChange={(open) => setOpenLogId(open ? entry.id : null)}
+              >
+                <HStack gap={2} align="center">
+                  <TimeField
+                    label="먹은 시각"
+                    isLabelHidden
+                    value={entry.time}
+                    onChange={(time) => {
+                      if (time) mutate((d) => applyUpdateLog(d, entry.id, { time }))
+                    }}
+                  />
+                  <NumberStepper
+                    value={entry.count}
+                    step={0.5}
+                    min={0.5}
+                    decimals={2}
+                    ariaLabel="먹은 개수"
+                    onChange={(count) => mutate((d) => applyUpdateLog(d, entry.id, { count }))}
+                  />
+                  <Button
+                    variant="destructive"
+                    label="삭제"
+                    onClick={() => {
+                      mutate((d) => applyRemoveLog(d, entry.id))
+                      setOpenLogId(null)
+                    }}
+                  />
+                </HStack>
+              </Collapsible>
+            ))}
+            {(day.log?.length ?? 0) === 0 && (
+              <Text type="supporting" color="secondary">
+                플랜에 없는 음식이나 다른 시간에 먹은 것을 적습니다.
+              </Text>
             )}
-            {record?.addition && (
-              <p className="row-sub diet-note">{additionNote(record.addition)}</p>
-            )}
-          </div>
-        )
-      })}
+            <HStack>
+              <Button variant="secondary" size="sm" label="＋ 먹은 것 추가" onClick={() => setFoodSheet(true)} />
+            </HStack>
+          </VStack>
+        </Card>
 
-      <div className="card">
-        <div className="card-label">먹은 것 (시간별)</div>
-        {sortedLog(day.log).map((entry) => (
-          <div key={entry.id}>
-            <button
-              className="diet-item"
-              aria-expanded={openLogId === entry.id}
-              onClick={() => setOpenLogId(openLogId === entry.id ? null : entry.id)}
-            >
-              <span>{logEntryText(entry)}</span>
-            </button>
-            {openLogId === entry.id && (
-              <div className="btn-row" style={{ alignItems: 'center' }}>
-                <input
-                  {...NO_AUTOFILL}
-                  className="field"
-                  type="time"
-                  value={entry.time}
-                  onChange={(e) => {
-                    const time = e.target.value
-                    mutate((d) => applyUpdateLog(d, entry.id, { time }))
-                  }}
-                  aria-label="먹은 시각"
-                />
-                <NumberStepper
-                  value={entry.count}
-                  step={0.5}
-                  min={0.5}
-                  decimals={2}
-                  ariaLabel="먹은 개수"
-                  onChange={(count) => mutate((d) => applyUpdateLog(d, entry.id, { count }))}
-                />
-                <button
-                  className="btn btn-sm btn-danger"
-                  onClick={() => {
-                    mutate((d) => applyRemoveLog(d, entry.id))
-                    setOpenLogId(null)
-                  }}
-                >
-                  삭제
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-        {(day.log?.length ?? 0) === 0 && (
-          <p className="row-sub">플랜에 없는 음식이나 다른 시간에 먹은 것을 적습니다.</p>
-        )}
-        <button className="btn btn-sm mt-row" onClick={() => setFoodSheet(true)}>
-          ＋ 먹은 것 추가
-        </button>
-      </div>
+        <Card>
+          <VStack gap={3}>
+            <Text type="supporting" color="secondary">
+              메모 (선택)
+            </Text>
+            <TextField
+              label="식단 메모"
+              isLabelHidden
+              value={noteDraft ?? day.note ?? ''}
+              onChange={setNoteDraft}
+              onBlur={() => {
+                if (noteDraft !== null) mutate((d) => applyNote(d, noteDraft))
+                setNoteDraft(null)
+              }}
+              placeholder="회식·컨디션 같은 맥락"
+            />
+          </VStack>
+        </Card>
 
-      <div className="card">
-        <div className="card-label">메모 (선택)</div>
-        <input
-          {...NO_AUTOFILL}
-          className="field"
-          value={noteDraft ?? day.note ?? ''}
-          onChange={(e) => setNoteDraft(e.target.value)}
-          onBlur={() => {
-            if (noteDraft !== null) mutate((d) => applyNote(d, noteDraft))
-            setNoteDraft(null)
-          }}
-          placeholder="회식·컨디션 같은 맥락"
-          aria-label="식단 메모"
-        />
-      </div>
-
-      {/*
+        {/*
         기록 삭제 (G4). 날짜 키를 덮어쓰는 편집으로 충분하다고 봤지만, 테스트 기록을
         정리할 방법이 없었다. 세션 삭제와 **같은 2단 확인 패턴**을 쓴다 —
         파괴적 동작의 조작이 화면마다 다르면 안 된다.
       */}
-      {stored && (
-        <div className="card">
-          <div className="card-label">위험 구역</div>
-          {confirmDelete ? (
-            <>
-              <p className="row-sub" style={{ color: 'var(--danger)' }}>
-                이 날 식단 기록({summary.loggedSlots}슬롯
-                {summary.logCount > 0 && ` · 먹은 것 ${summary.logCount}건`})이 삭제됩니다. 되돌릴 수 없습니다.
-              </p>
-              <div className="btn-row">
-                <button className="btn btn-sm" onClick={() => setConfirmDelete(false)}>
-                  취소
-                </button>
-                <button
-                  className="btn btn-sm btn-danger"
-                  onClick={() => {
-                    removeDietDay(date)
-                    setConfirmDelete(false)
-                  }}
-                >
-                  정말 삭제
-                </button>
-              </div>
-            </>
-          ) : (
-            <button className="btn btn-sm btn-danger" onClick={() => setConfirmDelete(true)}>
-              이 날 식단 기록 지우기
-            </button>
-          )}
-        </div>
-      )}
+        {stored && (
+          <Card>
+            <VStack gap={3}>
+              <Text type="supporting" color="secondary">
+                위험 구역
+              </Text>
+              {confirmDelete ? (
+                <>
+                  <Text className="ax-text-error">
+                    이 날 식단 기록({summary.loggedSlots}슬롯
+                    {summary.logCount > 0 && ` · 먹은 것 ${summary.logCount}건`})이 삭제됩니다. 되돌릴 수 없습니다.
+                  </Text>
+                  <HStack gap={2}>
+                    <Button variant="secondary" label="취소" onClick={() => setConfirmDelete(false)} />
+                    <Button
+                      variant="destructive"
+                      label="정말 삭제"
+                      onClick={() => {
+                        removeDietDay(date)
+                        setConfirmDelete(false)
+                      }}
+                    />
+                  </HStack>
+                </>
+              ) : (
+                <HStack>
+                  <Button variant="destructive" label="이 날 식단 기록 지우기" onClick={() => setConfirmDelete(true)} />
+                </HStack>
+              )}
+            </VStack>
+          </Card>
+        )}
+      </Group>
 
       {foodSheet && (
         <FoodLogSheet
@@ -466,6 +520,6 @@ export default function DietDayEditor({
           onClose={() => setPlanSheet(false)}
         />
       )}
-    </>
+    </div>
   )
 }

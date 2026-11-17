@@ -16,6 +16,9 @@ import { Card as AstryxCard, type CardProps } from '@astryxdesign/core/Card'
 import { ClickableCard as AstryxClickableCard, type ClickableCardProps } from '@astryxdesign/core/ClickableCard'
 import { NumberInput } from '@astryxdesign/core/NumberInput'
 import { TextInput, type TextInputProps } from '@astryxdesign/core/TextInput'
+import { Center } from '@astryxdesign/core/Center'
+import { Spinner } from '@astryxdesign/core/Spinner'
+import { Text } from '@astryxdesign/core/Text'
 import { TextArea, type TextAreaProps } from '@astryxdesign/core/TextArea'
 import type { BottomSheetProps } from '@astryxdesign/core/BottomSheet'
 import { AX_NO_AUTOFILL } from '../lib/inputProps'
@@ -31,7 +34,7 @@ export function preloadSheet() {
 }
 
 /** 입력칸 글자 16px 이상 (iOS가 포커스 시 확대하지 않게) */
-const CONTROL_STYLE = { fontSize: 'max(16px, 1em)' } as const
+export const CONTROL_STYLE = { fontSize: 'max(16px, 1em)' } as const
 
 /** `NumberInput`은 autoComplete만 받는다. 값은 `NO_AUTOFILL`에서 온다(필드별로 속성을 직접 적지 않는다 — inputProps.test X5·Y2). */
 const NUMBER_AUTOFILL = { autoComplete: AX_NO_AUTOFILL.autoComplete } as const
@@ -151,6 +154,18 @@ interface TextFieldProps extends TextInputProps {
 export function TextField({ isNumeric = false, isProminent = false, ...props }: TextFieldProps) {
   const numeric = isProminent ? 'ax-num-prominent' : isNumeric ? 'ax-num' : undefined
   return <TextInput {...AX_NO_AUTOFILL} controlStyle={isProminent ? PROMINENT_STYLE : CONTROL_STYLE} controlClassName={numeric} {...props} />
+}
+
+/** 불러오는 중 표시. 화면 가운데에 Spinner와 문구. */
+export function Loading({ text }: { text: string }) {
+  return (
+    <Center>
+      <VStack gap={2}>
+        <Spinner />
+        <Text color="secondary">{text}</Text>
+      </VStack>
+    </Center>
+  )
 }
 
 /** 여러 줄 입력. `TextField`처럼 자동완성 억제(G5)와 16px 하한을 빠뜨릴 수 없게 한다. */

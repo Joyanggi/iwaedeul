@@ -69,6 +69,9 @@
 40. **새로 확인 (SS0):** `docs/screenshots/<ver>`의 `--ver`는 `v숫자.숫자` 꼴만 받는다(`v1.21x`는 종료 코드 2). 결함 복원용 임시 폴더는 `--ver=v9.99`로 찍고 지운다.
 41. **새로 확인 (SS0):** 유산소 종류 알약과 Day 변경 후보가 같은 `.pill-row`라, `.pill-row` 버튼으로 Day를 고르면 유산소 알약을 누른다. Day 후보는 안내 문구 바로 뒤 형제로 고른다.
 42. **새로 확인 (SS0):** `ARGOS_TOKEN`이 이 환경에 없어 `argos-upload.mjs before`는 `Argos 건너뜀`으로 끝난다(판정 아님, 종료 코드 0).
+43. **새로 확인 (SS2):** Astryx `Collapsible`은 `defaultIsOpen`의 기본이 **true**(열림)다. 처음 닫으려면 `defaultIsOpen={false}`.
+44. **새로 확인 (SS2):** `TimeInput`·`CheckboxList`를 `src/ax/index.tsx`가 읽으면 메인 청크가 약 87KB(gzip) 는다(353.5 → 441KB). 식단 전용 부품은 `src/ax/diet.tsx`(지연 화면만 import)에 둔다. `index.tsx`가 다시 내보내도 메인에 들어온다.
+45. **새로 확인 (SS2):** Astryx `Item`은 줄마다 위·아래 8px 안쪽 여백이 있고 `as="button"`은 `nested-interactive`를 낸다. `ToggleButton`은 안 눌렸을 때 맨 글자라 `className="ax-toggle"`이 필요하다. `Button`의 `endContent`·`width`는 있고 `Heading`에 `hasTabularNumbers`, `HStack`에 `align="baseline"`은 없다.
 
 ---
 
@@ -249,3 +252,92 @@
 
 - `npm run check` 통과(흔적·Astryx 뒷걸음·린트·knip·테스트·빌드·첫 화면 크기). `Test Files  80 passed (80)`, `Tests  1825 passed (1825)`. 빌드 성공.
 - `git rev-list --count main..HEAD`: 커밋 전 3 → 이 작업 커밋 후 4.
+
+---
+
+## SS2. 식단 탭
+
+### 범위
+
+| 항목 | 내용 |
+|---|---|
+| 커밋 | 이 커밋(`feat(SS2): …`) — 해시는 `git log`. |
+| 바뀐 파일 | `src/screens/DietScreen.tsx`·`src/components/DietDayEditor.tsx`·`MealReminderPanel.tsx`(Astryx로), `src/ax/index.tsx`(`Loading`)·`src/ax/diet.tsx`(새: `TimeField`·`CheckboxList`)·`src/ax/parts.css`, `src/App.tsx`(`Loading`을 `src/ax`에서), `src/styles/global.css`·`space.css`(식단 규칙 삭제), `scripts/ui-check.mjs`·`scripts/lib/ui-space.mjs`·`ui-check-lib.mjs`(장면·흐름·판정), `scripts/astryx-inventory.mjs`, 테스트, `README.md`, `docs/ASTRYX-INVENTORY.md`, `docs/screenshots/v1.21/after`(식단·기록 장면만), 이 기록 |
+| 테스트 | `Test Files 81 passed (81)` · `Tests 1839 passed (1839)` (SS1 뒤 80/1825 → 새 파일 1 `scripts/ss2.test.mjs`, 새 테스트 14: `v121` SS2 8 + `ss2.test.mjs` 6) |
+| 옮긴 스캔(수정표 안) | `uiConsistency` X6(식단 줄) `btn-danger` → `/btn-danger\|variant="destructive"/`, `v120` RR7의 `DietDayEditor` 줄 `isProminent\|ax-scope` → `isProminent`만, `v120` RR3 `<Spinner />` `App.tsx` → `src/ax/index.tsx`의 `Loading` 본문 |
+| 수정표 밖 | `scripts/rr10.test.mjs`: `.diet-mark-btn·.diet-mark-<등급>은 남는다` → 없다(PLAN이 지우라고 한 규칙) · `scripts/rr7.test.mjs`: `.btn-row > .ax-scope` 규칙이 있다 → `.btn-row`가 `parts.css`에 없다(PLAN이 지우라고 한 규칙, 줄 정렬은 ui-check 흐름 `SS2 먹은 것 줄`이 잰다) · `v120.test.ts` RR3 "새 .tsx 파일 없음": `src/ax`의 `.tsx`가 `index.tsx` 하나 → `diet.tsx`·`index.tsx`(아래 1) |
+
+### PLAN과 다르게 한 것 (이유)
+
+1. **`TimeField`·`CheckboxList`는 `src/ax/diet.tsx`에 있다(PLAN: `src/ax/index.tsx`).** `index.tsx`에 두자 메인 청크에 `TimeInput`·`CheckboxList`가 딸려 와 첫 화면이 353.5 → 440.97KB(gzip)로 360KB 기준을 넘었다(`first-load --check` 실패). 식단 화면(지연 읽기)만 import하는 별도 파일로 나누고 `index.tsx`는 다시 내보내지 않는다. SS3 `RadioList`·`ScrollableArea`, SS6 `CodeBlock`·`Link`도 홈이 안 쓰면 같은 이유로 `index.tsx`가 아니라 지연 화면 쪽 파일에 둬야 한다(SS3·SS6 구현자에게).
+2. **끼니 머리는 `Item`이 아니라 글자 + `Button variant="secondary" size="sm"` `대체·안 먹음`이다.** `Item as="button"`은 `nested-interactive`(접근성 실패 5건), 기본 `Item`은 위 여백 8px 때문에 `안쪽 대칭` 위 23·아래 15였다. 시트 여는 버튼의 접근성 이름은 `대체·안 먹음 — <끼니>`(보이는 글자가 앞).
+3. **`ToggleButton`(원형·품목)에 `className="ax-toggle"`** (v1.20 RR7의 알약 모양 — 안 눌렸을 때 맨 글자가 되지 않게. 첫 스크린샷에서 맨 글자였다). `className=` 허용 이름에 `ax-toggle`·`ax-scope ax-diet`(편집기 맨 바깥 — 기록 화면 안에서도 한글 줄바꿈 규칙이 걸리게)가 더해졌다.
+4. 요약 카드 첫 줄이 단백질 숫자(글자)이고 플랜 버튼이 같은 줄 오른쪽이다(`같은 역할`의 `카드 안쪽`이 첫 글자 왼쪽 여백을 재는데 버튼의 아이콘이 먼저 오면 51px로 읽혔다). `Heading`에 `hasTabularNumbers`가, `HStack`에 `align="baseline"`이 없어 `end` 정렬로 갈음.
+5. 먹은 것 줄의 `삭제`는 `size="sm"`이 아니다(기본 36px). RR7 흐름이 요구하던 44px는 legacy `.btn`의 값이라 Astryx 기본 높이 36px(요약 `홈으로` 버튼과 같다)로 낮췄다 — 흐름 이름은 v120 스캔이 묶고 있어 그대로 두고 판정값(≥36)만 바꿨다.
+6. `안쪽 대칭` 측정 보강(`ui-space.mjs`): 입력칸의 상자를 `<input>`이 아니라 눈에 보이는 테두리 상자로 잰다(Astryx 입력칸은 `<input>`이 테두리 상자 안쪽 5~6px에 있어 메모 카드가 위 15·아래 21로 읽혔다). 기존 장면(홈·요약·편집기)은 전부 통과 그대로.
+7. `inPageWarnColor` → `inPageToneColor`(`tone` 인수, 기본 `warning`): PLAN이 이 이름을 가정했고 오류 토큰을 같은 흐름으로 잰다.
+8. 편집기가 든 legacy 화면 `history-day`·`history-detail-end`의 `EXPECTED_PAIRS`는 카드·버튼만(`history-detail-end`는 카드)이다.
+
+### PLAN 검증 항목 ↔ 확인
+
+| PLAN 검증 | 확인 |
+|---|---|
+| 세 파일 `className=`·`style=`·`<button`·`<input`·`var(--`·`padding=` | `v121 SS2: className=은 ax- 이름뿐이고 …` |
+| `전부 먹음`·품목 `ToggleButton`의 `isPressed` | `v121 SS2: 끼니 원형 버튼은 isPressed=… 품목 버튼은 isPressed={on}이다 …` + 흐름 `SS2 끼니 전부 먹음 1탭`(부분 등급은 눌림 아님) |
+| 문구 | `v121 SS2: 문구가 세 파일에 그대로 있다` |
+| `Loading`·`TimeField`(`native`·`AX_NO_AUTOFILL`), `App`에 `function Loading` 없음 | `v121 SS2: Loading은 src/ax/index.tsx, TimeField·CheckboxList는 src/ax/diet.tsx …` |
+| 위험 구역·식사 알림·편집기 바깥·로직 줄 | `v121 SS2` 나머지 4건(`variant="destructive"`, `defaultIsOpen={false}`, `ax-scope ax-diet`, `seedVariantChoices`·`decimals={2}`) |
+| CSS(`.ax-text-error`·`.ax-text-success` 세 겹, `.ax-slot-mark`, `.ax-diet`, 지운 규칙) | `scripts/ss2.test.mjs` 6건(fs로 읽음) |
+| 옮긴 스캔 셋 | 위 범위 표 |
+| `ui-check after --check` 장면 `diet` `diet-end` `diet-375` `diet-log-open` `diet-streak` `history-day` `history-detail-end` | 아래 |
+| 경계(플랜 없음·기록 없는 날·변형·먹은 것 0건·4일/3일 연속) | 로직 줄은 안 바꿨고 기존 로직 테스트가 본다. 장면은 `diet`(기록 없는 날·변형 있는 품목·먹은 것 0건)·`diet-log-open`(먹은 것 1건)·`diet-streak`(줄인 플랜 4일 연속 경고)가 본다 |
+
+### 인벤토리·첫 화면 크기
+
+- `node scripts/astryx-inventory.mjs --check`: 화면 아닌 파일 21 → 18, 인라인 51 → 45, legacy 클래스 쓰임 270 → 235, 안 쓰는 선택자 0 → 0(PLAN 표와 같다. `--write`로 표를 새로 썼다). 지운 것: `.banner-warn`(마지막 쓰임), 인벤토리 템플릿 접두사 `diet-mark-`.
+- `node scripts/first-load.mjs`: JS 303.87 + CSS 49.71 = **353.57KB**(한계 360KB, 통과. SS1 353.50KB).
+
+### `ui-check after --check --ver=v1.21` (전체, 백그라운드)
+
+- **종료 코드 0.** `장면 실패 0건`, `알려진 실패 3건`(`KNOWN_FAILURES` 세 칸만 — SS5·SS6이 줄인다), `- 실패` 0줄, 흐름 통과 122건·실패 0건.
+- `같은 역할`: 화면 좌우 16(식단 포함) · 카드 사이 12 · 묶음 사이 20(`diet` 20) · 카드 안쪽 15(`diet` 15) · 가까움 순서 통과. `안쪽 대칭`·`가로 넘침`·`섬 버튼`(`history-day`·`history-detail-end`)이 식단 장면 전부 통과.
+- 새 흐름(전부 `guardedFlow`, 대상 0개면 실패):
+
+| 흐름 | 결과 |
+|---|---|
+| `SS2 끼니 전부 먹음 1탭 …` | 눌림 false → true → (품목 하나 뺌) false → true → false, 요약 kcal `225` → `460` → `225` |
+| `SS2 품목 체크 1탭` | 눌림 false → true → false |
+| `SS2 먹은 것 줄` | 접힘 → 펼침, `+` 1탭 1 → 1.5, 시각 칸·스테퍼·삭제 세로 가운데 차이 0px(390·375) |
+| `SS2 식사 알림 접힘` | 처음 닫힘(체크 0개) → 펼침 5개 → 다시 접음 0개 |
+| `SS2 위험 구역 2단 확인` | 확인 문구 계산된 색 = `--color-text-error`(다크 `rgb(255,174,167)`·라이트 `rgb(192,38,44)`), 취소로 돌아옴 |
+| `SS2 <장면> 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안` | `diet`·`diet-end`·`diet-log-open`·`diet-streak`·`history-day` 5장면 모두 꺾임 0건(글자 372~452개 — 0개면 실패) |
+| `RR7 식단 스테퍼` | 통과(삭제 36px·시각 칸 카드 안 — 위 5) |
+
+- 390·375 폭 글자 꺾임 0건. 첫 시도에서 `history-day`가 `적습니/다.`로 꺾여 편집기 맨 바깥에 `ax-diet`을 달아 고쳤다. 식단에는 `0점` 같은 숫자+단위 줄이 없고 `/166g`·`1,781kcal`·`3개`는 `.ax-diet` 규칙(`keep-all`)이 한 덩어리로 지킨다.
+- 장면 선택자를 역할·이름으로 바꿨다(`sheet-diet-plan`은 식단 틀 첫 버튼, `sheet-diet-slot`은 `대체·안 먹음 — 아침`, `sheet-diet-variant`는 `바꾸기 — …`, `diet-log-open`은 `aria-expanded` 버튼 중 `식사 알림` 아닌 것). `button.diet-item` 등 legacy 선택자 0.
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 것 | 원상복구 |
+|---|---|---|
+| ④ 원형 버튼 `isPressed={grade !== 'none'}` | `v121 SS2: 끼니 원형 버튼은 …` + 흐름 `SS2 끼니 전부 먹음 1탭`(품목 하나 뺀 뒤 눌림 true) | `cmp` 같음 |
+| ⑤ 편집기 바깥 `ax-scope` 뺌 | `history-day` `섬 버튼` 실패(9/29개 min-height 44px) | `cmp` 같음 |
+| ⑥ `defaultIsOpen={false}` 뺌 | `v121 SS2: 식사 알림은 …` + 흐름 `SS2 식사 알림 접힘`(처음 열림·체크 5개) | `cmp` 같음 |
+| ⑦ `.ax-text-error` 세 겹 → 한 겹 | `scripts/ss2.test.mjs` 세 겹 + 흐름 `SS2 위험 구역 2단 확인`(계산된 색 흰색·검정) | `cmp` 같음 |
+
+(④⑤⑥⑦을 한 번에 되살려 `--only=history-day`로 돌렸다. ⑤는 `ax-diet`도 같이 빠져 `SS2 history-day` 흐름도 실패했다.)
+
+### 과거 판정 불변
+
+`src/db`·`src/store` 변경 없음, `src/lib`는 테스트뿐(`src/lib/v121.test.ts`, 판정 파일 없음. 골든 테스트 수정 없이 통과). 변이·속성 테스트 대상 없음.
+
+### 하지 않은 것
+
+- `docs/screenshots/v1.21/after`는 식단·기록 장면과 `layout.json`만 갱신했다(무관한 장면이 바뀐 것은 `git show HEAD:<경로>`로 되돌림).
+- `--same-layout`은 안 돌렸다(식단 배치가 의도대로 바뀐다). Argos 업로드 안 함(토큰 없음).
+- **사람 확인 필요:** 실기기에서 시각 칸이 iOS 시각 휠로 뜨고 확대되지 않는지, 끼니 원형 버튼·품목이 엄지로 한 번에 눌리는지.
+
+### 실행 결과 요약
+
+- `npm run check` 통과(흔적·Astryx 뒷걸음·린트·knip·테스트·빌드·첫 화면 크기). `Test Files  81 passed (81)`, `Tests  1839 passed (1839)`. 빌드 성공.
+- `git rev-list --count main..HEAD`: 커밋 전 5 → 이 작업 커밋 후 6.

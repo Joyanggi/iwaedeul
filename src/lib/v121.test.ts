@@ -4,6 +4,10 @@ import { describe, expect, it } from 'vitest'
 // 소스는 ?raw로 읽는다(`node:fs`는 src의 타입 검사에 없다 — DEV-RECORD 제약 13). 이 둘은 .tsx라 ?raw가 빈 문자열이 되지 않는다(제약 3은 .css)
 import app from '../App.tsx?raw'
 import ax from '../ax/index.tsx?raw'
+import axDiet from '../ax/diet.tsx?raw'
+import dietScreen from '../screens/DietScreen.tsx?raw'
+import dietEditor from '../components/DietDayEditor.tsx?raw'
+import mealPanel from '../components/MealReminderPanel.tsx?raw'
 
 describe('v121 SS1 — App은 홈만 정적으로 읽는다', () => {
   it('v121 SS1: 홈 밖 화면 여섯은 정적 import가 0건이고 홈은 정적이다', () => {
@@ -69,5 +73,86 @@ describe('v121 SS1 — 시트 부품은 처음 열 때 읽는다', () => {
     expect(ax).toContain('const SHEET_CLOSE_MS = 350')
     expect(ax).toContain('const finish = once(() => onCloseRef.current())')
     expect(ax).toContain('return () => clearTimeout(timer)')
+  })
+})
+
+// ── SS2 — 식단 탭 ──────────────────────────────────────────────────────────────────────────────
+// 소스 스캔. onClick의 `=>`·`>`에서 끊기지 않게 태그 단위가 아니라 "여는 글자부터 다음 부품 시작까지"로 자른다.
+// CSS는 `scripts/ss2.test.mjs`가 fs로 읽는다(vitest에서 .css ?raw는 빈 문자열 — 제약 3).
+const DIET_FILES = { 'DietScreen.tsx': dietScreen, 'DietDayEditor.tsx': dietEditor, 'MealReminderPanel.tsx': mealPanel }
+
+/** `<ToggleButton`부터 닫는 `</HStack>`·`</StackItem>` 앞까지(onClick의 `=>`에서 끊기지 않는다) */
+const toggleSegments = (src: string) =>
+  src
+    .split('<ToggleButton')
+    .slice(1)
+    .map((rest) => {
+      const end = rest.search(/<\/HStack>|<\/StackItem>/)
+      return end < 0 ? rest : rest.slice(0, end)
+    })
+
+describe('v121 SS2 — 식단 세 파일은 Astryx 부품뿐이다', () => {
+  it('v121 SS2: className=은 ax- 이름뿐이고 style=·<button·<input·var(--·padding=이 0건이다', () => {
+    for (const [name, src] of Object.entries(DIET_FILES)) {
+      const classes = [...src.matchAll(/className=("[^"]*"|\{[^}]*\})/g)].map((m) => m[1])
+      for (const c of classes) expect(c, name).toMatch(/^"ax-(scope ax-diet|scope|slot-mark|diet|text-error|toggle)"$/)
+      for (const bad of ['style=', '<button', '<input', 'var(--', 'padding=']) expect(src, `${name} ${bad}`).not.toContain(bad)
+    }
+  })
+
+  it("v121 SS2: 끼니 원형 버튼은 isPressed={grade === 'full'}, 품목 버튼은 isPressed={on}이다(aria-pressed의 뜻이 그대로)", () => {
+    const segs = toggleSegments(dietEditor)
+    const slot = segs.find((t) => t.includes('전부 먹음'))
+    const item = segs.find((t) => t.includes('variant.qty'))
+    expect(slot, '끼니 원형 버튼').toBeDefined()
+    expect(item, '품목 버튼').toBeDefined()
+    expect(slot).toContain("isPressed={grade === 'full'}")
+    expect(slot).not.toContain("grade !==")
+    expect(item).toContain('isPressed={on}')
+  })
+
+  it('v121 SS2: 문구가 세 파일에 그대로 있다', () => {
+    const all = Object.values(DIET_FILES).join('\n')
+    for (const text of ['대체·안 먹음', '단백질 (추정)', '먹은 것 (시간별)', '＋ 먹은 것 추가', '메모 (선택)', '위험 구역', '이 날 식단 기록 지우기', '정말 삭제', '식사 알림', '캘린더로 내보내기', '기본 플랜으로 돌아오세요', '일 연속']) {
+      expect(all, text).toContain(text)
+    }
+  })
+
+  it('v121 SS2: 위험 구역·삭제는 variant="destructive"이고 확인 문구는 ax-text-error다', () => {
+    expect(dietEditor).toMatch(/variant="destructive"\s+label="이 날 식단 기록 지우기"/)
+    expect(dietEditor).toMatch(/variant="destructive"\s+label="정말 삭제"/)
+    expect(dietEditor).toContain('<Text className="ax-text-error">')
+  })
+
+  it('v121 SS2: 식사 알림은 Collapsible이고 처음 닫혀 있다(Collapsible의 기본값은 열림이라 defaultIsOpen={false}를 준다), 끼니는 CheckboxList다', () => {
+    expect(mealPanel).toContain('<Collapsible defaultIsOpen={false} trigger={<Text weight="semibold">식사 알림</Text>}>')
+    expect(mealPanel).not.toMatch(/isOpen=|defaultIsOpen=\{true/)
+    expect(mealPanel).toContain('<CheckboxList label="알림 받을 끼니" isLabelHidden')
+    expect(mealPanel).toContain('휴식일에도 울립니다 (훈련일 전용 끼니인데 매일 반복입니다)')
+  })
+
+  it('v121 SS2: 편집기는 맨 바깥이 ax-scope div(기록 화면이 legacy인 동안 맨 요소 규칙을 막는다)이고 화면은 Groups className="ax-diet"다', () => {
+    expect(dietEditor).toMatch(/return \(\s+<div className="ax-scope ax-diet">\s+<Group>/)
+    expect(dietScreen).toContain('<Groups className="ax-diet">')
+  })
+
+  it('v121 SS2: 로직 줄은 그대로다 — mutateDietDay·seedVariantChoices 한 경로, variantChoicesFor(…todayVariantChoices(day)), decimals={2}', () => {
+    expect(dietEditor).toContain('seedVariantChoices(fn(d), slots, variantDefaults)')
+    expect(dietEditor.match(/variantChoicesFor\(/g)).toHaveLength(2) // 품목 표기 한 곳 + 단백질원 시트 한 곳
+    expect(dietEditor.match(/todayVariantChoices\(day\)/g)).toHaveLength(2)
+    expect(dietEditor).toContain('decimals={2}')
+  })
+
+  it('v121 SS2: Loading은 src/ax/index.tsx, TimeField·CheckboxList는 src/ax/diet.tsx(메인 청크에 안 딸려 오게)에 있다. TimeField는 native 시각 고르기·자동완성 억제를 건다. App에는 function Loading이 없다', () => {
+    expect(ax).toMatch(/export function Loading\(/)
+    expect(axDiet).toMatch(/export function TimeField\(/)
+    expect(axDiet).toContain('presentation="native"')
+    expect(axDiet).toContain('{...AX_NO_AUTOFILL}')
+    expect(axDiet).toContain('controlStyle={CONTROL_STYLE}')
+    expect(axDiet).toMatch(/export \{ CheckboxList, CheckboxListItem \} from/)
+    // 식단 전용 부품을 index.tsx가 읽거나 다시 내보내면 홈이 읽는 첫 화면 코드가 87KB(gzip) 늘어난다 — first-load --check가 잡지만 이유를 여기 남긴다
+    expect(ax).not.toMatch(/TimeInput|CheckboxList|from '\.\/diet'/)
+    expect(app).not.toContain('function Loading')
+    expect(app).toContain('Loading,')
   })
 })

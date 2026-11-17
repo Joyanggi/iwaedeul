@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
-import { AppRoot, AxRoot, Banner, Bar, Center, Heading, Spinner, Text, VStack, preloadSheet } from './ax'
+import { AppRoot, AxRoot, Banner, Bar, Heading, Loading, Text, VStack, preloadSheet } from './ax'
 import TabBar, { type TabId } from './components/TabBar'
 import SessionResumeStrip from './components/SessionResumeStrip'
 import UpdatePrompt from './components/UpdatePrompt'
@@ -238,18 +238,6 @@ function AppBody() {
         <TabBar active={tab} onChange={setTab} />
       </Bar>
     </>
-  )
-}
-
-/** 불러오는 중 표시. 화면 가운데에 Spinner와 문구. */
-function Loading({ text }: { text: string }) {
-  return (
-    <Center>
-      <VStack gap={2}>
-        <Spinner />
-        <Text color="secondary">{text}</Text>
-      </VStack>
-    </Center>
   )
 }
 

@@ -39,9 +39,10 @@ describe('X6 — 파괴적 동작의 시각 언어가 하나다', () => {
   it('삭제 진입 버튼이 전부 btn-danger다', () => {
     for (const { path, label } of DESTRUCTIVE) {
       const src = file(path)
-      // 라벨 앞쪽 className에 btn-danger가 있어야 한다
+      // 라벨 앞쪽에 btn-danger(legacy) 또는 variant="destructive"(Astryx)가 있어야 한다
       const around = src.slice(Math.max(0, src.indexOf(label) - 260), src.indexOf(label))
-      expect(around, `${path}의 "${label}"`).toMatch(/btn-danger/)
+      // v1.21 SS2: 식단·기록 상세의 삭제 진입 버튼이 Astryx `Button variant="destructive"`로 옮겨 간다(legacy btn-danger와 같은 뜻 — 파괴적 동작의 시각 언어가 하나)
+      expect(around, `${path}의 "${label}"`).toMatch(/btn-danger|variant="destructive"/)
     }
   })
 

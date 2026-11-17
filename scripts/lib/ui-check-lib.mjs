@@ -693,15 +693,15 @@ export const inPageNumberFit = () => {
 }
 
 /**
- * 경고 글자색 (RR8 화면 검증 반려): 선택자로 찾은 첫 요소의 계산된 color가 `--color-text-warning`을 풀어 쓴 색과 같은가.
+ * 경고·오류·성공 글자색 (RR8 화면 검증 반려, v1.21 SS2가 tone을 더했다): 선택자로 찾은 첫 요소의 계산된 color가 `--color-text-<tone>`(기본 warning)을 풀어 쓴 색과 같은가.
  * 클래스가 붙었는지만 세면 Astryx `Text`의 `[data-color]` 규칙에 져서 일반 글자색으로 보이는 결함을 못 잡는다.
  */
-export const inPageWarnColor = ({ sel, text }) => {
+export const inPageToneColor = ({ sel, text, tone = 'warning' }) => {
   // text가 있으면 그 글을 담은 요소만 본다(요약의 복귀 카드 값 "60 → 20kg"처럼 같은 클래스가 여러 곳에 있을 때)
   const el = [...document.querySelectorAll(sel)].find((e) => !text || e.textContent.includes(text))
   if (!el) return { found: false, same: false, actual: '', token: '' }
   const probe = document.createElement('span')
-  probe.style.color = 'var(--color-text-warning)'
+  probe.style.color = `var(--color-text-${tone})`
   document.body.appendChild(probe)
   const token = getComputedStyle(probe).color
   probe.remove()
