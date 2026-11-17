@@ -567,6 +567,15 @@ function inPageDietSeed({ planId, count }) {
   })
 }
 
+/** SS2 검증: 식단 품목 토글(눌리지 않은 것) 하나의 계산된 모양 — 식단 탭과 기록 화면 안 편집기가 같은 부품이면 같다 */
+function inPageItemFace() {
+  const b = [...document.querySelectorAll('button[aria-pressed]')].find((x) => !x.querySelector('.ax-slot-mark') && x.getAttribute('aria-pressed') === 'false' && /\d/.test(x.textContent))
+  if (!b) return null
+  const s = getComputedStyle(b)
+  const r = b.getBoundingClientRect()
+  return { fontSize: s.fontSize, fontWeight: s.fontWeight, letterSpacing: s.letterSpacing, fontFamily: s.fontFamily.split(',')[0], lineHeight: s.lineHeight, padL: s.paddingLeft, h: Math.round(r.height), radius: s.borderTopLeftRadius, bg: s.backgroundColor, border: s.borderTopColor, color: s.color, text: b.textContent.trim().slice(0, 14) }
+}
+
 /** SS0: inPageDietSeed가 심은 날을 원래대로(없던 날은 지우고, 있던 날은 되쓴다) */
 function inPageDietRestore({ dates, prev }) {
   return new Promise((resolve, reject) => {
@@ -638,6 +647,7 @@ async function runScenes(browser, port, scheme) {
   })
   await page.goto(`http://localhost:${port}${BASE}`)
 
+  let histItemFace = null // SS2 검증: 기록 화면 안 편집기의 품목 토글 모양(식단 탭과 같아야 한다)
   const snap =async (scene, pg = page) => {
     await settle(pg, 500)
     const name = light ? `${scene}-light` : scene
@@ -1808,6 +1818,7 @@ async function runScenes(browser, port, scheme) {
       await page.getByRole('button', { name: '전체 보기', exact: true }).waitFor({ timeout: 3000 })
       await settle(page, 800)
       await snap('history-day')
+      histItemFace = await page.evaluate(inPageItemFace)
       // 편집기는 legacy 기록 화면 안의 섬(.ax-scope) — 그 섬 안만 잰다(앞에 다른 .ax-scope가 없다)
       if (!light) await screenWrapFlow('SS2 history-day 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-scope')
       await page.getByRole('button', { name: '전체 보기', exact: true }).click()
@@ -2135,6 +2146,200 @@ async function runScenes(browser, port, scheme) {
       const back = await btn(page, '이 날 식단 기록 지우기').count()
       const gone = await btn(page, '정말 삭제').count()
       flows.push([name, { ok: tone.same && confirmBtn === 1 && back === 1 && gone === 0, detail: `확인 문구 계산된 색 ${tone.actual} (토큰 ${tone.token}) · 정말 삭제 ${confirmBtn}개 · 취소 뒤 지우기 ${back}개·정말 삭제 ${gone}개(기록은 그대로)` }])
+    })
+
+    // SS2 화면 검증(검증자가 더한 칸): 부품 상자가 서로 안 겹치는가·끼니 등급 다섯 색·눌린 품목·맨 글자 버튼·누르는 영역(elementFromPoint)·맨 아래 버튼·같은 부품의 모양이 기록 화면 안과 같은가
+    await guardedFlow(['SS2 검증 먹은 것 줄: 부품 상자가 안 겹치고 글자가 안 잘린다(390·375)'], async () => {
+      const name = 'SS2 검증 먹은 것 줄: 부품 상자가 안 겹치고 글자가 안 잘린다(390·375)'
+      const probe = () => {
+        const vis = (e) => !!(e.offsetWidth || e.offsetHeight)
+        const time = [...document.querySelectorAll('input')].find((i) => i.type === 'time' && vis(i))
+        const count = [...document.querySelectorAll('input')].find((i) => vis(i) && `${i.getAttribute('aria-label') ?? ''} ${[...(i.labels ?? [])].map((l) => l.textContent).join(' ')}`.includes('먹은 개수'))
+        const find = (t) => [...document.querySelectorAll('button')].find((b) => vis(b) && (b.getAttribute('aria-label') ?? b.textContent).trim().startsWith(t))
+        const parts = { 시각: time, 감소: find('먹은 개수 감소'), 개수: count, 증가: find('먹은 개수 증가'), 삭제: find('삭제') }
+        const out = {}
+        for (const [k, el] of Object.entries(parts)) {
+          if (!el) { out[k] = null; continue }
+          const r = el.getBoundingClientRect()
+          const text = k === '삭제' ? [...el.querySelectorAll('*')].find((n) => n.children.length === 0 && n.textContent.trim() === '삭제') ?? el : el
+          const tr = text.getBoundingClientRect()
+          out[k] = { l: Math.round(r.left), r: Math.round(r.right), w: Math.round(r.width), clipText: k === '삭제' ? tr.right > r.right + 1 || tr.left < r.left - 1 || r.width < tr.width : el.scrollWidth > el.clientWidth + 1, cs: getComputedStyle(el).overflow }
+        }
+        return out
+      }
+      const res = []
+      try {
+        for (const width of [390, 375]) {
+          await page.setViewportSize({ width, height: width === 375 ? 812 : 844 })
+          await settle(page, 300)
+          res.push({ width, ...(await page.evaluate(probe)) })
+        }
+      } finally {
+        await page.setViewportSize({ width: 390, height: 844 })
+        await settle(page, 300)
+      }
+      const order = ['시각', '감소', '개수', '증가', '삭제']
+      const lines = res.map((r) => {
+        const miss = order.filter((k) => !r[k])
+        if (miss.length) return `${r.width}: 없음 ${miss.join(',')}`
+        let overlap = 0
+        const boxes = order.map((k) => r[k]).sort((a, b) => a.l - b.l)
+        for (let i = 1; i < boxes.length; i++) if (boxes[i].l < boxes[i - 1].r - 1) overlap++
+        const clipped = order.filter((k) => r[k].clipText)
+        return `${r.width}: ${order.map((k) => `${k} ${r[k].w}px`).join(' · ')} · 겹침 ${overlap}쌍 · 잘림 ${clipped.length ? clipped.join(',') : '없음'}`
+      })
+      const ok = res.every((r) => order.every((k) => r[k]) && !order.some((k) => r[k].clipText) && order.map((k) => r[k]).sort((a, b) => a.l - b.l).every((b, i, a) => i === 0 || b.l >= a[i - 1].r - 1))
+      flows.push([name, { ok, detail: lines.join(' / ') }])
+    })
+    await guardedFlow(['SS2 검증 식단 탭 상태: 끼니 등급 색·눌린 품목·맨 글자 버튼·누르는 영역·맨 아래'], async () => {
+      const name = 'SS2 검증 식단 탭 상태: 끼니 등급 색·눌린 품목·맨 글자 버튼·누르는 영역·맨 아래'
+      const dietRow = (op, row) => page.evaluate(({ op, row }) => new Promise((resolve, reject) => {
+        const pad = (n) => String(n).padStart(2, '0')
+        const d = new Date()
+        const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+        const open = indexedDB.open('workout-tracker')
+        open.onerror = () => reject(open.error)
+        open.onsuccess = () => {
+          const idb = open.result
+          const tx = idb.transaction('dietDays', 'readwrite')
+          const st = tx.objectStore('dietDays')
+          if (op === 'get') {
+            const g = st.get(date)
+            g.onsuccess = () => resolve(g.result ?? null)
+          } else if (row) st.put(row)
+          else st.delete(date)
+          tx.oncomplete = () => { idb.close(); resolve(null) }
+          tx.onerror = () => reject(tx.error)
+        }
+      }), { op, row })
+      const saved = await dietRow('get')
+      const details = []
+      let ok = true
+      try {
+        await page.reload()
+        await page.getByRole('button', { name: '식단', exact: true }).click()
+        await settle(page, 800)
+        const cardOf = (slot) => page.locator('[class*="astryx-card"]').filter({ has: page.getByRole('button', { name: `${slot} 전부 먹음`, exact: true }) }).first()
+        const itemsOf = (slot) => cardOf(slot).locator('button[aria-pressed]').filter({ hasNot: page.locator('.ax-slot-mark') })
+        const readMarks = () => page.evaluate(() => [...document.querySelectorAll('.ax-diet .ax-slot-mark')].map((m) => ({ g: m.dataset.grade, glyph: m.textContent.trim(), color: getComputedStyle(m).color })))
+        // 맨 글자 버튼: 눌리지 않은 버튼·토글 가운데 면(배경)도 테두리도 없는 것
+        const bare = await page.evaluate(() => [...document.querySelectorAll('.ax-diet button, .ax-diet [role=button]')].filter((b) => b.offsetWidth).map((b) => {
+          const s = getComputedStyle(b)
+          const transparent = s.backgroundColor === 'rgba(0, 0, 0, 0)' || s.backgroundColor === 'transparent'
+          const noBorder = ['Top', 'Right', 'Bottom', 'Left'].every((d) => parseFloat(s[`border${d}Width`]) === 0 || s[`border${d}Style`] === 'none')
+          return { n: (b.getAttribute('aria-label') ?? b.textContent).trim().slice(0, 20), bare: transparent && noBorder, expanded: b.hasAttribute('aria-expanded') }
+        }))
+        const bareNames = [...new Set(bare.filter((b) => b.bare).map((b) => (b.expanded ? `${b.n}(펼침줄)` : b.n)))]
+        details.push(`맨 글자(면·테두리 없음) 버튼: ${bareNames.length ? bareNames.join(' · ') : '없음'}`)
+        // 누르는 영역: 44 미만 컨트롤의 44 상자 안쪽(상하좌우)을 elementFromPoint로
+        const small = await page.evaluate(() => {
+          const out = []
+          for (const el of document.querySelectorAll('.ax-diet button, .ax-diet input, .ax-diet [role=button], .ax-diet [role=checkbox]')) {
+            if (!el.offsetWidth) continue
+            const r = el.getBoundingClientRect()
+            if (r.width >= 44 && r.height >= 44) continue
+            const needX = Math.max(0, (44 - r.width) / 2)
+            const needY = Math.max(0, (44 - r.height) / 2)
+            const cx = (r.left + r.right) / 2
+            const cy = (r.top + r.bottom) / 2
+            if (r.bottom < 0 || r.top > innerHeight) continue
+            const pts = { 위: [cx, r.top - needY + 1], 아래: [cx, r.bottom + needY - 1], 왼: [r.left - needX + 1, cy], 오른: [r.right + needX - 1, cy] }
+            const res = Object.entries(pts).filter(([k]) => ((k === '위' || k === '아래') ? needY > 0 : needX > 0)).map(([k, [x, y]]) => {
+              const hit = document.elementFromPoint(x, y)
+              return `${k}${hit && (hit === el || el.contains(hit) || hit.contains(el) && hit.closest('button') === el) ? '✓' : `✗(${hit?.tagName ?? '없음'})`}`
+            })
+            out.push(`${(el.getAttribute('aria-label') ?? el.textContent).trim().slice(0, 14)} ${Math.round(r.width)}x${Math.round(r.height)} ${res.join('')}`)
+          }
+          return out
+        })
+        details.push(`44px 미만 ${small.length}개: ${small.slice(0, 6).join(', ')}${small.length > 6 ? ' …' : ''}`)
+        // 등급 다섯 색: 점심 품목을 하나씩 누르며 등급이 어떻게 바뀌는지, 오후는 안 먹음
+        const lunch = itemsOf('점심')
+        const nLunch = await lunch.count()
+        const seq = []
+        for (let i = 0; i < nLunch; i++) {
+          await lunch.nth(i).click()
+          await settle(page, 250)
+          seq.push((await readMarks())[1].g)
+        }
+        details.push(`점심 품목 ${nLunch}개 누르는 대로 등급: ${seq.join('→')}`)
+        // 한 화면에 등급이 다 보이게(none은 위의 기본 장면): 아침 첫 품목(high), 점심 첫 품목(low), 오후 전부(full), 보충 블록 첫 품목(mid), 저녁 치팅 대체(zero)
+        // 점심은 위에서 넷 다 눌러 full이다: 첫 품목만 남기고 끈다
+        for (let i = 1; i < nLunch; i++) { await lunch.nth(i).click(); await settle(page, 150) }
+        await itemsOf('아침').nth(0).click()
+        await settle(page, 200)
+        await page.getByRole('button', { name: '오후 전부 먹음', exact: true }).click()
+        await settle(page, 300)
+        await itemsOf('보충 블록').nth(0).click()
+        await settle(page, 300)
+        // 저녁: 치팅으로 대체(0점 → 오류색 ✗)
+        await page.getByRole('button', { name: /^대체·안 먹음 — 저녁$/ }).click()
+        const dlg2 = page.getByRole('dialog', { name: /기록$/ })
+        await dlg2.waitFor({ timeout: 3000 })
+        await settle(page, 300)
+        await dlg2.getByRole('button', { name: '대체했어요', exact: true }).click()
+        await dlg2.getByRole('textbox').fill('회식 삼겹살')
+        await dlg2.locator('button[aria-pressed]').nth(2).click() // 어느 쪽이었나요: 비슷한 구성·다른 음식·치팅
+        await dlg2.getByRole('button', { name: '저장', exact: true }).click()
+        await dlg2.waitFor({ state: 'detached', timeout: 3000 }).catch(() => {})
+        await settle(page, 500)
+        await toTop()
+        await settle(page, 300)
+        const marks = await readMarks()
+        details.push(`끼니 표시 ${marks.map((m) => `${m.glyph}${m.g}`).join(' ')} · 색 ${marks.map((m) => m.color).join(' | ')}`)
+        const byGrade = new Map(marks.map((m) => [m.g, m.color]))
+        details.push(`등급 ${[...byGrade.keys()].join('/')} → 서로 다른 색 ${new Set(byGrade.values()).size}개`)
+        await snap('diet-grades')
+        // 눌린 품목 면: 눌린 것·안 눌린 것의 배경·테두리·글자 굵기
+        const faces = await page.evaluate(() => {
+          const pick = (p) => {
+            const b = [...document.querySelectorAll('.ax-diet button[aria-pressed]')].find((x) => x.offsetWidth && !x.querySelector('.ax-slot-mark') && x.getAttribute('aria-pressed') === p)
+            if (!b) return null
+            const s = getComputedStyle(b)
+            return `${s.backgroundColor} · 테두리 ${s.borderTopColor} · 굵기 ${s.fontWeight} · 아이콘 ${b.querySelector('svg') ? '있음' : '없음'}`
+          }
+          return { on: pick('true'), off: pick('false') }
+        })
+        details.push(`눌린 품목 면 ${faces.on} / 안 눌린 ${faces.off}`)
+        // 맨 아래: 마지막 컨트롤이 탭 바에 안 가려지는가
+        await toEnd()
+        await settle(page, 300)
+        await snap('diet-grades-end')
+        const bottom = await page.evaluate(() => {
+          const bar = document.querySelector('nav, [role=tablist], .ax-bar') ?? [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === '홈')?.parentElement
+          const barTop = bar ? bar.getBoundingClientRect().top : innerHeight
+          const last = [...document.querySelectorAll('.ax-diet button')].filter((b) => b.offsetWidth).pop()
+          const r = last.getBoundingClientRect()
+          const hit = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2)
+          return { barTop: Math.round(barTop), lastBottom: Math.round(r.bottom), h: Math.round(r.height), reachable: hit === last || last.contains(hit), n: (last.textContent ?? '').trim().slice(0, 10) }
+        })
+        details.push(`맨 아래 버튼 "${bottom.n}" 아래끝 ${bottom.lastBottom} / 탭 바 위 ${bottom.barTop} · 눌림 닿음 ${bottom.reachable}`)
+        ok = bottom.lastBottom <= bottom.barTop && bottom.reachable && new Set(byGrade.values()).size >= 4 && bare.every((b) => !b.bare || b.expanded) // 펼침 줄(Collapsible 머리)은 줄이라 맨 글자여도 된다
+        // 식사 알림을 펼친 모습(처음엔 닫혀 있다) — 끼니 체크 다섯·시각 칸·내보내기 버튼이 카드 안에 있는가
+        await page.getByRole('button', { name: '식사 알림', exact: true }).click()
+        await settle(page, 500)
+        await toEnd()
+        await snap('diet-reminder-open')
+        await page.getByRole('button', { name: '식사 알림', exact: true }).click()
+        await settle(page, 300)
+        await toTop()
+      } finally {
+        await dietRow('put', saved)
+        await page.reload()
+        await page.getByRole('button', { name: '식단', exact: true }).click()
+        await settle(page, 800)
+      }
+      flows.push([name, { ok, detail: details.join(' · ') }])
+    })
+
+    await guardedFlow(['SS2 검증 같은 부품 같은 모양: 식단 탭 품목 토글 = 기록 화면 안 편집기'], async () => {
+      const name = 'SS2 검증 같은 부품 같은 모양: 식단 탭 품목 토글 = 기록 화면 안 편집기'
+      const dietFace = await page.evaluate(inPageItemFace)
+      if (!dietFace || !histItemFace) throw new Error(`토글 못 찾음 식단 ${!!dietFace} 기록 ${!!histItemFace}`)
+      // 글자 집안(fontFamily)은 뺀다: 기록 화면의 섬은 legacy 본문 글꼴을 이어받는다(SS4가 화면을 옮기면 사라지는 알려진 차이 — 보고에 적는다)
+      const keys = Object.keys(dietFace).filter((k) => k !== 'text' && k !== 'fontFamily')
+      const diff = keys.filter((k) => dietFace[k] !== histItemFace[k])
+      flows.push([name, { ok: diff.length === 0, detail: diff.length ? diff.map((k) => `${k}: 식단 ${dietFace[k]} ≠ 기록 ${histItemFace[k]}`).join(' · ') : `같음(${keys.length}항목: 글자 ${dietFace.fontSize}/${dietFace.fontWeight} 높이 ${dietFace.h}px)` }])
     })
 
     // 줄인 플랜(보정 1,500)을 오늘까지 4일 연속 고른 상태 — 연속 저칼로리 경고. 심은 날은 끝에 되돌린다
