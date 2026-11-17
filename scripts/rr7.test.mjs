@@ -57,7 +57,7 @@ describe('v120 RR7 — parts.css의 세트 표와 숫자 칸', () => {
   })
 
   // v1.21 SS2: 식단 편집 줄이 legacy .btn-row에서 Astryx HStack으로 옮겨 가 `.btn-row > .ax-scope` 규칙이 지워졌다(PLAN SS2).
-  // 줄 안에서 스테퍼가 폭을 밀어내지 않는지는 ui-check 흐름 `SS2 먹은 것 줄`(세 요소 한 줄·안쪽 폭 안)이 잰다
+  // 줄 안에서 스테퍼가 폭을 밀어내지 않는지는 ui-check 흐름 `SS2 먹은 것 줄`(시각 칸·스테퍼 한 줄, 삭제는 둘째 줄·안쪽 폭 안)이 잰다
   it('v120 RR7: 스테퍼 줄이 폭을 밀어내지 않는다 — 세트 행의 열 안에서는 min-width 0이다(식단 줄의 .btn-row 규칙은 SS2가 지웠다)', () => {
     expect(parts).toMatch(/\.set-row > \.ax-scope \{[^}]*min-width:\s*0/)
     expect(parts).not.toMatch(/\.btn-row/)

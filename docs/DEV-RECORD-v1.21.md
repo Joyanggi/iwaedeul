@@ -262,10 +262,10 @@
 | 항목 | 내용 |
 |---|---|
 | 커밋 | 이 커밋(`feat(SS2): …`) — 해시는 `git log`. |
-| 바뀐 파일 | `src/screens/DietScreen.tsx`·`src/components/DietDayEditor.tsx`·`MealReminderPanel.tsx`(Astryx로), `src/ax/index.tsx`(`Loading`)·`src/ax/diet.tsx`(새: `TimeField`·`CheckboxList`)·`src/ax/parts.css`, `src/App.tsx`(`Loading`을 `src/ax`에서), `src/styles/global.css`·`space.css`(식단 규칙 삭제), `scripts/ui-check.mjs`·`scripts/lib/ui-space.mjs`·`ui-check-lib.mjs`(장면·흐름·판정), `scripts/astryx-inventory.mjs`, 테스트, `README.md`, `docs/ASTRYX-INVENTORY.md`, `docs/screenshots/v1.21/after`(식단·기록 장면만), 이 기록 |
+| 바뀐 파일 | `src/screens/DietScreen.tsx`·`src/components/DietDayEditor.tsx`·`MealReminderPanel.tsx`(Astryx로), `src/ax/index.tsx`(`Loading`)·`src/ax/diet.tsx`(새: `TimeField`·`CheckboxList`)·`src/ax/parts.css`, `src/App.tsx`(`Loading`을 `src/ax`에서), `src/components/NumberStepper.tsx`(`fieldWidth` — 화면 검증 반려 반영), `src/styles/global.css`·`space.css`(식단 규칙 삭제), `scripts/ui-check.mjs`·`scripts/lib/ui-space.mjs`·`ui-check-lib.mjs`(장면·흐름·판정), `scripts/astryx-inventory.mjs`, 테스트, `README.md`, `docs/ASTRYX-INVENTORY.md`, `docs/screenshots/v1.21/after`(식단·기록 장면만), 이 기록 |
 | 테스트 | `Test Files 81 passed (81)` · `Tests 1839 passed (1839)` (SS1 뒤 80/1825 → 새 파일 1 `scripts/ss2.test.mjs`, 새 테스트 14: `v121` SS2 8 + `ss2.test.mjs` 6) |
 | 옮긴 스캔(수정표 안) | `uiConsistency` X6(식단 줄) `btn-danger` → `/btn-danger\|variant="destructive"/`, `v120` RR7의 `DietDayEditor` 줄 `isProminent\|ax-scope` → `isProminent`만, `v120` RR3 `<Spinner />` `App.tsx` → `src/ax/index.tsx`의 `Loading` 본문 |
-| 수정표 밖 | `scripts/rr10.test.mjs`: `.diet-mark-btn·.diet-mark-<등급>은 남는다` → 없다(PLAN이 지우라고 한 규칙) · `scripts/rr7.test.mjs`: `.btn-row > .ax-scope` 규칙이 있다 → `.btn-row`가 `parts.css`에 없다(PLAN이 지우라고 한 규칙, 줄 정렬은 ui-check 흐름 `SS2 먹은 것 줄`이 잰다) · `v120.test.ts` RR3 "새 .tsx 파일 없음": `src/ax`의 `.tsx`가 `index.tsx` 하나 → `diet.tsx`·`index.tsx`(아래 1) |
+| 수정표 밖 | `scripts/rr10.test.mjs`: `.diet-mark-btn·.diet-mark-<등급>은 남는다` → 없다(PLAN이 지우라고 한 규칙) · `scripts/rr7.test.mjs`: `.btn-row > .ax-scope` 규칙이 있다 → `.btn-row`가 `parts.css`에 없다(PLAN이 지우라고 한 규칙, 줄 정렬은 ui-check 흐름 `SS2 먹은 것 줄`이 잰다. 주석의 "세 요소 한 줄"은 `80b53f1` 뒤 "시각 칸·스테퍼 한 줄, 삭제는 둘째 줄"로 고쳤다) · `v120.test.ts` RR3 "새 .tsx 파일 없음": `src/ax`의 `.tsx`가 `index.tsx` 하나 → `diet.tsx`·`index.tsx`(아래 1) |
 
 ### PLAN과 다르게 한 것 (이유)
 
@@ -277,6 +277,11 @@
 6. `안쪽 대칭` 측정 보강(`ui-space.mjs`): 입력칸의 상자를 `<input>`이 아니라 눈에 보이는 테두리 상자로 잰다(Astryx 입력칸은 `<input>`이 테두리 상자 안쪽 5~6px에 있어 메모 카드가 위 15·아래 21로 읽혔다). 기존 장면(홈·요약·편집기)은 전부 통과 그대로.
 7. `inPageWarnColor` → `inPageToneColor`(`tone` 인수, 기본 `warning`): PLAN이 이 이름을 가정했고 오류 토큰을 같은 흐름으로 잰다.
 8. 편집기가 든 legacy 화면 `history-day`·`history-detail-end`의 `EXPECTED_PAIRS`는 카드·버튼만(`history-detail-end`는 카드)이다.
+
+9. **먹은 것 줄의 삭제는 둘째 줄 전체 폭(크기 기본)이다(PLAN 설계 표 `HStack` 한 줄·검증 ③ "세 요소 한 줄 ≤ 2px"를 "시각 칸·스테퍼 한 줄 + 삭제 둘째 줄"로 바꿈, `80b53f1`).** 375 폭에서 카드 안쪽은 약 313px인데 시각 칸 면(Astryx 최소 120)·스테퍼(36+64+36)·삭제·간격을 더하면 한 줄에 안 들어간다. 삭제는 `VStack gap 2`의 둘째 줄이고 폭은 390에서 326·375에서 311px, 높이 36px이다. 흐름 `SS2 먹은 것 줄`의 세로 가운데 비교는 시각 칸·스테퍼 둘만 잰다(삭제의 잘림·겹침은 화면 검증자 흐름이 잰다). 탭 수는 그대로다.
+10. **`바꾸기`는 `ghost`·`sm`이 아니라 `variant="secondary"`·기본 크기다.** `ghost`는 안 눌렸을 때 맨 글자였고 `sm`(28px)이라 칩(36px) 줄에서 4px 떴다(화면 검증 반려 둘). 지금은 칩과 같은 36px, 세로 가운데 차 0.
+11. **`TimeField width={120}`·`NumberStepper fieldWidth={64}`(px 폭).** 시각 칸 면은 Astryx 최소 폭이 120px라 112를 주면 면이 칸 밖으로 8px 삐져나와 `−`에 붙었다(`4be8944`가 112, `80b53f1`이 120으로 고침). 개수 칸 64는 스테퍼 줄(36+64+36)이 시각 칸 120 옆에서 375 안쪽 폭에 들어가면서 개수 값이 잘리지 않는 폭이다(검증자 흐름 "잘림 없음"이 잰다). `src/ax`의 `Stepper inputWidth`(줄 시트)가 선례이고 버튼 높이·글자 크기를 다시 정하는 것이 아니다.
+12. **PLAN 파일 목록 밖인 `src/components/NumberStepper.tsx`에 `fieldWidth` 속성을 더했다**(`4be8944`). 기본값 `'100%'`(전에는 `width="100%"` 고정)라 세트 행 같은 다른 쓰는 곳은 그대로다. 먹은 것 줄만 `64`를 준다.
 
 ### PLAN 검증 항목 ↔ 확인
 
@@ -297,9 +302,9 @@
 - `node scripts/astryx-inventory.mjs --check`: 화면 아닌 파일 21 → 18, 인라인 51 → 45, legacy 클래스 쓰임 270 → 235, 안 쓰는 선택자 0 → 0(PLAN 표와 같다. `--write`로 표를 새로 썼다). 지운 것: `.banner-warn`(마지막 쓰임), 인벤토리 템플릿 접두사 `diet-mark-`.
 - `node scripts/first-load.mjs`: JS 303.87 + CSS 49.71 = **353.57KB**(한계 360KB, 통과. SS1 353.50KB).
 
-### `ui-check after --check --ver=v1.21` (전체, 백그라운드)
+### `ui-check after --check --ver=v1.21` (전체, 백그라운드 — 마지막 코드(`80b53f1`) 기준으로 다시 돌림)
 
-- **종료 코드 0.** `장면 실패 0건`, `알려진 실패 3건`(`KNOWN_FAILURES` 세 칸만 — SS5·SS6이 줄인다), `- 실패` 0줄, 흐름 통과 122건·실패 0건.
+- **종료 코드 0.** `장면 실패 0건 (requiredScene)`, `알려진 실패 3건`(`analyze-empty` 여백 격자 1 → SS5, `settings-export-preview` 접근성·눌림 반응 2 → SS6 — `KNOWN_FAILURES` 세 칸), `- 흐름 실패` 0줄, `- 흐름 통과` 128줄(다크·라이트 두 색 체계 합산). `home-banners-open`은 앞 라운드부터의 `optional` 건너뜀(2초 클릭 시간 초과, 이번 작업 밖).
 - `같은 역할`: 화면 좌우 16(식단 포함) · 카드 사이 12 · 묶음 사이 20(`diet` 20) · 카드 안쪽 15(`diet` 15) · 가까움 순서 통과. `안쪽 대칭`·`가로 넘침`·`섬 버튼`(`history-day`·`history-detail-end`)이 식단 장면 전부 통과.
 - 새 흐름(전부 `guardedFlow`, 대상 0개면 실패):
 
@@ -307,11 +312,12 @@
 |---|---|
 | `SS2 끼니 전부 먹음 1탭 …` | 눌림 false → true → (품목 하나 뺌) false → true → false, 요약 kcal `225` → `460` → `225` |
 | `SS2 품목 체크 1탭` | 눌림 false → true → false |
-| `SS2 먹은 것 줄` | 접힘 → 펼침, `+` 1탭 1 → 1.5, 시각 칸·스테퍼·삭제 세로 가운데 차이 0px(390·375) |
+| `SS2 먹은 것 줄` | 접힘 → 펼침, `+` 1탭 1 → 1.5, 시각 칸·스테퍼 세로 가운데 차이 0px(390·375, 삭제는 둘째 줄이라 뺌) |
 | `SS2 식사 알림 접힘` | 처음 닫힘(체크 0개) → 펼침 5개 → 다시 접음 0개 |
 | `SS2 위험 구역 2단 확인` | 확인 문구 계산된 색 = `--color-text-error`(다크 `rgb(255,174,167)`·라이트 `rgb(192,38,44)`), 취소로 돌아옴 |
 | `SS2 <장면> 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안` | `diet`·`diet-end`·`diet-log-open`·`diet-streak`·`history-day` 5장면 모두 꺾임 0건(글자 372~452개 — 0개면 실패) |
 | `RR7 식단 스테퍼` | 통과(삭제 36px·시각 칸 카드 안 — 위 5) |
+| `SS2 검증 먹은 것 줄`(검증자) | 390·375: 시각 120·감소 36·개수 64·증가 36px, 삭제 326(375는 311)×36, 겹침 0쌍·잘림 없음, 이웃 간격 8/8/8/8px, 삭제 혼자 줄 false, 바꾸기–칩 36/36 가운데 차 0 |
 
 - 390·375 폭 글자 꺾임 0건. 첫 시도에서 `history-day`가 `적습니/다.`로 꺾여 편집기 맨 바깥에 `ax-diet`을 달아 고쳤다. 식단에는 `0점` 같은 숫자+단위 줄이 없고 `/166g`·`1,781kcal`·`3개`는 `.ax-diet` 규칙(`keep-all`)이 한 덩어리로 지킨다.
 - 장면 선택자를 역할·이름으로 바꿨다(`sheet-diet-plan`은 식단 틀 첫 버튼, `sheet-diet-slot`은 `대체·안 먹음 — 아침`, `sheet-diet-variant`는 `바꾸기 — …`, `diet-log-open`은 `aria-expanded` 버튼 중 `식사 알림` 아닌 것). `button.diet-item` 등 legacy 선택자 0.
@@ -326,6 +332,37 @@
 | ⑦ `.ax-text-error` 세 겹 → 한 겹 | `scripts/ss2.test.mjs` 세 겹 + 흐름 `SS2 위험 구역 2단 확인`(계산된 색 흰색·검정) | `cmp` 같음 |
 
 (④⑤⑥⑦을 한 번에 되살려 `--only=history-day`로 돌렸다. ⑤는 `ax-diet`도 같이 빠져 `SS2 history-day` 흐름도 실패했다.)
+
+### 화면 검증 반려 반영
+
+검증자가 ui-check에 흐름 셋(`SS2 검증 먹은 것 줄`·`SS2 검증 식단 탭 상태`·`SS2 검증 같은 부품 같은 모양`)과 장면 셋(`diet-grades`·`diet-grades-end`·`diet-reminder-open`)을 더했다(`7009c6b`). 반려는 두 번이었다.
+
+**1차 반려(`7009c6b`) → `4be8944`**
+
+| 반려 | 바꾼 것 |
+|---|---|
+| 먹은 것 줄 펼침에서 시각 값이 잘림(`17:12`가 `5:1`로 보임)·부품이 겹침·삭제 글자가 안 보임 | `TimeField width={112}`, `NumberStepper fieldWidth={64}`(새 속성, `NumberStepper.tsx`), `HStack wrap="wrap"`으로 줄 감김. 흐름 `SS2 먹은 것 줄`의 가운데 비교에서 삭제를 뺌 |
+| `바꾸기`가 맨 글자(`ghost`) | `variant="secondary"` |
+| (검증자 흐름 보강) | 시각 값 안 잘림·부품 상자 겹침 쌍·삭제 최소 크기(폭 48·높이 36) |
+
+**2차 반려(`94c8f82`) → `80b53f1`**
+
+| 반려 | 바꾼 것 |
+|---|---|
+| 시각 칸 면이 최소 120px라 112에서 8px 삐져나와 `−`에 1px로 붙음, 삭제가 혼자 떠 보임 | `TimeField width={120}`, 줄 감김(`wrap`) 대신 시각·스테퍼 한 줄 + 삭제 둘째 줄 전체 폭(`VStack gap 2`) → 이웃 부품 간격 8/8/8/8px |
+| `바꾸기`(`sm` 28px)가 칩(36px) 줄에서 4px 뜸 | `size="sm"` 제거(36px), 칩과 같은 줄 세로 가운데 |
+| (검증자 흐름 보강) | 이웃 간격 같음·삭제 혼자 줄 아님·바꾸기–칩 가운데 칸 |
+
+재검증(`39c4c1b`)은 통과, 새 문제 없음.
+
+**`80b53f1` 결함 복원**(리뷰어가 같은 두 결함을 되살려 다시 확인 — `--only=diet-log-open`, 종료 코드 1):
+
+| 되살린 결함 | 실패한 칸 | 원상복구 |
+|---|---|---|
+| `바꾸기`에 `size="sm"` | `SS2 검증 먹은 것 줄` 바꾸기–칩 높이 `28/36`(차 ≠ 0) | `cmp` 같음 |
+| `TimeField width={112}` | 같은 흐름 간격 `0/8/8/8px`(0 ≠ 8) | `cmp` 같음 |
+
+(이 두 결함은 구현자 흐름 `SS2 먹은 것 줄`·`RR7 식단 스테퍼`는 통과하고 검증자가 더한 흐름만 잡는다. 흐름이 실제로 일한다는 뜻이다.)
 
 ### 과거 판정 불변
 
