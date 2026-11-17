@@ -1,5 +1,4 @@
 import type { MuscleKey, RoutineTemplate, Session } from '../types'
-import { parseRecordKey } from '../types'
 import { daysBetween, weekDates, weekStart, weekStartsBetween } from './dates'
 import { completedSessions, strengthSessions, doneSets, weeklyVolume } from './derive'
 
@@ -373,9 +372,3 @@ export function phase0Progress(
 export function lastSessionOf(sessions: Session[]): Session | undefined {
   return completedSessions(sessions)[0]
 }
-
-/** recordKey → 종목 shortName 조회용. 루틴에 없는 종목은 id를 그대로 돌려준다 */
-export function exerciseIdOfRecordKey(recordKey: string): string {
-  return parseRecordKey(recordKey).exerciseId
-}
-

@@ -181,10 +181,6 @@ export async function getExerciseSetting(recordKey: string): Promise<ExerciseSet
   return db.exerciseNotes.get(recordKey)
 }
 
-export async function getExerciseNote(recordKey: string): Promise<string> {
-  return (await db.exerciseNotes.get(recordKey))?.note ?? ''
-}
-
 export async function setExerciseNote(recordKey: string, note: string): Promise<void> {
   const trimmed = note.trim()
   await patchExerciseSetting(recordKey, { note: trimmed || undefined })

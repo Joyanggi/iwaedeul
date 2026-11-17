@@ -130,7 +130,6 @@ export default function SessionScreen({
     }
     return map
     // eslint-disable-next-line react-hooks/exhaustive-deps -- session은 id/dayId/키 목록으로 대표한다
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     sessionId,
     sessionDayId,
