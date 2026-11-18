@@ -8,6 +8,7 @@
 > **v1.20에서 이어받는 결정:** 테마 Neutral + 파랑 강조, 불투명 표면, 여백은 관계로 잰다(`안쪽 대칭`·`같은 역할`·`가까움 순서`), 한글은 단어 사이에서만 꺾는다(375 폭), 경고색은 계산값으로 잰다, 안쪽 폭 넘침을 잰다, 새 검사는 예외·0개를 통과로 삼키지 않는다. 이 PLAN은 이것들을 다시 정하지 않고 남은 화면에 건다.
 > **사람이 정할 것은 없다**(이슈 #52: "식단·기록·분석의 배치 갈림길은 설계자가 추천안으로 정하고 PR에서 사람이 본다"). 설계자가 정한 배치는 끝의 "알려 둘 것"에 모았다.
 > **개정 1:** 2026-11-17, SS0 리뷰(`.reports/review-SS0.md` "SS1 전에 정할 것")를 반영했다(작성: Claude Opus 5.5, 설계자). "작업 커밋마다 `after --check` 종료 코드 0"과 "전부터 있던 실패로 넘기는 칸 없음"이 SS1~SS4에서 같이 지켜질 수 없었다 — 새 장면이 처음 드러낸 legacy 칸 실패 셋을 SS5·SS6이 고치기 때문이다. **이름 붙은 그 세 칸만 상세 글자까지 같을 때 `알려진 실패`로 두고, 목록은 줄기만 한다**(SS0 보강 — `KNOWN_FAILURES`). 바뀐 곳: SS0 설계·검증, SS1·SS5·SS6 검증, SS8 검사 도구, 관례의 `ui-check` 종료 코드, 결함 복원 ㉔㉕, 끝의 "검토 반영 기록 — 개정 1". 다른 내용·범위는 그대로다.
+> **개정 2:** 2026-11-18, SS4 리뷰(`.reports/review-SS4.md` 3절)의 사람 결정을 반영했다(작성: Claude Opus 5.5, 설계자). **달력 칸의 보이는 글자는 `17일`(날짜+일), 접근성 이름은 `{d}일 …`** — 보이는 글자가 이름 안에 낱말로 들어 있어야 axe `label-content-name-mismatch`가 통과한다(숫자만 보이면 낱말 `17`이 이름에 없어 칸마다 위반). 바뀐 곳: SS4 설계(`.ax-cal-cell`·달력·칸 이름 줄), 화면 검증 SS4 줄, 결함 복원 ⑫, 사람이 볼 화면 변화 표, "알려 둘 것"의 접근성 이름 줄, 끝의 "검토 반영 기록 — 개정 2". 다른 내용·범위는 그대로다.
 
 ---
 
@@ -426,7 +427,7 @@ E3 뒤 메인 청크(927KB, 소스맵으로 나눔): `react-dom` 22.7%, `dexie` 
 | 클래스 | 무엇 |
 |---|---|
 | `.ax-cal-grid` | 7열 격자(`grid-template-columns: repeat(7, 1fr)`, 간격은 토큰). 요일 머리와 칸이 같은 열 정의를 읽는다(세트 표와 같은 이유) |
-| `.ax-cal-cell` | 칸 버튼 안의 배치(날짜 숫자·🔥·점을 세로로). 상태는 `data-*` 속성: `data-out`(다른 달 — 흐린 글자), `data-today`(테두리 `--color-border-emphasized`가 아니라 `--color-accent`), `data-selected`(면 `--color-accent-muted`). 칸의 버튼 모양·눌림·포커스 링은 Astryx `Button`의 것 |
+| `.ax-cal-cell` | 칸 버튼 안의 배치(날짜 글자 `17일`·🔥·점을 세로로). 상태는 `data-*` 속성: `data-out`(다른 달 — 흐린 글자), `data-today`(테두리 `--color-border-emphasized`가 아니라 `--color-accent`), `data-selected`(면 `--color-accent-muted`). 칸의 버튼 모양·눌림·포커스 링은 Astryx `Button`의 것 |
 | `.ax-cal-dot[data-diet]` | 식단 점: `good` 성공, `mid` 경고, `bad` 오류, `partial` 보조 글자(지금 `.cal-diet-dot-*`의 뜻과 같다 — 강조색을 안 쓴다, uiConsistency의 "식단 색에 내비게이션 색을 쓰지 않는다") |
 | `.ax-history` | 화면 틀의 한글 줄바꿈(SS2의 `.ax-diet`와 같다) |
 
@@ -435,8 +436,8 @@ E3 뒤 메인 청크(927KB, 소스맵으로 나눔): `react-dom` 22.7%, `dexie` 
 | 자리 | 지금 | Astryx |
 |---|---|---|
 | 기록 탭 틀 | `.screen` | `AxRoot` + `Groups className="ax-history"`: [머리] `Heading level={1}` "기록", `SegmentedControl label="보기" value={mode} onChange={(v) => setMode(v as Mode)}`(항목 `달력`·`종목별`) / [달력] `MonthCalendar`, 범례 `Text type="supporting" color="secondary"` / [세션] 머리 줄 + 카드들 / [그날 식단] `Heading level={2}` `{날짜} 식단` + `DietDayEditor` |
-| 달력 (`MonthCalendar`) | `.card` + `.cal-*` | `Card` + `VStack gap={3}`: 머리 `HStack justify="between" align="center"`(`Button variant="ghost" isIconOnly icon={<Icon icon="chevronLeft" />} label="이전 달"`, `Heading level={2}` `monthLabel(month)`, 다음 달 같은 꼴), 요일 `div.ax-cal-grid` 안 `Text type="supporting" color="secondary"` 일곱, 칸 `div.ax-cal-grid` 안 칸마다 `Button variant="ghost" className="ax-cal-cell" label={칸 이름} isDisabled={…지금 조건 그대로} onClick={() => onPickDate(cell.date)} data-out=… data-today=… data-selected=…` + 자식 `<span>{날짜}</span>`, 🔥(+세션 수), `<span className="ax-cal-dot" data-diet={dietDot} aria-hidden="true" />` |
-| 칸 이름 (새 접근성 이름) | 보이는 글자(`17🔥2`) | `{d}일` + 세션이 있으면 ` 운동 {k}회` + 식단 점이 있으면 ` 식단 {준수\|일부\|미달\|판정 전}`. 보이는 숫자가 이름의 맨 앞이다(`label-content-name-mismatch` 규칙) |
+| 달력 (`MonthCalendar`) | `.card` + `.cal-*` | `Card` + `VStack gap={3}`: 머리 `HStack justify="between" align="center"`(`Button variant="ghost" isIconOnly icon={<Icon icon="chevronLeft" />} label="이전 달"`, `Heading level={2}` `monthLabel(month)`, 다음 달 같은 꼴), 요일 `div.ax-cal-grid` 안 `Text type="supporting" color="secondary"` 일곱, 칸 `div.ax-cal-grid` 안 칸마다 `Button variant="ghost" className="ax-cal-cell" label={칸 이름} isDisabled={…지금 조건 그대로} onClick={() => onPickDate(cell.date)} data-out=… data-today=… data-selected=…` + 자식 `<span>{날짜}일</span>`(보이는 글자 `17일` — 개정 2), 🔥(+세션 수), `<span className="ax-cal-dot" data-diet={dietDot} aria-hidden="true" />` |
+| 칸 이름 (새 접근성 이름) | 보이는 글자(`17🔥2`) | `{d}일` + 세션이 있으면 ` 운동 {k}회` + 식단 점이 있으면 ` 식단 {준수\|일부\|미달\|판정 전}`(조각은 공백으로 잇는다). 보이는 글자 `{d}일`이 이름의 첫 낱말이다 — axe `label-content-name-mismatch`는 두 글자를 NFKD로 풀어 **낱말 단위**(`Intl.Segmenter`)로 견주므로, 보이는 글자가 숫자만이면 낱말 `17`이 `17일 …`에 없어 칸마다 위반이다(axe-core 4.14.0, SS4 리뷰 3절 — 개정 2) |
 | 세션 목록 머리 | `.week-head` + `chip` | `HStack justify="between" align="center"`: `Text weight="semibold"`(`{날짜} ({요일})` 또는 "이 달의 세션"), 날짜를 골랐으면 `Button variant="ghost" size="sm" label="전체 보기"`, 아니면 `Text weight="bold" hasTabularNumbers` `{n}회` |
 | 세션 줄 | `button.row` | `Group` 안 세션마다 `ClickableCard label={`${dayName} ${date}`} onClick={() => setDetailId(id)}` + `Row label={<HStack gap={2}><Text weight="semibold">{dayName}</Text>{복귀/디로드면 <Badge variant="warning" label=… />}</HStack>} description={<Text type="supporting" color="secondary">{날짜 · 세트 · 분 · 유산소}</Text>} end={<VStack gap={0} align="end"><Text weight="semibold" hasTabularNumbers>{볼륨}</Text><Text type="supporting" color="secondary">kg·회</Text></VStack>}`. 빈 목록 `Text color="secondary"` "기록이 없습니다." |
 | 종목별 목록 (`ExerciseHistoryScreen`) | `.card` + `button.row` | `Group`: 안내 `Text type="supporting" color="secondary"`, 종목마다 `ClickableCard label={이름 + Day}` + `Row label={이름 + Badge neutral Day + Badge neutral 그룹 + (현재 루틴에 없음이면 Badge warning)} description={기록 키 — Text type="code" size="sm"} end={`${n}회`}`. 기록 0: `Center` + `Text` "아직 기록이 없습니다." |
@@ -706,7 +707,7 @@ SS7 뒤 legacy 화면이 없다. 남는 것: `src/styles/`의 네 파일(`global
 | SS1 | `home` `session` `sheet-home` `diet` `settings` | `before`와 같은가(화면이 안 바뀌어야 한다). 새로 고침 직후 [변경]을 눌렀을 때 시트가 뜨는 한 장 |
 | SS2 | `diet` `diet-end` `diet-375` `diet-log-open` `diet-streak` `history-day` `history-detail-end` | 끼니 원형 버튼의 등급 표시가 다섯 색으로 구분되는가(다크·라이트), 품목 체크의 눌린 상태가 한눈에 보이는가, 먹은 것 줄의 시각·스테퍼·삭제가 한 줄에서 어긋나지 않는가(375), 식사 알림이 닫혀 있는가, 기록 화면 안의 편집기가 legacy 화면과 어색하게 섞이지 않는가 |
 | SS3 | `sheet-food` `sheet-food-new` `sheet-diet-plan` `sheet-diet-plan-ahead` `sheet-diet-slot` `sheet-diet-slot-edit` `sheet-diet-variant`(끝까지 스크롤) | 고른 줄(✓ 아이콘·선택 면)·라디오의 고른 상태, 하단 닫기 버튼이 다크에서 버튼으로 보이는가, 음식 목록의 스크롤 칸 끝, 긴 음식 이름, 375 |
-| SS4 | `history` `history-375` `history-day` `history-exercise` `history-exercise-detail` `history-detail` `history-detail-end` `history-detail-change` `history-detail-edit` | **달력 칸: 오늘·고른 날·🔥·식단 점이 서로 구분되는가**(v1.9의 "테두리 = 오늘·선택, 점 = 식단"), 다른 달의 칸이 흐린가, 세션 카드의 볼륨이 오른쪽에서 접히지 않는가, 기록 키가 카드 안에서 넘치지 않는가, Day 변경의 재매핑 표 |
+| SS4 | `history` `history-375` `history-day` `history-exercise` `history-exercise-detail` `history-detail` `history-detail-end` `history-detail-change` `history-detail-edit` | **달력 칸: 오늘·고른 날·🔥·식단 점이 서로 구분되는가**(v1.9의 "테두리 = 오늘·선택, 점 = 식단"), 날짜 글자 `N일`이 375 폭에서 칸 안에 들고 🔥과 겹치지 않는가(개정 2), 다른 달의 칸이 흐린가, 세션 카드의 볼륨이 오른쪽에서 접히지 않는가, 기록 키가 카드 안에서 넘치지 않는가, Day 변경의 재매핑 표 |
 | SS5 | `analyze` `analyze-end` `analyze-375` `analyze-empty` | 종목 줄의 가로 스크롤과 고른 종목, 차트 축·선 색(다크·라이트), 감각 점 네 단계가 구분되는가, 경고 배너 |
 | SS6 | `settings` `settings-375` `settings-open` `settings-end` `settings-routines*` `settings-gist` `settings-export-preview` `settings-reset-confirm` | **묶음 사이가 카드 사이보다 넓어 묶음이 읽히는가**, 소리·템포가 화면 둘째 장 안에 오는가, Phase·소리 크기의 선택 상태, 템포 스위치, 루틴 줄의 버튼이 한 줄, 미리보기 칸, 토큰 마스킹 |
 | SS7 | `onboarding` `onboarding-375` `onboarding-standalone` | 경고·준비 완료 배너, 단계 번호, 긴 주소가 카드 안에서 줄바꿈 |
@@ -767,6 +768,7 @@ SS7 뒤 legacy 화면이 없다. 남는 것: `src/styles/`의 네 파일(`global
 | 끼니 시트의 "어느 쪽이었나요" | ✓ 버튼 셋 | 라디오 셋 |
 | 기록 탭의 세션 줄·종목 줄 | 카드 하나 안의 줄 | 줄마다 누르는 카드 한 장 |
 | 기록 상세의 순서 | … 메모 → Day 변경 → 위험 구역 → 그날 식단 → 기록으로 | … 메모 → **그날 식단** → Day 변경 → 위험 구역 → 기록으로 |
+| 달력 칸의 보이는 날짜 | `17` | `17일`(개정 2 — 아래 접근성 이름과 낱말을 맞춘다) |
 | 달력 칸의 접근성 이름 | 보이는 글자(`17🔥2`) | `17일 운동 2회 식단 준수` 꼴 |
 | 식단 품목 "바꾸기"의 접근성 이름 | `{끼니} {품목} 다른 단백질원으로 바꾸기` | `바꾸기 — {끼니} {품목}, 다른 단백질원으로`(보이는 글자가 앞) |
 | 분석의 감각 점 | 이어진 불투명도 | 네 단계 불투명도(색·경계는 그대로) |
@@ -804,7 +806,7 @@ SS0의 `before`는 다른 작업 뒤에 못 찍는다. **SS1(분할)을 화면�
   ⑨ (SS3) 끼니 시트를 `purpose="info"`로 → `v121` SS3 실패 + 흐름 `입력 중 막 누름` 실패
   ⑩ (SS3) `SheetFrame.tsx`를 되살린다 → `v121` SS3 실패
   ⑪ (SS4) 기록 상세에서 `<DietDayEditor`를 위험 구역 아래로 → `v121` SS4 순서 실패
-  ⑫ (SS4) `cellLabel`이 날짜를 뒤에 붙이게 → 속성 테스트 실패 + 흐름 `달력 칸 이름` + 접근성(`label-content-name-mismatch`) 실패
+  ⑫ (SS4) `cellLabel`이 날짜를 뒤에 붙이게 → 속성 테스트 실패 + 흐름 `달력 칸 이름` 실패. 접근성(`label-content-name-mismatch`)은 이 결함을 **못 잡는다** — 보이는 글자 `17일`이 이름 뒤로 가도 낱말로 들어 있다(axe는 낱말이 들어 있는지만 본다, 개정 2)
   ⑬ (SS4) 세션 카드 하나를 `Card` + 안쪽 `ListItem`으로 → `안쪽 대칭` 실패(카드 위·아래)
   ⑭ (SS5) `chartTheme.ts`의 `accent`를 `--accent`로 되돌린다 → `v121` SS5 실패
   ⑮ (SS5) `sensoryDot`의 경계를 `< 1`로 → `v121` SS5 실패
@@ -855,7 +857,7 @@ SS0의 `before`는 다른 작업 뒤에 못 찍는다. **SS1(분할)을 화면�
 - **기록 탭:** 세션 목록과 종목 목록이 줄마다 누르는 카드 한 장이 된다. **기록 상세에서 "그날 식단"이 Day 변경·위험 구역 위로 올라온다**(고치는 것을 위에, 관리를 맨 아래에 — 삭제 버튼 아래에 입력칸이 오지 않게).
 - **분석 탭:** 순서·차트 그대로. 감각 점의 진하기가 이어진 값에서 네 단계로 바뀐다(인라인 스타일을 없애려고 — 색과 경계는 그대로).
 - **설정 탭:** 카드 14장을 묶음으로 나눈다 — 훈련 → **소리·템포**(헬스장에서 바꾸는 것을 위로) → 기록 내보내기·백업 → 루틴·식단 파일 → 진단 → 위험 구역. 새로 보이는 묶음 제목: `훈련`, `소리·템포`, `기록 내보내기·백업`, `루틴·식단 파일`. 템포 가이드 "사용 / 사용 안 함" 버튼 둘이 스위치 하나 `템포 가이드 사용`이 된다.
-- **접근성 이름이 둘 바뀐다:** ① 기록 달력의 칸: 보이는 글자(`17🔥2`) → `17일 운동 2회 식단 준수` 꼴(식단 점은 `준수`·`일부`·`미달`·`판정 전`) ② 식단 품목의 바꾸기 버튼: `점심 닭가슴살 다른 단백질원으로 바꾸기` → `바꾸기 — 점심 닭가슴살, 다른 단백질원으로`(보이는 글자 `바꾸기`가 앞에 와야 한다는 접근성 규칙 때문). 그 밖의 화면 글자는 그대로다(▾·‹ 같은 기호가 아이콘으로 바뀌는 것 말고).
+- **접근성 이름이 둘 바뀐다:** ① 기록 달력의 칸: 보이는 글자(`17🔥2`) → `17일 운동 2회 식단 준수` 꼴(식단 점은 `준수`·`일부`·`미달`·`판정 전`) ② 식단 품목의 바꾸기 버튼: `점심 닭가슴살 다른 단백질원으로 바꾸기` → `바꾸기 — 점심 닭가슴살, 다른 단백질원으로`(보이는 글자 `바꾸기`가 앞에 와야 한다는 접근성 규칙 때문). 같은 규칙 때문에 기록 달력 칸의 보이는 날짜가 `17` → `17일`이 된다(개정 2 — 사람이 정했다). 그 밖의 화면 글자는 그대로다(▾·‹ 같은 기호가 아이콘으로 바뀌는 것 말고).
 - 식단 시트(플랜·단백질원·끼니)에서 고르면 시트가 바로 사라지지 않고 **내려가며 닫힌다.** 끼니 시트와 먹은 것 추가 시트는 입력 도중 막을 눌러도 닫히지 않는다(세션 시트와 같은 규칙).
 - 인벤토리의 "Astryx를 안 읽는 화면 파일"에서 `main.tsx`(진입점)와 `icons.tsx`(앱의 SVG 그림 — Astryx에 불꽃·식기·저울 같은 그림이 없다)를 뺀다. 그래서 그 숫자가 23에서 21로 시작한다. 숨기지 않고 표에 `제외`로 남긴다.
 - 끝나면 `src/styles/` 폴더가 없어진다. 앱의 CSS는 Astryx와 `src/ax`의 두 파일(`ax.css`·`parts.css`)뿐이고, 인벤토리가 되살아나지 않게 지킨다.
@@ -892,3 +894,15 @@ SS0의 `before`는 다른 작업 뒤에 못 찍는다. **SS1(분할)을 화면�
 | (c) 옮기기 전 화면의 그 칸을 `기록만` | 기각 | `SYMMETRY_JUDGED`처럼 장면 단위로 끄면 분석·설정 장면의 `접근성`·`눌림 반응`·`여백 격자`가 SS5·SS6까지 통째로 안 잰다. SS1~SS4가 그 장면에 새 실패를 만들어도(예: SS1의 지연 읽기가 분석 화면에 남긴 접근성 위반) 못 잡는다 |
 
 **SS0 커밋(`858816d`)은 고치지 않는다.** 알려진 실패는 SS0 리뷰 반려를 반영하는 고침 커밋에 함께 넣는다.
+
+### 검토 반영 기록 — 개정 2
+
+근거: `.reports/review-SS4.md` 3절(사람에게 묻는 것)과 5절(경미한 점). 사람의 답: **선택지 1** — 보이는 글자 `17일`, 이름 `{d}일 …`. `src/components/MonthCalendar.tsx:22`(`cellLabel`)·`:111`(`<span className="ax-cal-num">{dayNum}일</span>`)과 `src/lib/v121.test.ts:276-300`가 이미 이 꼴이라 코드·테스트는 그대로 맞는다.
+
+| 지적 | 판단 | 고친 곳 |
+|---|---|---|
+| 3절: PLAN의 "보이는 글자는 숫자만"과 axe 낱말 비교가 함께 성립하지 않는다 | **반영**(사람 결정) — 설계를 보이는 글자 `17일`로. 칸 이름 규칙·속성(`${날짜}일`로 시작)·흐름 ②는 결정과 맞아 그대로 | SS4 설계 세 줄, 화면 검증 SS4, 화면 변화 표, "알려 둘 것" |
+| 5절-3: ⑫의 예상에 "접근성 실패"가 있지만 보이는 글자가 `17일`이면 axe가 못 잡는다 | **반영** | 결함 복원 ⑫ |
+| 5절-1(DEV-RECORD의 `--same-layout` 실행 줄), 5절-7(들여쓰기·주석 열) | PLAN 밖 — 구현자가 다음 커밋에서 맞춘다. PLAN은 이미 그 검증을 요구한다 | — |
+| 5절-2(`SS4 검증 <장면>` 흐름이 늘 `ok`), 5절-5(`SS4 다른 달`이 판정 안 함), 5절-6(history의 `가까움 순서` 사실상 안 잼) | PLAN 밖 — 검사 도구의 판정 방식이다. SS8 검사 정리 때 다룬다(범위 그대로) | — |
+| 5절-4(`parts.css`가 `Button` 안쪽 `span` 구조에 기댐, 글자 크기 rem 숫자) | PLAN 밖 — 코드의 모양 문제다. 설계 원칙(값은 테마가 정한다)은 이미 이 PLAN에 있어 바꿀 문장이 없다 | — |
