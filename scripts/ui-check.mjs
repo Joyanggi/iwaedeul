@@ -1385,13 +1385,13 @@ async function runScenes(browser, port, scheme) {
       flows.push([name, { ok: bad.length === 0, detail: bad.join(' / ') || out.map(([w, r]) => `${w}: 닫기 y ${r.closeTop}~${r.closeBottom}/${r.vh}(아래 여백 ${r.vh - r.closeBottom}) · 스크롤칸 ${r.scrolled} · 겹침 0 · 시트 밖 0 · 44 미만 ${r.small.length}개 [${r.small.join(', ')}] · 맨 글자 [${r.bare.join(', ')}] · 줄 간격 [${r.gaps.join('/')}] · 경고색 [${[...new Set(r.warn)].join(' ')}] · 안쪽 아래 패딩 ${r.pad}`).join(' || ') }])
     })
   /** 새 브라우저 문맥 하나(다른 장면 데이터에 안 닿는 장면용: 온보딩 홈 화면 앱·빈 분석). 끝나면 닫는다 */
-  const withFreshPage = async (init, fn) => {
+  const withFreshPage = async (init, fn, query = '') => {
     const c = await browser.newContext({ ...DEVICE, locale: 'ko-KR', colorScheme: scheme, serviceWorkers: 'block' })
     try {
       const p = await c.newPage()
       await p.addInitScript(installScript())
       if (init) await p.addInitScript(init)
-      await p.goto(`http://localhost:${port}${BASE}`)
+      await p.goto(`http://localhost:${port}${BASE}${query}`)
       await fn(p)
     } finally {
       await c.close()
@@ -1484,6 +1484,36 @@ async function runScenes(browser, port, scheme) {
     // SS7: 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안(주소 줄 포함)
     if (!light) await screenWrapFlow('SS7 onboarding 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-onboarding')
   })
+  // SS7 반려: 주소 조각 하나가 카드 안쪽 폭보다 길어도(?q=x×120) 조각 안에서 꺾여 카드 안에 든다
+  await requiredScene('onboarding-long-url', () =>
+    withFreshPage(
+      null,
+      async (p) => {
+        await p.getByRole('button', { name: '확인했어요, 그래도 계속', exact: true }).waitFor({ timeout: 20000 })
+        await settle(p, 600)
+        await snap('onboarding-long-url', p)
+        // 긴 조각은 일부러 조각 안에서 꺾이니 글자 중간 꺾임은 안 세고 안쪽 폭 안만 잰다
+        if (!light) {
+          await guardedFlow(['SS7 onboarding 긴 주소(?q=x×120) 390·375 폭 안쪽 폭 안'], async () => {
+            try {
+              // 카드가 넘친 글을 자르니(overflow hidden) 안쪽 폭 검사는 건너뛴다 — 잘림은 inPageNotClipped가 잡는다
+              const needle = 'x'.repeat(10)
+              const i390 = await p.evaluate(inPageInnerOverflow, '.ax-onboarding')
+              const c390 = await p.evaluate(inPageNotClipped, needle)
+              await p.setViewportSize({ width: 375, height: 812 })
+              await settle(p, 400)
+              const i375 = await p.evaluate(inPageInnerOverflow, '.ax-onboarding')
+              const c375 = await p.evaluate(inPageNotClipped, needle)
+              flows.push(['SS7 onboarding 긴 주소(?q=x×120) 390·375 폭 안쪽 폭 안', { ok: i390.ok && i375.ok && c390.ok && c375.ok, detail: `390: ${i390.detail} · 안 잘림 ${c390.detail} / 375: ${i375.detail} · 안 잘림 ${c375.detail}` }])
+            } finally {
+              await p.setViewportSize({ width: 390, height: 844 })
+            }
+          })
+        }
+      },
+      `?q=${'x'.repeat(120)}`,
+    ),
+  )
   await requiredScene('onboarding-standalone', () =>
     withFreshPage(
       // matchMedia('(display-mode: standalone)')만 참으로 — 홈 화면에 추가된 앱처럼

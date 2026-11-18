@@ -836,3 +836,23 @@ PLAN과 다르게 한 것(추가): `줄 안 버튼`의 "폭 ≥ 줄의 절반"�
 ### 실행 결과 요약
 
 - `npm run check` 통과. `Test Files  87 passed (87)`, `Tests  1932 passed (1932)`. 빌드 성공. `git rev-list --count main..HEAD`: 커밋 전 21 → 이 커밋 후 22.
+
+### 화면 검증 반려 반영 (SS7 — 고칠 것 1)
+
+| 고칠 것 | 한 일 |
+|---|---|
+| ① 주소 조각이 카드보다 길면(`?q=x×120`) 375·390에서 카드 오른쪽 밖으로 잘림 | `parts.css`에 `.ax-onboarding .ax-nowrap { display:inline-block; max-width:100%; white-space:normal; overflow-wrap:anywhere; word-break:break-all }`. 짧은 조각(실제 github.io 주소)은 inline-block이 내용 폭이라 안 쪼개지고 `/` 앞에서만 끊기며, 카드보다 긴 조각만 조각 안에서 꺾인다. `ui-check`에 `onboarding-long-url` 장면(새 문맥, `?q=x×120`)과 흐름 `SS7 onboarding 긴 주소(?q=x×120) 390·375 폭 안쪽 폭 안`을 더했다(`withFreshPage`에 `query` 인자). |
+
+PLAN과 다르게 한 것:
+- 설정 탭의 `.ax-nowrap`(템포 표기)은 그대로 `nowrap`이고, 온보딩 틀 안에서만 위 규칙이 덮는다(`ss6.test.mjs`의 `.ax-nowrap` 판정 불변).
+- 새 흐름은 `screenWrapFlow`가 아니라 `inPageInnerOverflow` + `inPageNotClipped`를 쓴다: 긴 조각은 일부러 조각 안에서 꺾이니 글자 중간 꺾임은 세지 않고, 카드가 넘친 것을 `overflow:hidden`으로 자르니(`inPageInnerOverflow`는 자르는 칸 안을 건너뛴다) 잘림은 `inPageNotClipped`가 잡는다.
+
+결함 복원:
+
+| 되살린 결함 | 실패한 것 | 원상복구 |
+|---|---|---|
+| `.ax-onboarding .ax-nowrap` 규칙 제거 | `흐름 실패 SS7 onboarding 긴 주소 …: 가로 잘림 810>356 · 마지막 글자가 상자 안 false`(375: 810>341) | `cmp` 같음 |
+
+(처음엔 `inPageInnerOverflow`만 써서 결함을 되살려도 통과했다 — 검사의 구멍이라 `inPageNotClipped`를 더했다.)
+
+실행 결과(반려 반영): 마지막 코드로 전체 `ui-check after --check --ver=v1.21` 종료 코드 0·`장면 실패 0건`·`알려진 실패 0건`, `npm run check` 통과, `Test Files  87 passed (87)`·`Tests  1932 passed (1932)`(테스트 수 불변), `git rev-list --count main..HEAD`: 커밋 전 23 → 이 커밋 후 24. 무관한 스크린샷은 `git show HEAD:<경로>`로 되돌렸고 새로 남긴 것은 `onboarding-long-url(-light).png`와 `layout.json`.

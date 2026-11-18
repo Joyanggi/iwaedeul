@@ -421,6 +421,18 @@
     white-space: nowrap;
   }
 
+  /*
+   * 온보딩 주소 조각: 조각은 안 쪼개지고('/' 뒤에서만 줄이 바뀐다) 카드보다 긴 조각만 조각 안에서 꺾인다.
+   * nowrap은 overflow-wrap을 막아 긴 조각이 카드 밖으로 잘리니, 이 틀 안에서는 inline-block + anywhere로 바꾼다.
+   */
+  .ax-onboarding .ax-nowrap {
+    display: inline-block;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+  }
+
   /* 설정 탭 틀의 한글 줄바꿈(.ax-analyze와 같다). SS8이 앱 전체 규칙으로 모은다 */
   .ax-settings :is(p, span, div, h1, h2),
   .ax-onboarding :is(p, span, div, h1, h2) {
