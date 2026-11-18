@@ -782,6 +782,87 @@ function inPageCalendarSignals() {
 }
 
 /** SS2 검증: 식단 품목 토글(눌리지 않은 것) 하나의 계산된 모양 — 식단 탭과 기록 화면 안 편집기가 같은 부품이면 같다 */
+/**
+ * SS4 화면 검증(page.evaluate용): ① 글꼴 ② 카드 안쪽 위·아래·왼·오른 여백(내용 상자 기준) ③ 44 미만 누르는 영역의 중앙·네 귀퉁이 elementFromPoint
+ * ④ 맨 글자 버튼 ⑤ 경고·오류 글자 계산된 색 ⑥ 맨 아래 버튼과 탭 바 ⑦ 카드 사이·묶음 사이 간격 ⑧ 카드 밖으로 나간 글자
+ */
+function inPageSs4Verify() {
+  const vis = (e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' }
+  const root = document.querySelector('.ax-history') ?? document.querySelector('.ax-screen') ?? document.body
+  const nm = (e) => (e.getAttribute('aria-label') || e.innerText || e.getAttribute('placeholder') || e.tagName).trim().split('\n')[0].slice(0, 16)
+  const res = {}
+  const fams = new Map()
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  for (let n = w.nextNode(); n; n = w.nextNode()) {
+    if (!n.nodeValue.trim() || !n.parentElement || !vis(n.parentElement)) continue
+    const f = getComputedStyle(n.parentElement).fontFamily.split(',')[0].trim()
+    fams.set(f, (fams.get(f) ?? 0) + 1)
+  }
+  res.fonts = [...fams.entries()].map(([f, c]) => `${f}×${c}`)
+  res.bodyFont = getComputedStyle(document.body).fontFamily.split(',')[0].trim()
+  const sc = root.querySelector('.ax-scope')
+  res.scopeFont = sc ? getComputedStyle(sc).fontFamily.split(',')[0].trim() : null
+  const cards = [...root.querySelectorAll('[class*="card"], [class*="Card"]')].filter((c) => vis(c) && !c.closest('button') && c.getBoundingClientRect().height > 40 && !c.parentElement.closest('[class*="card"], [class*="Card"]'))
+  res.cards = cards.map((c) => {
+    const cr = c.getBoundingClientRect()
+    let top = Infinity, bottom = -Infinity, left = Infinity, right = -Infinity
+    const boxes = []
+    const tw = document.createTreeWalker(c, NodeFilter.SHOW_TEXT)
+    for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+      if (!n.nodeValue.trim() || !n.parentElement || !vis(n.parentElement)) continue
+      const rg = document.createRange(); rg.selectNodeContents(n)
+      const r = rg.getBoundingClientRect(); if (r.width < 1) continue
+      boxes.push(r)
+    }
+    for (const e of c.querySelectorAll('button, input, textarea')) { if (vis(e)) boxes.push(e.getBoundingClientRect()) }
+    for (const r of boxes) { top = Math.min(top, r.top); bottom = Math.max(bottom, r.bottom); left = Math.min(left, r.left); right = Math.max(right, r.right) }
+    const bw = c.clientLeft
+    const q = (v) => Math.round(v * 10) / 10
+    return { name: (c.innerText || '').trim().split('\n')[0].slice(0, 14), top: q(top - cr.top - bw), bottom: q(cr.bottom - bottom - bw), left: q(left - cr.left - bw), right: q(cr.right - right - bw), h: Math.round(cr.height) }
+  })
+  const targets = [...root.querySelectorAll('button, input, textarea, select, [role=button], [role=checkbox], [role=radio], a[href]')].filter(vis)
+  res.small = []
+  res.covered = []
+  for (const e of targets) {
+    const r = e.getBoundingClientRect()
+    if (!(r.width < 44 || r.height < 44)) continue
+    res.small.push(`${nm(e)} ${Math.round(r.width)}x${Math.round(r.height)}`)
+    if (r.bottom < 0 || r.top > innerHeight) continue
+    const pts = [[r.left + r.width / 2, r.top + r.height / 2], [r.left + 3, r.top + 3], [r.right - 3, r.top + 3], [r.left + 3, r.bottom - 3], [r.right - 3, r.bottom - 3]]
+    const bad = pts.filter(([x, y]) => { if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) return false; const hit = document.elementFromPoint(x, y); return !(hit === e || e.contains(hit) || (hit && hit.contains(e))) })
+    if (bad.length) res.covered.push(`${nm(e)} ${bad.length}/5점 가려짐`)
+  }
+  res.bare = targets.filter((e) => {
+    if (e.tagName === 'INPUT' || e.tagName === 'TEXTAREA' || e.getAttribute('role') === 'radio' || e.getAttribute('role') === 'checkbox') return false
+    const cs = getComputedStyle(e)
+    const noBg = cs.backgroundColor === 'rgba(0, 0, 0, 0)' || cs.backgroundColor === 'transparent'
+    return noBg && parseFloat(cs.borderTopWidth) === 0 && parseFloat(cs.borderLeftWidth) === 0 && e.getAttribute('aria-pressed') !== 'true' && e.innerText.trim().length > 0
+  }).map((e) => `${nm(e)}${e.closest('.ax-cal-grid') ? '(달력 칸)' : ''}`)
+  res.warn = [...root.querySelectorAll('.ax-text-warning, .ax-text-error, [role=alert]')].filter(vis).map((e) => `${(e.innerText || '').trim().slice(0, 10)}→${getComputedStyle(e).color}`)
+  window.scrollTo(0, document.documentElement.scrollHeight)
+  const bar = [...document.querySelectorAll('nav, [role=tablist], .ax-bar')].filter(vis).pop()
+  const barTop = bar ? bar.getBoundingClientRect().top : innerHeight
+  const lastBtn = targets.filter((e) => vis(e)).sort((a, b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom)[0]
+  const lr = lastBtn?.getBoundingClientRect()
+  res.bottom = lr ? { name: nm(lastBtn), bottom: Math.round(lr.bottom), barTop: Math.round(barTop), ok: lr.bottom <= barTop } : null
+  window.scrollTo(0, 0)
+  const gapsOf = (parent) => { const k = [...parent.children].filter(vis); const g = []; for (let i = 1; i < k.length; i++) g.push(Math.round((k[i].getBoundingClientRect().top - k[i - 1].getBoundingClientRect().bottom) * 10) / 10); return g }
+  res.cardGaps = [...new Set([...root.querySelectorAll('.ax-group')].flatMap(gapsOf))]
+  res.sectionGaps = [...new Set([...root.querySelectorAll('.ax-groups')].flatMap(gapsOf))]
+  res.escaped = []
+  for (const c of cards) {
+    const cr = c.getBoundingClientRect()
+    const tw = document.createTreeWalker(c, NodeFilter.SHOW_TEXT)
+    for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+      if (!n.nodeValue.trim() || !n.parentElement || !vis(n.parentElement)) continue
+      const rg = document.createRange(); rg.selectNodeContents(n)
+      const r = rg.getBoundingClientRect(); if (r.width < 1) continue
+      if (r.left < cr.left - 0.5 || r.right > cr.right + 0.5 || r.top < cr.top - 0.5 || r.bottom > cr.bottom + 0.5) { res.escaped.push(n.nodeValue.trim().slice(0, 10)); break }
+    }
+  }
+  return res
+}
+
 function inPageItemFace() {
   const b = [...document.querySelectorAll('button[aria-pressed]')].find((x) => !x.querySelector('.ax-slot-mark') && x.getAttribute('aria-pressed') === 'false' && /\d/.test(x.textContent))
   if (!b) return null
@@ -2101,6 +2182,21 @@ async function runScenes(browser, port, scheme) {
       await page.locator('.ax-screen').getByRole('button', { name: '기록', exact: true }).click()
       await settle(page, 400)
     }
+    /** SS4 화면 검증자 추가: 장면마다 390·375에서 inPageSs4Verify 값을 흐름 칸에 찍는다(판정은 보고서에서 사람이 읽고 한다) */
+    const ss4Verify = (scene) => guardedFlow([`SS4 검증 ${scene}${light ? ' (라이트)' : ''}`], async () => {
+      const out = []
+      try {
+        for (const w of [390, 375]) {
+          await page.setViewportSize({ width: w, height: w === 375 ? 812 : 844 })
+          await settle(page, 400)
+          out.push([w, await page.evaluate(inPageSs4Verify)])
+        }
+      } finally {
+        await page.setViewportSize({ width: 390, height: 844 })
+        await settle(page, 400)
+      }
+      flows.push([`SS4 검증 ${scene}${light ? ' (라이트)' : ''}`, { ok: true, detail: out.map(([w, r]) => `${w}: ${JSON.stringify(r)}`).join(' || ') }])
+    })
     await guardedFlow(SS4_NAMES, async () => {
       ss4Seed = await page.evaluate(inPageHistorySeed)
       if (!light) flows.push(['SS4 시드 심기', { ok: true, detail: `같은 날(${ss4Seed.baseDate}) 두 번째 세션(복귀)·루틴에 없는 종목 · 보조 무게 세션(${ss4Seed.assistDate}) · 식단 ${ss4Seed.dates.join(' ')}` }])
@@ -2108,6 +2204,7 @@ async function runScenes(browser, port, scheme) {
     try {
       await backToHistory()
       await snap('history')
+      await ss4Verify('history')
       await wrapProbe('history')
       if (!light) await screenWrapFlow('SS4 history 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
       if (!light) {
@@ -2144,6 +2241,21 @@ async function runScenes(browser, port, scheme) {
       await page.getByRole('button', { name: '전체 보기', exact: true }).waitFor({ timeout: 3000 })
       await settle(page, 800)
       await snap('history-day')
+      await ss4Verify('history-day')
+      // 화면 검증자 추가: 세션 카드는 가장자리(귀퉁이 6px 안)를 눌러도 열린다 — 안쪽 이름 붙은 button은 1x1이라 카드 면 전체가 누르는 영역이어야 한다
+      await guardedFlow(['SS4 검증 세션 카드 가장자리 누르기'], async () => {
+        const res = []
+        for (const where of ['왼쪽 위', '오른쪽 아래', '오른쪽 가운데']) {
+          const face = page.getByRole('button', { name: / \d{4}-\d{2}-\d{2}$/ }).first().locator('xpath=..')
+          const box = await face.boundingBox()
+          const pos = where === '왼쪽 위' ? { x: 6, y: 6 } : where === '오른쪽 아래' ? { x: box.width - 6, y: box.height - 6 } : { x: box.width - 6, y: box.height / 2 }
+          await face.click({ position: pos })
+          const opened = await page.getByRole('button', { name: '기록으로', exact: true }).waitFor({ timeout: 2500 }).then(() => true, () => false)
+          res.push(`${where} ${opened ? '열림' : '안 열림'}`)
+          if (opened) { await ss4Back(); await page.getByRole('button', { name: '전체 보기', exact: true }).waitFor({ timeout: 3000 }) }
+        }
+        flows.push(['SS4 검증 세션 카드 가장자리 누르기', { ok: res.every((r) => r.endsWith('열림') && !r.endsWith('안 열림')), detail: res.join(' · ') }])
+      })
       histItemFace = await page.evaluate(inPageItemFace)
       // 기록 화면 전체가 Astryx다 — 화면 틀(.ax-history) 안을 잰다
       if (!light) await screenWrapFlow('SS2 history-day 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
@@ -2207,11 +2319,13 @@ async function runScenes(browser, port, scheme) {
         await keyCards.first().waitFor({ timeout: 4000 })
         await settle(page, 500)
         await snap('history-exercise')
+      await ss4Verify('history-exercise')
         if (!light) await screenWrapFlow('SS4 history-exercise 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
         await tapCard(keyCards.first())
         await page.getByText(/^메모 이력 \(\d+\)$/).waitFor({ timeout: 4000 })
         await settle(page, 500)
         await snap('history-exercise-detail')
+      await ss4Verify('history-exercise-detail')
         await wrapProbe('history-exercise-detail')
         if (!light) await screenWrapFlow('SS4 history-exercise-detail 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
         await btn(page, '종목 목록').click()
@@ -2266,6 +2380,7 @@ async function runScenes(browser, port, scheme) {
       await page.getByRole('button', { name: '기록으로', exact: true }).waitFor({ timeout: 3000 })
       await settle(page, 800)
       await snap('history-detail')
+      await ss4Verify('history-detail')
       await wrapProbe('history-detail')
       if (!light) await screenWrapFlow('SS4 history-detail 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
       if (!light) {
@@ -2286,6 +2401,7 @@ async function runScenes(browser, port, scheme) {
       }
       await toEnd()
       await snap('history-detail-end')
+      await ss4Verify('history-detail-end')
       await toTop()
       // Day 변경: 다른 Day를 고르면 기록 키 재매핑 표가 보이는 상태 (재매핑이 있는 Day가 나올 때까지 후보를 차례로 눌러 본다)
       await requiredScene('history-detail-change', async () => {
@@ -2308,6 +2424,7 @@ async function runScenes(browser, port, scheme) {
         await page.getByText(/기록 키 재매핑 \d+건/).scrollIntoViewIfNeeded()
         await settle(page, 500)
         await snap('history-detail-change')
+      await ss4Verify('history-detail-change')
         if (!light) await screenWrapFlow('SS4 history-detail-change 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
         // ⑥ Day 변경 2단계(취소로 끝낸다 — 기록을 안 바꾼다): 2단계(변경 적용·취소)에서 취소 → 1단계(Day 고르기)에서 취소 → 진입 버튼
         if (!light) {
