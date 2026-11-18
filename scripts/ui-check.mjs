@@ -1534,7 +1534,7 @@ async function runScenes(browser, port, scheme) {
         await settle(p, 600)
         await snap('onboarding-standalone', p)
         if (!light) await screenWrapFlow('SS7 onboarding-standalone 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-onboarding', p)
-        await guardedFlow(['SS7 시작하기(홈 화면 앱)'], async () => {
+        await guardedFlow([`SS7 시작하기(홈 화면 앱)${light ? ' (라이트)' : ''}`], async () => {
           const clicks = []
           await p.getByRole('button', { name: '시작하기', exact: true }).click()
           clicks.push(1)
@@ -1557,7 +1557,7 @@ async function runScenes(browser, port, scheme) {
     }),
   )
 
-  await guardedFlow(['SS7 시작하기(Safari 탭)'], async () => {
+  await guardedFlow([`SS7 시작하기(Safari 탭)${light ? ' (라이트)' : ''}`], async () => {
     await page.getByRole('button', { name: /^(시작하기|확인했어요, 그래도 계속)$/ }).click()
     await page.getByRole('button', { name: '설정', exact: true }).waitFor({ timeout: 10000 })
     const gone = (await page.getByRole('button', { name: /^(시작하기|확인했어요, 그래도 계속)$/ }).count()) === 0
@@ -3844,7 +3844,7 @@ async function runScenes(browser, port, scheme) {
         flows.push(['SS6 경계: Phase 3이면 전환 조건이 없다', { ok: n === 0 && radios === 'false,false,false,true', detail: `전환 조건 제목 ${n}개 · 선택 ${radios}` }])
       })
       // 성공 글자색(전환 조건 ✓): Phase 2는 '최근 6개월 내 4주+ 공백 없음'이 기록 없이도 충족(✓)이다. 계산된 색 = 성공 토큰 — 다크·라이트 둘 다. 끝에 원래 Phase로 되돌린다
-      await guardedFlow(['SS6 성공 글자색(전환 조건 ✓)'], async () => {
+      await guardedFlow([`SS6 성공 글자색(전환 조건 ✓)${light ? ' (라이트)' : ''}`], async () => {
         const prev = await page.evaluate(inPageSetSetting, { key: 'currentPhase', value: 2 })
         let col = { same: false, actual: '', token: '' }
         let n = 0
@@ -3971,7 +3971,7 @@ async function runScenes(browser, port, scheme) {
       await settle(page, 500)
       await snap('settings-reset-confirm')
       let ss6During = null
-      await guardedFlow(['SS6 초기화 2단 확인', 'SS6 오류 글자색(초기화 확인 문구)'], async () => {
+      await guardedFlow(['SS6 초기화 2단 확인', `SS6 오류 글자색(초기화 확인 문구)${light ? ' (라이트)' : ''}`], async () => {
         ss6During = { sure: await btn(page, '정말 삭제').count(), entry: await btn(page, '모든 데이터 초기화').count(), cancel: await btn(page, '취소').count() }
         const col = await warnColorBothSchemes('.ax-settings .ax-text-error', '세션 기록', 'error')
         flows.push([`SS6 오류 글자색(초기화 확인 문구)${light ? ' (라이트)' : ''}`, { ok: col.same, detail: `계산된 색 ${col.actual} (토큰 ${col.token})` }])

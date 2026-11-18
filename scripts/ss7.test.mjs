@@ -60,7 +60,8 @@ describe('v121 SS7 — ui-check의 온보딩 검사', () => {
   })
 
   it('v121 SS7: 새 흐름은 guardedFlow 안이다(예외가 삼켜지지 않는다) — 시작하기 둘, 폭 꺾임·안쪽 폭 안 둘', () => {
-    for (const n of ['SS7 시작하기(홈 화면 앱)', 'SS7 시작하기(Safari 탭)']) expect(uiCheck, n).toContain(`guardedFlow(['${n}']`)
+    const light = "${light ? ' (라이트)' : ''}"
+    for (const n of ['SS7 시작하기(홈 화면 앱)', 'SS7 시작하기(Safari 탭)']) expect(uiCheck, n).toContain('guardedFlow([`' + n + light + '`]')
     expect(uiCheck).toContain("screenWrapFlow('SS7 onboarding 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-onboarding')")
     expect(uiCheck).toContain("screenWrapFlow('SS7 onboarding-standalone 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-onboarding', p)")
   })

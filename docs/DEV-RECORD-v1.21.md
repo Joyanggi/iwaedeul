@@ -856,3 +856,14 @@ PLAN과 다르게 한 것:
 (처음엔 `inPageInnerOverflow`만 써서 결함을 되살려도 통과했다 — 검사의 구멍이라 `inPageNotClipped`를 더했다.)
 
 실행 결과(반려 반영): 마지막 코드로 전체 `ui-check after --check --ver=v1.21` 종료 코드 0·`장면 실패 0건`·`알려진 실패 0건`, `npm run check` 통과, `Test Files  87 passed (87)`·`Tests  1932 passed (1932)`(테스트 수 불변), `git rev-list --count main..HEAD`: 커밋 전 23 → 이 커밋 후 24. 무관한 스크린샷은 `git show HEAD:<경로>`로 되돌렸고 새로 남긴 것은 `onboarding-long-url(-light).png`와 `layout.json`.
+
+### 리뷰 반려 반영 (SS7 — 고칠 것 1: 라이트에서 예외가 삼켜짐)
+
+| 무엇 | 전 → 후 |
+|---|---|
+| 원인 | push 이름엔 `' (라이트)'`가 붙는데 `guardedFlow` 이름엔 없어, 라이트에서 예외가 나도 다크가 넣은 같은 이름 행을 보고 실패 행을 안 넣음 |
+| SS7 시작하기 둘 | `guardedFlow(['SS7 시작하기(…)'])` → ``guardedFlow([`SS7 시작하기(…)${light ? ' (라이트)' : ''}`])`` |
+| 같은 패턴 스캔 | `flows.push`에 라이트 꼬리표가 붙은 것 전부 대조: SS6 `성공 글자색(전환 조건 ✓)`·`오류 글자색(초기화 확인 문구)` 둘이 같은 결함 → 같이 고침. SS4·SS3 검증은 이미 꼬리표 있음 |
+| 테스트 | `ss7.test.mjs`(시작하기 둘)·`ss6.test.mjs`(글자색 둘) 단언을 꼬리표 포함 이름으로 |
+
+결함 복원: Safari 탭 흐름의 클릭 뒤에 `if (light) throw new Error('결함 복원')` → `ui-check after --check --only=analyze-empty-light` → `흐름 실패 SS7 시작하기(Safari 탭) (라이트): 예외: 결함 복원`, 종료 코드 1 → `cp` 백업으로 복구, `cmp` 같음. (클릭 앞에서 던지면 뒤의 가드 없는 `waitFor`가 스크립트를 죽여 흐름 행이 안 나온다 — 그래서 클릭 뒤에 넣었다.)
