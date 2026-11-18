@@ -3792,6 +3792,26 @@ async function runScenes(browser, port, scheme) {
         }
         flows.push(['SS6 경계: Phase 3이면 전환 조건이 없다', { ok: n === 0 && radios === 'false,false,false,true', detail: `전환 조건 제목 ${n}개 · 선택 ${radios}` }])
       })
+      // 성공 글자색(전환 조건 ✓): Phase 2는 '최근 6개월 내 4주+ 공백 없음'이 기록 없이도 충족(✓)이다. 계산된 색 = 성공 토큰 — 다크·라이트 둘 다. 끝에 원래 Phase로 되돌린다
+      await guardedFlow(['SS6 성공 글자색(전환 조건 ✓)'], async () => {
+        const prev = await page.evaluate(inPageSetSetting, { key: 'currentPhase', value: 2 })
+        let col = { same: false, actual: '', token: '' }
+        let n = 0
+        try {
+          await page.reload()
+          await page.getByRole('button', { name: '설정', exact: true }).click()
+          await page.getByRole('radiogroup', { name: 'Phase' }).waitFor({ timeout: 5000 })
+          await settle(page, 600)
+          n = await page.locator('.ax-settings .ax-text-success').count()
+          col = await warnColorBothSchemes('.ax-settings .ax-text-success', '✓', 'success')
+        } finally {
+          await page.evaluate(inPageSetSetting, { key: 'currentPhase', value: prev.value, remove: !prev.had })
+          await page.reload()
+          await page.getByRole('button', { name: '설정', exact: true }).click()
+          await settle(page, 800)
+        }
+        flows.push([`SS6 성공 글자색(전환 조건 ✓)${light ? ' (라이트)' : ''}`, { ok: n >= 1 && col.same, detail: `✓ ${n}개 · 계산된 색 ${col.actual} (토큰 ${col.token})` }])
+      })
       // Day 펼치기: 1탭에 펼치고(aria-expanded) 다른 Day를 펼치면 앞의 것이 접히며 다시 누르면 접힌다
       await guardedFlow(['SS6 Day 펼치기'], async () => {
         const heads = page.locator('.ax-settings button[aria-expanded]').filter({ hasText: /^Day \d/ })

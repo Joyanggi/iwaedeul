@@ -29,7 +29,7 @@ describe('v121 SS4 — 지운 것', () => {
     expect(strip(motion)).not.toContain('back-link')
   })
 
-  it('v121 SS4: SS6 뒤 .pill*는 없고(내보내기가 SegmentedControl이 됐다) 온보딩이 쓰는 .warn-box만 남는다', () => {
+  it('v121 SS4: SS6 뒤 .pill*는 없고(내보내기가 ToggleButton 줄이 됐다) 온보딩이 쓰는 .warn-box만 남는다', () => {
     const all = selectors(globalCss).join('\n')
     expect(all).not.toContain('.pill')
     expect(all).toContain('.warn-box')

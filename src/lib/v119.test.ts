@@ -175,6 +175,7 @@ describe("QQ6 — 카드 줄 안의 버튼을 작게 (SS6: .row > .btn 정적 �
     expect(lib()).toContain("lastElementChild")
     expect(lib()).toMatch(/r\.width \/ 2/)
     expect(lib()).toMatch(/lines > 1/)
+    expect(lib()).toContain("글자 잘림") // SS6 리뷰: 늘어난 버튼(⑰)의 증상인 이웃 버튼 글자 잘림
     expect(lib()).toMatch(/n === 0\) return \{ ok: false/)
   })
 

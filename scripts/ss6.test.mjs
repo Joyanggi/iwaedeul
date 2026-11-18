@@ -76,6 +76,7 @@ describe('v121 SS6 — ui-check의 설정 검사', () => {
     expect(uiCheck).toContain("flows.push(['SS6 템포 가이드 켜기'")
     // 오류 글자색 흐름은 이름 둘짜리 guardedFlow(초기화 2단 확인과 한 묶음)다
     expect(uiCheck).toContain("guardedFlow(['SS6 초기화 2단 확인', 'SS6 오류 글자색(초기화 확인 문구)']")
+    expect(uiCheck).toContain("guardedFlow(['SS6 성공 글자색(전환 조건 ✓)']")
     expect(uiCheck).toContain('SS6 ${scene} 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안')
     expect(uiCheck).toContain('SS6 ${scene} 한 줄 부품 겹침·잘림·세로 가운데·간격')
     for (const sc of ['settings', 'settings-export-preview', 'settings-reset-confirm', 'settings-gist', 'settings-routines']) expect(uiCheck, sc).toMatch(new RegExp(`ss6Wrap\\('${sc}'\\)`))

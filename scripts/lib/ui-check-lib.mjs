@@ -272,6 +272,10 @@ export const inPageRowButtons = () => {
       if (b.width >= r.width / 2) why.push(`폭 ${Math.round(b.width)}px ≥ 줄 ${Math.round(r.width)}px의 절반`)
       if (b.left < r.left - 0.5 || b.right > r.right + 0.5) why.push('줄 밖으로 나감')
       if (lines > 1) why.push(`글자 ${lines}줄`)
+      // 늘어난 버튼(⑰ width=100%)은 줄의 내용 폭 칸이라 폭 판정을 통과한다 — 증상은 버튼이나 그 자손의 글자가 잘리는 것이다
+      const clipped = [el, ...el.querySelectorAll('*')].some((x) => x.scrollWidth > x.clientWidth + 0.5 && x.clientWidth > 0 && getComputedStyle(x).overflowX !== 'visible')
+      const ellipsis = [el, ...el.querySelectorAll('*')].some((x) => getComputedStyle(x).textOverflow === 'ellipsis' && x.scrollWidth > x.clientWidth + 0.5)
+      if (clipped || ellipsis) why.push('글자 잘림')
       if (why.length) bad.push(`${el.textContent.trim()} (${why.join(', ')})`)
     }
   }

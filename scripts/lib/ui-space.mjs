@@ -86,6 +86,13 @@ export const inPageLayout = () => {
   }
   for (const g of [...frame.querySelectorAll('.ax-group')].filter(vis)) res.cardGaps.push(...gapsOf(g))
   for (const g of [...frame.querySelectorAll('.ax-groups')].filter(vis)) res.sectionGaps.push(...gapsOf(g))
+  // `.ax-groups`의 자식이 `.ax-group`이 아닌데 카드를 품으면(Group을 VStack으로 바꾼 결함 ⑱) 그 안의 간격도 카드 사이로 잰다 — 안 재면 0개로 통과한다
+  for (const g of [...frame.querySelectorAll('.ax-groups')].filter(vis)) {
+    for (const k of [...g.children].filter(vis)) {
+      if (k.matches('.ax-group, [class*="astryx-card"]') || !k.querySelector('[class*="astryx-card"]')) continue
+      res.cardGaps.push(...gapsOf(k))
+    }
+  }
   // 카드 안쪽: 첫 카드의 왼쪽 가장자리에서 첫 글자까지(테두리는 안쪽 여백의 일부가 아니라 뺀다)
   // 달력 카드는 첫 글자(월 이름)가 이전·다음 버튼 사이 가운데에 놓여 안쪽 여백을 못 잰다 — 다음 카드를 잰다(SS4)
   const card = [...frame.querySelectorAll('.card, [class*="astryx-card"]')].find((c) => vis(c) && !c.querySelector('.ax-cal-grid'))

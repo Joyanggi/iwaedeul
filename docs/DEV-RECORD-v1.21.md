@@ -678,6 +678,13 @@
 | `v116` NN2 | `편집 </button>` 앞 400자에 `disabled` | `label="편집"`이 든 `<Button` 태그(`/>`까지 — `=>`·`>`에서 안 끊는다)에 `isDisabled={openSession !== null}` | 진행 중 세션이면 편집이 막힌다 |
 | `v116` NN4 | 삭제 앞 200자에 `btn-danger` | `btn-danger`또는 `variant="destructive"` | 위험한 버튼 |
 | `ui-space.test.mjs:44` | 세 장면 모두 띠·탭 쌍 | `settings`만 따로 `['bar','tab-indicator','tab-content','button','card']` | PLAN 그대로 |
+| `rr3` | `.screen`·`.ax-screen` 둘이 `--ax-bar-bottom`을 쓴다(`.screen {` 규칙 매치) | `.screen {` 규칙이 없고 `.ax-screen`만 쓴다 | 화면 아래 여백이 띠 높이를 따른다는 뜻 그대로 — legacy 화면 틀(`.screen`)이 설정을 끝으로 사라졌다 |
+| `rr10` | space.css 유틸 일곱(`.mt-row`·`.mt-group`·`.mb-row`·`.mb-group`·`.ml-inline`·`.mr-inline`·`.ml-auto`) | 둘(`.mt-group`·`.mb-group`) + 지운 열 개가 없다 | 유틸이 `.tsx`가 쓰는 것만 남는다는 뜻 — 나머지 다섯은 설정만 쓰던 것이라 화면과 함께 지웠다 |
+| `ss4`·`ss5` | `.pill*`·`.segment`(·`.warn-box`)가 아직 남아 있다 | `.pill*`·`.segment`는 없고 `.warn-box`(온보딩)만 남는다 | 「아직 쓰는 것은 남는다」→「쓰는 곳이 없어졌으면 없다」, 마지막 쓰는 화면이 설정이었다. `ss5`의 `INSET_SCENES` 정규식은 `'analyze']`로 끝나던 것을 `'analyze'`까지만 보게 해 뒤의 `'settings'`를 허용 |
+| `inputProps` | 맨 입력 수 > 0 | `FIELD_TAG` 정규식이 `<input`·`<textarea`를 실제로 잡는지(예시 2개) | 맨 입력이 0개가 됐다(설정 마지막 입력이 `TextField`) — 세기가 헛도는지 보는 목적은 같고, 맨 입력이 다시 생기면 위 검사가 `NO_AUTOFILL`을 요구한다 |
+| `v117` | `v120.test.ts`만 패키지 직접 읽기 예외 | `v121.test.ts`도 예외 | `v121`이 `settings.tsx`가 패키지에서 읽는다는 글자를 견주느라 패키지 이름을 담는다 — 화면 파일이 패키지를 직접 읽는 것을 막는 검사 자체는 그대로 |
+| `v119` QQ6 | 정적 검사 `rowButtonStaticChecks`(`.row > .btn`, `width: auto`·`flex-shrink: 0`)와 높이 44(`b.height < 44`) | 정적 검사 삭제, `Row` 오른쪽 칸 안 Astryx 버튼의 폭 절반·줄 안·글자 한 줄·글자 잘림 | 지울 legacy 규칙이 없다. 높이 44는 PLAN의 새 정의(폭·한 줄)에 없다 — 눌리는 영역 44는 `탭 누름` 칸이 따로 잰다 |
+| `v120` RR3 | `src/ax/*.tsx`가 셋 | 넷(`settings.tsx` 추가) | `CodeBlock`·`Link`를 설정 청크에만 두려고 따로 뺐다(첫 화면 코드에 안 딸려 오게) |
 | 안 고치고 통과 | `soundCancel`·`v18` CC16·`v116` 나머지·`backupTime`·`dietExport`·`legacy-scope` RRM | — | PLAN대로 |
 
 ### PLAN과 다르게 한 것 (이유)
@@ -688,7 +695,7 @@
 4. `템포 3-1-1-1`·`스위치·볼륨·출력`은 `.ax-nowrap` 스팬으로 감쌌다(하이픈·가운뎃점 뒤에서 꺾임 — 글자는 그대로).
 5. `ui-space`의 내용 상자는 스크롤 칸(overflow auto·scroll) 안 글자를 칸 상자로 자른다(CodeBlock 안 글자가 카드 안쪽 아래를 -535로 만들었다). 글자 중간 꺾임 검사는 `pre`(코드 데이터)를 센다에서 뺐다.
 6. **앞에서 조용히 건너뛰던 `sheet-tempo` 장면이 옛 `.card` 선택자 때문에 건너뛰어지고 있었다** — 스위치로 고쳤고 `SS6 템포 가이드 켜기`가 건너뛰어지면 실패로 센다.
-7. 경계 중 `Phase 3·진행 중 세션·루틴 하나뿐·저장 공간 모름`은 흐름으로 쟀다. **`전환 조건 전부 충족(전환 버튼)`과 `시드 문제`는 실행으로 못 쟀다**(조건 충족엔 기록 수십 개, 시드 문제는 DB 훼손이 필요) — 소스 스캔(`Phase ${readiness.to}로 전환`·`Banner status="error"`)만. 사람 확인 목록에 넣는다.
+7. 경계 중 `Phase 3·진행 중 세션·루틴 하나뿐·저장 공간 모름`은 흐름으로 쟀다. **`전환 조건 전부 충족(전환 버튼)`과 `시드 문제`는 실행으로 못 쟀다**(전환 조건 ✓ 글자색은 Phase 2의 `공백 없음`이 기록 없이 충족이라 흐름 `SS6 성공 글자색(전환 조건 ✓)`으로 쟀다)(조건 충족엔 기록 수십 개, 시드 문제는 DB 훼손이 필요) — 소스 스캔(`Phase ${readiness.to}로 전환`·`Banner status="error"`)만. 사람 확인 목록에 넣는다.
 
 ### PLAN 검증 항목 ↔ 확인
 
@@ -706,8 +713,8 @@
 
 ### ui-check
 
-전체 `after --check --ver=v1.21`을 한 번 돌렸다(흐름 통과 229, 장면 실패 0건, `알려진 실패 0건`). 그 실행의 실패는 `SS6 … 한 줄 부품 …` 네 개뿐이었고(토글 버튼 숨은 사본이 글자 2줄로 세어짐 · `[role=radio]` 상자 넘침 오탐) 검사를 고친 뒤 설정 네 장면(`--only=settings,settings-gist,settings-routines,settings-export-preview`)만 다시 돌려 **종료 코드 0**을 확인했다. 전체 재실행은 하지 않았다(검사 도구 두 줄만 바뀜 — 지휘자·리뷰어가 전체를 한 번 더 돌려도 좋다).
-`settings-export-preview`의 `접근성`·`눌림 반응` 통과, `줄 안 버튼`(편집·이 루틴 쓰기·삭제) 통과, 390·375 폭 글자 중간 꺾임 0건(`settings` 1663자·`settings-gist` 1613자·`reset-confirm` 1688자·`routines` 1683자). 오류 글자색: 초기화 확인 문구 = 오류 토큰(다크 `rgb(255, 174, 167)` · 라이트 `rgb(192, 38, 44)`).
+마지막 코드(리뷰 반영 포함)로 전체 `node scripts/ui-check.mjs after --check`를 돌렸다: **종료 코드 0**, `장면 실패 0건`, `알려진 실패 0건`, 흐름 통과 234·실패 0. 이 로그로 모든 장면에서 `같은 역할 · 카드 사이: 간격 12px`(settings 포함 8장면) 통과, `SS6 성공 글자색(전환 조건 ✓)` 통과: ✓ 1개 · 다크 `rgb(144, 202, 144)` · 라이트 `rgb(47, 125, 51)`(둘 다 성공 토큰과 같다).
+`settings-export-preview`의 `접근성`·`눌림 반응` 통과, `줄 안 버튼`(편집·이 루틴 쓰기·삭제) 통과, 390·375 폭 글자 중간 꺾임 0건. 오류 글자색: 초기화 확인 문구 = 오류 토큰(다크 `rgb(255, 174, 167)` · 라이트 `rgb(192, 38, 44)`).
 `onboarding-standalone '시작하기' 5초 초과`는 이번 실행에 나오지 않았다(재현 못 함).
 
 ### 결함 복원
@@ -720,15 +727,28 @@
 | 초기화 문구 `ax-text-error` 제거 | `v121 SS6: 오류·성공 글자 …` | `cmp` 같음 |
 | `global.css`에 `.pill` 되살림 | `ss6.test.mjs` 지운 규칙 · `ss4`·`ss5` | `cmp` 같음 |
 | `index.tsx`에 `CodeBlock` 내보내기 | `v121 SS6: CodeBlock·Link는 index.tsx가 아니라 …` | `cmp` 같음 |
-| ⑰ 루틴 줄 버튼 `width="100%"`·⑱ 묶음을 `VStack gap={5}`로 | **하지 않았다**(ui-check 한 번에 6분 — 실행 결과가 필요한 둘이라 못 돌렸다) | — |
+| ⑰ `RoutineListPanel` `이 루틴 쓰기`에 `width="100%"` | `ui-check after --check --only=settings-routines`: `실패 settings-routines · 줄 안 버튼: 삭제 (글자 잘림)` (복구 뒤 통과) | `cmp` 같음 |
+| ⑱ `소리·템포`의 `<Group>` → `<VStack gap={5}>` | 전체 `ui-check after --check`(종료 코드 1): `실패 같은 역할 · 카드 사이: 간격 12·20px (… settings 12 · settings 20)` · `실패 같은 역할 · 가까움 순서`. 복구 뒤 `통과 같은 역할 · 카드 사이: 간격 12px` | `cmp` 같음 |
+| `ax-text-success` 제거(전환 조건 ✓) | 전체 `ui-check`: `흐름 실패 SS6 성공 글자색(전환 조건 ✓): ✓ 0개` (복구 뒤 ✓ 1개 · 다크·라이트 통과) | `cmp` 같음 |
 
 ### 과거 판정 불변·하지 않은 것
 
 - `git diff --stat main -- src/db src/store src/lib`는 테스트 파일뿐(판정·계산 코드 불변), 변이 테스트 대상 없음.
 - 무관한 스크린샷은 `git show HEAD:<경로>`로 되돌렸다.
-- 하지 않은 것: 결함 복원 ⑰⑱의 ui-check 확인, 전체 ui-check 재실행, `전환 버튼`·`시드 문제` 실행 확인.
+- 하지 않은 것: `전환 버튼`(전부 충족)·`시드 문제` 실행 확인(위 "PLAN과 다르게 한 것" 7).
 - 실기기 확인: 템포 스위치 1탭, 내보내기 공유·복사, 미리 듣기 소리, Gist 토큰 붙여넣기(키보드가 카드를 가리지 않는지).
 
 ### 실행 결과 요약
 
 - `npm run check` 통과. `Test Files  85 passed (85)`, `Tests  1918 passed (1918)`. 빌드 성공. `git rev-list --count main..HEAD`: 커밋 전 19 → 이 커밋 후 20.
+
+### 리뷰 반영 (SS6 리뷰 반려 — 고칠 것 1~4)
+
+| # | 고친 것 |
+|---|---|
+| 1 | `ui-space.mjs` `inPageLayout`: `.ax-groups`의 자식이 `.ax-group`도 카드도 아닌데 카드를 품으면 그 안의 간격을 카드 사이(`cardGaps`)로 더한다 — ⑱이 `settings 20`으로 `같은 역할 · 카드 사이`를 실패시킨다(결함 복원 표) |
+| 2 | `ui-check-lib.mjs` `inPageRowButtons`에 `글자 잘림`(버튼·자손의 `scrollWidth > clientWidth`+`overflow ≠ visible`, 또는 줄임표) — ⑰이 `삭제 (글자 잘림)`으로 실패. 결함은 PLAN ⑰ 그대로(`width="100%"`) |
+| 3 | 흐름 `SS6 성공 글자색(전환 조건 ✓)` 추가(Phase 2로 바꿔 ✓를 만들고 끝에 되돌림, 다크·라이트) — 만들 수 있었다 |
+| 4 | 위 "옮긴 스캔" 표에 수정표 밖 변경 일곱을 전·후·이유로, 결함 복원 ⑰⑱, 전체 `ui-check` 종료 코드 0 |
+
+PLAN과 다르게 한 것(추가): `줄 안 버튼`의 "폭 ≥ 줄의 절반"은 `Row` 오른쪽 칸이 내용 폭이라 ⑰에서 안 걸려 `글자 잘림`으로 보강했다(폭 판정은 남겼다). 테스트: `v119` QQ6에 `글자 잘림`, `ss6.test.mjs`에 새 흐름 이름.
