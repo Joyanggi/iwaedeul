@@ -127,7 +127,7 @@ export function spaceRoleVerdicts(layouts, judged = new Set()) {
   const sections = SCREENS.flatMap((s) => (layouts[s]?.sectionGaps ?? []).map((g) => [s, g]))
   const sectionSet = [...new Set(sections.map((p) => p[1]))]
   // 카드 안쪽은 Astryx `Card`를 쓰는 장면끼리만 견준다(홈 RR4 · 루틴 편집). 안 옮긴 화면은 legacy `.card`라 값이 다르고, 옮기는 작업(RR5~RR9)이 이 목록에 더한다
-  const INSET_SCENES = new Set(['home', 'home-375', 'home-banner', 'summary', 'editor', 'diet', 'history'])
+  const INSET_SCENES = new Set(['home', 'home-375', 'home-banner', 'summary', 'editor', 'diet', 'history', 'analyze'])
   const inset = SCREENS.filter((s) => INSET_SCENES.has(s) && layouts[s]?.cardInset != null).map((s) => [s, layouts[s].cardInset])
   const insetScenes = new Set(inset.map((p) => p[0]))
   const sectionScenes = new Set(sections.map((p) => p[0]))
@@ -186,7 +186,8 @@ export const inPageInsetSymmetry = () => {
       }
       return el
     }
-    for (const el of root.querySelectorAll('svg, img, input, textarea')) if (vis(el) && !el.parentElement.closest('svg')) add((el.matches('input, textarea') ? fieldBox(el) : el).getBoundingClientRect())
+    // role=img도 그림이다(분석의 감각 점 — 글자 없는 점 줄이 카드의 마지막 내용일 때 안쪽 아래를 그 줄 기준으로 잰다, SS5)
+    for (const el of root.querySelectorAll('svg, img, [role="img"], input, textarea')) if (vis(el) && !el.parentElement.closest('svg')) add((el.matches('input, textarea') ? fieldBox(el) : el).getBoundingClientRect())
     // 버튼·진행 막대는 글자만이 아니라 상자가 내용이다(카드가 버튼으로 끝나면 안쪽은 버튼 상자 기준이다 — RR4)
     for (const el of root.querySelectorAll('button, [role="progressbar"]')) if (vis(el)) add(el.getBoundingClientRect())
     return box
@@ -269,6 +270,11 @@ export const EXPECTED_PAIRS = {
   'history-detail': ['bar', 'button', 'card'],
   'history-detail-end': ['bar', 'button', 'card'],
   'history-detail-change': ['bar', 'button', 'card'],
+  // SS5: 분석 탭 전체가 Astryx다 — 아래 띠·탭, 카드·뱃지(감각 점수)·버튼(종목 칩). 빈 화면은 띠뿐
+  analyze: ['bar', 'tab-indicator', 'tab-content', 'button', 'card', 'badge'],
+  'analyze-end': ['bar', 'card'],
+  'analyze-375': ['bar', 'tab-indicator', 'tab-content', 'button', 'card', 'badge'],
+  'analyze-empty': ['bar'],
   // RR9: 요약 — 홈으로 버튼과 카드. 뱃지는 PR·수행 순서 뱃지가 있는 장면에서
   summary: ['button', 'card'],
   'summary-zero': ['button', 'card'],

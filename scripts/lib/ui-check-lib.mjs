@@ -471,7 +471,7 @@ export const inPageLastVisible = () => {
  * 섬도 legacy 안 Astryx 버튼도 없는 장면은 건너뛴다. 있는데 버튼이 0개면 실패.
  */
 export const inPageIslandButtons = () => {
-  const LEGACY = '.screen, .onboarding, .center-note, .banner'
+  const LEGACY = '.screen, .onboarding, .banner'
   const islands = [...document.querySelectorAll('.ax-scope')].filter((el) => window.__vis(el))
   const inLegacy = [...document.querySelectorAll("button[class*='astryx-']")].filter((b) => window.__vis(b) && b.closest(LEGACY))
   if (islands.length === 0 && inLegacy.length === 0) return { skip: true, detail: '.ax-scope 섬도 legacy 안 Astryx 버튼도 없다' }
@@ -777,12 +777,11 @@ export const inPageNotClipped = (needle) => {
 }
 
 /**
- * 알려진 실패 (PLAN v1.21 개정 1). SS0 before --check가 처음 드러낸 legacy 화면의 칸 실패 셋.
+ * 알려진 실패 (PLAN v1.21 개정 1). SS0 before --check가 처음 드러낸 legacy 화면의 칸 실패 셋 — SS5가 분석의 하나를 고쳐 지웠고 설정의 둘이 남았다(SS6까지).
  * 그 화면을 옮기는 작업(until)이 고치고 **같은 커밋에서 항목을 지운다**. 늘리지 않는다 — 다른 실패는 멈추고 보고한다.
  * detail은 `- 실패 <장면> · <칸>: ` 뒤 글자 그대로.
  */
 export const KNOWN_FAILURES = [
-  { scene: 'analyze-empty', column: '여백 격자', detail: 'p.center-note marginTop 13px · p.center-note marginBottom 13px', until: 'SS5' },
   { scene: 'settings-export-preview', column: '접근성', detail: 'scrollable-region-focusable 1건 [pre]', until: 'SS6' },
   { scene: 'settings-export-preview', column: '눌림 반응', detail: '1/5건: "GitHub에서 토큰 발급" .ext-link 변화 없음', until: 'SS6' },
 ]

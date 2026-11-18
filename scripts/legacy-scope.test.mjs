@@ -61,7 +61,7 @@ describe('v120 RR1 — legacy 규칙의 범위', () => {
     const g = rootsOf(globalCss, GLOBAL_SCOPE)
     const a = rootsOf(axCss, AX_SCOPE)
     expect(g).toBe(a)
-    for (const root of ['.screen', '.onboarding', '.center-note', '.banner']) {
+    for (const root of ['.screen', '.onboarding', '.banner']) {
       expect(g.split(',').map((x) => x.trim()), root).toContain(root)
     }
     // SS3: 식단 시트 넷이 Astryx로 옮겨 .sheet-backdrop 뿌리가 없다

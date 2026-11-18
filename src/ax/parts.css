@@ -410,6 +410,76 @@
     overflow-wrap: anywhere;
   }
 
+  /* 분석 탭 틀의 한글 줄바꿈(.ax-history와 같다). SS8이 앱 전체 규칙으로 모은다 */
+  .ax-analyze :is(p, span, div, h1, h2) {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  /*
+   * 분석 차트 틀(recharts의 ResponsiveContainer가 부모 폭을 재므로 넘침을 막는다). 축 숫자가 카드 안쪽 왼쪽 끝에 닿게 한 단계 왼쪽으로 당긴다.
+   * recharts가 그리는 SVG의 클래스(.recharts-surface)는 우리가 못 붙이니 여기서 맞춘다.
+   */
+  .ax-chart {
+    margin-inline-start: calc(-1 * var(--spacing-1));
+    overflow: hidden;
+  }
+
+  .ax-chart .recharts-surface {
+    overflow: visible;
+  }
+
+  /* 종목 고르기 줄: 종목이 많으면 가로로 스크롤한다(줄바꿈되면 카드가 세로로 길어진다). 버튼은 줄어들거나 글자가 꺾이지 않는다 */
+  .ax-chips > * {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* 감각 점수 점 줄: 주마다 점 하나, 폭을 똑같이 나눈다. 색 계열은 data-tone, 불투명도는 data-level(0~3) 네 단계 */
+  .ax-sdots {
+    display: flex;
+    gap: var(--spacing-1);
+  }
+
+  .ax-sdot {
+    flex: 1;
+    min-width: var(--spacing-1);
+    height: var(--spacing-3);
+    border-radius: var(--radius-inner);
+  }
+
+  .ax-sdot[data-tone='none'] {
+    background: var(--color-border);
+  }
+
+  .ax-sdot[data-tone='warn'] {
+    background: var(--color-text-warning);
+  }
+
+  .ax-sdot[data-tone='accent'] {
+    background: var(--color-accent);
+  }
+
+  .ax-sdot[data-tone='ok'] {
+    background: var(--color-text-success);
+  }
+
+  .ax-sdot[data-level='0'] {
+    opacity: 0.4;
+  }
+
+  .ax-sdot[data-level='1'] {
+    opacity: 0.6;
+  }
+
+  .ax-sdot[data-level='2'] {
+    opacity: 0.8;
+  }
+
+  .ax-sdot[data-level='3'] {
+    opacity: 1;
+  }
+
   /* 식단 화면 틀의 한글 줄바꿈(요약의 .ax-summary와 같다). SS8이 앱 전체 규칙으로 모은다 */
   .ax-diet :is(p, span, div, h1, h2) {
     word-break: keep-all;

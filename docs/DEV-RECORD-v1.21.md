@@ -72,6 +72,11 @@
 43. **새로 확인 (SS2):** Astryx `Collapsible`은 `defaultIsOpen`의 기본이 **true**(열림)다. 처음 닫으려면 `defaultIsOpen={false}`.
 44. **새로 확인 (SS2):** `TimeInput`·`CheckboxList`를 `src/ax/index.tsx`가 읽으면 메인 청크가 약 87KB(gzip) 는다(353.5 → 441KB). 식단 전용 부품은 `src/ax/diet.tsx`(지연 화면만 import)에 둔다. `index.tsx`가 다시 내보내도 메인에 들어온다.
 45. **새로 확인 (SS2):** Astryx `Item`은 줄마다 위·아래 8px 안쪽 여백이 있고 `as="button"`은 `nested-interactive`를 낸다. `ToggleButton`은 안 눌렸을 때 맨 글자라 `className="ax-toggle"`이 필요하다. `Button`의 `endContent`·`width`는 있고 `Heading`에 `hasTabularNumbers`, `HStack`에 `align="baseline"`은 없다.
+46. **새로 확인 (SS5):** `ui-check --only=<장면>`은 `-light` 장면을 안 붙이면 라이트 쪽을 안 돌아서 `차트 색 … 다크·라이트 한 쪽을 못 쟀다`로 실패한다 — 분석만 볼 때는 `--only=analyze,…,analyze-light,…`로 둘 다 준다.
+47. **새로 확인 (SS5):** Astryx `ToggleButton`의 `textContent`는 보이는 글자의 두 배(`암 풀다운 D2 · B암 풀다운 D2 · B` — 안 보이는 라벨 사본)다. 칩 이름은 `innerText`로 읽는다.
+48. **새로 확인 (SS5):** Stryker 샌드박스는 소스를 바꿔 끼운다 — `?raw`로 소스 글자를 읽는 테스트는 초기 실행에서 깨진다(`chartTheme.ts`의 `TOKEN`). 동작(문서 흉내가 묻는 토큰 이름)으로 재야 한다. 실패한 Stryker 실행은 `.stryker-tmp`를 남기고 vitest가 그 안의 테스트를 또 돌려 가짜 실패를 낸다 — 지우고 다시 돌린다(git 무시 폴더).
+49. **새로 확인 (SS5):** `npm run mutation`은 기본으로 **커밋된** 변경(`origin/main...HEAD`)만 대상으로 삼아 커밋 전에는 "대상 없음"이다 — 파일 경로를 인자로 준다.
+50. **새로 확인 (SS5):** `chartColor`가 읽는 토큰 값은 `light-dark(…)` 글자라 SVG `stroke`·`fill`에 그대로 넣어도 색 체계 전환(`emulateMedia`)을 따라간다. 화면 모듈 맨 위에서 한 번 읽어도 새로 고침 없이 바뀐다(흐름 `SS5 실행 중 색 체계 전환`).
 
 ---
 
@@ -550,3 +555,103 @@
 ### 실행 결과 요약
 
 - `npm run check` 통과(흔적·Astryx 뒷걸음·린트·knip·테스트·빌드·첫 화면 크기). `Test Files  83 passed (83)`, `Tests  1871 passed (1871)`. 빌드 성공. `git rev-list --count main..HEAD`: 커밋 전 15 → 이 커밋 후 16.
+
+---
+
+## SS5. 분석 탭
+
+### 범위
+
+| 항목 | 내용 |
+|---|---|
+| 커밋 | 이 커밋(`feat(SS5): …`) — 해시는 `git log`. |
+| 바뀐 파일 | `src/screens/AnalyzeScreen.tsx`(Astryx로 — `AxRoot`+`Groups`+`Card`·`ScrollableArea`·`ToggleButton`·`SegmentedControl`·`Badge`·`Banner`·`Rows`/`Row`, 감각 점 판정 `sensoryDot`), `src/lib/chartTheme.ts`(`TOKEN` 아홉 값을 Astryx 토큰으로), `src/ax/scroll.tsx`(새 — `ScrollableArea`), `src/ax/diet.tsx`·`src/components/FoodLogSheet.tsx`(`ScrollableArea`가 `scroll.tsx`로), `src/ax/parts.css`(`.ax-analyze`·`.ax-chart`·`.ax-chips`·`.ax-sdots`·`.ax-sdot`), `src/styles/global.css`(분석 전용 legacy 규칙 12개 삭제 — `.chart`·`.chart .recharts-surface`·`.chip-scroll`·`.chip-scroll::-webkit-scrollbar`·`.chip-scroll .pill`·`.srow`·`.srow:last-of-type`·`.srow-head`·`.sdots`·`.sdot`·`.mbar-name`·`.center-note`와 legacy 뿌리 목록의 `.center-note`), `src/ax/ax.css`(뿌리 목록), `scripts/astryx-inventory.mjs`(`recharts-surface` 예외 삭제)·`docs/ASTRYX-INVENTORY.md`, `scripts/ui-check.mjs`·`scripts/lib/ui-space.mjs`·`scripts/lib/ui-check-lib.mjs`(분석 판정·SS5 흐름·시드, `KNOWN_FAILURES`에서 `analyze-empty` 삭제), 테스트, 스크린샷(`analyze*`·`layout.json`만), `README.md`("Tech Stack" Astryx 줄에 `분석`) |
+| 테스트 | `Test Files 84 passed (84)` · `Tests 1893 passed (1893)` (SS4 뒤 83/1871 → 새 파일 1 `scripts/ss5.test.mjs`, 새 테스트 `v121` SS5 8 + `ss5.test.mjs` 11 + `properties.test.ts` 2 + `ss0.test.mjs` 1 = 22) |
+| Astryx 인벤토리 | `node scripts/astryx-inventory.mjs --check` 출력: `✓ Astryx를 안 읽는 화면 파일: 8 → 8` · `✓ 인라인 스타일: 26 → 26` · `✓ legacy 클래스 쓰임: 103 → 103` · `✓ 안 쓰는 legacy 선택자: 0 → 0` (`--write`한 표 포함). SS4 뒤 → SS5 뒤: 9→8, 30→26, 125→103(PLAN 예상과 같음) |
+| 첫 화면 | `node scripts/first-load.mjs` 출력 — JS `assets/index-Zt2OMjpc.js` 305.88 · CSS `assets/index-DEMP8kFn.css` 48.95 · 합 **354.83**kB gzip(한계 360KB). 분석 청크 `AnalyzeScreen-CH6eh7ua.js`에 `TimeInput`이 없다(0건). `ScrollableArea`는 `scroll.tsx`라 식단·분석이 같은 청크 `ScrollableArea-*.js`를 나눠 쓴다. precache 49개 2733.54 KiB |
+| 수정표 밖 | `v120.test.ts` RR3(`src/ax/*.tsx` 목록에 `scroll.tsx`) · `v120.test.ts` RR1(legacy 뿌리 문자열에서 `.center-note`) · `scripts/legacy-scope.test.mjs`·`scripts/ss3.test.mjs`(같은 뿌리 목록) · `v121.test.ts` SS3 ScrollableArea 줄(`diet.tsx` → `scroll.tsx`) — 아래 "옮긴 스캔" |
+
+### 옮긴 스캔 (이름·전→후·같은 뜻인 이유)
+
+| 이름 | 전 | 후 | 같은 뜻인 이유 |
+|---|---|---|---|
+| `v120` RR3 `src/ax/*.tsx` 목록 | `diet.tsx`·`index.tsx` | + `scroll.tsx` | "첫 화면 코드에 안 딸려 오게 부품 파일을 나눈다"는 뜻 그대로. 분석이 `diet.tsx`를 읽으면 `TimeInput`(≈87KB gzip)을 청크에 끌어와서 따로 뺐다 |
+| `v121` SS3 `ScrollableArea` 내보내기 | `axDiet`이 `export { ScrollableArea }`를 담는다 | `axScroll`이 담고 `axDiet`에는 없다, `FoodLogSheet`는 `../ax/scroll`에서 읽는다 | 새 부품이 `index.tsx`가 아닌 별도 파일에 있다는 뜻 그대로(파일만 바뀜) |
+| legacy 뿌리 목록(`v120` RR1·`legacy-scope`·`ss3.test.mjs`·`ui-check-lib` `LEGACY`) | `.screen, .onboarding, .center-note, .banner` | `.screen, .onboarding, .banner` | 분석의 빈 화면(`.center-note`)이 `Center`+`Text`가 되어 그 뿌리를 쓰는 곳이 없다. 남기면 인벤토리 넷째 숫자(안 쓰는 legacy 선택자)가 1이 된다. 두 CSS의 목록이 글자 그대로 같아야 한다는 검사는 그대로 통과 |
+| `polish`(BB7) AnalyzeScreen 줄·`v120` `chartTheme` 스캔 | — | 안 고치고 통과 | PLAN대로 |
+
+### PLAN과 다르게 한 것 (이유)
+
+1. **`ScrollableArea`를 `src/ax/scroll.tsx`에 둔다**(PLAN은 SS3이 `diet.tsx`에 더한 것을 그대로 쓴다고 함). 분석 화면이 `diet.tsx`를 읽으면 식단 전용 `TimeInput`이 분석 청크에 들어온다 — 새 부품 파일을 따로 둔다는 규칙(SS2 반려에서 배운 것)을 지켰다. 대신 위 표의 테스트 둘을 같은 뜻으로 옮겼다.
+2. **약한 종목 `Banner`는 감각 점수 카드 안이 아니라 바로 아래 따로 둔다.** 카드 안에 두면 `안쪽 대칭`이 `위 15·아래 28`(`Banner`가 안쪽 여백이 있는 상자라 카드의 마지막 내용이 글자가 된다)로 실패했다. 카드 사이 간격(3)으로 이어져 한 묶음 안에서 카드 아래에 붙는다.
+3. **`ui-space.mjs`의 안쪽 대칭 측정이 `role="img"`를 그림으로 센다.** 감각 점 줄은 글자 없는 `span`이라 카드의 마지막 내용(아래 점 줄 12px + 간격)이 안 잡혀 `위 15·아래 33`으로 실패했다. 그림(`svg`·`img`)과 같은 처리다.
+4. **`ui-check`의 글자 중간 꺾임 검사가 `<br>` 뒤에서 줄을 새로 센다.** 분석 빈 화면의 두 줄 문구와 `Banner` 안내가 `<br />`로 줄을 바꾸는데, 앞뒤 글자 노드가 같은 부모라 낱말이 중간에서 꺾인 것으로 셌다(`/깊은`·`/무게·` 표본). 일부러 낸 줄바꿈이다. 이 변경을 빼면 SS5 흐름 둘이 실패하는 것을 확인했다(결함 복원 표).
+5. **분석 장면(`analyze`·`-end`·`-375`)이 심은 데이터로 찍힌다.** 이전에는 A그룹 기록이 없어 종목 줄·감각 점·경고·대체 수행이 안 보였다. 흐름이 끝난 세션 7개(Day 하나의 A둘·B넷·대체 하나, 7주에 걸쳐)를 심고 Phase 2로 연 뒤(B그룹 종목도 추이에 든다) 끝나면 지우고 Phase를 되돌린다. `before` 스크린샷(`analyze*`)과는 내용이 다르다. 다른 장면의 데이터는 그대로다.
+6. 감각 점의 높이는 12px(`--spacing-3`)·모서리 4px(`--radius-inner`)다(전 14px·3px — 토큰 단계 밖 값은 `parts.css`에 못 쓴다). 불투명도는 이어진 값이 아니라 네 단계(0.4·0.6·0.8·1)라 PLAN 표와 같다.
+7. 빈 화면의 `Text`에 `justify="center"`를 더했다(전 `.center-note`가 가운데 정렬이었다). PLAN 표에는 `Center`+`Text`만 있다.
+8. `chartTheme()`은 화면 모듈 맨 위에서 한 번 부르는 그대로다(`polish` BB7이 `const C = chartTheme()`를 요구). 토큰 값이 `light-dark(…)` 글자라 실행 중 색 체계가 바뀌어도 SVG 색이 따라간다 — 흐름 `SS5 실행 중 색 체계 전환`이 새로 고침 없이 확인한다.
+9. `npm run mutation`을 파일을 주어(`src/lib/chartTheme.ts`) 돌렸다. 기본(바뀐 파일 찾기)은 커밋된 변경만 봐서 커밋 전에는 "대상 없음"이 나온다.
+
+### PLAN 검증 항목 ↔ 확인
+
+| PLAN 검증 | 확인 |
+|---|---|
+| `AnalyzeScreen`의 `className=` `ax-`뿐·`style=`·`<button`·`var(--` 0건 | `v121 SS5: className=은 ax- 이름뿐이고 style=·<button·var(--가 0건이다` |
+| `data-tone` 식이 `<= 1`·`< 2.5` | `v121 SS5: 감각 점은 data-tone·data-level과 aria-label(기록 없음 포함)을 갖고 tone을 정하는 식이 <= 1·< 2.5 두 경계를 그대로 쓴다` · `v121 SS5: 경계 — 1은 경고, 1.01은 강조, …` |
+| `TOKEN` 값이 전부 `--color-`·아홉 짝 | `v121 SS5: TOKEN 값이 아홉 개 전부 --color-로 시작한다` · `v121 SS5: 아홉 짝이 PLAN 표와 같다`(문서 흉내가 묻는 토큰 이름으로 잰다 — 소스 글자를 읽으면 Stryker의 바뀐 소스에서 깨진다) |
+| 속성: `chartColor`는 빈 글자가 아니다·`sensoryDot` level 0~3 정수·단조 | `properties.test.ts` `chartColor는 어떤 열쇠에서도 빈 글자를 돌려주지 않는다 …` · `sensoryDot의 level은 0~3의 정수이고 점수가 커지면 줄지 않는다(단조)` |
+| 안 고치고 통과 | `polish`의 AnalyzeScreen 줄·`v120`의 `chartTheme` 스캔 |
+| 지운 것·남은 것·CSS | `scripts/ss5.test.mjs`(fs로 읽음 — 제약 3) 8: 지운 규칙 없음, `.segment`·`.pill*`·`.warn-box` 남음, 뿌리 목록, 감각 점 네 계열 토큰·네 단계 불투명도·`.ax-chart`·`.ax-chips` 줄어들지 않음 |
+| `ui-check after --check` 분석 네 장면 | 아래 |
+| 흐름 ①~⑤ | 아래 |
+| `analyze-empty` `여백 격자` 통과 + 항목 삭제, `알려진 실패 2건` | `analyze-empty` 행 `여백 격자` 통과, `KNOWN_FAILURES`에서 항목 삭제(`v121 SS5: 고친 analyze-empty 항목은 KNOWN_FAILURES에 없다`), 출력 `알려진 실패 2건` |
+| 변이 테스트 | 아래 |
+
+### ui-check (전체 `after --check --ver=v1.21`, 종료 코드 0, 알려진 실패 2건(SS6 몫), 흐름 통과 208, 장면 실패 0건)
+
+| 흐름 | 결과 |
+|---|---|
+| `SS5 시드 심기`·`SS5 되돌리기` | 끝난 세션 7개(d2)·Phase 2 → 지움·Phase 원래대로(시드 실패하면 SS5 흐름 열 개가 모두 실패 — 건너뜀 없음) |
+| `SS5 종목 바꾸기` | 칩 7개 · 처음 하나만 눌림 → 둘째 1탭에 그것만 눌림 · 최근 값 줄이 `암 풀다운 (D2) …` → `랫풀다운 (D2) …` · 다시 눌러도 눌림 유지 · 첫째로 돌아옴 |
+| `SS5 종목 칩 맨 글자 아님` | 칩 7개 모두 바탕·테두리 있음(안 눌린 바탕 `rgb(27, 27, 27)`, 눌린 바탕 `rgb(37, 60, 90)`), 높이 36px 하나 |
+| `SS5 지표 바꾸기` | 라디오 3개 · 눌림 0 → 볼륨 1 → e1RM 2 → 무게×횟수 0 · 선 모양이 바뀜 |
+| `SS5 감각 점 이름·네 단계` | 점 8개 모두 `aria-label`(기록 없음 1개 `… 기록 없음`, 나머지 `… N.N점`) · 계열 `none·warn·accent·ok`의 계산된 바탕 네 가지 · 불투명도 0.4→0.6→0.8→1 |
+| `SS5 B그룹 경고 글자 색` | B 종목에서 안내 글자 계산된 색 = `--color-text-warning`(다크 `rgb(238, 196, 72)` · 라이트 `rgb(131, 103, 0)`), A 종목에서는 안내 0개 |
+| `SS5 한 줄 부품 겹침·잘림·세로 가운데` | 390·375: 머리 줄 4개(이름·뱃지 세로 가운데 차이 0.0px)·점 줄 4개·칩 7개(스크롤 칸 안 위·아래 안 잘림)·차트 2개·대체 수행 값 한 줄 — 겹침·잘림 0 |
+| `SS5 실행 중 색 체계 전환` | 새로 고침 없이 선 `rgb(90, 160, 248)` → `rgb(0, 116, 226)` → 다시 · 축 `rgb(158, 158, 158)` → `rgb(71, 71, 71)` · 계산된 선 색 = 화면 안 `--color-accent` 값(두 체계 모두) |
+| `SS5 analyze 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안`·`SS5 analyze-empty …` | 꺾임 0건(분석 글자 578개·빈 화면 50개), 안쪽 폭 안(상자 비교 33회) |
+| `SS5 analyze 맨 아래 카드가 탭 바 위` | 카드 7장 · 맨 아래 카드 아래끝 770 / 탭 바 위 795 |
+| 표 | 분석 장면 `안쪽 대칭`·`가로 넘침`·`접근성` 통과, `analyze-empty` `여백 격자` 통과, `차트 색`·`색 체계 전환 Chromium analyze` 통과 |
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 것 | 원상복구 |
+|---|---|---|
+| ⑭ `chartTheme.ts`의 `accent`를 `--accent`로 | `v121 SS5: TOKEN 값이 아홉 개 전부 --color-로 시작한다` · `아홉 짝이 PLAN 표와 같다` | `cmp` 같음 |
+| ⑮ `sensoryDot`의 경계를 `< 1`로 | `v121 SS5: 경계 — 1은 경고, …` · `감각 점은 … <= 1·< 2.5 두 경계를 그대로 쓴다` | `cmp` 같음 |
+| (추가) `level`을 `3 - round(score)`로 | `properties.test.ts` 단조 속성 · `v121 SS5: 경계 …` | `cmp` 같음 |
+| (추가) `parts.css` `data-level='1'` 불투명도 0.9 | `ss5.test.mjs` `data-level 0~3은 불투명도 네 단계` | `cmp` 같음 |
+| (추가) `global.css`에 `.sdot` 되살림 | `ss5.test.mjs` `지운 규칙이 없다` + 인벤토리 `안 쓰는 legacy 선택자 0 → 1` | `cmp` 같음 |
+| (추가) `AnalyzeScreen`에 `style={{…}}` | `v121 SS5: className=은 ax- 이름뿐이고 style=·<button·var(--가 0건이다` | `cmp` 같음 |
+| ㉕ `KNOWN_FAILURES`에 `analyze-empty` 항목을 남김 | ui-check `- 실패 analyze-empty · 여백 격자: 알려진 실패가 고쳐졌다 — KNOWN_FAILURES에서 지운다`, 종료 코드 1 | `cmp` 같음 |
+| (추가) 종목 칩 `className="ax-toggle"` → 클래스 없음 | 흐름 `SS5 종목 칩 맨 글자 아님`(맨 글자 6개·바탕 `rgba(0, 0, 0, 0)`) | `cmp` 같음 |
+| (추가) `inPageMidWordBreaks`의 `<br>` 처리 삭제 | 흐름 `SS5 analyze-empty 390·375 …`(`/깊은`)·`SS5 analyze 390·375 …`(`/무게·`) | `cmp` 같음 |
+
+### 변이 테스트 (`npm run mutation -- src/lib/chartTheme.ts`)
+
+| 파일 | 점수 | 잡음 | 살아남음 | 테스트 없음 |
+|---|---|---|---|---|
+| `src/lib/chartTheme.ts` | 95% | 35 | 2 | 0 |
+
+살아남은 둘은 이번에 안 바꾼 줄이다(`chartTheme.ts:98` `chartColor('dim')`의 문자열 → `""`, `:108` 툴팁 객체 → `{}`). 이번에 바꾼 줄(`TOKEN` 아홉 값·주석)은 `v121 SS5` 두 테스트가 잡는다. 처음 돌렸을 때 `?raw`로 소스를 읽던 테스트가 Stryker의 바뀐 소스에서 깨져(`expected [] to have a length of 9`) 문서 흉내 동작 테스트로 바꿨다.
+
+### 과거 판정 불변·하지 않은 것
+
+- ① `git diff --stat main -- src/db src/store` 출력이 비어 있다. ② `git diff --stat main -- src/lib`: `chartTheme.ts`(+`TOKEN` 아홉 값)와 테스트(`inputProps`·`properties`·`uiConsistency`·`v119`·`v120`·`v121`)뿐이다 — 판정 파일(`diet.ts`·`dietOps.ts`·`history.ts`·`analysis.ts`·`phaseReadiness.ts`·`backup.ts`·`gist.ts`) 없음. ③ 골든 테스트는 한 글자도 안 고치고 통과. README 반영: `Tech Stack`의 Astryx 줄에 `분석` 추가.
+- `docs/screenshots/v1.21/after`는 `analyze*`·`layout.json`만 갱신, 무관한 장면 스크린샷은 `git show HEAD:<경로>`로 되돌림.
+- 하지 않은 것: 차트를 Astryx로 바꾸기(recharts 그대로 — 범위 제외), 감각 점을 눌러 값을 펼치는 조작(지금도 없다).
+- 사람 확인 필요(실기기): 분석 차트를 손가락으로 눌러 툴팁이 뜨는지, 종목 칩 줄 가로 스크롤(손가락으로 밀어도 페이지가 안 밀리는지), 폰의 다크 ↔ 라이트 전환 뒤 차트 색.
+
+### 실행 결과 요약
+
+- `npm run check` 통과(흔적·Astryx 뒷걸음·린트·knip·테스트·빌드·첫 화면 크기). `Test Files  84 passed (84)`, `Tests  1893 passed (1893)`. 빌드 성공. `git rev-list --count main..HEAD`: 커밋 전 18 → 이 커밋 후 19.

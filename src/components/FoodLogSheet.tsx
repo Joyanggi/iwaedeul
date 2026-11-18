@@ -13,7 +13,8 @@ import {
 import { mutateUserFoods } from '../lib/useDiet'
 import type { DietDay, DietPlan, Food, FoodLogEntry } from '../types'
 import { Button, Heading, HStack, List, ListItem, Sheet, Text, TextField, VStack } from '../ax'
-import { ScrollableArea, TimeField } from '../ax/diet'
+import { TimeField } from '../ax/diet'
+import { ScrollableArea } from '../ax/scroll'
 
 /**
  * "먹은 것 추가" 시트 (MM2).

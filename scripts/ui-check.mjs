@@ -69,6 +69,13 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASE = '/workout-tracker/'
+/** SS5 시드가 쓰는 루틴의 Day별 종목(앱이 시드로 읽는 파일과 같은 것) */
+const ROUTINE_DAYS = (() => {
+  const dir = join(ROOT, 'src', 'data')
+  const file = readdirSync(dir).find((f) => /^routine-.*\.json$/.test(f))
+  const routine = JSON.parse(readFileSync(join(dir, file), 'utf8'))
+  return Object.fromEntries(routine.days.map((d) => [d.id, d.exercises.map((e) => ({ exerciseId: e.exerciseId, group: e.group }))]))
+})()
 const PKG_VER = 'v' + JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version.split('.').slice(0, 2).join('.')
 
 const [phase, ...flags] = process.argv.slice(2)
@@ -129,7 +136,9 @@ const CARD_SCENES = ['session', 'session-375', 'session-open-b', 'history-detail
 const DIET_SCENES = ['diet', 'diet-end', 'diet-375', 'diet-log-open', 'diet-streak']
 /** 기록(SS4) — 기록 탭 아홉 장면. 카드·뱃지·버튼 쌍을 판정한다(기록 화면 전체가 Astryx다) */
 const HISTORY_SCENES = ['history', 'history-375', 'history-day', 'history-exercise', 'history-exercise-detail', 'history-detail', 'history-detail-end', 'history-detail-change', 'history-detail-edit']
-const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...DIET_SCENES, ...HISTORY_SCENES, ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SHEET_SCENES, ...SESSION_SCENES, ...SUMMARY_SCENES, 'session-open-b', 'home-safe', 'session-safe', 'settings'])
+/** 분석(SS5) — 분석 탭 네 장면. 카드·뱃지·버튼 쌍을 판정한다(분석 화면 전체가 Astryx다) */
+const ANALYZE_SCENES = ['analyze', 'analyze-end', 'analyze-375', 'analyze-empty']
+const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...DIET_SCENES, ...HISTORY_SCENES, ...ANALYZE_SCENES, ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SHEET_SCENES, ...SESSION_SCENES, ...SUMMARY_SCENES, 'session-open-b', 'home-safe', 'session-safe', 'settings'])
 /** 판정을 켠 쌍 종류. 나머지 종류는 장면이 Astryx여도 기록만 한다(card·badge = RR4, set-row = RR7, sheet = RR5 — 세션 장면은 RR6부터 button·bar를 판정하고, 운동 카드 안의 card·badge·set-row는 RR7 전까지 기록만) */
 const SYMMETRY_KINDS = new Set(['button', 'bar', 'tab-indicator', 'tab-content'])
 /** 홈(RR4)은 카드·뱃지 쌍도 판정한다 */
@@ -223,7 +232,7 @@ async function newColumns(page, scene, cells, light) {
   }
   if (scene === 'analyze') chartColors[scene] = { ...chartColors[scene], [light ? 'light' : 'dark']: await page.evaluate(inPageChartColors) }
   const pairs = await page.evaluate(inPageInsetSymmetry)
-  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : (HOME_SHEET_SCENES.includes(scene) || SESSION_SHEET_SCENES.includes(scene)) ? HOME_SHEET_SYMMETRY_KINDS : (CARD_SCENES.includes(scene) || SUMMARY_SCENES.includes(scene)) ? CARD_SYMMETRY_KINDS : (DIET_SCENES.includes(scene) || HISTORY_SCENES.includes(scene)) ? HOME_SYMMETRY_KINDS : SYMMETRY_KINDS
+  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : (HOME_SHEET_SCENES.includes(scene) || SESSION_SHEET_SCENES.includes(scene)) ? HOME_SHEET_SYMMETRY_KINDS : (CARD_SCENES.includes(scene) || SUMMARY_SCENES.includes(scene)) ? CARD_SYMMETRY_KINDS : (DIET_SCENES.includes(scene) || HISTORY_SCENES.includes(scene) || ANALYZE_SCENES.includes(scene)) ? HOME_SYMMETRY_KINDS : SYMMETRY_KINDS
   const judgedPairs = pairs.filter((p) => kinds.has(p.kind))
   const sym = insetSymmetryVerdict(SYMMETRY_JUDGED.has(scene) ? judgedPairs : pairs, EXPECTED_PAIRS[scene] ?? [])
   const rest = SYMMETRY_JUDGED.has(scene) ? insetSymmetryVerdict(pairs.filter((p) => !kinds.has(p.kind)), []) : null
@@ -361,6 +370,8 @@ function inPageMidWordBreaks(rootSelector = 'dialog[open]') {
     const t = n.textContent ?? ''
     const range = document.createRange()
     if (n.parentNode !== prevParent) prevTop = null
+    // `<br>`은 일부러 낸 줄바꿈이다 — 그 앞뒤는 한 낱말이 아니다(분석의 두 줄 문구, SS5)
+    if (n.previousSibling && n.previousSibling.nodeName === 'BR') prevTop = null
     prevParent = n.parentNode
     for (let i = 0; i < t.length; i++) {
       if (/\s/.test(t[i])) { prevTop = null; continue }
@@ -649,6 +660,149 @@ function inPageHistorySeed() {
       tx.onerror = () => reject(tx.error)
     }
   })
+}
+
+/**
+ * SS5: 분석 탭이 다 보이게 끝난 세션 일곱을 심는다(page.evaluate용). 끝난 세션 하나(base)의 Day 종목으로 base 날짜 7·14·…·49일 전에 하나씩:
+ *   - A그룹 종목은 세션마다 무게·횟수가 올라 추이 선이 그려진다(종목 줄에 칩 여럿)
+ *   - B그룹 종목은 감각 점수 세 가지 줄(약함 0·1 / 좋음 2~3 / 오래된 구간은 입력 없음) → 점 네 계열·네 단계·`기록 없음`·약한 종목 Banner·Badge 경고
+ *   - 가장 최근 세션에 대체 수행 하나(`ss5-sub`) → 대체 수행 카드
+ * days는 루틴의 Day별 종목 { d1: [{ exerciseId, group }, …], … }. 돌려주는 값은 되돌릴 때 쓴다: { sessionIds, dayId }
+ */
+function inPageAnalyzeSeed({ days }) {
+  return new Promise((resolve, reject) => {
+    const pad = (n) => String(n).padStart(2, '0')
+    const open = indexedDB.open('workout-tracker')
+    open.onerror = () => reject(open.error)
+    open.onsuccess = () => {
+      const idb = open.result
+      const tx = idb.transaction(['sessions'], 'readwrite')
+      const ss = tx.objectStore('sessions')
+      let out = null
+      const all = ss.getAll()
+      all.onsuccess = () => {
+        const base = all.result.find((x) => x.endedAt)
+        if (!base) return
+        const list = days[base.dayId] ?? []
+        const aList = list.filter((e) => e.group === 'A')
+        const bList = list.filter((e) => e.group === 'B')
+        if (aList.length < 2 || bList.length < 3) return
+        // 감각 점수 줄 셋(세션 0이 가장 최근, 6이 가장 오래됨). 오래된 4주 구간(세션 3~6)에는 셋째 줄이 없다
+        const series = [[1, 1, 0, 0, 0, 1, 0], [3, 3, 2, 2, 2, 3, 2], [2, 1, 3, undefined, undefined, undefined, undefined]]
+        const ids = []
+        for (let k = 0; k < 7; k++) {
+          const d = new Date(`${base.date}T12:00:00`)
+          d.setDate(d.getDate() - 7 * (k + 1))
+          const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+          const mk = (e, i, extra) => ({
+            recordKey: `${e.exerciseId}@${base.dayId}`,
+            plannedOrder: i,
+            performedOrder: i + 1,
+            firstSetAt: `${date}T09:05:00.000Z`,
+            compensation: '없음',
+            skipped: false,
+            sets: Array.from({ length: 3 }, (_, s) => ({ weight: 20 + 5 * i + (6 - k) * 2.5, reps: 8 + ((k + s) % 3), done: true, doneAt: `${date}T09:${10 + s}:00.000Z` })),
+            ...extra,
+          })
+          const entries = [
+            ...aList.map((e, i) => mk(e, i, {})),
+            ...bList.map((e, i) => mk(e, aList.length + i, { sensoryScore: series[i % 3][k] })),
+          ]
+          if (k === 0) entries.push({ ...mk({ exerciseId: 'ss5-sub' }, entries.length, {}), substituteFor: `${aList[0].exerciseId}@${base.dayId}` })
+          const id = `ui-check-ss5-${k}`
+          ids.push(id)
+          ss.put({ ...base, id, date, mode: 'normal', startedAt: `${date}T09:00:00.000Z`, endedAt: `${date}T09:50:00.000Z`, entries })
+        }
+        out = { sessionIds: ids, dayId: base.dayId }
+      }
+      tx.oncomplete = () => {
+        idb.close()
+        if (!out) return reject(new Error('시드 실패: 끝난 세션이 없거나 그 Day에 A그룹 둘·B그룹 셋이 없다'))
+        resolve(out)
+      }
+      tx.onerror = () => reject(tx.error)
+    }
+  })
+}
+
+/**
+ * SS5 분석 한 줄 부품의 모양(page.evaluate용): ① 감각 점수 머리 줄(이름·뱃지)이 겹치지 않고 세로 가운데가 맞고 줄 안에 든다
+ * ② 점 줄은 폭·높이가 같고 겹치지 않는다 ③ 종목 칩은 높이·위가 같고 겹치지 않으며 스크롤 칸 위·아래에 안 잘린다 ④ 지표 항목 셋이 겹치지 않는다
+ * ⑤ 차트 틀이 카드 안쪽 오른쪽 끝을 넘지 않는다 ⑥ 대체 수행 줄의 오른쪽 값(n회)이 한 줄이다. 대상이 0개면 실패다(빈 화면을 재고 통과하지 않는다).
+ */
+function inPageAnalyzeRows() {
+  const root = document.querySelector('.ax-analyze')
+  if (!root) return { ok: false, detail: '.ax-analyze가 없다' }
+  const R = (e) => e.getBoundingClientRect()
+  const overlap = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1
+  const bad = []
+  const parts = []
+  const pairsOverlap = (rects) => { for (let a = 0; a < rects.length; a++) for (let b = a + 1; b < rects.length; b++) if (overlap(rects[a], rects[b])) return true; return false }
+  // ① 머리 줄
+  const heads = [...root.querySelectorAll('.ax-sdots')].map((d) => d.previousElementSibling).filter(Boolean)
+  if (heads.length === 0) bad.push('감각 점수 머리 줄 0개')
+  let maxCy = 0
+  for (const h of heads) {
+    const kids = [...h.children].map(R)
+    const hr = R(h)
+    if (kids.length < 2) { bad.push('머리 줄 부품 2개 미만'); continue }
+    if (pairsOverlap(kids)) bad.push('머리 줄 겹침')
+    maxCy = Math.max(maxCy, Math.abs((kids[0].top + kids[0].bottom) / 2 - (kids[1].top + kids[1].bottom) / 2))
+    if (kids.some((k) => k.left < hr.left - 1 || k.right > hr.right + 1)) bad.push('머리 줄 밖으로 나감')
+  }
+  if (maxCy > 2) bad.push(`머리 줄 세로 가운데 차이 ${maxCy.toFixed(1)}px`)
+  parts.push(`머리 줄 ${heads.length}개(가운데 차이 최대 ${maxCy.toFixed(1)}px)`)
+  // ② 점 줄
+  const dotRows = [...root.querySelectorAll('.ax-sdots')]
+  for (const row of dotRows) {
+    const dots = [...row.children].map(R)
+    if (dots.length < 2) { bad.push('점 2개 미만'); continue }
+    const ws = dots.map((d) => d.width), hs = dots.map((d) => d.height)
+    if (Math.max(...ws) - Math.min(...ws) > 1) bad.push('점 폭이 다르다')
+    if (Math.max(...hs) - Math.min(...hs) > 1 || Math.min(...hs) <= 0) bad.push('점 높이가 다르다')
+    if (pairsOverlap(dots)) bad.push('점 겹침')
+  }
+  parts.push(`점 줄 ${dotRows.length}개(점 ${dotRows[0]?.children.length ?? 0}개씩)`)
+  // ③ 종목 칩
+  const chips = [...root.querySelectorAll('.ax-chips button')]
+  if (chips.length < 2) bad.push(`종목 칩 ${chips.length}개`)
+  else {
+    const cr = chips.map(R)
+    if (Math.max(...cr.map((r) => r.height)) - Math.min(...cr.map((r) => r.height)) > 1) bad.push('칩 높이가 다르다')
+    if (Math.max(...cr.map((r) => r.top)) - Math.min(...cr.map((r) => r.top)) > 1) bad.push('칩 위가 다르다')
+    if (pairsOverlap(cr)) bad.push('칩 겹침')
+    let sc = chips[0].parentElement
+    while (sc && !/auto|scroll/.test(getComputedStyle(sc).overflowX)) sc = sc.parentElement
+    if (!sc) bad.push('칩 줄의 스크롤 칸이 없다')
+    else {
+      const s = R(sc)
+      if (cr.some((r) => r.top < s.top - 1 || r.bottom > s.bottom + 1)) bad.push('칩이 스크롤 칸 위·아래에서 잘린다')
+      parts.push(`칩 ${chips.length}개(높이 ${Math.round(cr[0].height)}px · 스크롤 칸 안 가로 넘침 ${sc.scrollWidth > sc.clientWidth + 1})`)
+    }
+  }
+  // ④ 지표
+  const radios = [...root.querySelectorAll('[role=radiogroup] [role=radio]')]
+  if (radios.length !== 3) bad.push(`지표 항목 ${radios.length}개(3이어야)`)
+  else if (pairsOverlap(radios.map(R))) bad.push('지표 항목 겹침')
+  // ⑤ 차트 틀: 가장 가까운 상자(테두리 있는 조상)의 오른쪽 끝 안
+  const box = (e) => { let p = e.parentElement; while (p && p !== root) { const cs = getComputedStyle(p); if (parseFloat(cs.borderTopWidth) > 0 || cs.backgroundColor !== 'rgba(0, 0, 0, 0)') return p; p = p.parentElement } return null }
+  const charts = [...root.querySelectorAll('.ax-chart')]
+  if (charts.length === 0) bad.push('차트 틀 0개')
+  for (const c of charts) {
+    const b = box(c)
+    if (!b) { bad.push('차트의 카드를 못 찾았다'); continue }
+    const br = R(b), cr2 = R(c)
+    if (cr2.right > br.right - 1 || cr2.left < br.left) bad.push('차트 틀이 카드 밖으로 나감')
+  }
+  parts.push(`차트 ${charts.length}개`)
+  // ⑥ 대체 수행 줄의 값은 한 줄
+  const subs = [...root.querySelectorAll('[role=listitem]')].filter((r) => /대신/.test(r.textContent))
+  for (const r of subs) {
+    const end = r.lastElementChild
+    if (!end || R(end).height > 30) bad.push(`대체 수행 값이 두 줄이다 "${(end?.textContent ?? '').trim()}"`)
+  }
+  parts.push(`대체 수행 줄 ${subs.length}개`)
+  return { ok: bad.length === 0, detail: `${bad.join(', ') || '겹침·잘림·세로 가운데 문제 없음'} · ${parts.join(' · ')}` }
 }
 
 /** SS4: inPageHistorySeed가 심은 것을 원래대로(세션은 지우고, 식단은 없던 날은 지우고 있던 날은 되쓴다) */
@@ -1012,19 +1166,19 @@ async function runScenes(browser, port, scheme) {
    * 390·375 폭에서 root 안 한글이 글자 중간에서 안 꺾이고(0점·60 → 20kg 같은 숫자+단위 포함) 요소가 카드·시트 안쪽 폭 안에 드는지 흐름 하나로 판정한다.
    * 글자가 0개면 실패다(빈 화면을 재고 통과하지 않는다). 예외는 guardedFlow가 흐름 실패로 센다. 마지막에 390으로 되돌린다.
    */
-  const screenWrapFlow = (name, root) =>
+  const screenWrapFlow = (name, root, pg = page) =>
     guardedFlow([name], async () => {
       try {
-        const r390 = await page.evaluate(inPageMidWordBreaks, root)
-        const i390 = await page.evaluate(inPageInnerOverflow, root)
-        await page.setViewportSize({ width: 375, height: 812 })
-        await settle(page, 400)
-        const r375 = await page.evaluate(inPageMidWordBreaks, root)
-        const i375 = await page.evaluate(inPageInnerOverflow, root)
+        const r390 = await pg.evaluate(inPageMidWordBreaks, root)
+        const i390 = await pg.evaluate(inPageInnerOverflow, root)
+        await pg.setViewportSize({ width: 375, height: 812 })
+        await settle(pg, 400)
+        const r375 = await pg.evaluate(inPageMidWordBreaks, root)
+        const i375 = await pg.evaluate(inPageInnerOverflow, root)
         flows.push([name, { ok: r390.chars > 0 && r375.chars > 0 && r390.count === 0 && r375.count === 0 && i390.ok && i375.ok, detail: `390: 글자 ${r390.chars}개·꺾임 ${r390.count}건 ${r390.samples.join(',')} · ${i390.detail} / 375: 글자 ${r375.chars}개·꺾임 ${r375.count}건 ${r375.samples.join(',')} · ${i375.detail}` }])
       } finally {
-        await page.setViewportSize({ width: 390, height: 844 })
-        await settle(page, 400)
+        await pg.setViewportSize({ width: 390, height: 844 })
+        await settle(pg, 400)
       }
     })
   /** SS3 화면 검증: 시트 안을 끝까지 스크롤한 뒤 — 맨 아래 버튼 위치, 부품 겹침, 시트 밖으로 나간 부품, 44 미만 누르는 영역(elementFromPoint), 맨 글자 버튼, 경고 글자색을 390·375에서 잰다 */
@@ -1218,6 +1372,7 @@ async function runScenes(browser, port, scheme) {
       await p.getByText('기록이 쌓이면 추이가 표시됩니다.').waitFor({ timeout: 5000 })
       await settle(p, 600)
       await snap('analyze-empty', p)
+      if (!light) await screenWrapFlow('SS5 analyze-empty 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-analyze', p)
     }),
   )
 
@@ -2470,18 +2625,186 @@ async function runScenes(browser, port, scheme) {
       await ss4Back()
     })
 
-    // 분석
+    // 분석 — SS5: 차트·종목 줄·감각 점·약한 종목 경고·대체 수행이 다 보이게 끝난 세션 일곱을 심고 Phase 2로 다시 연다(B그룹 종목도 추이에 든다).
+    // 시드가 실패하면 SS5 흐름 전부가 실패다(조용히 건너뛰지 않는다). 흐름이 끝나면 원래대로 돌린다.
+    const SS5_NAMES = ['SS5 시드 심기', 'SS5 종목 바꾸기', 'SS5 종목 칩 맨 글자 아님', 'SS5 지표 바꾸기', 'SS5 감각 점 이름·네 단계', 'SS5 B그룹 경고 글자 색', 'SS5 한 줄 부품 겹침·잘림·세로 가운데', 'SS5 실행 중 색 체계 전환', 'SS5 analyze 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', 'SS5 analyze 맨 아래 카드가 탭 바 위']
+    let ss5Seed = null
+    let ss5Phase = null
+    const ss5Reopen = async () => {
+      await page.reload()
+      await page.getByRole('button', { name: '설정', exact: true }).waitFor({ timeout: 8000 })
+      await settle(page, 600)
+    }
+    await guardedFlow(['SS5 시드 심기'], async () => {
+      ss5Seed = await page.evaluate(inPageAnalyzeSeed, { days: ROUTINE_DAYS })
+      ss5Phase = await page.evaluate(inPageSetSetting, { key: 'currentPhase', value: 2 })
+      await ss5Reopen()
+      if (!light) flows.push(['SS5 시드 심기', { ok: true, detail: `끝난 세션 ${ss5Seed.sessionIds.length}개(${ss5Seed.dayId}) · Phase 2` }])
+    })
+    if (!ss5Seed && !light) for (const n of SS5_NAMES) if (!flows.some((f) => f[0] === n)) flows.push([n, { ok: false, detail: '시드를 못 심어 재지 못했다' }])
     await page.getByRole('button', { name: '분석', exact: true }).click()
-    await page.locator('svg.recharts-surface, .recharts-wrapper, .center-note').first().waitFor({ timeout: 8000 }).catch(() => {})
+    await page.locator('svg.recharts-surface, .recharts-wrapper').first().waitFor({ timeout: 8000 }).catch(() => {})
     await settle(page, 1200)
     await snap('analyze')
     await wrapProbe('analyze')
+    if (ss5Seed && !light) {
+      await screenWrapFlow('SS5 analyze 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-analyze')
+      // 종목 칩: 처음 하나가 눌려 있고(aria-pressed) 둘째를 누르면 그것만 눌리며 최근 값 줄이 그 종목 이름으로 바뀐다. 다시 눌러도 꺼지지 않는다(한 종목은 늘 골라진다)
+      await guardedFlow(['SS5 종목 바꾸기'], async () => {
+        const chips = page.locator('.ax-chips button')
+        const n = await chips.count()
+        const state = () => chips.evaluateAll((els) => els.map((e) => e.getAttribute('aria-pressed')))
+        const recent = () => page.getByText(/ · 최근 \d/).first().innerText()
+        const names = await chips.evaluateAll((els) => els.map((e) => e.innerText.trim())) // innerText: 보이는 글자만(textContent는 안 보이는 라벨 사본까지 이어 붙는다)
+        const before = await state()
+        const text0 = await recent()
+        await chips.nth(1).click()
+        await settle(page, 300)
+        const mid = await state()
+        const text1 = await recent()
+        await chips.nth(1).click()
+        await settle(page, 200)
+        const again = await state()
+        await chips.nth(0).click()
+        await settle(page, 300)
+        const back = await state()
+        const key = (label) => label.replace(/ (D\d)( · B)?$/, ' ($1)')
+        const conds = { 칩4개이상: n >= 4, 처음하나눌림: before[0] === 'true' && before.filter((s) => s === 'true').length === 1, 둘째눌림: mid[1] === 'true' && mid.filter((s) => s === 'true').length === 1, 둘째이름: text1.startsWith(key(names[1])), 첫째이름: text0.startsWith(key(names[0])), 줄바뀜: text0 !== text1, 다시눌러도유지: again[1] === 'true' && again.filter((s) => s === 'true').length === 1, 첫째로복귀: back[0] === 'true' }
+        const failedConds = Object.entries(conds).filter(([, v]) => !v).map(([k]) => k)
+        const ok = failedConds.length === 0
+        flows.push(['SS5 종목 바꾸기', { ok, detail: `${failedConds.length ? `틀린 조건 ${failedConds.join(',')} (칩 이름 ${names.slice(0, 2).join(' / ')}) · ` : ''}칩 ${n}개 · 처음 눌림 ${before.indexOf('true')} → 둘째 누르면 ${mid.indexOf('true')}(눌린 것 ${mid.filter((s) => s === 'true').length}개) · 최근 줄 "${text0.slice(0, 18)}" → "${text1.slice(0, 18)}" · 다시 눌러도 눌림 ${again[1]} · 첫째로 돌아옴 ${back[0]}` }])
+      })
+      // 안 눌린 칩도 맨 글자가 아니다: 바탕 알파 > 0·테두리 있음, 눌린 칩과 바탕이 다르고, 높이가 모두 같다
+      await guardedFlow(['SS5 종목 칩 맨 글자 아님'], async () => {
+        const r = await page.locator('.ax-chips button').evaluateAll((els) => els.map((e) => {
+          const cs = getComputedStyle(e)
+          const alpha = (c) => { const m = /rgba?\([^)]*?(?:,\s*([\d.]+))?\)$/.exec(c); return m && m[1] !== undefined ? Number(m[1]) : 1 }
+          return { pressed: e.getAttribute('aria-pressed'), bg: cs.backgroundColor, bgA: alpha(cs.backgroundColor), border: parseFloat(cs.borderTopWidth), h: Math.round(e.getBoundingClientRect().height) }
+        }))
+        const off = r.filter((x) => x.pressed === 'false')
+        const on = r.filter((x) => x.pressed === 'true')
+        const bare = off.filter((x) => !(x.bgA > 0 && x.border >= 1))
+        const sameAsPressed = off.filter((x) => on.some((o) => o.bg === x.bg))
+        const heights = [...new Set(r.map((x) => x.h))]
+        flows.push(['SS5 종목 칩 맨 글자 아님', { ok: r.length >= 4 && on.length === 1 && bare.length === 0 && sameAsPressed.length === 0 && heights.length === 1, detail: `칩 ${r.length}개 · 눌림 ${on.length}개 · 맨 글자(바탕·테두리 없음) ${bare.length}개 · 눌린 칩과 바탕이 같은 것 ${sameAsPressed.length}개 · 높이 ${heights.join('/')}px · 안 눌린 바탕 ${off[0]?.bg} / 눌린 바탕 ${on[0]?.bg}` }])
+      })
+      // 지표: 라디오 셋 가운데 하나만 aria-checked. 볼륨을 누르면 선이 달라지고(path d) 안 바뀐 채 남지 않는다. 원래 지표로 돌려놓는다
+      await guardedFlow(['SS5 지표 바꾸기'], async () => {
+        const radios = page.getByRole('radiogroup', { name: '지표' }).getByRole('radio')
+        const checked = () => radios.evaluateAll((els) => els.map((e) => e.getAttribute('aria-checked')))
+        const line = () => page.locator('.ax-chart .recharts-line-curve').first().getAttribute('d')
+        const c0 = await checked()
+        const d0 = await line()
+        await page.getByRole('radio', { name: '볼륨', exact: true }).click()
+        await settle(page, 700)
+        const c1 = await checked()
+        const d1 = await line()
+        await page.getByRole('radio', { name: 'e1RM', exact: true }).click()
+        await settle(page, 700)
+        const c2 = await checked()
+        await page.getByRole('radio', { name: '무게×횟수', exact: true }).click()
+        await settle(page, 700)
+        const c3 = await checked()
+        const one = (c, i) => c.filter((x) => x === 'true').length === 1 && c[i] === 'true'
+        flows.push(['SS5 지표 바꾸기', { ok: (await radios.count()) === 3 && one(c0, 0) && one(c1, 1) && one(c2, 2) && one(c3, 0) && d0 !== null && d1 !== null && d0 !== d1, detail: `라디오 3개 · 눌림 ${c0.indexOf('true')} → 볼륨 ${c1.indexOf('true')} → e1RM ${c2.indexOf('true')} → 무게×횟수 ${c3.indexOf('true')} · 선 모양이 바뀜 ${d0 !== d1}` }])
+      })
+      // 감각 점: 점마다 aria-label이 있고(0개면 실패) 기록 없는 주는 `기록 없음`, 값이 있는 주는 `N.N점`. 네 계열(none·warn·accent·ok)은 계산된 색이 서로 다르고 네 단계는 불투명도가 올라간다
+      await guardedFlow(['SS5 감각 점 이름·네 단계'], async () => {
+        const dots = await page.locator('.ax-sdot[role=img]').evaluateAll((els) => els.map((e) => {
+          const cs = getComputedStyle(e)
+          return { label: e.getAttribute('aria-label') ?? '', tone: e.getAttribute('data-tone'), level: e.getAttribute('data-level'), bg: cs.backgroundColor, op: Number(cs.opacity) }
+        }))
+        const unnamed = dots.filter((d) => !d.label.trim())
+        const none = dots.filter((d) => d.tone === 'none')
+        const valued = dots.filter((d) => d.tone !== 'none')
+        const noneOk = none.every((d) => d.label.endsWith('기록 없음'))
+        const valuedOk = valued.every((d) => /\d\.\d점$/.test(d.label))
+        const tones = [...new Set(dots.map((d) => d.tone))].sort()
+        const colors = new Set(['none', 'warn', 'accent', 'ok'].map((t) => dots.find((d) => d.tone === t)?.bg))
+        const ops = [0, 1, 2, 3].map((l) => dots.find((d) => d.level === String(l))?.op)
+        const rising = ops.every((o, i) => o !== undefined && (i === 0 || o > ops[i - 1]))
+        flows.push(['SS5 감각 점 이름·네 단계', { ok: dots.length > 0 && unnamed.length === 0 && none.length > 0 && noneOk && valuedOk && tones.join() === 'accent,none,ok,warn' && colors.size === 4 && !colors.has(undefined) && rising, detail: `점 ${dots.length}개 · 이름 없는 점 ${unnamed.length}개 · 기록 없음 ${none.length}개(이름 끝 "기록 없음" ${noneOk}) · 값 있는 점 이름 "N.N점" ${valuedOk} · 계열 ${tones.join('·')}의 계산된 바탕 ${colors.size}가지 · 불투명도 ${ops.join('→')}` }])
+      })
+      // B그룹 종목을 고르면 안내가 경고 색(--color-text-warning)으로 나온다 — 클래스 유무가 아니라 계산된 color를 두 색 체계에서 잰다
+      await guardedFlow(['SS5 B그룹 경고 글자 색'], async () => {
+        const chips = page.locator('.ax-chips button')
+        const labels = await chips.evaluateAll((els) => els.map((e) => e.innerText.trim()))
+        const bi = labels.findIndex((l) => l.endsWith('· B'))
+        const ai = labels.findIndex((l) => !l.endsWith('· B'))
+        if (bi < 0 || ai < 0) throw new Error(`A·B 칩이 다 있어야 한다: ${labels.join(' / ')}`)
+        await chips.nth(bi).click()
+        await settle(page, 400)
+        const onB = await warnColorBothSchemes('.ax-analyze .ax-text-warning', 'B그룹 기준은 감각입니다')
+        await chips.nth(ai).click()
+        await settle(page, 400)
+        const onA = await page.getByText('B그룹 기준은 감각입니다', { exact: false }).count()
+        await chips.nth(0).click()
+        await settle(page, 300)
+        flows.push(['SS5 B그룹 경고 글자 색', { ok: onB.same && onA === 0, detail: `B 종목에서 경고 글자 계산된 색 ${onB.actual} (토큰 ${onB.token}) · A 종목에서 경고 ${onA}개` }])
+      })
+      await guardedFlow(['SS5 한 줄 부품 겹침·잘림·세로 가운데'], async () => {
+        const out = []
+        try {
+          for (const w of [390, 375]) {
+            await page.setViewportSize({ width: w, height: w === 375 ? 812 : 844 })
+            await settle(page, 400)
+            out.push([w, await page.evaluate(inPageAnalyzeRows)])
+          }
+        } finally {
+          await page.setViewportSize({ width: 390, height: 844 })
+          await settle(page, 400)
+        }
+        flows.push(['SS5 한 줄 부품 겹침·잘림·세로 가운데', { ok: out.every(([, r]) => r.ok), detail: out.map(([w, r]) => `${w}: ${r.detail}`).join(' / ') }])
+      })
+      // 실행 중 색 체계 전환: 다크에서 연 채 라이트로 바꾸면(새로 고침 없이) 선 색과 축 색이 바뀌고, 계산된 선 색이 화면 안 토큰(--color-accent) 값과 같다
+      await guardedFlow(['SS5 실행 중 색 체계 전환'], async () => {
+        const token = () => page.evaluate(() => {
+          const probe = document.createElement('span')
+          probe.style.color = 'var(--color-accent)'
+          document.querySelector('.ax-analyze').appendChild(probe)
+          const c = getComputedStyle(probe).color
+          probe.remove()
+          return c
+        })
+        const A = await page.evaluate(inPageChartColors)
+        const tA = await token()
+        await page.emulateMedia({ colorScheme: light ? 'dark' : 'light' })
+        await settle(page, 600)
+        const B = await page.evaluate(inPageChartColors)
+        const tB = await token()
+        await page.emulateMedia({ colorScheme: scheme })
+        await settle(page, 600)
+        const back = await page.evaluate(inPageChartColors)
+        const hasLine = (await page.locator('.ax-chart .recharts-line-curve').count()) > 0
+        flows.push(['SS5 실행 중 색 체계 전환', { ok: hasLine && A.line !== B.line && A.tick !== B.tick && back.line === A.line && A.line === tA && B.line === tB, detail: `선 ${A.line} → ${B.line} → ${back.line} · 축 ${A.tick} → ${B.tick} · 화면 토큰 --color-accent ${tA} → ${tB}(선 색과 같다 ${A.line === tA && B.line === tB}) · 추이 선 있음 ${hasLine}` }])
+      })
+    }
     await requiredScene('analyze-end', async () => {
       await toEnd()
       await snap('analyze-end')
+      if (ss5Seed && !light) {
+        await guardedFlow(['SS5 analyze 맨 아래 카드가 탭 바 위'], async () => {
+          const r = await page.evaluate(() => {
+            const bar = document.querySelector('.ax-bar-bottom')
+            const cards = [...document.querySelectorAll('.ax-analyze .ax-group > *')]
+            const last = cards[cards.length - 1]
+            return { barTop: bar ? Math.round(bar.getBoundingClientRect().top) : null, bottom: last ? Math.round(last.getBoundingClientRect().bottom) : null, n: cards.length }
+          })
+          flows.push(['SS5 analyze 맨 아래 카드가 탭 바 위', { ok: r.barTop !== null && r.bottom !== null && r.bottom <= r.barTop && r.n >= 4, detail: `카드 ${r.n}장 · 맨 아래 카드 아래끝 ${r.bottom} / 탭 바 위 ${r.barTop}` }])
+        })
+      }
       await toTop()
     })
     await requiredScene('analyze-375', () => at375(() => snap('analyze-375')))
+    // 되돌리기는 판정과 따로: 던져도 다음 장면이 깨끗한 데이터에서 시작하게 하고, 못 되돌리면 흐름 실패다
+    if (ss5Seed) {
+      await guardedFlow(['SS5 되돌리기'], async () => {
+        await page.evaluate(inPageHistoryRestore, { sessionIds: ss5Seed.sessionIds, dates: [], prev: [] })
+        if (ss5Phase) await page.evaluate(inPageSetSetting, { key: 'currentPhase', value: ss5Phase.value, remove: !ss5Phase.had })
+        await ss5Reopen()
+        if (!light) flows.push(['SS5 되돌리기', { ok: true, detail: '심은 세션 지움 · Phase 원래대로' }])
+      })
+    }
 
     // 식단
     await page.getByRole('button', { name: '식단', exact: true }).click()
@@ -3382,7 +3705,7 @@ async function walkSchemeScenes(page, onScene) {
   await page.getByRole('button', { name: '기록', exact: true }).click()
   await go('history')
   await page.getByRole('button', { name: '분석', exact: true }).click()
-  await page.locator('svg.recharts-surface, .recharts-wrapper, .center-note').first().waitFor({ timeout: 8000 }).catch(() => {})
+  await page.locator('svg.recharts-surface, .recharts-wrapper').first().waitFor({ timeout: 8000 }).catch(() => {})
   await settle(page, 1000)
   await go('analyze')
   await page.getByRole('button', { name: '식단', exact: true }).click()

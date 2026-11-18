@@ -9,7 +9,6 @@ import { CONTROL_STYLE } from './index'
 export { CheckboxList, CheckboxListItem } from '@astryxdesign/core/CheckboxList'
 // SS3: 식단 시트(끼니 입력·먹은 것 추가)만 쓴다 — 같은 이유로 index.tsx가 아니라 여기에 둔다
 export { RadioList, RadioListItem } from '@astryxdesign/core/RadioList'
-export { ScrollableArea } from '@astryxdesign/core/ScrollableArea'
 
 /**
  * 시각 칸. OS의 시각 고르기를 쓴다(`presentation="native"` — iOS 시각 휠). 16px 하한과 자동완성 억제(G5)를 빠뜨릴 수 없게 한다.

@@ -38,9 +38,7 @@ const TEMPLATE_PREFIXES = {
   'tempo-ring-': '템포 가이드 링 — `tempo-ring-${국면}`',
 }
 /** 소스에 안 써도 쓰이는 이름: 라이브러리가 그리는 요소의 클래스. 이유를 적는다 */
-const EXTERNAL_CLASSES = {
-  'recharts-surface': 'recharts가 그리는 SVG의 클래스(global.css가 그 크기를 맞춘다)',
-}
+const EXTERNAL_CLASSES = {}
 
 const srcFiles = walk(join(ROOT, 'src')).filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f))
 const srcWords = new Set()

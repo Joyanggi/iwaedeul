@@ -58,7 +58,7 @@ body {
  * 맨 요소 규칙은 legacy 화면 안에만 건다. 그 안의 Astryx 섬(`.ax-scope`)과 옮긴 화면은 벗어난다.
  * 뿌리 목록은 `src/ax/ax.css`의 리셋 범위와 글자 그대로 같아야 한다(v120 스캔).
  */
-@scope (.screen, .onboarding, .center-note, .banner) to (.ax-scope) {
+@scope (.screen, .onboarding, .banner) to (.ax-scope) {
   /*
    * `Theme`이 앱 전체를 감싸는 요소(display: contents)에 글꼴·글자색을 건다(Figtree, 흰색). 안 옮긴 화면은 예전 값으로 돌려놓는다.
    * 명시도 0이라 뿌리 클래스가 따로 정한 색·글꼴이 이긴다.
@@ -385,13 +385,6 @@ body {
   word-break: break-all;
 }
 
-.center-note {
-  text-align: center;
-  color: var(--text-faint);
-  font-size: 13px;
-  padding: 40px 0;
-}
-
 /* ─── 필드 · 필 ────────────────────────────────────────── */
 
 .field {
@@ -442,13 +435,6 @@ body {
     라벨을 짧게 유지하는 것이 1차 방어이고, 이건 2차 방어다.
   */
   white-space: nowrap;
-}
-
-/* ─── 부위별 볼륨 바 (§5.1) ────────────────────────────── */
-
-.mbar-name {
-  font-size: 14px;
-  font-weight: 500;
 }
 
 details.card > summary {
@@ -502,63 +488,6 @@ button.row {
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
-}
-
-/* ─── 분석 탭 (§5.4) ───────────────────────────────────── */
-
-.chart {
-  margin-left: -4px;
-  /* recharts의 ResponsiveContainer가 부모 폭을 재므로 넘침을 막아둔다 */
-  overflow: hidden;
-}
-
-.chart .recharts-surface {
-  overflow: visible;
-}
-
-/* 종목이 많으면 가로 스크롤 — 줄바꿈되면 카드가 세로로 길어진다 */
-.chip-scroll {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.chip-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-.chip-scroll .pill {
-  flex-shrink: 0;
-}
-
-.srow {
-  margin-bottom: 12px;
-}
-
-.srow:last-of-type {
-  margin-bottom: 0;
-}
-
-.srow-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-
-.sdots {
-  display: flex;
-  gap: 4px;
-}
-
-.sdot {
-  flex: 1;
-  height: 14px;
-  border-radius: 3px;
-  min-width: 6px;
 }
 
 /* QQ6 — 카드 줄(.row) 안의 버튼은 작은 버튼이다: 글자 폭만큼, 남는 폭은 .row-main이 쓴다. 누르는 높이 44px는 button 규칙이 지킨다 */

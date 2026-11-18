@@ -1,11 +1,15 @@
 import fc from 'fast-check'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // PLAN v1.21 SS1 — 첫 화면 코드 분할. 소스 스캔(RTL이 없다). 화면이 실제로 나뉘어 읽히는지는 ui-check의 새 흐름 셋과 first-load --check가 본다.
 // 소스는 ?raw로 읽는다(`node:fs`는 src의 타입 검사에 없다 — DEV-RECORD 제약 13). 이 둘은 .tsx라 ?raw가 빈 문자열이 되지 않는다(제약 3은 .css)
 import app from '../App.tsx?raw'
 import ax from '../ax/index.tsx?raw'
 import axDiet from '../ax/diet.tsx?raw'
+import axScroll from '../ax/scroll.tsx?raw'
+import analyzeScreen from '../screens/AnalyzeScreen.tsx?raw'
+import { sensoryDot } from '../screens/AnalyzeScreen'
+import { chartColor, type ChartColorKey } from './chartTheme'
 import dietScreen from '../screens/DietScreen.tsx?raw'
 import dietEditor from '../components/DietDayEditor.tsx?raw'
 import mealPanel from '../components/MealReminderPanel.tsx?raw'
@@ -218,13 +222,15 @@ describe('v121 SS3 — 식단 시트 넷은 Astryx 부품뿐이고 SheetFrame은
     expect(s).toMatch(/<Button(?=(?:(?!\/>)[\s\S])*label="추가 지우기")(?=(?:(?!\/>)[\s\S])*act\(onClearAddition\))/)
   })
 
-  it('v121 SS3: 먹은 것 추가는 음식 목록이 ScrollableArea(40vh) 안 List이고 새 부품은 src/ax/diet.tsx에서 읽는다(index.tsx에 두면 첫 화면이 커진다)', () => {
+  it('v121 SS3: 먹은 것 추가는 음식 목록이 ScrollableArea(40vh) 안 List이고 새 부품은 src/ax/diet.tsx·scroll.tsx에서 읽는다(index.tsx에 두면 첫 화면이 커진다 — ScrollableArea는 SS5가 분석과 같이 쓰려고 scroll.tsx로 옮겼다)', () => {
     const s = ss3Code(foodSheet)
     expect(s).toMatch(/<ScrollableArea axis="block" height="40vh" label="음식 목록">/)
     expect(s).toContain("from '../ax/diet'")
     expect(ss3Code(slotSheet)).toContain("from '../ax/diet'")
     expect(axDiet).toContain("export { RadioList, RadioListItem } from '" + ['@astryx', 'design'].join('') + "/core/RadioList'")
-    expect(axDiet).toContain("export { ScrollableArea } from '" + ['@astryx', 'design'].join('') + "/core/ScrollableArea'")
+    expect(axScroll).toContain("export { ScrollableArea } from '" + ['@astryx', 'design'].join('') + "/core/ScrollableArea'")
+    expect(s).toContain("from '../ax/scroll'")
+    expect(axDiet).not.toContain('ScrollableArea')
     expect(ax).not.toMatch(/core\/RadioList|core\/ScrollableArea/)
   })
 
@@ -348,5 +354,89 @@ describe('v121 SS4 — 기록 네 파일은 Astryx 부품뿐이다', () => {
     expect(monthCalendar).toContain('label="이전 달"')
     expect(monthCalendar).toContain('label="다음 달"')
     for (const t of ['운동 ${sessionCount}회', '식단 ${DIET_NAME[dietDot]}', "'준수'", "'일부'", "'미달'", "'판정 전'"]) expect(monthCalendar, t).toContain(t)
+  })
+})
+
+// ── SS5 — 분석 탭 ──────────────────────────────────────────────────────────────────────────────
+// 소스 스캔. 주석을 뺀 뒤 글자로 읽고, onClick의 `=>`·`>`에서 끊기는 태그 정규식을 쓰지 않는다(여는 글자 뒤 문자열 포함 검사). CSS는 `scripts/ss5.test.mjs`가 fs로 읽는다.
+const analyzeCode = ss3Code(analyzeScreen)
+
+describe('v121 SS5 — 분석 화면은 Astryx 부품뿐이다', () => {
+  it('v121 SS5: className=은 ax- 이름뿐이고 style=·<button·var(--가 0건이다', () => {
+    const classes = [...analyzeCode.matchAll(/className=("[^"]*"|\{[^}]*\})/g)].map((m) => m[1])
+    expect(classes.length).toBeGreaterThan(0)
+    for (const c of classes) expect(c).toMatch(/^"ax-[\w -]+"$/)
+    for (const bad of ['style=', '<button', 'var(--']) expect(analyzeCode, bad).not.toContain(bad)
+  })
+
+  it('v121 SS5: 종목 고르기는 ScrollableArea(inline, label=종목) 안 ToggleButton이고 isPressed·onPressedChange가 고른 종목을 따른다', () => {
+    expect(analyzeCode).toContain('<ScrollableArea axis="inline" label="종목">')
+    expect(analyzeCode).toContain('isPressed={activeKey === k.recordKey}')
+    expect(analyzeCode).toContain('onPressedChange={() => setSelected(k.recordKey)}')
+    expect(analyzeCode).toContain('className="ax-toggle"')
+    expect(analyzeCode).toContain("`${nameOf(k.exerciseId)} ${k.dayId.toUpperCase()}${k.group === 'B' ? ' · B' : ''}`")
+  })
+
+  it('v121 SS5: 지표는 SegmentedControl이고 감각 약함은 Banner warning, B그룹 경고는 ax-text-warning이다', () => {
+    expect(analyzeCode).toContain('<SegmentedControl label="지표"')
+    expect(analyzeCode).toMatch(/<Banner\s+status="warning"\s+title="계속 감각이 약한 종목"/)
+    expect(analyzeCode).toContain('className="ax-text-warning"')
+    expect(analyzeCode).toContain("Badge variant={latest <= 1 ? 'warning' : 'neutral'}")
+  })
+
+  it('v121 SS5: 감각 점은 data-tone·data-level과 aria-label(기록 없음 포함)을 갖고 tone을 정하는 식이 <= 1·< 2.5 두 경계를 그대로 쓴다', () => {
+    expect(analyzeCode).toContain('data-tone={dot.tone}')
+    expect(analyzeCode).toContain('data-level={dot.level}')
+    expect(analyzeCode).toContain("v.score === null ? '기록 없음'")
+    expect(analyzeCode).toContain("score <= 1 ? 'warn' : score < 2.5 ? 'accent' : 'ok'")
+  })
+
+  it('v121 SS5: 문구가 그대로다 — 안내·카드 제목·빈 화면·경고', () => {
+    for (const t of ['깊은 분석은 설정 → 내보내기 → Markdown을 LLM에 붙여넣는 것이 이 앱의 설계입니다.', '기록이 쌓이면 추이가 표시됩니다.', '깊은 분석은 설정 → 내보내기의 Markdown을 LLM에 붙여넣으세요.', '세션이 2개 이상 쌓이면 추이가 그려집니다', 'B그룹 기준은 감각입니다.', '감량기에는', '볼륨 유지 = 성공', '계속 감각이 약한 종목', '무게·자세·기계를 바꿔볼 신호입니다.', '점선 = 주', '대체 수행', '자리가 자주 없는 종목입니다.', '감각 점수가 입력된 B그룹 기록이 없습니다.']) {
+      expect(analyzeCode, t).toContain(t)
+    }
+  })
+})
+
+describe('v121 SS5 — 감각 점 판정 sensoryDot', () => {
+  it('v121 SS5: 경계 — 1은 경고, 1.01은 강조, 2.49는 강조, 2.5는 좋음, null은 기록 없음(level 0)', () => {
+    expect(sensoryDot(null)).toEqual({ tone: 'none', level: 0 })
+    expect(sensoryDot(1).tone).toBe('warn')
+    expect(sensoryDot(1.01).tone).toBe('accent')
+    expect(sensoryDot(2.49).tone).toBe('accent')
+    expect(sensoryDot(2.5).tone).toBe('ok')
+    expect(sensoryDot(3)).toEqual({ tone: 'ok', level: 3 })
+    expect(sensoryDot(0)).toEqual({ tone: 'warn', level: 0 })
+  })
+})
+
+describe('v121 SS5 — chartTheme은 Astryx 토큰에서 직접 읽는다', () => {
+  // 소스 글자가 아니라 동작으로 잰다: 문서 흉내가 "묻는 토큰 이름"을 그대로 돌려주면 chartColor(키)가 그 키의 토큰 이름이다(Stryker가 소스를 바꿔 끼워도 같다)
+  afterEach(() => vi.unstubAllGlobals())
+  const KEYS: ChartColorKey[] = ['accent', 'ok', 'warn', 'text', 'dim', 'faint', 'line', 'surface', 'surface2']
+  const askedTokens = () => {
+    vi.stubGlobal('document', { documentElement: {} })
+    vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: (name: string) => name }))
+    return Object.fromEntries(KEYS.map((k) => [k, chartColor(k)]))
+  }
+
+  it('v121 SS5: TOKEN 값이 아홉 개 전부 --color-로 시작한다', () => {
+    const pairs = askedTokens()
+    expect(Object.keys(pairs)).toHaveLength(9)
+    for (const [k, v] of Object.entries(pairs)) expect(v, k).toMatch(/^--color-/)
+  })
+
+  it('v121 SS5: 아홉 짝이 PLAN 표와 같다', () => {
+    expect(askedTokens()).toEqual({
+      accent: '--color-accent',
+      ok: '--color-text-success',
+      warn: '--color-text-warning',
+      text: '--color-text-primary',
+      dim: '--color-text-secondary',
+      faint: '--color-text-secondary',
+      line: '--color-border',
+      surface: '--color-background-card',
+      surface2: '--color-background-muted',
+    })
   })
 })
