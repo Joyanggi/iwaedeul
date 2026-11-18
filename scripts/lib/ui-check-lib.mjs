@@ -476,7 +476,7 @@ export const inPageLastVisible = () => {
  * 섬도 legacy 안 Astryx 버튼도 없는 장면은 건너뛴다. 있는데 버튼이 0개면 실패.
  */
 export const inPageIslandButtons = () => {
-  const LEGACY = '.screen, .onboarding, .banner'
+  const LEGACY = '.screen, .banner'
   const islands = [...document.querySelectorAll('.ax-scope')].filter((el) => window.__vis(el))
   const inLegacy = [...document.querySelectorAll("button[class*='astryx-']")].filter((b) => window.__vis(b) && b.closest(LEGACY))
   if (islands.length === 0 && inLegacy.length === 0) return { skip: true, detail: '.ax-scope 섬도 legacy 안 Astryx 버튼도 없다' }

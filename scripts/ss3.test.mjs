@@ -33,7 +33,7 @@ describe('v121 SS3 — 지운 것', () => {
     expect(g, 'global.css의 legacy 뿌리 목록').toBeDefined()
     expect(a, 'ax.css의 legacy 뿌리 목록').toBeDefined()
     expect(g).toBe(a)
-    expect(g).toBe('.screen, .onboarding, .banner')
+    expect(g).toBe('.screen, .banner')
   })
 })
 

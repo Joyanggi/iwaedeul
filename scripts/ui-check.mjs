@@ -139,9 +139,11 @@ const HISTORY_SCENES = ['history', 'history-375', 'history-day', 'history-exerci
 const ANALYZE_SCENES = ['analyze', 'analyze-end', 'analyze-375', 'analyze-empty']
 /** 설정(SS6) — 설정 탭 열 장면. 카드·버튼 쌍을 판정한다(설정 화면 전체가 Astryx다) */
 const SETTINGS_SCENES = ['settings', 'settings-375', 'settings-open', 'settings-end', 'settings-routines', 'settings-routines-375', 'settings-routines-confirm-375', 'settings-gist', 'settings-export-preview', 'settings-reset-confirm']
+/** 온보딩(SS7) — 처음 실행 화면 셋(Safari 탭 390·375, 홈 화면 앱). 카드·버튼 쌍을 판정한다(온보딩 전체가 Astryx다) */
+const ONBOARDING_SCENES = ['onboarding', 'onboarding-375', 'onboarding-standalone']
 /** 카드 안 줄(Row) 오른쪽 칸에 버튼이 있는 장면 — 줄 안 버튼을 잰다(SS6) */
 const ROW_BUTTON_SCENES = ['settings', 'settings-routines']
-const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...DIET_SCENES, ...HISTORY_SCENES, ...ANALYZE_SCENES, ...SETTINGS_SCENES, ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SHEET_SCENES, ...SESSION_SCENES, ...SUMMARY_SCENES, 'session-open-b', 'home-safe', 'session-safe'])
+const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...DIET_SCENES, ...HISTORY_SCENES, ...ANALYZE_SCENES, ...SETTINGS_SCENES, ...ONBOARDING_SCENES, ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SHEET_SCENES, ...SESSION_SCENES, ...SUMMARY_SCENES, 'session-open-b', 'home-safe', 'session-safe'])
 /** 판정을 켠 쌍 종류. 나머지 종류는 장면이 Astryx여도 기록만 한다(card·badge = RR4, set-row = RR7, sheet = RR5 — 세션 장면은 RR6부터 button·bar를 판정하고, 운동 카드 안의 card·badge·set-row는 RR7 전까지 기록만) */
 const SYMMETRY_KINDS = new Set(['button', 'bar', 'tab-indicator', 'tab-content'])
 /** 홈(RR4)은 카드·뱃지 쌍도 판정한다 */
@@ -235,7 +237,7 @@ async function newColumns(page, scene, cells, light) {
   }
   if (scene === 'analyze') chartColors[scene] = { ...chartColors[scene], [light ? 'light' : 'dark']: await page.evaluate(inPageChartColors) }
   const pairs = await page.evaluate(inPageInsetSymmetry)
-  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : (HOME_SHEET_SCENES.includes(scene) || SESSION_SHEET_SCENES.includes(scene)) ? HOME_SHEET_SYMMETRY_KINDS : (CARD_SCENES.includes(scene) || SUMMARY_SCENES.includes(scene)) ? CARD_SYMMETRY_KINDS : (DIET_SCENES.includes(scene) || HISTORY_SCENES.includes(scene) || ANALYZE_SCENES.includes(scene) || SETTINGS_SCENES.includes(scene)) ? HOME_SYMMETRY_KINDS : SYMMETRY_KINDS
+  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : (HOME_SHEET_SCENES.includes(scene) || SESSION_SHEET_SCENES.includes(scene)) ? HOME_SHEET_SYMMETRY_KINDS : (CARD_SCENES.includes(scene) || SUMMARY_SCENES.includes(scene)) ? CARD_SYMMETRY_KINDS : (DIET_SCENES.includes(scene) || HISTORY_SCENES.includes(scene) || ANALYZE_SCENES.includes(scene) || SETTINGS_SCENES.includes(scene) || ONBOARDING_SCENES.includes(scene)) ? HOME_SYMMETRY_KINDS : SYMMETRY_KINDS
   const judgedPairs = pairs.filter((p) => kinds.has(p.kind))
   const sym = insetSymmetryVerdict(SYMMETRY_JUDGED.has(scene) ? judgedPairs : pairs, EXPECTED_PAIRS[scene] ?? [])
   const rest = SYMMETRY_JUDGED.has(scene) ? insetSymmetryVerdict(pairs.filter((p) => !kinds.has(p.kind)), []) : null
@@ -1479,6 +1481,8 @@ async function runScenes(browser, port, scheme) {
     await snap('onboarding')
     await wrapProbe('onboarding')
     await at375(() => snap('onboarding-375'))
+    // SS7: 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안(주소 줄 포함)
+    if (!light) await screenWrapFlow('SS7 onboarding 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-onboarding')
   })
   await requiredScene('onboarding-standalone', () =>
     withFreshPage(
@@ -1492,10 +1496,22 @@ async function runScenes(browser, port, scheme) {
         }
       },
       async (p) => {
-        await p.getByRole('button', { name: '시작하기', exact: true }).waitFor({ timeout: 5000 })
+        // 새 문맥의 첫 부팅(Dexie 시드·지연 화면 읽기)이 부하에 따라 5초를 넘는 일이 있었다 — 시간은 SS7 흐름이 기록한다(DEV-RECORD SS7)
+        const t0 = Date.now()
+        await p.getByRole('button', { name: '시작하기', exact: true }).waitFor({ timeout: 20000 })
+        const bootMs = Date.now() - t0
         await p.getByText('홈 화면 앱으로 실행 중입니다').waitFor({ timeout: 3000 })
         await settle(p, 600)
         await snap('onboarding-standalone', p)
+        if (!light) await screenWrapFlow('SS7 onboarding-standalone 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-onboarding', p)
+        await guardedFlow(['SS7 시작하기(홈 화면 앱)'], async () => {
+          const clicks = []
+          await p.getByRole('button', { name: '시작하기', exact: true }).click()
+          clicks.push(1)
+          await p.getByRole('button', { name: '설정', exact: true }).waitFor({ timeout: 10000 })
+          const gone = (await p.getByRole('button', { name: '시작하기', exact: true }).count()) === 0
+          flows.push([`SS7 시작하기(홈 화면 앱)${light ? ' (라이트)' : ''}`, { ok: clicks.length === 1 && gone, detail: `버튼 1탭 → 홈(아래 탭 '설정' 보임), 시작하기 버튼 사라짐=${gone} · 버튼이 나타나기까지 ${bootMs}ms` }])
+        })
       },
     ),
   )
@@ -1511,7 +1527,12 @@ async function runScenes(browser, port, scheme) {
     }),
   )
 
-  await page.getByRole('button', { name: /^(시작하기|확인했어요, 그래도 계속)$/ }).click()
+  await guardedFlow(['SS7 시작하기(Safari 탭)'], async () => {
+    await page.getByRole('button', { name: /^(시작하기|확인했어요, 그래도 계속)$/ }).click()
+    await page.getByRole('button', { name: '설정', exact: true }).waitFor({ timeout: 10000 })
+    const gone = (await page.getByRole('button', { name: /^(시작하기|확인했어요, 그래도 계속)$/ }).count()) === 0
+    flows.push([`SS7 시작하기(Safari 탭)${light ? ' (라이트)' : ''}`, { ok: gone, detail: `버튼 1탭 → 홈(아래 탭 '설정' 보임), 온보딩 버튼 사라짐=${gone}` }])
+  })
   await page.getByRole('button', { name: '설정', exact: true }).waitFor()
   await settle(page, 800)
 

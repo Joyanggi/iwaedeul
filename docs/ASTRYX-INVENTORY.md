@@ -1,6 +1,6 @@
 # Astryx 적용 현황
 
-> 2026-11-18, 커밋 e5f312a. `node scripts/astryx-inventory.mjs --write`가 만든다. `--check`가 맨 아래 합계 줄을 기준으로 뒷걸음을 막는다.
+> 2026-11-18, 커밋 db43382. `node scripts/astryx-inventory.mjs --write`가 만든다. `--check`가 맨 아래 합계 줄을 기준으로 뒷걸음을 막는다.
 
 | 파일 | Astryx | 인라인 | 인라인 여백 | legacy 클래스 |
 |---|---|---|---|---|
@@ -49,11 +49,11 @@
 | src/screens/ExerciseHistoryScreen.tsx | 예 | 0 | 0 | 0 |
 | src/screens/HistoryScreen.tsx | 예 | 0 | 0 | 0 |
 | src/screens/HomeScreen.tsx | 예 | 0 | 0 | 0 |
-| src/screens/Onboarding.tsx | — | 3 | 0 | 11 |
+| src/screens/Onboarding.tsx | 예 | 0 | 0 | 0 |
 | src/screens/RoutineEditorScreen.tsx | 예 | 5 | 0 | 0 |
 | src/screens/SessionDetailScreen.tsx | 예 | 0 | 0 | 0 |
 | src/screens/SessionScreen.tsx | 예 | 0 | 0 | 0 |
 | src/screens/SettingsScreen.tsx | 예 | 0 | 0 | 0 |
 | src/screens/SummaryScreen.tsx | 예 | 0 | 0 | 0 |
 
-합계: `.tsx` 51개 가운데 Astryx를 읽는 것 48개, 화면이 아니라 뺀 것 2개, 인라인 스타일 8곳(여백 0), legacy 클래스 쓰임 11곳, 안 쓰는 legacy 선택자 0개.
+합계: `.tsx` 51개 가운데 Astryx를 읽는 것 49개, 화면이 아니라 뺀 것 2개, 인라인 스타일 5곳(여백 0), legacy 클래스 쓰임 0곳, 안 쓰는 legacy 선택자 0개.

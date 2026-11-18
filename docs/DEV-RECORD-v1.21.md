@@ -752,3 +752,87 @@
 | 4 | 위 "옮긴 스캔" 표에 수정표 밖 변경 일곱을 전·후·이유로, 결함 복원 ⑰⑱, 전체 `ui-check` 종료 코드 0 |
 
 PLAN과 다르게 한 것(추가): `줄 안 버튼`의 "폭 ≥ 줄의 절반"은 `Row` 오른쪽 칸이 내용 폭이라 ⑰에서 안 걸려 `글자 잘림`으로 보강했다(폭 판정은 남겼다). 테스트: `v119` QQ6에 `글자 잘림`, `ss6.test.mjs`에 새 흐름 이름.
+
+---
+
+## SS7. 온보딩
+
+### 범위
+
+| 항목 | 내용 |
+|---|---|
+| 커밋 | 이 커밋(`feat(SS7): …`) — 해시는 `git log`. |
+| 바뀐 파일 | `Onboarding.tsx`(`AxRoot` + `Groups className="ax-onboarding"`, 제목·소개·`Banner`(준비 완료·7일 삭제 경고)·`List listStyle="decimal"` 셋·주소 `Card`·시작 `Button`), `global.css`(온보딩만 쓰던 규칙 전부 지움 — `.card`·`.card-label`·`.btn*`·`.row-sub`·`.onboarding*`·`.steps*`·`.warn-box`·`.mono`와 legacy 뿌리 `.onboarding`), `space.css`(`.mt-group`·`.mb-group` 지움 — 유틸 0개), `ax.css`(뿌리 목록 `.screen, .banner`), `parts.css`(`.ax-onboarding` 한글 줄바꿈), `ui-check.mjs`·`ui-space.mjs`·`ui-check-lib.mjs`(온보딩 세 장면 판정·흐름·뿌리 목록), `README.md`(Tech Stack Astryx 줄 `모든 화면`), `ASTRYX-INVENTORY.md`(`--write`), 스크린샷 `v1.21/after/onboarding*` 여섯·`layout.json` |
+| 테스트 | `Test Files 87 passed (87)` · `Tests 1932 passed (1932)` (SS6 뒤 85/1918 → 새 파일 `scripts/ss7.test.mjs` 7 + `src/lib/v121ss7.test.ts` 7) |
+| Astryx 인벤토리 | `✓ Astryx를 안 읽는 화면 파일: 1 → 0` · `✓ 인라인 스타일: 8 → 5` · `✓ legacy 클래스 쓰임: 11 → 0` · `✓ 안 쓰는 legacy 선택자: 0 → 0` (PLAN 표와 같다) |
+| 첫 화면 | `node scripts/first-load.mjs` — 합 **353.78**kB gzip(한계 360, 통과). 온보딩은 지연 화면이라 첫 화면 코드는 그대로다 |
+| 수정표 밖 | 아래 "옮긴 스캔" 표 |
+
+### 옮긴 스캔 (이름·전→후·같은 뜻인 이유)
+
+| 이름 | 전 | 후 | 같은 뜻인 이유 |
+|---|---|---|---|
+| `ss6.test.mjs` 둘 | 온보딩이 쓰는 `.card`…`.steps`가 `global.css`에 **남는다**, `space.css` 유틸은 `.mt-group`·`.mb-group`뿐, `@scope (.screen, .onboarding, .banner)` | 전부 **없다**, 유틸 0개, `@scope (.screen, .banner)` | 「쓰는 화면이 남아 있으면 남는다」→「마지막 쓰는 화면(온보딩)이 사라졌으면 없다」. SS6이 자기 판정을 SS7 몫으로 남겨 둔 것 |
+| `ss6.test.mjs` 설정 틀 | `body(parts, '.ax-settings :is(…)')` | 선택자가 `.ax-settings … , .ax-onboarding …`(한 규칙 둘) | 한글 줄바꿈 규칙이 설정과 온보딩 둘에 걸린다 — 규칙 본문은 그대로 |
+| `ss6.test.mjs` INSET | `INSET_SCENES … 'settings']` | `'settings'` 뒤에 `'onboarding'`이 이어져도 | 카드 안쪽 비교 장면이 하나 늘었다 |
+| `ss3.test.mjs` | legacy 뿌리 목록 `.screen, .onboarding, .banner` | `.screen, .banner` | 같은 뜻: 두 파일이 글자 그대로 같다 |
+| `legacy-scope.test.mjs` RR1 | 필요한 뿌리 `.screen`·`.onboarding`·`.banner` | `.screen`·`.banner` | `.onboarding`이 뿌리에서 빠졌다(PLAN SS7) |
+| `ss4`·`ss5` | `.warn-box`가 남는다 | `.warn-box`도 없다 | 온보딩이 마지막 쓰는 곳이었다 |
+| `rr10` | space.css 유틸 둘(`.mt-group`·`.mb-group`) | 0개 | 마지막 쓰는 곳이 온보딩이었다 |
+| `v120.test.ts` RR7 | `LEGACY = '.screen, .onboarding, .banner'` | `'.screen, .banner'` | `섬 버튼` 검사가 보는 legacy 뿌리 목록이 같이 줄었다 |
+| `ui-space.mjs` 정적 검사 | `.ax-screen·.card의 좌우 여백이 var(--inset-)` | `.ax-screen의 …`(`.card`는 없다) | legacy `.card`가 지워졌다. 카드 안쪽은 `안쪽 대칭`·`같은 역할 · 카드 안쪽`이 잰다 |
+
+### PLAN과 다르게 한 것 (이유)
+
+1. **주소 카드는 `Heading` + `Text type="code"`가 아니라 `Text type="label"` 제목 + `Text type="supporting"`.** `type="code"`(코드 글꼴)는 글자 상자(17px)가 줄 높이(20px)보다 작아 카드 안쪽 아래가 위보다 헐거웠다: `onboarding 안쪽 대칭 … 위 15·아래 18(차이 3)`(허용 1). `Heading`을 `label`로, `display="block"`·`hasCapsize`·줄 높이 덮기(Astryx stylex가 이긴다)도 해 봤지만 차이 2·1.8이었고, `supporting`(Figtree)이어야 통과했다. 긴 주소가 카드 안에서 줄바꿈하는 것은 그대로다.
+2. **주소는 `/` 조각마다 `ax-nowrap` 스팬 + `<wbr />`.** 안 그러면 `workout-` | `tracker`처럼 하이픈 뒤에서 꺾여(`ut-/tra`) 글자 중간 꺾임 검사가 실패했다(결함 복원 표).
+3. **`onboarding-standalone`의 '시작하기' 기다림을 5초 → 20초로** 하고 걸린 시간을 흐름 자세히에 적는다(아래 "5초 초과").
+4. `Group`을 화면 모양대로 나눠 쌌다(소개 / 1단계 / 경고+안내 / 주소 / 시작): 묶음 사이 20px(`같은 역할 · 묶음 사이`에 온보딩 셋이 든다).
+
+### PLAN 검증 항목 ↔ 확인
+
+| PLAN 검증 | 확인 |
+|---|---|
+| `className`은 `ax-onboarding`뿐 등(실제로는 `ax-onboarding`·`ax-nowrap`), `style=`·`<button`·`var(--` 0건, 문구 목록 | `v121 SS7: className=은 …` · `틀은 AxRoot …` · `준비 완료는 Banner …` · `1단계는 Heading 2 …` · `시작 버튼은 …` · `주소는 Card 안 …` · `문구가 그대로다 …` |
+| `ss7.test.mjs`: legacy 뿌리 목록이 같고 `.onboarding` 없음 | `ss7.test.mjs` `legacy 뿌리 목록` · `지운 legacy CSS` · `온보딩 틀의 CSS` |
+| `ui-check after --check` 세 장면: 안쪽 대칭·같은 역할·가로 넘침·접근성 | 아래 |
+| 흐름 ① `SS7 시작하기` | `SS7 시작하기(Safari 탭)`·`SS7 시작하기(홈 화면 앱)` — 모두 `guardedFlow`(`ss7.test.mjs` `새 흐름은 guardedFlow 안이다`) |
+| 흐름 ② `SS7 <장면> 390·375 폭 …` | `SS7 onboarding …`·`SS7 onboarding-standalone …` — `screenWrapFlow`(글자 중간 꺾임 + 안쪽 폭 안) |
+| README 반영(Tech Stack Astryx 줄) | `UI 부품: Astryx 0.7.13 (@astryxdesign/core, 베타 — 버전 고정. 모든 화면)` |
+| 결함 복원 ⑲ | 아래 |
+
+### ui-check
+
+마지막 코드로 전체 `node scripts/ui-check.mjs after --check --ver=v1.21`: **종료 코드 0**, `장면 실패 0건`, `알려진 실패 0건`, 흐름 통과 **240**·흐름 실패 0.
+- 세 장면(다크·라이트) 모두 `안쪽 대칭`·`접근성`·`가로 넘침` 통과. `같은 역할`: 화면 좌우 16(onboarding 셋 포함), 묶음 사이 20, 카드 안쪽 15(onboarding 포함), 카드 사이 12.
+- `SS7 onboarding 390·375 …`·`SS7 onboarding-standalone 390·375 …`: 글자 중간 꺾임 0건·안쪽 폭 안 (375·390 둘 다 — `0점` 같은 숫자+단위는 이 화면에 없다).
+- `SS7 시작하기(홈 화면 앱)`·`(Safari 탭)`: 버튼 1탭 → 홈(`설정` 탭 보임), 온보딩 버튼 사라짐 — 다크·라이트 모두 통과.
+- 건너뜀: `home-banners-open`(앞 라운드부터의 `optional` — 2초 클릭 시간 초과, 이번 작업 밖).
+- 경고 글자색: 온보딩의 경고·준비 완료는 손 클래스가 아니라 Astryx `Banner`의 글자라 `ax-text-*` 색 검사 대상이 아니다.
+- **`--ver=v1.21`을 빠뜨리고 처음 돌려 `docs/screenshots/v1.20/after`를 덮어썼다.** 추적 파일은 `git show HEAD:<경로>`로, 새 파일은 지워서 되돌렸고 `git status`로 v1.20 아래 변경 0을 확인했다.
+- 무관한 v1.21 스크린샷(온보딩 밖)이 다시 찍혀 바뀐 것은 `git show HEAD:<경로>`로 되돌렸다. 남긴 것: `onboarding*` 여섯 장과 `layout.json`.
+
+### 5초 초과(`onboarding-standalone` '시작하기')
+
+이번 실행들에서 버튼이 나타나기까지 **858~885ms**(다크·라이트, 네 번 모두)였고 5초 초과는 재현되지 않았다. 새 문맥의 첫 부팅(서비스워커 차단·Dexie 시드·지연 화면 읽기)이 거의 1초이므로 ui-check를 여러 개 동시에 돌려 CPU가 모자랄 때 5초를 넘긴 것으로 본다(추정 — 그 순간의 부하는 재지 못했다). 그래서 기다림을 20초로 늘리고 걸린 시간을 흐름 자세히(`버튼이 나타나기까지 …ms`)에 남긴다. 앱 쪽 문제(온보딩이 느리게 뜨는 것)는 찾지 못했다.
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 것 | 원상복구 |
+|---|---|---|
+| ⑲ `ax.css` 뿌리 목록에만 `.onboarding`을 남김 | `ss7.test.mjs` `legacy 뿌리 목록이 같고 …`·`ss3`·`legacy-scope` RR1 | `cmp` 같음 |
+| `global.css`에 `.warn-box` 되살림 | `ss7.test.mjs` `지운 legacy CSS`·`ss4` | `cmp` 같음 |
+| 주소를 `Text type="code"`로(실제 처음 구현) | `ui-check after --check`: `실패 onboarding · 안쪽 대칭: card … 위 15·아래 18(차이 3)` | 코드를 `supporting`으로 바꿔 통과 |
+| 주소 조각의 `ax-nowrap` 스팬 제거 | `흐름 실패 SS7 onboarding 390·375 폭 글자 중간 꺾임 없음…: 꺾임 1건 ut-/tra` | `cmp` 같음 |
+
+(주소의 `display="block"` 제거는 실패하지 않았다 — 효과가 없어 검사를 걸지 않는다. 제목의 `display="block"`은 빠지면 제목과 주소가 한 줄에 붙는 모양이라 화면 검증자 사진이 본다.)
+
+### 과거 판정 불변·하지 않은 것
+
+- `src/db`·`src/store`·`src/lib`의 판정·계산 코드는 안 건드렸다(테스트 파일 `v120.test.ts`의 문자열 하나만) — 변이 테스트 대상 없음, 속성 테스트도 판정 함수를 안 만들어 대상 없음.
+- 하지 않은 것: 온보딩 내용(단계·경고 문구) 변경 — PLAN 범위 제외.
+- 실기기 확인: 홈 화면 앱(standalone)으로 처음 열었을 때 `시작하기` 1탭, 긴 주소가 카드 안에서 `/` 뒤로 줄바꿈하는 모양.
+
+### 실행 결과 요약
+
+- `npm run check` 통과. `Test Files  87 passed (87)`, `Tests  1932 passed (1932)`. 빌드 성공. `git rev-list --count main..HEAD`: 커밋 전 21 → 이 커밋 후 22.

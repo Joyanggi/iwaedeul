@@ -29,10 +29,10 @@ describe('v121 SS4 — 지운 것', () => {
     expect(strip(motion)).not.toContain('back-link')
   })
 
-  it('v121 SS4: SS6 뒤 .pill*는 없고(내보내기가 ToggleButton 줄이 됐다) 온보딩이 쓰는 .warn-box만 남는다', () => {
+  it('v121 SS4: SS6 뒤 .pill*는 없고(내보내기가 ToggleButton 줄이 됐다) SS7 뒤 .warn-box도 없다(온보딩이 Banner가 됐다)', () => {
     const all = selectors(globalCss).join('\n')
     expect(all).not.toContain('.pill')
-    expect(all).toContain('.warn-box')
+    expect(all).not.toContain('.warn-box')
   })
 
   it('v121 SS4: 인벤토리의 TEMPLATE_PREFIXES에 cal-diet-dot-이 없다', () => {

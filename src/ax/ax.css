@@ -12,7 +12,7 @@
  * (문서 단위는 `global.css`와 아래 "문서 바탕"이 맡는다. 이유는 DEV-RECORD OO2 "PLAN과 다르게 한 것").
  */
 @layer reset {
-  @scope (html, .ax-scope) to (.screen, .onboarding, .banner) {
+  @scope (html, .ax-scope) to (.screen, .banner) {
     :where(*),
     :where(*)::before,
     :where(*)::after {

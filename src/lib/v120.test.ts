@@ -867,7 +867,7 @@ describe("v120 RR7 — 운동 카드와 스테퍼", () => {
     // 누르는 영역은 중심에서 21px 네 방향이다
     expect(lib).toMatch(/const REACH = 21/)
     // `섬 버튼`은 섬 안만이 아니라 legacy 범위 안의 Astryx 버튼도 잰다 — 카드가 섬을 잃어도 스테퍼가 스스로 섬이라 섬 안만 재면 못 잡는다(결함 복원 ⑭)
-    expect(lib).toContain("const LEGACY = '.screen, .onboarding, .banner'")
+    expect(lib).toContain("const LEGACY = '.screen, .banner'")
     expect(lib).toMatch(/b\.closest\(LEGACY\)/)
   })
 })

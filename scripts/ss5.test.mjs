@@ -24,10 +24,10 @@ describe('v121 SS5 — 지운 것', () => {
     expect(bad).toEqual([])
   })
 
-  it('v121 SS5: SS6 뒤 .segment·.pill*는 없고 온보딩이 쓰는 .warn-box만 남는다', () => {
+  it('v121 SS5: SS6 뒤 .segment·.pill*는 없고 SS7 뒤 .warn-box도 없다(온보딩이 Banner가 됐다)', () => {
     const all = selectors(globalCss).join('\n')
     for (const gone of ['.segment', '.pill']) expect(all, gone).not.toContain(gone)
-    expect(all).toContain('.warn-box')
+    expect(all).not.toContain('.warn-box')
   })
 
   it('v121 SS5: legacy 뿌리 목록에 .center-note가 없고 인벤토리에 recharts-surface 예외가 없다(맞춤이 parts.css의 .ax-chart로 갔다)', () => {

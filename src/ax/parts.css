@@ -422,7 +422,8 @@
   }
 
   /* 설정 탭 틀의 한글 줄바꿈(.ax-analyze와 같다). SS8이 앱 전체 규칙으로 모은다 */
-  .ax-settings :is(p, span, div, h1, h2) {
+  .ax-settings :is(p, span, div, h1, h2),
+  .ax-onboarding :is(p, span, div, h1, h2) {
     word-break: keep-all;
     overflow-wrap: anywhere;
   }

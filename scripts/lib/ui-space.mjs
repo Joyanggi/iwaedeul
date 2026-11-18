@@ -30,11 +30,11 @@ export function spaceStaticChecks(allCss) {
   }
   add('global.css 여백 값이 전부 Astryx 단계(0·2·4·6·8·12·16·20·24·28·32·36·40·44·48)', bad.length === 0, bad.length ? bad.slice(0, 6).join(' · ') + (bad.length > 6 ? ` 외 ${bad.length - 6}` : '') : '단계 밖 0건')
   // 2. 틀의 좌우 여백이 var(--inset-
-  const body = (css, sel) => (css === undefined ? null : (strip(css).match(new RegExp(`(?:^|\\n)\\s*${sel.replace('.', '\\.')}\\s*\\{([^{}]*)\\}`))?.[1] ?? null))
-  const miss = ['.card'].filter((s) => !/var\(--inset-/.test(body(g, s) ?? ''))
+  // SS7: legacy `.card`가 온보딩과 함께 없어졌다 — 틀 `.ax-screen`만 본다(카드 안쪽은 Astryx `Card`의 `안쪽 대칭`·`같은 역할 · 카드 안쪽`이 잰다)
+  const miss = []
   const axBody = ax === undefined ? null : (strip(ax).match(/\.ax-screen\s*\{([^{}]*)\}/)?.[1] ?? null)
   if (!/var\(--inset-/.test(axBody ?? '')) miss.push('.ax-screen')
-  add('.ax-screen·.card의 좌우 여백이 var(--inset-)', miss.length === 0, miss.length ? `안 씀: ${miss.join(', ')}` : '둘 다 씀')
+  add('.ax-screen의 좌우 여백이 var(--inset-)', miss.length === 0, miss.length ? `안 씀: ${miss.join(', ')}` : '씀')
   add('.ax-screen 좌우가 --inset-screen (두 체계가 같은 값)', /var\(--inset-screen\)/.test(axBody ?? ''), /var\(--inset-screen\)/.test(axBody ?? '') ? 'var(--inset-screen)' : '안 씀')
   // 3. space.css 토큰 값 순서
   if (sp === undefined) return [...out, { name: 'space.css 있음', ok: false, detail: '없음' }]
@@ -124,7 +124,7 @@ export const inPageLayout = () => {
  */
 export function spaceRoleVerdicts(layouts, judged = new Set()) {
   const same = (xs) => xs.every((x) => Math.abs(x - xs[0]) < 0.5)
-  const SCREENS = ['home', 'home-375', 'home-banner', 'session', 'summary', 'history', 'analyze', 'diet', 'settings', 'editor']
+  const SCREENS = ['home', 'home-375', 'home-banner', 'session', 'summary', 'history', 'analyze', 'diet', 'settings', 'onboarding', 'onboarding-375', 'onboarding-standalone', 'editor']
   const SHEETS = ['sheet-finish', 'sheet-finish-cardio', 'sheet-timer', 'sheet-add', 'sheet-substitute', 'sheet-comp', 'sheet-scale', 'sheet-tempo', 'sheet-watch', 'sheet-home', 'sheet-open-session', 'sheet-food', 'line-sheet']
   const fmt = (pairs) => pairs.map(([k, v]) => `${k} ${v}`).join(' · ')
   const x = SCREENS.filter((s) => layouts[s]?.screenX != null).map((s) => [s, layouts[s].screenX])
@@ -134,7 +134,7 @@ export function spaceRoleVerdicts(layouts, judged = new Set()) {
   const sections = SCREENS.flatMap((s) => (layouts[s]?.sectionGaps ?? []).map((g) => [s, g]))
   const sectionSet = [...new Set(sections.map((p) => p[1]))]
   // 카드 안쪽은 Astryx `Card`를 쓰는 장면끼리만 견준다(홈 RR4 · 루틴 편집). 안 옮긴 화면은 legacy `.card`라 값이 다르고, 옮기는 작업(RR5~RR9)이 이 목록에 더한다
-  const INSET_SCENES = new Set(['home', 'home-375', 'home-banner', 'summary', 'editor', 'diet', 'history', 'analyze', 'settings'])
+  const INSET_SCENES = new Set(['home', 'home-375', 'home-banner', 'summary', 'editor', 'diet', 'history', 'analyze', 'settings', 'onboarding'])
   const inset = SCREENS.filter((s) => INSET_SCENES.has(s) && layouts[s]?.cardInset != null).map((s) => [s, layouts[s].cardInset])
   const insetScenes = new Set(inset.map((p) => p[0]))
   const sectionScenes = new Set(sections.map((p) => p[0]))
@@ -278,6 +278,10 @@ export const EXPECTED_PAIRS = {
   'settings-gist': ['button', 'card'],
   'settings-export-preview': ['button', 'card'],
   'settings-reset-confirm': ['button', 'card'],
+  // SS7: 온보딩 전체가 Astryx다 — 시작 버튼, 주소 카드(Safari 탭 장면만). 홈 화면 앱 장면은 카드가 없고 버튼뿐
+  onboarding: ['button', 'card'],
+  'onboarding-375': ['button', 'card'],
+  'onboarding-standalone': ['button'],
   editor: ['button'],
   // SS2: 식단 탭 — 아래 띠·탭, 끼니 카드, 버튼(플랜·삭제·추가). 편집기가 든 기록 장면(legacy 화면 안의 섬)은 카드·버튼만
   diet: ['bar', 'tab-indicator', 'tab-content', 'button', 'card'],
