@@ -23,6 +23,14 @@ import exerciseHistoryScreen from '../screens/ExerciseHistoryScreen.tsx?raw'
 import monthCalendar from '../components/MonthCalendar.tsx?raw'
 import summaryScreen from '../screens/SummaryScreen.tsx?raw'
 import { cellLabel } from '../components/MonthCalendar'
+import axSettings from '../ax/settings.tsx?raw'
+import settingsScreen from '../screens/SettingsScreen.tsx?raw'
+import routineListPanel from '../components/RoutineListPanel.tsx?raw'
+import exportPanel from '../components/ExportPanel.tsx?raw'
+import gistPanel from '../components/GistPanel.tsx?raw'
+import importPanel from '../components/ImportPanel.tsx?raw'
+import routineIoPanel from '../components/RoutineIoPanel.tsx?raw'
+import dietIoPanel from '../components/DietIoPanel.tsx?raw'
 
 describe('v121 SS1 — App은 홈만 정적으로 읽는다', () => {
   it('v121 SS1: 홈 밖 화면 여섯은 정적 import가 0건이고 홈은 정적이다', () => {
@@ -438,5 +446,120 @@ describe('v121 SS5 — chartTheme은 Astryx 토큰에서 직접 읽는다', () =
       surface: '--color-background-card',
       surface2: '--color-background-muted',
     })
+  })
+})
+
+// ── SS6 — 설정 탭 ──────────────────────────────────────────────────────────────────────────────
+// 소스 스캔. 주석을 뺀 뒤 글자로 읽고, onClick의 `=>`·`>`에서 끊기는 태그 정규식을 쓰지 않는다(여는 글자 뒤 문자열 포함 검사). CSS는 `scripts/ss6.test.mjs`가 fs로 읽는다.
+const SS6_FILES = {
+  SettingsScreen: settingsScreen,
+  RoutineListPanel: routineListPanel,
+  ExportPanel: exportPanel,
+  GistPanel: gistPanel,
+  ImportPanel: importPanel,
+  RoutineIoPanel: routineIoPanel,
+  DietIoPanel: dietIoPanel,
+}
+const ss6Code = Object.fromEntries(Object.entries(SS6_FILES).map(([k, v]) => [k, ss3Code(v)]))
+const settingsCode = ss6Code.SettingsScreen
+/** 설정 화면 본문(`return (` 뒤) — import·상수의 글자가 순서 검사에 끼지 않게 */
+const settingsBody = settingsCode.slice(settingsCode.indexOf('<AxRoot>'))
+
+describe('v121 SS6 — 설정 화면과 패널 여섯은 Astryx 부품뿐이다', () => {
+  it('v121 SS6: 일곱 파일에 className=은 ax- 이름뿐이고 style=·<button·<input·<a ·<pre·var(--·padding= 이 0건이다', () => {
+    expect(Object.keys(ss6Code)).toHaveLength(7)
+    for (const [name, code] of Object.entries(ss6Code)) {
+      for (const m of code.matchAll(/className=("[^"]*"|\{[^}]*\})/g)) expect(m[1], `${name} className`).toMatch(/^"ax-[\w -]+"$|^\{[^}]*'ax-[\w-]+'[^}]*\}$/)
+      for (const bad of ['style=', '<button', '<input', '<a ', '<pre', 'var(--', 'padding=']) expect(code, `${name} ${bad}`).not.toContain(bad)
+    }
+  })
+
+  it('v121 SS6: 설정 화면은 묶음 제목 넷(원문)과 Groups className="ax-settings"를 쓴다 — 진단·위험 구역은 제목 없이 카드 제목만', () => {
+    expect(settingsCode).toContain('<Groups className="ax-settings">')
+    for (const t of ['훈련', '소리·템포', '기록 내보내기·백업', '루틴·식단 파일']) expect(settingsCode, t).toContain(`<Heading level={2}>${t}</Heading>`)
+    expect(settingsCode.match(/<Heading level=\{2\}>/g)).toHaveLength(4)
+    expect(settingsCode).toContain('<Heading level={1}>설정</Heading>')
+  })
+
+  it('v121 SS6: 순서 — Phase < 루틴 목록 < 소리 크기 < 템포 가이드 < 내보내기 < Gist < 가져오기 < 루틴 JSON < 식단 JSON < 진단 < 위험 구역', () => {
+    const at = (needle: string | RegExp) => {
+      const i = typeof needle === 'string' ? settingsBody.indexOf(needle) : settingsBody.search(needle)
+      expect(i, String(needle)).toBeGreaterThan(-1)
+      return i
+    }
+    const order = [at('Phase (수동 전환)'), at('<RoutineListPanel'), at(/\n\s+소리 크기\n/), at(/\n\s+템포 가이드\n/), at('<ExportPanel'), at('<GistPanel'), at('<ImportPanel'), at('<RoutineIoPanel'), at('<DietIoPanel'), at(/\n\s+진단\n/), at(/\n\s+위험 구역\n/)]
+    expect([...order].sort((a, b) => a - b)).toEqual(order)
+  })
+
+  it('v121 SS6: 소리·템포 묶음이 백업·JSON 묶음보다 위에 있다(헬스장에서 쓰는 것을 위로 — 묶음 제목 순서)', () => {
+    const heads = ['훈련', '소리·템포', '기록 내보내기·백업', '루틴·식단 파일'].map((t) => settingsCode.indexOf(`<Heading level={2}>${t}</Heading>`))
+    expect([...heads].sort((a, b) => a - b)).toEqual(heads)
+  })
+
+  it('v121 SS6: <Switch가 하나(템포 가이드 사용), <SegmentedControl이 다섯(Phase·소리 크기·음악·이완 초·준비 시간)이고 옵션 .map이 그 안에 있다', () => {
+    expect(settingsCode.match(/<Switch\b/g)).toHaveLength(1)
+    expect(settingsCode).toContain('<Switch label="템포 가이드 사용" value={tempoGuide} onChange={(on) => void setTempoGuide(on)} />')
+    const segs = [...settingsCode.matchAll(/<SegmentedControl\b[\s\S]*?<\/SegmentedControl>/g)].map((m) => m[0])
+    expect(segs).toHaveLength(5)
+    expect(segs.map((s) => /label="([^"]+)"/.exec(s)![1])).toEqual(['Phase', '소리 크기', '음악', 'A그룹 내리는 속도', '시작 전 준비 시간'])
+    expect(segs[3]).toContain('A_ECCENTRIC_OPTIONS.map')
+    expect(segs[4]).toContain('COUNT_IN_OPTIONS.map')
+    expect(settingsCode).not.toContain('aria-pressed')
+  })
+
+  it('v121 SS6: 설정 하나 바꾸기는 1탭 그대로 — 선택이 곧바로 저장 함수를 부른다(확인 단계 없음)', () => {
+    for (const call of ['void setPhase(Number(v) as Phase)', 'void setSoundVolume(v as SoundVolume)', "void setDuckOthers(v === 'true')", 'void setAEccentricSec(Number(v)', 'void setTempoCountInSec(Number(v)', 'void setTempoGuide(on)']) expect(settingsCode, call).toContain(call)
+  })
+
+  it('v121 SS6: 미리 듣기 둘은 unlockAudio 뒤 신호를 내고(로직 그대로), 편집은 진행 중 세션이면 비활성이다', () => {
+    expect(settingsCode).toContain('previewSignals()')
+    expect(settingsCode).toContain('previewTempoTones(')
+    expect(settingsCode.match(/unlockAudio\(\)/g)).toHaveLength(2)
+    expect(settingsCode).toContain("label=\"편집\" isDisabled={openSession !== null} onClick={() => onEditRoutine('active')}")
+    expect(settingsCode).toContain('OPEN_SESSION_BLOCK.edit')
+  })
+
+  it('v121 SS6: 오류·성공 글자 — 전환 조건 ✓는 ax-text-success, 초기화·가져오기 확인 문구와 동기화 오류는 ax-text-error다', () => {
+    expect(settingsCode).toContain("c.met ? 'ax-text-success' : undefined")
+    expect(settingsCode).toMatch(/<Text className="ax-text-error">\s*세션 기록 \{sessionCount\}개와 설정이 모두 삭제됩니다/)
+    expect(ss6Code.ImportPanel).toMatch(/<Text className="ax-text-error">\s*현재 기록이 모두 삭제되고/)
+    expect(ss6Code.GistPanel).toContain("sync.status === 'error' ? 'ax-text-error' : undefined")
+  })
+
+  it('v121 SS6: 위험한 버튼은 variant="destructive"다 — 초기화·정말 삭제·루틴 삭제·가져오기 교체·Gist 교체', () => {
+    expect(settingsCode).toContain('variant="destructive" label="모든 데이터 초기화"')
+    expect(settingsCode).toContain('variant="destructive" label="정말 삭제"')
+    expect(ss6Code.RoutineListPanel.match(/variant="destructive"/g)!.length).toBeGreaterThanOrEqual(2)
+    expect(ss6Code.ImportPanel.match(/variant="destructive"/g)).toHaveLength(2)
+    expect(ss6Code.GistPanel.match(/variant="destructive"/g)!.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('v121 SS6: 내보내기 미리보기는 CodeBlock(isWrapped·40vh·복사 버튼 없음)이고 Gist 링크는 Link(외부), 토큰 칸은 password TextField다', () => {
+    expect(ss6Code.ExportPanel).toContain('<CodeBlock code={preview} isWrapped maxHeight="40vh" hasCopyButton={false} />')
+    expect(ss6Code.ExportPanel).toContain("from '../ax/settings'")
+    expect(ss6Code.GistPanel).toContain('<Link href={TOKEN_HELP} isExternalLink>')
+    expect(ss6Code.GistPanel).toMatch(/<TextField\s+type="password"\s+label="GitHub 개인 액세스 토큰"\s+isLabelHidden/)
+    expect(ss6Code.GistPanel).not.toContain('NO_AUTOFILL')
+  })
+
+  it('v121 SS6: CodeBlock·Link는 index.tsx가 아니라 settings.tsx에 있다(첫 화면 코드를 키우지 않는다)', () => {
+    expect(ax).not.toMatch(/CodeBlock|core\/Link/)
+    expect(axSettings).toContain("export { CodeBlock } from '@astryxdesign/core/CodeBlock'")
+    expect(axSettings).toContain("export { Link } from '@astryxdesign/core/Link'")
+  })
+
+  it('v121 SS6: 패널은 파일 이름·export default function XxxPanel(props) 모양 그대로다', () => {
+    for (const [name, code] of Object.entries(ss6Code)) expect(code, name).toContain(`export default function ${name}(`)
+  })
+
+  it('v121 SS6: 문구가 그대로다 — 안내·카드 제목·확인 문구·버튼', () => {
+    const all = Object.values(ss6Code).join('\n')
+    for (const t of ['Phase (수동 전환)', '활성 루틴', '루틴 목록', '소리 크기', '템포 가이드', '내보내기', 'Gist 백업', '가져오기 (JSON 복원)', '루틴 JSON', '식단 플랜 JSON', '진단', '위험 구역',
+      '🔊 미리 듣기 (3·2·1 틱 → 종료 차임)', '🔊 템포 경계음 미리 듣기 (올림 → 내림)', '음악 잠깐 줄이기', '섞어서 재생', '＋ 새 루틴 만들기', '이 루틴 쓰기', '바꾸기',
+      '불러올 수 없는 파일입니다', '정합성 검사 실패 — 가져오지 않았습니다', 'Gist 백업 내용', '이 내용으로 교체', '정말 교체', '이 파일로 교체', '토큰 삭제 확인', 'Gist 연결 해제', '지금 백업', 'Gist에서 복원',
+      '백업 파일 선택', '현재 루틴 내보내기', '루틴 가져오기', '현재 플랜 내보내기', '플랜 가져오기', '번들 플랜으로 되돌리기', '온보딩 안내 다시 보기', '모든 데이터 초기화', '정말 삭제',
+      '기간과 무관하게 전체를 담습니다. Gist 토큰 같은 비밀값은 포함되지 않습니다.', '세션 기록 {sessionCount}개와 설정이 모두 삭제됩니다. 되돌릴 수 없습니다.', 'v{__APP_VERSION__}']) {
+      expect(all, t).toContain(t)
+    }
   })
 })

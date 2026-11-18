@@ -655,3 +655,80 @@
 ### 실행 결과 요약
 
 - `npm run check` 통과(흔적·Astryx 뒷걸음·린트·knip·테스트·빌드·첫 화면 크기). `Test Files  84 passed (84)`, `Tests  1893 passed (1893)`. 빌드 성공. `git rev-list --count main..HEAD`: 커밋 전 18 → 이 커밋 후 19.
+
+
+## SS6. 설정 탭
+
+### 범위
+
+| 항목 | 내용 |
+|---|---|
+| 커밋 | 이 커밋(`feat(SS6): …`) — 해시는 `git log`. |
+| 바뀐 파일 | `SettingsScreen.tsx`(묶음 넷 `훈련`·`소리·템포`·`기록 내보내기·백업`·`루틴·식단 파일` + 진단·위험 구역은 제목 없이), 패널 여섯(`RoutineListPanel`·`ExportPanel`·`GistPanel`·`ImportPanel`·`RoutineIoPanel`·`DietIoPanel`) — 로직은 그대로, `src/ax/settings.tsx`(새: `CodeBlock`·`Link` — 첫 화면 코드에 안 딸려 오게 따로), `src/ax/index.tsx`(`Row`에 `isListItem`), `parts.css`(`.ax-settings` 줄바꿈·`.ax-nowrap`), `global.css`·`space.css`(설정만 쓰던 규칙 삭제), `ui-check.mjs`·`ui-check-lib.mjs`·`ui-space.mjs`, `KNOWN_FAILURES` 빈 배열, README Tech Stack에 `설정`, 인벤토리 표 |
+| 테스트 | `Test Files 85 passed (85)` · `Tests 1918 passed (1918)` (SS5 뒤 84/1893 → 새 파일 `scripts/ss6.test.mjs`, 새 테스트 `v121` SS6 13 + `ss6.test.mjs` 13) |
+| Astryx 인벤토리 | `✓ Astryx를 안 읽는 화면 파일: 8 → 1` · `✓ 인라인 스타일: 26 → 8` · `✓ legacy 클래스 쓰임: 103 → 11` · `✓ 안 쓰는 legacy 선택자: 0 → 0` (PLAN 표와 같다) |
+| 첫 화면 | `node scripts/first-load.mjs` — 합 **354.41**kB gzip(한계 360). `CodeBlock`·`Link`는 `src/ax/settings.tsx`(설정 청크)에만 있다 |
+| 수정표 밖 | `rr3`(`.screen` 규칙이 없다 — 아래 `.ax-screen`만), `rr10`(space.css 유틸 둘만), `ss4`·`ss5`(`.pill*`·`.segment` 남아 있다 → 없다), `ss5`(`INSET_SCENES` 뒤에 `'settings'`), `inputProps`(맨 입력 0개 — 세기 대신 정규식이 태그를 잡는지), `v117`(`v121.test.ts`가 패키지 이름 글자를 담는다), `v119` QQ6(정적 검사 삭제·새 줄 안 버튼), `v120` RR3(`settings.tsx`), `ui-space.mjs` 정적 검사(`.screen` 갈래 삭제) |
+
+### 옮긴 스캔 (이름·전→후·같은 뜻인 이유)
+
+| 이름 | 전 | 후 | 같은 뜻인 이유 |
+|---|---|---|---|
+| `polish` BB5 | `<p className="screen-sub">`의 글 | 제목(설정) 다음 `Text` 안의 글이 `v{__APP_VERSION__}` | 버전 줄이 리터럴이 아니라는 뜻 그대로 |
+| `v116` NN2 | `편집 </button>` 앞 400자에 `disabled` | `label="편집"`이 든 `<Button` 태그(`/>`까지 — `=>`·`>`에서 안 끊는다)에 `isDisabled={openSession !== null}` | 진행 중 세션이면 편집이 막힌다 |
+| `v116` NN4 | 삭제 앞 200자에 `btn-danger` | `btn-danger`또는 `variant="destructive"` | 위험한 버튼 |
+| `ui-space.test.mjs:44` | 세 장면 모두 띠·탭 쌍 | `settings`만 따로 `['bar','tab-indicator','tab-content','button','card']` | PLAN 그대로 |
+| 안 고치고 통과 | `soundCancel`·`v18` CC16·`v116` 나머지·`backupTime`·`dietExport`·`legacy-scope` RRM | — | PLAN대로 |
+
+### PLAN과 다르게 한 것 (이유)
+
+1. **내보내기 기간 다섯은 `SegmentedControl`이 아니라 `ToggleButton` 줄바꿈 줄**(분석 종목 칩과 같은 `ax-toggle`). 390 폭에서 `SegmentedControl`이 글자를 줄임표로 잘랐다(흐름 `한 줄 부품 …` 실측: "최근 2주"…"전체"). 그래서 화면 파일의 `<SegmentedControl`은 PLAN의 다섯(Phase·소리 크기·음악·이완 초·준비 시간)이다.
+2. `Row`에 `isListItem`(기본 true)을 더했다 — `Collapsible` 펼침 줄이 버튼이라 안에 `role=listitem`이 있으면 axe `aria-required-parent` 6건.
+3. 진단 카드는 글자를 `type="supporting"`으로, 마지막 `시드 주입` 줄은 `Rows` 밖 `HStack`으로 뒀다(안쪽 대칭 위 15·아래 17 → 통과). 진단 값은 전부 그대로.
+4. `템포 3-1-1-1`·`스위치·볼륨·출력`은 `.ax-nowrap` 스팬으로 감쌌다(하이픈·가운뎃점 뒤에서 꺾임 — 글자는 그대로).
+5. `ui-space`의 내용 상자는 스크롤 칸(overflow auto·scroll) 안 글자를 칸 상자로 자른다(CodeBlock 안 글자가 카드 안쪽 아래를 -535로 만들었다). 글자 중간 꺾임 검사는 `pre`(코드 데이터)를 센다에서 뺐다.
+6. **앞에서 조용히 건너뛰던 `sheet-tempo` 장면이 옛 `.card` 선택자 때문에 건너뛰어지고 있었다** — 스위치로 고쳤고 `SS6 템포 가이드 켜기`가 건너뛰어지면 실패로 센다.
+7. 경계 중 `Phase 3·진행 중 세션·루틴 하나뿐·저장 공간 모름`은 흐름으로 쟀다. **`전환 조건 전부 충족(전환 버튼)`과 `시드 문제`는 실행으로 못 쟀다**(조건 충족엔 기록 수십 개, 시드 문제는 DB 훼손이 필요) — 소스 스캔(`Phase ${readiness.to}로 전환`·`Banner status="error"`)만. 사람 확인 목록에 넣는다.
+
+### PLAN 검증 항목 ↔ 확인
+
+| PLAN 검증 | 확인 |
+|---|---|
+| 일곱 파일 `className` ax-·`style=`·`<button`·`<input`·`<a `·`<pre`·`var(--`·`padding=` 0건 | `v121 SS6: 일곱 파일에 …` |
+| 순서 | `v121 SS6: 순서 …` · `소리·템포 묶음이 …` · 묶음 제목 원문 `설정 화면은 묶음 제목 넷(원문)…` |
+| `<Switch` 하나·`<SegmentedControl` 다섯·`.map` 안 | `v121 SS6: <Switch가 하나 …` |
+| `EXPECTED_PAIRS`·`SYMMETRY_JUDGED` | `ss6.test.mjs` 첫 `ui-check의 설정 검사` · `ui-space.test.mjs` |
+| 옮긴 스캔 | 위 표 |
+| `ui-check` 설정 열 장면 | 아래 |
+| 흐름 ①~⑨·경계 | 아래 |
+| `KNOWN_FAILURES` 빈 배열·`알려진 실패 0건` | `ss0.test.mjs` `v121 SS6: KNOWN_FAILURES는 빈 배열이다`, 출력 `알려진 실패 0건` |
+| 속성 테스트 | 판정·계산 함수를 안 만들고 안 고쳤다 — 대상 없음 |
+
+### ui-check
+
+전체 `after --check --ver=v1.21`을 한 번 돌렸다(흐름 통과 229, 장면 실패 0건, `알려진 실패 0건`). 그 실행의 실패는 `SS6 … 한 줄 부품 …` 네 개뿐이었고(토글 버튼 숨은 사본이 글자 2줄로 세어짐 · `[role=radio]` 상자 넘침 오탐) 검사를 고친 뒤 설정 네 장면(`--only=settings,settings-gist,settings-routines,settings-export-preview`)만 다시 돌려 **종료 코드 0**을 확인했다. 전체 재실행은 하지 않았다(검사 도구 두 줄만 바뀜 — 지휘자·리뷰어가 전체를 한 번 더 돌려도 좋다).
+`settings-export-preview`의 `접근성`·`눌림 반응` 통과, `줄 안 버튼`(편집·이 루틴 쓰기·삭제) 통과, 390·375 폭 글자 중간 꺾임 0건(`settings` 1663자·`settings-gist` 1613자·`reset-confirm` 1688자·`routines` 1683자). 오류 글자색: 초기화 확인 문구 = 오류 토큰(다크 `rgb(255, 174, 167)` · 라이트 `rgb(192, 38, 44)`).
+`onboarding-standalone '시작하기' 5초 초과`는 이번 실행에 나오지 않았다(재현 못 함).
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 것 | 원상복구 |
+|---|---|---|
+| ⑯ `GistPanel`을 소리 위로 | `v121 SS6: 순서 …` | `cmp` 같음 |
+| 편집 `isDisabled` 제거 | `v116` NN2 · `v121 SS6: 미리 듣기 둘은 … 편집은 …` | `cmp` 같음 |
+| 삭제 버튼 `destructive` → `secondary` | `v116` NN4 · `v121 SS6: 위험한 버튼은 …` | `cmp` 같음 |
+| 초기화 문구 `ax-text-error` 제거 | `v121 SS6: 오류·성공 글자 …` | `cmp` 같음 |
+| `global.css`에 `.pill` 되살림 | `ss6.test.mjs` 지운 규칙 · `ss4`·`ss5` | `cmp` 같음 |
+| `index.tsx`에 `CodeBlock` 내보내기 | `v121 SS6: CodeBlock·Link는 index.tsx가 아니라 …` | `cmp` 같음 |
+| ⑰ 루틴 줄 버튼 `width="100%"`·⑱ 묶음을 `VStack gap={5}`로 | **하지 않았다**(ui-check 한 번에 6분 — 실행 결과가 필요한 둘이라 못 돌렸다) | — |
+
+### 과거 판정 불변·하지 않은 것
+
+- `git diff --stat main -- src/db src/store src/lib`는 테스트 파일뿐(판정·계산 코드 불변), 변이 테스트 대상 없음.
+- 무관한 스크린샷은 `git show HEAD:<경로>`로 되돌렸다.
+- 하지 않은 것: 결함 복원 ⑰⑱의 ui-check 확인, 전체 ui-check 재실행, `전환 버튼`·`시드 문제` 실행 확인.
+- 실기기 확인: 템포 스위치 1탭, 내보내기 공유·복사, 미리 듣기 소리, Gist 토큰 붙여넣기(키보드가 카드를 가리지 않는지).
+
+### 실행 결과 요약
+
+- `npm run check` 통과. `Test Files  85 passed (85)`, `Tests  1918 passed (1918)`. 빌드 성공. `git rev-list --count main..HEAD`: 커밋 전 19 → 이 커밋 후 20.

@@ -159,34 +159,29 @@ describe("QQ5 — 인라인 여백을 클래스로", () => {
   })
 })
 
-describe("QQ6 — 카드 줄 안의 버튼을 작게", () => {
-  // .css는 vitest에서 빈 문자열이라(제약 3) global.css 규칙은 ui-check 정적 검사(rowButtonStaticChecks)가 읽는다.
-  // 여기서는 그 검사가 규칙 두 개를 다 보고 ui-check에 물려 있는지, 화면 검사가 .row > .btn을 재는지를 잠근다.
+describe("QQ6 — 카드 줄 안의 버튼을 작게 (SS6: .row > .btn 정적 검사는 legacy와 함께 지우고 Row 오른쪽 칸 안 Astryx 버튼을 잰다)", () => {
   const LIB = import.meta.glob("/scripts/lib/ui-check-lib.mjs", { query: "?raw", import: "default", eager: true }) as Record<string, string>
   const code = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
   const lib = () => code(LIB["/scripts/lib/ui-check-lib.mjs"])
 
-  it("정적 검사가 .row > .btn이 .btn-sm과 같은 선택자 목록에 있는지 본다", () => {
-    expect(lib()).toContain("rowButtonStaticChecks")
-    expect(lib()).toMatch(/\.btn-sm/)
-    expect(lib()).toContain("'.row > .btn'")
+  it("정적 검사(rowButtonStaticChecks)가 없다 — 지울 legacy 규칙이 없다", () => {
+    expect(lib()).not.toContain("rowButtonStaticChecks")
+    expect(lib()).not.toContain("'.row > .btn'")
   })
 
-  it("정적 검사가 .row > .btn 규칙의 width: auto와 flex-shrink: 0을 본다", () => {
-    expect(lib()).toContain("width:\\s*auto")
-    expect(lib()).toContain("flex-shrink:\\s*0")
-  })
-
-  it("줄 안 버튼 검사가 폭 절반·높이 44·한 줄을 재고, 0개면 실패한다", () => {
+  it("줄 안 버튼 검사가 Row의 오른쪽 칸 안 Astryx 버튼의 폭 절반·한 줄·줄 안을 재고, 0개면 실패한다", () => {
     expect(lib()).toContain("inPageRowButtons")
-    expect(lib()).toMatch(/row\.width \/ 2/)
-    expect(lib()).toMatch(/b\.height < 44/)
+    expect(lib()).toContain('[role="listitem"]')
+    expect(lib()).toContain("lastElementChild")
+    expect(lib()).toMatch(/r\.width \/ 2/)
+    expect(lib()).toMatch(/lines > 1/)
     expect(lib()).toMatch(/n === 0\) return \{ ok: false/)
   })
 
-  it("ui-check.mjs가 정적 검사와 줄 안 버튼 검사를 부른다", () => {
+  it("ui-check.mjs가 줄 안 버튼 검사를 설정 장면에서 부르고 정적 검사는 안 부른다", () => {
     const text = code(SCRIPTS["/scripts/ui-check.mjs"])
-    expect(text).toMatch(/rowButtonStaticChecks\(allCss\)/)
+    expect(text).not.toMatch(/rowButtonStaticChecks/)
     expect(text).toMatch(/inPageRowButtons/)
+    expect(text).toMatch(/ROW_BUTTON_SCENES = \['settings', 'settings-routines'\]/)
   })
 })

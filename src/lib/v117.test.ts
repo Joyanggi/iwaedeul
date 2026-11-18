@@ -87,7 +87,7 @@ describe("OO2 — Astryx 바탕", () => {
     const offenders = Object.keys(SOURCES).filter(
       (p) => !p.startsWith("/src/ax/") && p !== "/src/lib/v117.test.ts" &&
         // v1.20 RR11: theme-color 값을 테마 패키지와 글자 그대로 견주는 테스트만 패키지를 직접 읽는다(PLAN RR11 검증)
-        p !== "/src/lib/v120.test.ts" && /@astryxdesign\//.test(stripComments(SOURCES[p])),
+        p !== "/src/lib/v120.test.ts" && p !== "/src/lib/v121.test.ts" && /* v1.21 SS6: settings.tsx가 패키지에서 읽는다는 글자를 견주는 테스트 */ /@astryxdesign\//.test(stripComments(SOURCES[p])),
     )
     expect(offenders).toEqual([])
   })

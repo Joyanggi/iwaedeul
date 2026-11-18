@@ -243,39 +243,40 @@ export const inPagePressStyle = (i) => {
   }
 }
 
-/** 줄 안 버튼 (QQ6): 보이는 `.row > .btn`마다 폭이 줄 폭의 절반 미만, 높이 44px 이상, 글자 한 줄. 0개면 실패(아무것도 안 쟀다). */
+/**
+ * 줄 안 버튼 (QQ6, SS6에서 새 정의): 카드 안 줄(`Row` — `[role="listitem"]`)의 오른쪽 칸 안 Astryx 버튼마다 폭이 줄 폭의 절반 미만, 줄 안에 들고, 글자 한 줄.
+ * 오른쪽 칸 = 줄의 마지막 자식. 줄의 첫 자식(이름 칸) 안의 버튼은 재지 않는다. 0개면 실패(아무것도 안 쟀다).
+ */
 export const inPageRowButtons = () => {
   const bad = []
   let n = 0
-  for (const el of document.querySelectorAll('.row > .btn')) {
-    if (!window.__vis(el)) continue
-    n++
-    const row = el.parentElement.getBoundingClientRect()
-    const b = el.getBoundingClientRect()
-    const range = document.createRange()
-    range.selectNodeContents(el)
-    const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size
-    const why = []
-    if (b.width >= row.width / 2) why.push(`폭 ${Math.round(b.width)}px ≥ 줄 ${Math.round(row.width)}px의 절반`)
-    if (b.height < 44) why.push(`높이 ${Math.round(b.height)}px < 44`)
-    if (lines > 1) why.push(`글자 ${lines}줄`)
-    if (why.length) bad.push(`${el.textContent.trim()} (${why.join(', ')})`)
+  for (const row of document.querySelectorAll('[role="listitem"]')) {
+    if (!window.__vis(row) || row.children.length < 2) continue
+    const end = row.lastElementChild
+    for (const el of end.querySelectorAll("button[class*='astryx-']")) {
+      if (!window.__vis(el)) continue
+      n++
+      const r = row.getBoundingClientRect()
+      const b = el.getBoundingClientRect()
+      // 줄 수는 버튼 안 글자 노드의 상자로 센다(바깥 감싸개 상자까지 세면 한 줄도 여러 줄로 읽힌다)
+      const tops = new Set()
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+      for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+        if (!t.nodeValue.trim()) continue
+        const range = document.createRange()
+        range.selectNodeContents(t)
+        for (const c of range.getClientRects()) if (c.width > 0.5) tops.add(Math.round(c.top))
+      }
+      const lines = tops.size
+      const why = []
+      if (b.width >= r.width / 2) why.push(`폭 ${Math.round(b.width)}px ≥ 줄 ${Math.round(r.width)}px의 절반`)
+      if (b.left < r.left - 0.5 || b.right > r.right + 0.5) why.push('줄 밖으로 나감')
+      if (lines > 1) why.push(`글자 ${lines}줄`)
+      if (why.length) bad.push(`${el.textContent.trim()} (${why.join(', ')})`)
+    }
   }
-  if (n === 0) return { ok: false, detail: '보이는 .row > .btn이 0개 — 검사가 아무것도 안 쟀다' }
+  if (n === 0) return { ok: false, detail: '보이는 줄 오른쪽 칸 안 Astryx 버튼이 0개 — 검사가 아무것도 안 쟀다' }
   return { ok: bad.length === 0, detail: bad.length ? bad.join(' · ') : `${n}개 통과` }
-}
-
-/** QQ6 정적 검사: global.css에서 .row > .btn이 .btn-sm과 같은 선택자 목록에 있고, 자기 규칙에 width: auto·flex-shrink: 0이 있다. */
-export function rowButtonStaticChecks(allCss) {
-  const text = Object.entries(allCss).filter(([p]) => p.endsWith('global.css')).map(([, t]) => t).join('\n').replace(/\/\*[\s\S]*?\*\//g, '')
-  const rules = [...text.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].split(',').map((x) => x.trim()), body: m[2] }))
-  const shared = rules.some((r) => r.sel.includes('.btn-sm') && r.sel.includes('.row > .btn'))
-  const own = rules.filter((r) => r.sel.length === 1 && r.sel[0] === '.row > .btn')
-  const ownOk = own.length === 1 && /width:\s*auto/.test(own[0].body) && /flex-shrink:\s*0/.test(own[0].body)
-  return [
-    { name: '줄 안 버튼 선택자', ok: shared, detail: shared ? '.row > .btn이 .btn-sm 규칙에 있다' : '.row > .btn이 .btn-sm과 같은 선택자 목록에 없다' },
-    { name: '줄 안 버튼 폭', ok: ownOk, detail: ownOk ? 'width: auto · flex-shrink: 0' : '.row > .btn 규칙이 없거나 width: auto·flex-shrink: 0이 빠졌다' },
-  ]
 }
 
 /** 여백 격자: 계산된 padding·margin-top/bottom·gap이 0이거나 2px의 배수 */
@@ -777,14 +778,11 @@ export const inPageNotClipped = (needle) => {
 }
 
 /**
- * 알려진 실패 (PLAN v1.21 개정 1). SS0 before --check가 처음 드러낸 legacy 화면의 칸 실패 셋 — SS5가 분석의 하나를 고쳐 지웠고 설정의 둘이 남았다(SS6까지).
+ * 알려진 실패 (PLAN v1.21 개정 1). SS0 before --check가 처음 드러낸 legacy 화면의 칸 실패 셋 — SS5가 분석의 하나를, SS6이 설정의 둘을 고쳐 지웠다. 지금은 빈 배열이다(SS8이 빈 목록과 함수를 지운다).
  * 그 화면을 옮기는 작업(until)이 고치고 **같은 커밋에서 항목을 지운다**. 늘리지 않는다 — 다른 실패는 멈추고 보고한다.
  * detail은 `- 실패 <장면> · <칸>: ` 뒤 글자 그대로.
  */
-export const KNOWN_FAILURES = [
-  { scene: 'settings-export-preview', column: '접근성', detail: 'scrollable-region-focusable 1건 [pre]', until: 'SS6' },
-  { scene: 'settings-export-preview', column: '눌림 반응', detail: '1/5건: "GitHub에서 토큰 발급" .ext-link 변화 없음', until: 'SS6' },
-]
+export const KNOWN_FAILURES = []
 
 /**
  * 알려진 실패를 `알려진 실패` 상태로 바꾼다(숨기기만 하고 만들지 않는다). rows는 건드리지 않고 새 배열을 돌려준다.

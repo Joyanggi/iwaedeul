@@ -24,9 +24,10 @@ describe('v121 SS5 — 지운 것', () => {
     expect(bad).toEqual([])
   })
 
-  it('v121 SS5: 설정·내보내기·Gist·온보딩이 아직 쓰는 .segment·.pill*·.warn-box는 남아 있다', () => {
+  it('v121 SS5: SS6 뒤 .segment·.pill*는 없고 온보딩이 쓰는 .warn-box만 남는다', () => {
     const all = selectors(globalCss).join('\n')
-    for (const keep of ['.segment', '.pill-row', '.pill', '.pill-on', '.warn-box']) expect(all, keep).toContain(keep)
+    for (const gone of ['.segment', '.pill']) expect(all, gone).not.toContain(gone)
+    expect(all).toContain('.warn-box')
   })
 
   it('v121 SS5: legacy 뿌리 목록에 .center-note가 없고 인벤토리에 recharts-surface 예외가 없다(맞춤이 parts.css의 .ax-chart로 갔다)', () => {
@@ -87,7 +88,7 @@ describe('v121 SS5 — ui-check의 분석 검사', () => {
   it('v121 SS5: 분석 네 장면은 안쪽 대칭을 판정하고 카드 안쪽을 다른 장면과 견준다', () => {
     expect(uiCheck).toContain("const ANALYZE_SCENES = ['analyze', 'analyze-end', 'analyze-375', 'analyze-empty']")
     expect(uiCheck).toMatch(/SYMMETRY_JUDGED = new Set\(\[[^\]]*\.\.\.ANALYZE_SCENES/)
-    expect(uiSpace).toMatch(/INSET_SCENES = new Set\(\[[^\]]*'analyze'\]/)
+    expect(uiSpace).toMatch(/INSET_SCENES = new Set\(\[[^\]]*'analyze'/) // SS6: 뒤에 'settings'가 붙었다
     for (const s of ['analyze', 'analyze-end', 'analyze-375', 'analyze-empty']) expect(uiSpace, s).toContain(`${s === 'analyze' ? '' : "'"}${s}${s === 'analyze' ? '' : "'"}: [`)
   })
 })

@@ -6,7 +6,7 @@
 const STEPS = new Set([0, 2, 4, 6, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48])
 const strip = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '')
 
-/** 정적 검사: global.css 여백 값이 Astryx 단계에 든다 · 틀의 좌우가 --inset-을 쓴다 · space.css 토큰 순서 */
+/** 정적 검사: global.css 여백 값이 Astryx 단계에 든다 · 틀의 좌우가 --inset-을 쓴다(SS6 뒤 legacy 틀 `.screen`은 없다 — 온보딩 `.card`만 남는다) · space.css 토큰 순서 */
 export function spaceStaticChecks(allCss) {
   const out = []
   const add = (name, ok, detail) => out.push({ name, ok, detail })
@@ -31,10 +31,10 @@ export function spaceStaticChecks(allCss) {
   add('global.css 여백 값이 전부 Astryx 단계(0·2·4·6·8·12·16·20·24·28·32·36·40·44·48)', bad.length === 0, bad.length ? bad.slice(0, 6).join(' · ') + (bad.length > 6 ? ` 외 ${bad.length - 6}` : '') : '단계 밖 0건')
   // 2. 틀의 좌우 여백이 var(--inset-
   const body = (css, sel) => (css === undefined ? null : (strip(css).match(new RegExp(`(?:^|\\n)\\s*${sel.replace('.', '\\.')}\\s*\\{([^{}]*)\\}`))?.[1] ?? null))
-  const miss = ['.screen', '.card'].filter((s) => !/var\(--inset-/.test(body(g, s) ?? ''))
+  const miss = ['.card'].filter((s) => !/var\(--inset-/.test(body(g, s) ?? ''))
   const axBody = ax === undefined ? null : (strip(ax).match(/\.ax-screen\s*\{([^{}]*)\}/)?.[1] ?? null)
   if (!/var\(--inset-/.test(axBody ?? '')) miss.push('.ax-screen')
-  add('.screen·.ax-screen·.card의 좌우 여백이 var(--inset-)', miss.length === 0, miss.length ? `안 씀: ${miss.join(', ')}` : '셋 다 씀')
+  add('.ax-screen·.card의 좌우 여백이 var(--inset-)', miss.length === 0, miss.length ? `안 씀: ${miss.join(', ')}` : '둘 다 씀')
   add('.ax-screen 좌우가 --inset-screen (두 체계가 같은 값)', /var\(--inset-screen\)/.test(axBody ?? ''), /var\(--inset-screen\)/.test(axBody ?? '') ? 'var(--inset-screen)' : '안 씀')
   // 3. space.css 토큰 값 순서
   if (sp === undefined) return [...out, { name: 'space.css 있음', ok: false, detail: '없음' }]
@@ -127,7 +127,7 @@ export function spaceRoleVerdicts(layouts, judged = new Set()) {
   const sections = SCREENS.flatMap((s) => (layouts[s]?.sectionGaps ?? []).map((g) => [s, g]))
   const sectionSet = [...new Set(sections.map((p) => p[1]))]
   // 카드 안쪽은 Astryx `Card`를 쓰는 장면끼리만 견준다(홈 RR4 · 루틴 편집). 안 옮긴 화면은 legacy `.card`라 값이 다르고, 옮기는 작업(RR5~RR9)이 이 목록에 더한다
-  const INSET_SCENES = new Set(['home', 'home-375', 'home-banner', 'summary', 'editor', 'diet', 'history', 'analyze'])
+  const INSET_SCENES = new Set(['home', 'home-375', 'home-banner', 'summary', 'editor', 'diet', 'history', 'analyze', 'settings'])
   const inset = SCREENS.filter((s) => INSET_SCENES.has(s) && layouts[s]?.cardInset != null).map((s) => [s, layouts[s].cardInset])
   const insetScenes = new Set(inset.map((p) => p[0]))
   const sectionScenes = new Set(sections.map((p) => p[0]))
@@ -176,7 +176,14 @@ export const inPageInsetSymmetry = () => {
       if (!n.nodeValue.trim() || !n.parentElement || !vis(n.parentElement)) continue
       const range = document.createRange()
       range.selectNodeContents(n)
-      add(range.getBoundingClientRect())
+      // 스크롤 칸(overflow auto·scroll) 안의 글자는 칸 상자로 자른다 — 안 보이는 부분까지 내용으로 세지 않는다(SS6 내보내기 미리보기)
+      let r = range.getBoundingClientRect()
+      for (let a = n.parentElement; a && a !== root; a = a.parentElement) {
+        if (!/auto|scroll/.test(getComputedStyle(a).overflowY)) continue
+        const c = a.getBoundingClientRect()
+        r = { top: Math.max(r.top, c.top), bottom: Math.min(r.bottom, c.bottom), left: Math.max(r.left, c.left), right: Math.min(r.right, c.right), width: Math.min(r.right, c.right) - Math.max(r.left, c.left), height: Math.min(r.bottom, c.bottom) - Math.max(r.top, c.top) }
+      }
+      add(r)
     }
     // 입력칸의 상자는 눈에 보이는 테두리 상자다(Astryx 입력칸은 <input>이 테두리 상자 안쪽에 들어 있어 <input>만 재면 아래가 헐겁게 읽힌다 — SS2 메모 카드)
     const fieldBox = (el) => {
@@ -253,7 +260,17 @@ export const EXPECTED_PAIRS = {
   'home-banner': ['bar', 'tab-indicator', 'tab-content', 'button', 'card'],
   'home-resume': ['bar', 'tab-indicator', 'tab-content'],
   'home-safe': ['bar', 'tab-indicator', 'tab-content'],
-  settings: ['bar', 'tab-indicator', 'tab-content'],
+  // SS6: 설정 탭 전체가 Astryx다 — 아래 띠·탭, 카드, 버튼(편집·미리 듣기·내보내기). 뱃지는 Day를 펼친 장면에만 있어 기대에 넣지 않는다
+  settings: ['bar', 'tab-indicator', 'tab-content', 'button', 'card'],
+  'settings-375': ['button', 'card'],
+  'settings-open': ['button', 'card'],
+  'settings-end': ['button', 'card'],
+  'settings-routines': ['button', 'card'],
+  'settings-routines-375': ['button', 'card'],
+  'settings-routines-confirm-375': ['button', 'card'],
+  'settings-gist': ['button', 'card'],
+  'settings-export-preview': ['button', 'card'],
+  'settings-reset-confirm': ['button', 'card'],
   editor: ['button'],
   // SS2: 식단 탭 — 아래 띠·탭, 끼니 카드, 버튼(플랜·삭제·추가). 편집기가 든 기록 장면(legacy 화면 안의 섬)은 카드·버튼만
   diet: ['bar', 'tab-indicator', 'tab-content', 'button', 'card'],

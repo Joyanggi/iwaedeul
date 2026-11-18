@@ -161,10 +161,11 @@ export function TextField({ isNumeric = false, isProminent = false, ...props }: 
  * 카드 안 한 줄 — 이름(+뱃지)·설명·오른쪽 끝 값. ListItem을 안 쓴 이유: ListItem은 줄마다 위·아래 안쪽 여백 8px이 있어
  * 카드의 마지막 줄 아래가 제목 위보다 9px 넓어졌다(ui-check 안쪽 대칭 실측). 줄 사이 간격은 VStack gap 하나다.
  * label·description은 Text 노드로 넘긴다 — 긴 글이 잘리지 않게.
+ * `isListItem={false}`: `Rows` 밖(`Collapsible`의 펼침 줄 안 — 버튼 안에 listitem 역할을 두면 axe가 막는다)에서 쓸 때.
  */
-export function Row({ label, description, end }: { label: ReactNode; description?: ReactNode; end?: ReactNode }) {
+export function Row({ label, description, end, isListItem = true }: { label: ReactNode; description?: ReactNode; end?: ReactNode; isListItem?: boolean }) {
   return (
-    <HStack role="listitem" gap={3} align="start" justify="between">
+    <HStack role={isListItem ? 'listitem' : undefined} gap={3} align="start" justify="between">
       <VStack gap={1}>
         {label}
         {description}

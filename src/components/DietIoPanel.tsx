@@ -6,6 +6,7 @@ import { formatPlanLabel, planTotals } from '../lib/diet'
 import { pickTextFile } from '../lib/pickFile'
 import { OUTCOME_MESSAGE, shareFile } from '../lib/share'
 import type { DietPlan } from '../types'
+import { Banner, Button, Card, HStack, Text, VStack } from '../ax'
 
 /**
  * 식단 플랜 JSON 가져오기/내보내기 (D4).
@@ -96,75 +97,69 @@ export default function DietIoPanel({ plans }: { plans: DietPlan[] }) {
   }
 
   return (
-    <div className="card">
-      <div className="card-label">식단 플랜 JSON</div>
+    <Card>
+      <VStack gap={3}>
+        <Text type="supporting" color="secondary">
+          식단 플랜 JSON
+        </Text>
 
-      {problems.length > 0 && (
-        <div className="banner banner-danger" style={{ alignItems: 'flex-start' }}>
-          <span>
-            정합성 검사 실패 — 가져오지 않았습니다
-            <br />
-            {problems.map((p) => (
-              <small key={p}>
+        {problems.length > 0 && (
+          <Banner
+            status="error"
+            title="정합성 검사 실패 — 가져오지 않았습니다"
+            collapsible={false}
+            description={problems.map((p) => (
+              <span key={p}>
                 {p}
                 <br />
-              </small>
+              </span>
             ))}
-          </span>
-        </div>
-      )}
+          />
+        )}
 
-      {staged && (
-        <div className="banner banner-info" style={{ alignItems: 'flex-start' }}>
-          <span>
-            {staged.name}
-            <br />
-            {staged.plans.map((p) => {
+        {staged && (
+          <Banner
+            status="info"
+            title={staged.name}
+            collapsible={false}
+            description={staged.plans.map((p) => {
               const { kcal, proteinG } = planTotals(p)
               return (
-                <small key={p.id}>
+                <span key={p.id}>
                   {p.name} — {kcal.toLocaleString()}kcal · 단백질 {proteinG}g
                   <br />
-                </small>
+                </span>
               )
             })}
-          </span>
-        </div>
-      )}
+          />
+        )}
 
-      {staged ? (
-        <div className="btn-row">
-          <button className="btn btn-primary" onClick={() => void onApply()}>
-            적용
-          </button>
-          <button className="btn" onClick={() => setStaged(null)}>
-            취소
-          </button>
-        </div>
-      ) : (
-        <div className="btn-row">
-          <button className="btn" onClick={() => void onExport()}>
-            현재 플랜 내보내기
-          </button>
-          <button className="btn" onClick={() => void onPick()}>
-            플랜 가져오기
-          </button>
-        </div>
-      )}
+        {staged ? (
+          <HStack gap={2}>
+            <Button variant="primary" size="sm" label="적용" onClick={() => void onApply()} />
+            <Button variant="secondary" size="sm" label="취소" onClick={() => setStaged(null)} />
+          </HStack>
+        ) : (
+          <HStack gap={2} wrap="wrap">
+            <Button variant="secondary" size="sm" label="현재 플랜 내보내기" onClick={() => void onExport()} />
+            <Button variant="secondary" size="sm" label="플랜 가져오기" onClick={() => void onPick()} />
+          </HStack>
+        )}
 
-      <p className="row-sub mt-row">
-        제품 라벨의 실제 kcal·단백질로 보정할 때 씁니다. 요약 라벨은 항목 합계에서 다시
-        계산하므로 파일에 적은 값과 어긋날 수 없습니다.
-      </p>
-      <button className="btn btn-sm mt-row" onClick={() => void onReset()}>
-        번들 플랜으로 되돌리기
-      </button>
+        <Text type="supporting" color="secondary">
+          제품 라벨의 실제 kcal·단백질로 보정할 때 씁니다. 요약 라벨은 항목 합계에서 다시
+          계산하므로 파일에 적은 값과 어긋날 수 없습니다.
+        </Text>
+        <HStack>
+          <Button variant="secondary" size="sm" label="번들 플랜으로 되돌리기" onClick={() => void onReset()} />
+        </HStack>
 
-      {status && (
-        <p className="row-sub mt-row">
-          {status}
-        </p>
-      )}
-    </div>
+        {status && (
+          <Text type="supporting" color="secondary">
+            {status}
+          </Text>
+        )}
+      </VStack>
+    </Card>
   )
 }

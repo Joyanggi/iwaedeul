@@ -62,7 +62,6 @@ import {
   measurePress,
   motionStaticChecks,
   pressVerdict,
-  rowButtonStaticChecks,
   KNOWN_FAILURES,
   applyKnownFailures,
 } from './lib/ui-check-lib.mjs'
@@ -138,7 +137,11 @@ const DIET_SCENES = ['diet', 'diet-end', 'diet-375', 'diet-log-open', 'diet-stre
 const HISTORY_SCENES = ['history', 'history-375', 'history-day', 'history-exercise', 'history-exercise-detail', 'history-detail', 'history-detail-end', 'history-detail-change', 'history-detail-edit']
 /** 분석(SS5) — 분석 탭 네 장면. 카드·뱃지·버튼 쌍을 판정한다(분석 화면 전체가 Astryx다) */
 const ANALYZE_SCENES = ['analyze', 'analyze-end', 'analyze-375', 'analyze-empty']
-const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...DIET_SCENES, ...HISTORY_SCENES, ...ANALYZE_SCENES, ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SHEET_SCENES, ...SESSION_SCENES, ...SUMMARY_SCENES, 'session-open-b', 'home-safe', 'session-safe', 'settings'])
+/** 설정(SS6) — 설정 탭 열 장면. 카드·버튼 쌍을 판정한다(설정 화면 전체가 Astryx다) */
+const SETTINGS_SCENES = ['settings', 'settings-375', 'settings-open', 'settings-end', 'settings-routines', 'settings-routines-375', 'settings-routines-confirm-375', 'settings-gist', 'settings-export-preview', 'settings-reset-confirm']
+/** 카드 안 줄(Row) 오른쪽 칸에 버튼이 있는 장면 — 줄 안 버튼을 잰다(SS6) */
+const ROW_BUTTON_SCENES = ['settings', 'settings-routines']
+const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...DIET_SCENES, ...HISTORY_SCENES, ...ANALYZE_SCENES, ...SETTINGS_SCENES, ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SHEET_SCENES, ...SESSION_SCENES, ...SUMMARY_SCENES, 'session-open-b', 'home-safe', 'session-safe'])
 /** 판정을 켠 쌍 종류. 나머지 종류는 장면이 Astryx여도 기록만 한다(card·badge = RR4, set-row = RR7, sheet = RR5 — 세션 장면은 RR6부터 button·bar를 판정하고, 운동 카드 안의 card·badge·set-row는 RR7 전까지 기록만) */
 const SYMMETRY_KINDS = new Set(['button', 'bar', 'tab-indicator', 'tab-content'])
 /** 홈(RR4)은 카드·뱃지 쌍도 판정한다 */
@@ -232,7 +235,7 @@ async function newColumns(page, scene, cells, light) {
   }
   if (scene === 'analyze') chartColors[scene] = { ...chartColors[scene], [light ? 'light' : 'dark']: await page.evaluate(inPageChartColors) }
   const pairs = await page.evaluate(inPageInsetSymmetry)
-  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : (HOME_SHEET_SCENES.includes(scene) || SESSION_SHEET_SCENES.includes(scene)) ? HOME_SHEET_SYMMETRY_KINDS : (CARD_SCENES.includes(scene) || SUMMARY_SCENES.includes(scene)) ? CARD_SYMMETRY_KINDS : (DIET_SCENES.includes(scene) || HISTORY_SCENES.includes(scene) || ANALYZE_SCENES.includes(scene)) ? HOME_SYMMETRY_KINDS : SYMMETRY_KINDS
+  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : (HOME_SHEET_SCENES.includes(scene) || SESSION_SHEET_SCENES.includes(scene)) ? HOME_SHEET_SYMMETRY_KINDS : (CARD_SCENES.includes(scene) || SUMMARY_SCENES.includes(scene)) ? CARD_SYMMETRY_KINDS : (DIET_SCENES.includes(scene) || HISTORY_SCENES.includes(scene) || ANALYZE_SCENES.includes(scene) || SETTINGS_SCENES.includes(scene)) ? HOME_SYMMETRY_KINDS : SYMMETRY_KINDS
   const judgedPairs = pairs.filter((p) => kinds.has(p.kind))
   const sym = insetSymmetryVerdict(SYMMETRY_JUDGED.has(scene) ? judgedPairs : pairs, EXPECTED_PAIRS[scene] ?? [])
   const rest = SYMMETRY_JUDGED.has(scene) ? insetSymmetryVerdict(pairs.filter((p) => !kinds.has(p.kind)), []) : null
@@ -280,9 +283,8 @@ async function runChecks(page, scene) {
   const docOver = await page.evaluate(inPageOverflow)
   const innerOver = await page.evaluate(inPageInnerOverflow)
   cells['가로 넘침'] = verdict({ ok: docOver.ok && innerOver.ok, detail: `${docOver.detail} · ${innerOver.detail}` })
-  // 줄 안 버튼은 .row > .btn이 있는 장면(settings)에서만 잰다. 그 장면에서 0개면 실패
-  const rowBtns = await page.evaluate(() => document.querySelectorAll('.row > .btn').length)
-  cells['줄 안 버튼'] = rowBtns || scene === 'settings' ? verdict(await page.evaluate(inPageRowButtons)) : { status: '건너뜀', detail: '이 장면에 줄 안 버튼이 없다' }
+  // 줄 안 버튼은 카드 안 줄(Row)에 버튼이 있는 설정 장면에서만 잰다. 그 장면에서 0개면 실패 (PLAN v1.21 SS6)
+  cells['줄 안 버튼'] = ROW_BUTTON_SCENES.includes(scene) ? verdict(await page.evaluate(inPageRowButtons)) : { status: '건너뜀', detail: '이 장면에 줄 안 버튼이 없다' }
   await newColumns(page, scene, cells, false)
   cells['띠'] = await barsVerdict(page, scene)
   cells['시트 버튼'] = await sheetButtonsCell(page, scene, false)
@@ -367,6 +369,8 @@ function inPageMidWordBreaks(rootSelector = 'dialog[open]') {
   let prevTop = null
   let prevParent = null
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    // 코드 칸(pre — 내보내기 미리보기)의 글은 문장이 아니라 데이터다. 줄을 감싸 하이픈·줄표 뒤에서 꺾이는 것이 맞다(SS6)
+    if (n.parentElement?.closest('pre')) { prevTop = null; continue }
     const t = n.textContent ?? ''
     const range = document.createRange()
     if (n.parentNode !== prevParent) prevTop = null
@@ -803,6 +807,137 @@ function inPageAnalyzeRows() {
   }
   parts.push(`대체 수행 줄 ${subs.length}개`)
   return { ok: bad.length === 0, detail: `${bad.join(', ') || '겹침·잘림·세로 가운데 문제 없음'} · ${parts.join(' · ')}` }
+}
+
+/**
+ * SS6 설정 한 줄 부품의 모양(page.evaluate용): ① 한 줄에 버튼을 모은 줄(부모의 보이는 자식이 전부 버튼): 높이가 같고 안 겹치고 부모 안에 들고 글자가 한 줄이고,
+ * 이웃 간격(같은 줄은 가로, 줄이 바뀌면 세로)이 모두 같다(±1) ② `Row`(listitem)의 이름 칸과 오른쪽 칸이 안 겹치고 오른쪽 칸이 줄 안에 든다
+ * ③ 글자가 줄임표로 잘린 요소가 없고 버튼·선택 항목이 자기 상자를 넘지 않는다 ④ 선택 묶음(radiogroup)의 항목이 안 겹치고 카드 안쪽 폭 안에 든다
+ * ⑤ 글자와 버튼이 한 줄에 같이 있으면(활성 루틴의 `v2.4 [편집]`) 세로 가운데가 맞다(±3). 버튼 줄이 0개면 실패다(빈 화면을 재고 통과하지 않는다).
+ */
+function inPageSettingsRows() {
+  const root = document.querySelector('.ax-settings')
+  if (!root) return { ok: false, detail: '.ax-settings가 없다' }
+  const vis = (e) => window.__vis(e)
+  const R = (e) => e.getBoundingClientRect()
+  const overlap = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1
+  const bad = []
+  const textTops = (el) => {
+    const tops = new Set()
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    for (let t = w.nextNode(); t; t = w.nextNode()) {
+      if (!t.nodeValue.trim() || !t.parentElement || !vis(t.parentElement)) continue // 안 보이는 사본(토글 버튼의 굵은 글씨 자리 잡기)은 세지 않는다
+      const r = document.createRange()
+      r.selectNodeContents(t)
+      for (const c of r.getClientRects()) if (c.width > 0.5) tops.add(Math.round(c.top))
+    }
+    return tops.size
+  }
+  // ① 버튼 줄
+  const parents = new Set([...root.querySelectorAll('button')].filter(vis).map((b) => b.parentElement))
+  let btnRows = 0
+  let mixedRows = 0
+  let maxCy = 0
+  for (const p of parents) {
+    const kids = [...p.children].filter(vis)
+    if (kids.length < 2) continue
+    if (kids.every((k) => k.matches('button'))) {
+      btnRows++
+      const rects = kids.map(R)
+      const pr = R(p)
+      if (Math.max(...rects.map((r) => r.height)) - Math.min(...rects.map((r) => r.height)) > 1) bad.push(`버튼 높이가 다르다 [${kids.map((k) => k.textContent.trim()).join('·')}]`)
+      for (let a = 0; a < rects.length; a++) for (let b = a + 1; b < rects.length; b++) if (overlap(rects[a], rects[b])) bad.push(`버튼 겹침 [${kids[a].textContent.trim()}·${kids[b].textContent.trim()}]`)
+      if (rects.some((r) => r.left < pr.left - 1 || r.right > pr.right + 1)) bad.push(`버튼이 줄 밖 [${kids.map((k) => k.textContent.trim()).join('·')}]`)
+      for (const k of kids) if (textTops(k) > 1) bad.push(`버튼 글자 ${textTops(k)}줄 "${k.textContent.trim()}"`)
+      const sorted = rects.map((r, i) => [r, i]).sort((x, y) => Math.round(x[0].top) - Math.round(y[0].top) || x[0].left - y[0].left).map((x) => x[0])
+      const gaps = []
+      for (let i = 1; i < sorted.length; i++) gaps.push(Math.abs(sorted[i].top - sorted[i - 1].top) < 2 ? sorted[i].left - sorted[i - 1].right : sorted[i].top - sorted[i - 1].bottom)
+      if (gaps.length && Math.max(...gaps) - Math.min(...gaps) > 1) bad.push(`버튼 이웃 간격이 다르다 ${gaps.map((g) => g.toFixed(1)).join('/')}`)
+    } else if (kids.some((k) => k.matches('button'))) {
+      // ⑤ 글자 + 버튼이 한 줄
+      mixedRows++
+      for (const b of kids.filter((k) => k.matches('button'))) {
+        const br = R(b)
+        for (const o of kids.filter((k) => !k.matches('button') && k.textContent.trim())) {
+          const orr = R(o)
+          if (Math.abs((br.top + br.bottom) / 2 - (orr.top + orr.bottom) / 2) > 3 && Math.abs(br.top - orr.top) < br.height) bad.push(`글자·버튼 세로 가운데 차이 ${Math.abs((br.top + br.bottom) / 2 - (orr.top + orr.bottom) / 2).toFixed(1)}px "${o.textContent.trim().slice(0, 8)}"`)
+          maxCy = Math.max(maxCy, Math.abs((br.top + br.bottom) / 2 - (orr.top + orr.bottom) / 2))
+        }
+      }
+    }
+  }
+  // ② Row
+  let rowN = 0
+  for (const row of [...root.querySelectorAll('[role="listitem"]')].filter(vis)) {
+    const kids = [...row.children].filter(vis)
+    if (kids.length < 2) continue
+    rowN++
+    const rr = R(row)
+    const a = R(kids[0]), b = R(kids[kids.length - 1])
+    if (overlap(a, b)) bad.push(`줄의 이름 칸과 오른쪽 칸이 겹친다 "${row.textContent.trim().slice(0, 12)}"`)
+    if (b.right > rr.right + 1 || b.left < rr.left - 1) bad.push(`오른쪽 칸이 줄 밖 "${row.textContent.trim().slice(0, 12)}"`)
+  }
+  // ③ 잘림
+  for (const el of root.querySelectorAll('*')) {
+    if (!vis(el)) continue
+    const cs = getComputedStyle(el)
+    if (cs.textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1) bad.push(`글자가 줄임표로 잘렸다 "${el.textContent.trim().slice(0, 12)}"`)
+    if (el.matches('button:not([role="radio"])') && el.scrollWidth > el.clientWidth + 1) bad.push(`상자를 넘는 글자 "${el.textContent.trim().slice(0, 12)}"`)
+  }
+  // ④ 선택 묶음
+  const groups = [...root.querySelectorAll('[role="radiogroup"]')].filter(vis)
+  for (const g of groups) {
+    const items = [...g.querySelectorAll('[role="radio"]')].filter(vis)
+    const rects = items.map(R)
+    for (let a = 0; a < rects.length; a++) for (let b = a + 1; b < rects.length; b++) if (overlap(rects[a], rects[b])) bad.push(`선택 항목 겹침 [${g.getAttribute('aria-label')}]`)
+    let box = g.parentElement
+    while (box && box !== root && !(parseFloat(getComputedStyle(box).borderTopWidth) > 0)) box = box.parentElement
+    if (box && box !== root) {
+      const br = R(box)
+      if (rects.some((r) => r.right > br.right - 1 || r.left < br.left + 1)) bad.push(`선택 항목이 카드 밖 [${g.getAttribute('aria-label')}]`)
+    }
+    for (const it of items) if (textTops(it) > 1) bad.push(`선택 항목 글자 ${textTops(it)}줄 "${it.textContent.trim()}"`)
+  }
+  if (btnRows === 0) bad.push('버튼 줄 0개 — 검사가 아무것도 안 쟀다')
+  return { ok: bad.length === 0, detail: `${[...new Set(bad)].join(', ') || '겹침·잘림·세로 가운데·간격 문제 없음'} · 버튼 줄 ${btnRows}개 · 글자+버튼 줄 ${mixedRows}개(가운데 차이 최대 ${maxCy.toFixed(1)}px) · Row ${rowN}개 · 선택 묶음 ${groups.length}개` }
+}
+
+/** SS6: 선택 묶음마다 — 묶음 바탕이 보이고(알파 > 0 또는 테두리) 고른 항목과 안 고른 항목의 바탕이 다르다. 안 눌린 선택이 맨 글자로 떠 있지 않게 */
+function inPageSettingsToggles() {
+  const root = document.querySelector('.ax-settings')
+  if (!root) return { ok: false, detail: '.ax-settings가 없다', n: 0 }
+  const alpha = (c) => { const m = /rgba?\([^)]*?(?:,\s*([\d.]+))?\)$/.exec(c); return m && m[1] !== undefined ? Number(m[1]) : 1 }
+  const out = []
+  const bad = []
+  for (const g of root.querySelectorAll('[role="radiogroup"]')) {
+    if (!window.__vis(g)) continue
+    const items = [...g.querySelectorAll('[role="radio"]')]
+    const sel = items.filter((i) => i.getAttribute('aria-checked') === 'true')
+    const off = items.filter((i) => i.getAttribute('aria-checked') !== 'true')
+    // 바탕은 묶음 자신이나 가까운 조상(트랙)에서 찾는다 — 묶음 안 항목 면까지 합쳐 하나라도 면·테두리가 있으면 된다
+    const faces = [g, ...items, ...g.querySelectorAll('*')].map((e) => getComputedStyle(e)).filter((cs) => alpha(cs.backgroundColor) > 0 || parseFloat(cs.borderTopWidth) > 0)
+    const name = g.getAttribute('aria-label') ?? '?'
+    if (items.length < 2) bad.push(`${name}: 항목 ${items.length}개`)
+    if (sel.length !== 1) bad.push(`${name}: 고른 항목 ${sel.length}개`)
+    if (faces.length === 0) bad.push(`${name}: 면·테두리가 없다(맨 글자)`)
+    const selBg = sel[0] ? getComputedStyle(sel[0]).backgroundColor : null
+    const selFaces = sel[0] ? [sel[0], ...sel[0].querySelectorAll('*')].map((e) => getComputedStyle(e).backgroundColor) : []
+    const offFaces = off.flatMap((o) => [o, ...o.querySelectorAll('*')].map((e) => getComputedStyle(e).backgroundColor))
+    const differs = selFaces.some((c) => alpha(c) > 0 && !offFaces.includes(c)) || (selBg !== null && !offFaces.includes(selBg))
+    if (!differs) bad.push(`${name}: 고른 항목의 바탕이 안 고른 항목과 같다`)
+    out.push(`${name} ${items.length}개`)
+  }
+  // 켜고 끄는 글자 버튼(내보내기 기간 — aria-pressed): 안 눌린 것도 바탕·테두리가 있고 눌린 것과 바탕이 다르다
+  const tg = [...root.querySelectorAll('button[aria-pressed]')].filter((e) => window.__vis(e))
+  const tOn = tg.filter((e) => e.getAttribute('aria-pressed') === 'true')
+  const tOff = tg.filter((e) => e.getAttribute('aria-pressed') !== 'true')
+  const tBare = tOff.filter((e) => { const cs = getComputedStyle(e); return !(alpha(cs.backgroundColor) > 0 && parseFloat(cs.borderTopWidth) >= 1) })
+  const tSame = tOff.filter((e) => tOn.some((o) => getComputedStyle(o).backgroundColor === getComputedStyle(e).backgroundColor))
+  if (tg.length < 2 || tOn.length !== 1) bad.push(`눌림 토글 ${tg.length}개·눌림 ${tOn.length}개`)
+  if (tBare.length) bad.push(`맨 글자 토글 ${tBare.length}개`)
+  if (tSame.length) bad.push(`눌린 토글과 바탕이 같은 것 ${tSame.length}개`)
+  out.push(`눌림 토글 ${tg.length}개`)
+  return { ok: out.length > 0 && bad.length === 0, detail: `${bad.join(', ') || '고른 항목이 안 고른 항목과 다르고 묶음에 면이 있다'} · ${out.join(' · ')}`, n: out.length - 1 }
 }
 
 /** SS4: inPageHistorySeed가 심은 것을 원래대로(세션은 지우고, 식단은 없던 날은 지우고 있던 날은 되쓴다) */
@@ -1537,6 +1672,16 @@ async function runScenes(browser, port, scheme) {
       await page.getByRole('button', { name: '설정', exact: true }).click()
       await settle(page, 600)
       await snap('settings-open')
+      if (!light) {
+        await guardedFlow(['SS6 경계: 진행 중 세션이면 편집·이 루틴 쓰기·새 루틴이 막히고 안내가 있다'], async () => {
+          const edit = await btn(page, '편집').isDisabled()
+          const fresh = await btn(page, '＋ 새 루틴 만들기').isDisabled()
+          const useBtn = await btn(page, '이 루틴 쓰기').count()
+          const noteEdit = await page.getByText('진행 중인 세션을 마치거나 버린 뒤에 고칠 수 있습니다', { exact: true }).count()
+          const noteAct = await page.getByText('진행 중인 세션을 마치거나 버린 뒤에 바꿀 수 있습니다', { exact: true }).count()
+          flows.push(['SS6 경계: 진행 중 세션이면 편집·이 루틴 쓰기·새 루틴이 막히고 안내가 있다', { ok: edit && fresh && noteEdit === 1 && noteAct === 1, detail: `편집 비활성 ${edit} · 새 루틴 비활성 ${fresh} · 안내 ${noteEdit}+${noteAct}개 · 이 루틴 쓰기 버튼 ${useBtn}개(루틴이 하나뿐이면 0)` }])
+        })
+      }
       await page.getByRole('button', { name: '홈', exact: true }).click()
       await page.getByRole('button', { name: /진행 중/ }).last().waitFor({ timeout: 3000 })
     })
@@ -2154,9 +2299,12 @@ async function runScenes(browser, port, scheme) {
     await optional('sheet-tempo', async () => {
       await page.getByRole('button', { name: '설정', exact: true }).click()
       await settle(page, 600)
-      const tempoCard = page.locator('.card').filter({ has: page.getByText('템포 가이드', { exact: true }) })
-      await tempoCard.getByRole('button', { name: '사용', exact: true }).click()
+      const tempoSwitch = page.getByRole('switch', { name: '템포 가이드 사용' })
+      const tempoOn0 = await tempoSwitch.evaluate((e) => e.checked)
+      await tempoSwitch.click({ force: true })
       await settle(page, 300)
+      const tempoOn1 = await tempoSwitch.evaluate((e) => e.checked)
+      let tempoButtons = 0
 
       // 시드 → 같은 Day로 새 세션 시작. 어느 단계든 예외가 나면 아래 흐름 이름 전부가 실패로 센다(건너뜀 없음)
       let started = false
@@ -2263,6 +2411,7 @@ async function runScenes(browser, port, scheme) {
       // 템포 가이드: 도는 중 한 장, 그 장면의 링·글자, 자동이 아닌 수동 종료로 세트 체크 + 휴식 시작(Z2 체인)
       const tempoBtn = () => page.getByRole('button', { name: /세트 템포 가이드$/ })
       if ((await openCardWith(tempoBtn)) < 0) throw new Error('템포 가이드 버튼이 있는 카드가 없다')
+      tempoButtons = await tempoBtn().count()
       const setNo = (await tempoBtn().first().getAttribute('aria-label'))?.match(/^(\d+)세트/)?.[1] ?? '1'
       await tempoBtn().first().click()
       const dlg = page.getByRole('dialog', { name: '템포 가이드' })
@@ -2309,11 +2458,15 @@ async function runScenes(browser, port, scheme) {
       // 설정을 되돌린다(뒤 장면이 같은 설정으로 찍히게)
       await page.getByRole('button', { name: '설정', exact: true }).click()
       await settle(page, 600)
-      await tempoCard.getByRole('button', { name: '사용 안 함', exact: true }).click()
+      await tempoSwitch.click({ force: true })
       await settle(page, 300)
+      const tempoOn2 = await tempoSwitch.evaluate((e) => e.checked)
+      if (!light) flows.push(['SS6 템포 가이드 켜기', { ok: tempoOn0 === false && tempoOn1 === true && tempoOn2 === false && tempoButtons > 0, detail: `스위치 처음 ${tempoOn0} → 1탭 ${tempoOn1} → 세션 화면 세트 행의 ♩ 버튼이 있는 카드 ${tempoButtons}개 → 끔 ${tempoOn2}` }])
       await page.getByRole('button', { name: '홈', exact: true }).click()
       await settle(page, 500)
     })
+    // SS6: 템포 가이드 켜기 흐름은 sheet-tempo 장면 안에서 잰다 — 장면이 건너뛰어졌으면 못 쟀으니 실패다(건너뜀 금지)
+    if (!light && !flows.some((fl) => fl[0] === 'SS6 템포 가이드 켜기')) flows.push(['SS6 템포 가이드 켜기', { ok: false, detail: 'sheet-tempo 장면이 건너뛰어졌거나 예외로 끝나 재지 못했다' }])
     // 시드한 세션을 지운다(뒤 장면 기록·분석·홈이 시드 없는 예시 데이터로 찍히게). 위 장면이 건너뜀이어도 돈다
     await optional('seed-cleanup', async () => {
       await unseedWatch()
@@ -3555,6 +3708,170 @@ async function runScenes(browser, port, scheme) {
     await snap('settings-end')
     await toTop()
 
+    // ── SS6 설정 탭 흐름 (PLAN v1.21 SS6). 흐름은 guardedFlow 안에서 돌아 예외가 흐름 실패로 센다(0개 통과·건너뜀 없음). 끝에는 설정을 원래대로 돌려놓는다 ──
+    const ss6Wrap = (scene) => (light ? Promise.resolve() : screenWrapFlow(`SS6 ${scene} 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안`, '.ax-settings'))
+    const ss6Rows = (scene) =>
+      light
+        ? Promise.resolve()
+        : guardedFlow([`SS6 ${scene} 한 줄 부품 겹침·잘림·세로 가운데·간격`], async () => {
+            const out = []
+            try {
+              for (const w of [390, 375]) {
+                await page.setViewportSize({ width: w, height: w === 375 ? 812 : 844 })
+                await settle(page, 400)
+                out.push([w, await page.evaluate(inPageSettingsRows)])
+              }
+            } finally {
+              await page.setViewportSize({ width: 390, height: 844 })
+              await settle(page, 400)
+            }
+            flows.push([`SS6 ${scene} 한 줄 부품 겹침·잘림·세로 가운데·간격`, { ok: out.every(([, r]) => r.ok), detail: out.map(([w, r]) => `${w}: ${r.detail}`).join(' / ') }])
+          })
+    if (!light) {
+      await ss6Wrap('settings')
+      await ss6Rows('settings')
+      await guardedFlow(['SS6 Gist 토큰 칸·외부 링크'], async () => {
+        const link = page.locator('.ax-settings a[href*="github.com/settings/tokens/new"]')
+        const field = page.getByLabel('GitHub 개인 액세스 토큰')
+        const save = btn(page, '토큰 저장')
+        const attrs = (await link.count()) === 1 ? await link.evaluate((e) => ({ target: e.getAttribute('target'), rel: e.getAttribute('rel') ?? '', text: e.textContent.trim() })) : null
+        const type = (await field.count()) === 1 ? await field.getAttribute('type') : null
+        const disabled = (await save.count()) === 1 ? await save.isDisabled() : null
+        flows.push(['SS6 Gist 토큰 칸·외부 링크', { ok: attrs !== null && attrs.target === '_blank' && /noopener/.test(attrs.rel) && /GitHub에서 토큰 발급하기/.test(attrs.text) && type === 'password' && disabled === true, detail: `링크 ${attrs ? JSON.stringify(attrs) : '없음'} · 토큰 칸 type ${type} · 빈 칸이면 저장 비활성 ${disabled}` }])
+      })
+      await guardedFlow(['SS6 경계: 루틴이 하나뿐이면 삭제·이 루틴 쓰기 버튼이 없다'], async () => {
+        const del = await btn(page, '삭제').count()
+        const use = await btn(page, '이 루틴 쓰기').count()
+        const lists = await page.getByText('루틴 목록', { exact: true }).count()
+        flows.push(['SS6 경계: 루틴이 하나뿐이면 삭제·이 루틴 쓰기 버튼이 없다', { ok: lists === 1 && del === 0 && use === 0, detail: `루틴 목록 카드 ${lists}개 · 삭제 ${del}개 · 이 루틴 쓰기 ${use}개` }])
+      })
+      await guardedFlow(['SS6 선택 묶음 맨 글자 아님'], async () => {
+        const r = await page.evaluate(inPageSettingsToggles)
+        flows.push(['SS6 선택 묶음 맨 글자 아님', { ok: r.ok && r.n === 5, detail: r.detail }])
+      })
+      // Phase 바꾸기: 1탭에 선택이 옮겨 가고 설명 줄·전환 조건 제목이 바뀐다. 끝에 0으로 되돌린다
+      await guardedFlow(['SS6 Phase 바꾸기'], async () => {
+        const group = page.getByRole('radiogroup', { name: 'Phase' })
+        const checked = () => group.getByRole('radio').evaluateAll((els) => els.map((e) => e.getAttribute('aria-checked')))
+        const c0 = await checked()
+        let c1 = []
+        let d1 = 0
+        let t1 = 0
+        try {
+          await group.getByRole('radio', { name: '1', exact: true }).click()
+          await settle(page, 500)
+          c1 = await checked()
+          d1 = await page.getByText('기본 볼륨 정착', { exact: true }).count()
+          t1 = await page.getByText('Phase 2 전환 조건', { exact: true }).count()
+        } finally {
+          await group.getByRole('radio', { name: '0', exact: true }).click()
+          await settle(page, 500)
+        }
+        const c2 = await checked()
+        const d2 = await page.getByText('습관 형성 — 주 3회 × 8주 연속', { exact: true }).count()
+        const one = (c, i) => c.filter((x) => x === 'true').length === 1 && c[i] === 'true'
+        flows.push(['SS6 Phase 바꾸기', { ok: c0.length === 4 && one(c0, 0) && one(c1, 1) && d1 === 1 && t1 === 1 && one(c2, 0) && d2 === 1, detail: `항목 ${c0.length}개 · 처음 ${c0.indexOf('true')} → 1탭 ${c1.indexOf('true')}(설명 ${d1}개·Phase 2 전환 조건 ${t1}개) → 되돌림 ${c2.indexOf('true')}(설명 ${d2}개)` }])
+      })
+      // 경계: Phase 3이면 전환 조건이 없다(다음 Phase가 없다). 끝에 원래 Phase로 되돌린다
+      await guardedFlow(['SS6 경계: Phase 3이면 전환 조건이 없다'], async () => {
+        const prev = await page.evaluate(inPageSetSetting, { key: 'currentPhase', value: 3 })
+        let n = -1
+        let radios = ''
+        try {
+          await page.reload()
+          await page.getByRole('button', { name: '설정', exact: true }).click()
+          await page.getByRole('radiogroup', { name: 'Phase' }).waitFor({ timeout: 5000 })
+          await settle(page, 600)
+          n = await page.getByText(/전환 조건$/).count()
+          radios = (await page.getByRole('radiogroup', { name: 'Phase' }).getByRole('radio').evaluateAll((els) => els.map((e) => e.getAttribute('aria-checked')))).join()
+        } finally {
+          await page.evaluate(inPageSetSetting, { key: 'currentPhase', value: prev.value, remove: !prev.had })
+          await page.reload()
+          await page.getByRole('button', { name: '설정', exact: true }).click()
+          await settle(page, 800)
+        }
+        flows.push(['SS6 경계: Phase 3이면 전환 조건이 없다', { ok: n === 0 && radios === 'false,false,false,true', detail: `전환 조건 제목 ${n}개 · 선택 ${radios}` }])
+      })
+      // Day 펼치기: 1탭에 펼치고(aria-expanded) 다른 Day를 펼치면 앞의 것이 접히며 다시 누르면 접힌다
+      await guardedFlow(['SS6 Day 펼치기'], async () => {
+        const heads = page.locator('.ax-settings button[aria-expanded]').filter({ hasText: /^Day \d/ })
+        const n = await heads.count()
+        const open = () => heads.evaluateAll((els) => els.map((e) => e.getAttribute('aria-expanded')))
+        const o0 = await open()
+        await heads.nth(0).click()
+        await settle(page, 400)
+        const o1 = await open()
+        const firstExercise = await page.getByText(/^1\. /).count()
+        await heads.nth(1).click()
+        await settle(page, 400)
+        const o2 = await open()
+        await heads.nth(1).click()
+        await settle(page, 400)
+        const o3 = await open()
+        const only = (o, i) => o.filter((x) => x === 'true').length === 1 && o[i] === 'true'
+        flows.push(['SS6 Day 펼치기', { ok: n >= 2 && o0.every((x) => x === 'false') && only(o1, 0) && firstExercise >= 1 && only(o2, 1) && o3.every((x) => x === 'false'), detail: `Day 줄 ${n}개 · 처음 ${o0.join()} → 첫째 ${o1.join()}(종목 줄 ${firstExercise}개) → 둘째 ${o2.join()} → 다시 ${o3.join()}` }])
+      })
+      // 미리 듣기: 두 버튼 1탭에 예외가 없다(소리는 못 듣는다 — 제약 2). 버튼은 그대로 남는다
+      await guardedFlow(['SS6 미리 듣기'], async () => {
+        const errs = []
+        const onErr = (e) => errs.push(String(e))
+        page.on('pageerror', onErr)
+        try {
+          await btn(page, '🔊 미리 듣기 (3·2·1 틱 → 종료 차임)').click()
+          await settle(page, 300)
+          await btn(page, '🔊 템포 경계음 미리 듣기 (올림 → 내림)').click()
+          await settle(page, 300)
+        } finally {
+          page.off('pageerror', onErr)
+        }
+        const n = (await btn(page, '🔊 미리 듣기 (3·2·1 틱 → 종료 차임)').count()) + (await btn(page, '🔊 템포 경계음 미리 듣기 (올림 → 내림)').count())
+        flows.push(['SS6 미리 듣기', { ok: errs.length === 0 && n === 2, detail: `예외 ${errs.length}건 · 미리 듣기 버튼 ${n}개(소리는 못 듣는다)` }])
+      })
+      // 템포 스위치: 1탭에 켜지고 다시 1탭에 꺼진다. 켠 모양과 끈 모양이 다르다(끈 모양이 맨 글자로 안 보이게 사진 두 장이 다르고 끈 쪽에도 그려진 면이 있다). 끝에 끈다
+      await guardedFlow(['SS6 템포 스위치 켜고 끄기'], async () => {
+        const sw = page.getByRole('switch', { name: '템포 가이드 사용' })
+        if ((await sw.count()) !== 1) throw new Error(`스위치 ${await sw.count()}개`)
+        const state = () => sw.evaluate((e) => e.checked ?? e.getAttribute('aria-checked') === 'true')
+        const box = page.locator('.ax-settings').filter({ has: sw }).locator('label').filter({ has: sw }).first()
+        const shot = async () => (await box.count()) ? box.screenshot() : sw.screenshot()
+        await sw.scrollIntoViewIfNeeded()
+        const s0 = await state()
+        const off = await shot()
+        await sw.click({ force: true })
+        await settle(page, 400)
+        const s1 = await state()
+        const on = await shot()
+        await sw.click({ force: true })
+        await settle(page, 400)
+        const s2 = await state()
+        const differs = Buffer.compare(off, on) !== 0
+        const painted = new Set(off).size > 2
+        flows.push(['SS6 템포 스위치 켜고 끄기', { ok: s0 === false && s1 === true && s2 === false && differs && painted, detail: `처음 ${s0} → 1탭 ${s1} → 1탭 ${s2} · 켠 사진과 끈 사진이 다르다 ${differs} · 끈 사진에 그려진 면(서로 다른 바이트 ${new Set(off).size}종)` }])
+      })
+      await guardedFlow(['SS6 경계: 저장 공간을 모르면 —'], async () => {
+        await page.evaluate(() => {
+          window.__estimateBefore = navigator.storage.estimate
+          navigator.storage.estimate = () => Promise.resolve({})
+        })
+        try {
+          await page.getByRole('button', { name: '홈', exact: true }).click()
+          await settle(page, 500)
+          await page.getByRole('button', { name: '설정', exact: true }).click()
+          await page.getByText('저장 공간', { exact: true }).waitFor({ timeout: 5000 })
+          await settle(page, 600)
+          const row = page.locator('[role="listitem"]').filter({ hasText: /^저장 공간/ })
+          const text = (await row.innerText()).replace(/\s+/g, ' ')
+          flows.push(['SS6 경계: 저장 공간을 모르면 —', { ok: /저장 공간 —$/.test(text), detail: `줄 글자 "${text}"` }])
+        } finally {
+          await page.evaluate(() => { navigator.storage.estimate = window.__estimateBefore })
+          await page.getByRole('button', { name: '홈', exact: true }).click()
+          await settle(page, 300)
+          await page.getByRole('button', { name: '설정', exact: true }).click()
+          await settle(page, 600)
+        }
+      })
+    }
+
     // 내보내기 미리보기를 펼친 상태, 초기화 확인 상태(확인만 — 실제로 지우는 버튼은 누르지 않는다)
     await requiredScene('settings-export-preview', async () => {
       await btn(page, '미리보기').click({ timeout: 3000 })
@@ -3562,6 +3879,16 @@ async function runScenes(browser, port, scheme) {
       await btn(page, '닫기').evaluate((el) => el.scrollIntoView({ block: 'start' }))
       await settle(page, 500)
       await snap('settings-export-preview')
+      if (!light) {
+        await guardedFlow(['SS6 내보내기 미리보기'], async () => {
+          const pre = page.locator('.ax-settings pre')
+          const n = await pre.count()
+          const text = n ? await pre.first().innerText() : ''
+          flows.push(['SS6 내보내기 미리보기', { ok: n === 1 && /^## /m.test(text), detail: `미리보기 칸 ${n}개 · "## " 줄 ${/^## /m.test(text)} · 글자 ${text.length}자` }])
+        })
+        await ss6Wrap('settings-export-preview')
+        await ss6Rows('settings-export-preview')
+      }
       await btn(page, '닫기').click()
       await settle(page, 300)
       await toTop()
@@ -3572,8 +3899,21 @@ async function runScenes(browser, port, scheme) {
       await btn(page, '취소').last().evaluate((el) => el.scrollIntoView({ block: 'center' }))
       await settle(page, 500)
       await snap('settings-reset-confirm')
+      let ss6During = null
+      await guardedFlow(['SS6 초기화 2단 확인', 'SS6 오류 글자색(초기화 확인 문구)'], async () => {
+        ss6During = { sure: await btn(page, '정말 삭제').count(), entry: await btn(page, '모든 데이터 초기화').count(), cancel: await btn(page, '취소').count() }
+        const col = await warnColorBothSchemes('.ax-settings .ax-text-error', '세션 기록', 'error')
+        flows.push([`SS6 오류 글자색(초기화 확인 문구)${light ? ' (라이트)' : ''}`, { ok: col.same, detail: `계산된 색 ${col.actual} (토큰 ${col.token})` }])
+      })
+      if (!light) await ss6Wrap('settings-reset-confirm')
       await btn(page, '취소').last().click()
       await settle(page, 300)
+      if (!light) {
+        await guardedFlow(['SS6 초기화 2단 확인'], async () => {
+          const after = { sure: await btn(page, '정말 삭제').count(), entry: await btn(page, '모든 데이터 초기화').count() }
+          flows.push(['SS6 초기화 2단 확인', { ok: ss6During !== null && ss6During.sure === 1 && ss6During.entry === 0 && ss6During.cancel >= 1 && after.sure === 0 && after.entry === 1, detail: `확인 중: 정말 삭제 ${ss6During?.sure}개·초기화 ${ss6During?.entry}개·취소 ${ss6During?.cancel}개 → 취소 뒤: 정말 삭제 ${after.sure}개·초기화 ${after.entry}개(지우지 않았다)` }])
+        })
+      }
       await toTop()
     })
     // Gist 토큰이 저장된 상태 — 가짜 토큰을 localStorage에 넣는다. GitHub 호출은 막고 세며, 0이어야 한다
@@ -3589,6 +3929,17 @@ async function runScenes(browser, port, scheme) {
           await settle(page, 600)
           await snap('settings-gist')
           await wrapProbe('settings-gist')
+          if (!light) {
+            await guardedFlow(['SS6 Gist 저장됨'], async () => {
+              const masked = await page.getByText(/^ghp_•{8}0000$/).count()
+              const body = await page.evaluate(() => document.body.innerText)
+              const leaked = body.includes('ghp_uicheck0000000000000000000000000000') || body.includes('uicheck000')
+              const inputs = await page.getByLabel('GitHub 개인 액세스 토큰').count()
+              flows.push(['SS6 Gist 저장됨', { ok: masked === 1 && !leaked && inputs === 0, detail: `마스킹 줄 ${masked}개 · 토큰 원문이 화면 글자에 있다 ${leaked} · 토큰 입력 칸 ${inputs}개` }])
+            })
+            await ss6Wrap('settings-gist')
+            await ss6Rows('settings-gist')
+          }
         } finally {
           await page.evaluate(() => localStorage.removeItem('workout-tracker.gistToken'))
           await page.reload()
@@ -3644,6 +3995,8 @@ async function runScenes(browser, port, scheme) {
       await settle(page, 400)
       await page.getByText('QQ6 확인용 루틴', { exact: true }).scrollIntoViewIfNeeded()
       await snap('settings-routines')
+      await ss6Wrap('settings-routines')
+      await ss6Rows('settings-routines')
       await toTop()
     })
   }
@@ -4002,7 +4355,7 @@ function readAllCss() {
 
 function runStatic() {
   const allCss = readAllCss()
-  return [...barStaticChecks(allCss), ...motionStaticChecks(allCss), ...rowButtonStaticChecks(allCss), ...spaceStaticChecks(allCss)]
+  return [...barStaticChecks(allCss), ...motionStaticChecks(allCss), ...spaceStaticChecks(allCss)]
 }
 
 function printResults() {

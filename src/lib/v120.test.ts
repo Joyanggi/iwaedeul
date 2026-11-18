@@ -406,8 +406,8 @@ describe("v120 RR3 — 앱 틀과 아래 탭", () => {
     expect(s).toContain("ResizeObserver")
     expect(s).toMatch(/import '\.\/parts\.css'/)
     for (const n of ["TabList", "Tab", "Center", "Spinner"]) expect(s).toMatch(new RegExp(`export \\{[^}]*\\b${n}\\b[^}]*\\} from '@astryxdesign`))
-    // v1.21 SS2: 식단 전용 부품(TimeField·CheckboxList)은 index.tsx에 두면 홈의 첫 화면 코드가 87KB 늘어 diet.tsx로 나눴다(식단 화면만 import). SS5: ScrollableArea는 분석도 쓰므로 scroll.tsx로 따로 뺐다(분석이 TimeInput을 끌어오지 않게)
-    expect(Object.keys(SRC).filter((p) => p.startsWith("/src/ax/") && p.endsWith(".tsx")).sort()).toEqual(["/src/ax/diet.tsx", "/src/ax/index.tsx", "/src/ax/scroll.tsx"])
+    // v1.21 SS2: 식단 전용 부품(TimeField·CheckboxList)은 index.tsx에 두면 홈의 첫 화면 코드가 87KB 늘어 diet.tsx로 나눴다(식단 화면만 import). SS5: ScrollableArea는 분석도 쓰므로 scroll.tsx로 따로 뺐다(분석이 TimeInput을 끌어오지 않게). SS6: CodeBlock·Link는 설정만 쓰므로 settings.tsx로 따로 뒀다
+    expect(Object.keys(SRC).filter((p) => p.startsWith("/src/ax/") && p.endsWith(".tsx")).sort()).toEqual(["/src/ax/diet.tsx", "/src/ax/index.tsx", "/src/ax/scroll.tsx", "/src/ax/settings.tsx"])
   })
 
   it("v120 RR3: scripts/에 aria-current=page·inPagePillSeparation·inPageTabbarSpot 글자가 없고 BAR_SELECTOR 줄에 .tabbar·.resume-strip이 없다", () => {

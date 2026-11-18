@@ -416,6 +416,17 @@
     overflow-wrap: anywhere;
   }
 
+  /* 줄 끝에서 하이픈·가운뎃점 뒤로 갈라지면 안 되는 표기(템포 3-1-1-1, 스위치·볼륨·출력) — 설정의 안내 글 안에서 쓴다 */
+  .ax-nowrap {
+    white-space: nowrap;
+  }
+
+  /* 설정 탭 틀의 한글 줄바꿈(.ax-analyze와 같다). SS8이 앱 전체 규칙으로 모은다 */
+  .ax-settings :is(p, span, div, h1, h2) {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
   /*
    * 분석 차트 틀(recharts의 ResponsiveContainer가 부모 폭을 재므로 넘침을 막는다). 축 숫자가 카드 안쪽 왼쪽 끝에 닿게 한 단계 왼쪽으로 당긴다.
    * recharts가 그리는 SVG의 클래스(.recharts-surface)는 우리가 못 붙이니 여기서 맞춘다.

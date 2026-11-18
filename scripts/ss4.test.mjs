@@ -29,9 +29,10 @@ describe('v121 SS4 — 지운 것', () => {
     expect(strip(motion)).not.toContain('back-link')
   })
 
-  it('v121 SS4: 분석·내보내기·Gist가 아직 쓰는 .pill*·.warn-box는 남아 있다', () => {
+  it('v121 SS4: SS6 뒤 .pill*는 없고(내보내기가 SegmentedControl이 됐다) 온보딩이 쓰는 .warn-box만 남는다', () => {
     const all = selectors(globalCss).join('\n')
-    for (const keep of ['.pill-row', '.pill', '.warn-box']) expect(all, keep).toContain(keep)
+    expect(all).not.toContain('.pill')
+    expect(all).toContain('.warn-box')
   })
 
   it('v121 SS4: 인벤토리의 TEMPLATE_PREFIXES에 cal-diet-dot-이 없다', () => {

@@ -157,10 +157,11 @@ describe('v121 SS0 — first-load.mjs 종료 코드', () => {
 })
 
 describe('v121 SS0 — 알려진 실패 (개정 1)', () => {
-  // 처음 목록(셋). SS5가 analyze-empty 항목을 고쳐 KNOWN_FAILURES에서 지웠다 — 판정 함수의 동작은 처음 목록으로 계속 잰다
+  // 처음 목록(셋). SS5가 analyze-empty 항목을, SS6이 settings-export-preview 둘을 고쳐 KNOWN_FAILURES에서 지웠다 — 판정 함수의 동작은 처음 목록으로 계속 잰다
   const FIXTURE = [
     { scene: 'analyze-empty', column: '여백 격자', detail: 'p.center-note marginTop 13px · p.center-note marginBottom 13px', until: 'SS5' },
-    ...KNOWN_FAILURES,
+    { scene: 'settings-export-preview', column: '접근성', detail: 'scrollable-region-focusable 1건 [pre]', until: 'SS6' },
+    { scene: 'settings-export-preview', column: '눌림 반응', detail: '1/5건: "GitHub에서 토큰 발급" .ext-link 변화 없음', until: 'SS6' },
   ]
   const fail = (detail) => ({ status: '실패', detail })
   const rowsFor = () => [
@@ -234,11 +235,8 @@ describe('v121 SS0 — 알려진 실패 (개정 1)', () => {
       }),
     )
   })
-  it('v121 SS0 알려진 실패: KNOWN_FAILURES는 늘지 않는다(남은 두 쌍의 부분집합, 길이 2 이하)', () => {
-    const allowed = new Set(['settings-export-preview·접근성', 'settings-export-preview·눌림 반응'])
-    expect(KNOWN_FAILURES.length).toBeLessThanOrEqual(2)
-    for (const k of KNOWN_FAILURES) expect(allowed.has(`${k.scene}·${k.column}`), `${k.scene}·${k.column}`).toBe(true)
-    expect(new Set(KNOWN_FAILURES.map((k) => `${k.scene}·${k.column}`)).size).toBe(KNOWN_FAILURES.length)
+  it('v121 SS6: KNOWN_FAILURES는 빈 배열이다(SS5가 analyze-empty를, SS6이 settings-export-preview의 접근성·눌림 반응을 고쳐 지웠다 — 남기면 stale 실패)', () => {
+    expect(KNOWN_FAILURES).toEqual([])
   })
   it('v121 SS5: 고친 analyze-empty 항목은 KNOWN_FAILURES에 없다(남기면 stale 실패 — 같은 커밋에서 지운다)', () => {
     expect(KNOWN_FAILURES.map((k) => k.scene)).not.toContain('analyze-empty')

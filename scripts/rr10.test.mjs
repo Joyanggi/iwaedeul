@@ -24,11 +24,12 @@ describe('v120 RR10 — 사본 정리', () => {
     for (const keep of ['.btn', '.pill', '.chip', '.segment button']) expect(css, keep).toContain(keep)
   })
 
-  it('v120 RR10: space.css의 유틸 클래스는 .tsx가 쓰는 일곱 개뿐이다(.mt-section·.banner-dismiss 없음)', () => {
+  it('v120 RR10: space.css의 유틸 클래스는 .tsx가 쓰는 둘뿐이다(.mt-section·.banner-dismiss 없음, SS6: 설정이 쓰던 .mt-row·.mb-row·.ml-inline·.mr-inline·.ml-auto는 지웠다 — 온보딩은 .mt-group·.mb-group만)', () => {
     const css = noComments(read('../src/styles/space.css'))
     expect(css).not.toContain('.mt-section')
     expect(css).not.toContain('banner-dismiss')
-    for (const keep of ['.mt-row', '.mt-group', '.mb-row', '.mb-group', '.ml-inline', '.mr-inline', '.ml-auto']) expect(css, keep).toContain(keep)
+    for (const keep of ['.mt-group', '.mb-group']) expect(css, keep).toContain(keep)
+    for (const gone of ['.mt-row', '.mb-row', '.ml-inline', '.mr-inline', '.ml-auto', '.stack-tight', '.label-flush', '.row-confirm', '.day-exercises', '.row-plain']) expect(css, gone).not.toContain(gone)
   })
 
   // v1.21 SS2: 식단 화면이 Astryx로 옮겨 가 .diet-mark-btn·.diet-mark-<등급>도 지워졌다(PLAN SS2 "global.css에서 지운다") — 남기던 검사를 "전부 없다"로

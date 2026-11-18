@@ -53,8 +53,8 @@ describe('v120 RR3 — parts.css와 legacy CSS', () => {
     }
   })
 
-  it('v120 RR3: 화면 아래 여백(.screen·.ax-screen)이 띠가 알린 높이(--ax-bar-bottom)를 쓴다', () => {
-    expect(globalCss).toMatch(/\.screen \{[^}]*--ax-bar-bottom/)
+  it('v120 RR3: 화면 아래 여백(.ax-screen)이 띠가 알린 높이(--ax-bar-bottom)를 쓴다(SS6: legacy .screen 규칙은 설정을 끝으로 지웠다)', () => {
+    expect(globalCss).not.toMatch(/\.screen \{/)
     expect(strip(read('src/ax/ax.css'))).toMatch(/\.ax-screen \{[^}]*--ax-bar-bottom[^}]*\}/)
   })
 })
