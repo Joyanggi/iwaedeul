@@ -467,3 +467,86 @@
 1. AA3: `uiConsistency.test.ts`를 `48fd07f` 내용으로 되돌렸다(`git diff 48fd07f -- src/lib/uiConsistency.test.ts` 비어 있음). 코드 쪽에서 통과시켰다 — `DietSlotSheet.tsx`의 `대체 지우기`·`추가 지우기` `Button`에서 `onClick`을 `label` 앞에 둠. `v121.test.ts`의 두 정규식은 같은 `<Button …/>` 안에 `label`과 `act(…)`가 있으면 통과하게(속성 순서 무관) 고쳤다.
 2. 이 절의 "옮긴 스캔" 표를 더하고 AA3·인벤토리·첫 화면 사실을 맞췄다.
 3. 환경: 작업 트리의 `scripts/ui-check.mjs`가 CRLF라(`grep -cU $'\r'` 3324) `git show HEAD:`로 LF로 되돌렸다(커밋 내용 변화 없음).
+
+---
+
+## SS4. 기록 탭
+
+### 범위
+
+| 항목 | 내용 |
+|---|---|
+| 커밋 | 이 커밋(`feat(SS4): …`) — 해시는 `git log`. |
+| 바뀐 파일 | `src/screens/HistoryScreen.tsx`·`SessionDetailScreen.tsx`·`ExerciseHistoryScreen.tsx`, `src/components/MonthCalendar.tsx`(Astryx로), `src/ax/index.tsx`(`Row`·`Rows`를 `SummaryScreen`에서 옮김), `src/screens/SummaryScreen.tsx`(`../ax`에서 읽게), `src/ax/parts.css`(`.ax-cal-*`·`.ax-history`), `src/styles/global.css`·`motion.css`(기록 전용 legacy 규칙 38개·`.back-link` 눌림 삭제), `scripts/astryx-inventory.mjs`(`cal-diet-dot-` 접두사 삭제)·`docs/ASTRYX-INVENTORY.md`, `scripts/ui-check.mjs`·`lib/ui-space.mjs`(기록 장면 판정·SS4 흐름·시드), 테스트, 스크린샷(`history*`·`layout.json`만), `README.md`("Tech Stack" Astryx 줄에 `기록`) |
+| 테스트 | `Test Files 83 passed (83)` · `Tests 1871 passed (1871)` (SS3 뒤 82/1850 → 새 파일 1 `scripts/ss4.test.mjs`, 새 테스트 `v121` SS4 13 + `ss4.test.mjs` 8 = 21) |
+| Astryx 인벤토리 | `node scripts/astryx-inventory.mjs --check` 출력: `✓ Astryx를 안 읽는 화면 파일: 9 → 9` · `✓ 인라인 스타일: 30 → 30` · `✓ legacy 클래스 쓰임: 125 → 125` · `✓ 안 쓰는 legacy 선택자: 0 → 0`. SS3 뒤 → SS4 뒤: 13→9, 38→30, 194→125(PLAN 예상과 같음) |
+| 첫 화면 | `node scripts/first-load.mjs` 출력 — JS `assets/index-B1DdATYm.js` 305.83 · CSS `assets/index-DViAYW_E.css` 48.98 · 합 **354.81**kB gzip(한계 360KB). `Row`·`Rows`만 `index.tsx`에 더했고 새 Astryx 부품은 안 끌어들였다 |
+| 수정표 밖 | `rr7.test.mjs`(고아 카드 `.ex-*`가 남아 있다 → 없다) · `rr10.test.mjs`(`.back-link`가 눌림 목록에 남는다 → 없다) · `v120.test.ts` RR9(`<StackItem size="static">{end}`를 SummaryScreen에서 → `src/ax/index.tsx`에서 읽음) |
+
+### 옮긴 스캔 (이름·전→후·같은 뜻인 이유)
+
+| 이름 | 전 | 후 | 같은 뜻인 이유 |
+|---|---|---|---|
+| `uiConsistency` 캘린더 점 | `cal-diet-dot-${dietDot}`가 있다 | `data-diet={dietDot`가 있다 | 점 하나가 판정된 날·보류된 날의 등급을 다 나른다는 뜻 그대로(클래스 → 속성). "판정·보류가 같은 경로" 줄은 안 고치고 통과 |
+| `rr7` 고아 카드 | `.ex-card`…`.ex-card-orphan`이 global.css에 **있다** | **없다** | 고아 카드가 `Card` + `Row`가 되어 쓰는 곳이 없다. 남았으면 인벤토리 넷째 숫자(0)가 깨진다 |
+| `rr10` `.back-link` | motion.css 제외 목록·눌림 규칙에 `.back-link`가 있다 | 없다 | 뒤로 가기가 `Button variant="ghost"`(자기 눌림)가 되었다 |
+| `v120` RR9 StackItem | SummaryScreen에 `<StackItem size="static">{end}</StackItem>` | `src/ax/index.tsx`에 같은 줄 | PLAN은 "안 고치고 통과"라 했으나 `Row`가 옮겨 가 불가능했다(아래 다르게 한 것 4). 마크업은 한 글자도 안 바뀜 |
+| `uiConsistency` X6(세션 삭제) | `btn-danger\|variant="destructive"` 앞 260자 | 같음 | SS2에서 이미 옮겨 통과 |
+
+### PLAN과 다르게 한 것 (이유)
+
+1. 달력 칸의 **보이는 글자가 `17일`**이다(PLAN: 숫자만). 접근성 이름은 PLAN 원문(`17일 운동 2회 식단 준수`)이다. axe `label-content-name-mismatch`는 낱말 단위로 맞춰 `17`이 `17일`에 안 든다고 봤다(실측 42건; `aria-hidden`·화면 밖 글자로는 안 풀림, `17일`을 보이게 하면 0건).
+2. 🔥과 같은 날 세션 수는 글자가 아니라 CSS `::before`·`::after`다(글자로 두면 이름과 어긋나 1건 실패). 🔥은 칸 위, 점은 칸 아래에 떠 있고 날짜 글자가 칸 가운데라 안쪽 대칭이 맞는다(이전 배치는 `위 -1·아래 26`).
+3. 식단 점 값은 `poor`다(PLAN 표의 `bad`가 아니라 코드의 `Adherence`). 칸 열 간격은 0(누르는 영역 44 확보: 375에서 41 → 44.4).
+4. `ui-space.mjs`의 카드 안쪽 측정이 달력 카드를 건너뛴다(첫 글자가 월 이름이라 가운데에 놓인다 — 119.5). 그다음 카드로 잰다.
+5. 사람이 누르는 카드 면: `ClickableCard`의 이름 붙은 `button`은 안 보이는 안쪽 부품이라 흐름은 카드 면(바로 위 상자)을 누른다(`tapCard`).
+6. `Row`는 `Rows`(role=list) 안에서만 쓴다(listitem의 부모 규칙 `aria-required-parent`) — 카드 하나에 `Row` 하나여도 `Rows`로 감싼다.
+
+### PLAN 검증 항목 ↔ 확인
+
+| PLAN 검증 | 확인 |
+|---|---|
+| 네 파일 0건 목록·`data-diet` | `v121 SS4: 네 파일에 className=은 ax- 이름뿐이고 …` |
+| 순서 | `v121 SS4 — 순서: …` |
+| `Row`·`Rows` | `v121 SS4: src/ax/index.tsx가 Row·Rows를 내보내고 …` |
+| `cellLabel` 한 곳·속성 | `v121 SS4: 칸 이름을 만드는 함수가 …` · `v121 SS4 속성: …`(fast-check) · `v121 SS4: 칸 이름 예 …` |
+| 옮긴 스캔·안 고치고 통과 | 위 표. `uiConsistency` 기록 탭 두 줄·`v18`·`v114`(`cardioText(` — 아래 참고)·`v115`·`dietBackup`·`strengthWork`는 안 고치고 통과 |
+| `ui-check after --check`(기록 아홉 장면 + summary*) | 아래 |
+| 흐름 ①~⑧ | 아래 |
+| 경계 | 시드: 같은 날 두 세션(복귀)·루틴에 없는 종목(`현재 루틴에 없음` 뱃지 2개, 고아 카드)·보조 무게 세션·식단 점 넷. 기록 0건·메모 0건·세션 하나뿐인 종목은 기본 데이터로 |
+
+(`v114`의 `cardioText(` 스캔은 `HistoryScreen.tsx`가 `cardioText`를 쓰는 한 통과 — 세션 줄 설명에 그대로 둠.)
+
+### ui-check (전체 `after --check --ver=v1.21`, 종료 코드 0, 알려진 실패 3건(SS5·SS6 몫), 흐름 통과 180, 장면 실패 0건)
+
+| 흐름 | 결과 |
+|---|---|
+| `SS4 시드 심기` | 같은 날 두 번째 세션(복귀)·루틴에 없는 종목·보조 무게 세션·식단 1~4일 |
+| `SS4 달력 칸 이름` | 오늘 칸·두 번 운동한 칸 1개·식단 점 칸 4개(준수·일부·미달·판정 전), 이름이 날짜로 시작 |
+| `SS4 달력 칸 신호 구분` | 오늘 = 테두리(`--color-accent`), 고른 날 = 면(`--color-accent-muted`), 점 넷의 계산된 색 = 토큰이고 서로 다르며 강조색이 아님, 🔥 칸 2개 |
+| `SS4 달력 칸 일곱 한 줄` | 390·375: 안쪽 폭 안·겹침 0·누르는 영역 44 이상·세로·가로 어긋남 0.0px·줄 간격 일정·요일 열 일치 |
+| `SS4 날짜 고르기` | 그날 세션 카드 2개·식단 제목 1개 → 카드 1탭 → 상세 제목 → `기록` 1탭 → 고른 날 유지 |
+| `SS4 다른 달` | 이전 달 → 선택 풀림·`이 달의 세션`·달 이름 바뀜 → 다음 달 |
+| `SS4 종목별 → 세션` | 종목 카드 3개·`현재 루틴에 없음` 2개·세션 카드 2개 → 상세 → 돌아옴 |
+| `SS4 보조 무게 종목` | e1RM·최고 뱃지·볼륨 0개, 안내 글자 계산된 색 = 경고 토큰(다크·라이트) |
+| `SS4 Day 변경 2단계`·`SS4 위험 구역 2단 확인` | 취소로 끝냄, 기록 그대로, 확인 글자 계산된 색 = 오류 토큰 |
+| `SS4 상세 유산소 토글 맨 글자 아님` | 토글 5개 모두 면·테두리가 있음, 높이 36px 하나 |
+| `SS4 <장면> 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안` | history·history-day·history-exercise·history-exercise-detail·history-detail·history-detail-change 모두 꺾임 0건, 안쪽 폭 안 |
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 것 | 원상복구 |
+|---|---|---|
+| ⑪ 상세에서 `<DietDayEditor`를 위험 구역 아래로 | `v121 SS4 — 순서: …` | `cmp` 같음 |
+| ⑫ `cellLabel`이 날짜를 뒤에 붙임 | `v121 SS4 속성`·`칸 이름 예` + 흐름 `SS4 달력 칸 이름`(이름이 날짜로 시작 false) | `cmp` 같음 |
+| ⑬ 세션 카드 하나를 `Card` + 안쪽 `ListItem`(제목 + 목록) | ui-check `history · 안쪽 대칭`: 카드 위 16·아래 23(차이 7). (제목 없이 `ListItem` 하나만 넣은 처음 시도는 위·아래가 같아 안 걸렸다 — 제목이 위에 있는 꼴로 되살림) | `cmp` 같음 |
+
+### 과거 판정 불변·하지 않은 것
+
+- `src/lib`는 테스트뿐이라 변이·속성(판정 함수) 대상 없음(`cellLabel`은 화면 파일의 이름 함수라 `v121`에 fast-check 속성으로 둠). README 반영: `Tech Stack`의 Astryx 줄에 `기록` 추가.
+- `docs/screenshots/v1.21/after`는 `history*`·`layout.json`만 갱신, 무관한 장면은 `git show HEAD:<경로>`로 되돌림.
+- 사람 확인 필요: 실기기에서 달력 칸(🔥·점 크기, 375 폭 누르는 느낌), 종목별 카드 누르기, 유산소 토글.
+
+### 실행 결과 요약
+
+- `npm run check` 통과(흔적·Astryx 뒷걸음·린트·knip·테스트·빌드·첫 화면 크기). `Test Files  83 passed (83)`, `Tests  1871 passed (1871)`. 빌드 성공. `git rev-list --count main..HEAD`: 커밋 전 15 → 이 커밋 후 16.

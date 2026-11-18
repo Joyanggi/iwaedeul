@@ -123,7 +123,8 @@ describe('캘린더 신호 분리 (식단 = 점)', () => {
   })
 
   it('식단은 점으로 그린다', () => {
-    expect(cal()).toMatch(/cal-diet-dot-\$\{dietDot\}/)
+    // v1.21 SS4: 점은 `data-diet={dietDot}` 속성으로 그린다(옛 클래스 `cal-diet-dot-${dietDot}`와 같은 뜻 — 점 하나가 등급을 다 나른다)
+    expect(cal()).toMatch(/data-diet=\{dietDot/)
   })
 
   it('판정된 날과 보류된 날이 같은 점 경로를 지난다', () => {

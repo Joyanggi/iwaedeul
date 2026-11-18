@@ -126,8 +126,10 @@ const SESSION_SCENES = ['session', 'session-375', 'session-rest']
 const SUMMARY_SCENES = ['summary', 'summary-zero', 'summary-pr', 'summary-assist', 'summary-memo', 'summary-revert', 'summary-cardio', 'summary-deload']
 const CARD_SCENES = ['session', 'session-375', 'session-open-b', 'history-detail-edit']
 /** 식단(SS2) — 식단 탭 다섯 장면과 그 편집기가 든 기록 두 장면. 카드·뱃지·버튼 쌍을 판정한다 */
-const DIET_SCENES = ['diet', 'diet-end', 'diet-375', 'diet-log-open', 'diet-streak', 'history-day', 'history-detail-end']
-const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...DIET_SCENES, ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SHEET_SCENES, ...SESSION_SCENES, ...SUMMARY_SCENES, 'session-open-b', 'history-detail-edit', 'home-safe', 'session-safe', 'settings'])
+const DIET_SCENES = ['diet', 'diet-end', 'diet-375', 'diet-log-open', 'diet-streak']
+/** 기록(SS4) — 기록 탭 아홉 장면. 카드·뱃지·버튼 쌍을 판정한다(기록 화면 전체가 Astryx다) */
+const HISTORY_SCENES = ['history', 'history-375', 'history-day', 'history-exercise', 'history-exercise-detail', 'history-detail', 'history-detail-end', 'history-detail-change', 'history-detail-edit']
+const SYMMETRY_JUDGED = new Set(['editor', 'line-sheet', ...DIET_SCENES, ...HISTORY_SCENES, ...HOME_SCENES, ...HOME_SHEET_SCENES, ...SESSION_SHEET_SCENES, ...SESSION_SCENES, ...SUMMARY_SCENES, 'session-open-b', 'home-safe', 'session-safe', 'settings'])
 /** 판정을 켠 쌍 종류. 나머지 종류는 장면이 Astryx여도 기록만 한다(card·badge = RR4, set-row = RR7, sheet = RR5 — 세션 장면은 RR6부터 button·bar를 판정하고, 운동 카드 안의 card·badge·set-row는 RR7 전까지 기록만) */
 const SYMMETRY_KINDS = new Set(['button', 'bar', 'tab-indicator', 'tab-content'])
 /** 홈(RR4)은 카드·뱃지 쌍도 판정한다 */
@@ -221,7 +223,7 @@ async function newColumns(page, scene, cells, light) {
   }
   if (scene === 'analyze') chartColors[scene] = { ...chartColors[scene], [light ? 'light' : 'dark']: await page.evaluate(inPageChartColors) }
   const pairs = await page.evaluate(inPageInsetSymmetry)
-  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : (HOME_SHEET_SCENES.includes(scene) || SESSION_SHEET_SCENES.includes(scene)) ? HOME_SHEET_SYMMETRY_KINDS : (CARD_SCENES.includes(scene) || SUMMARY_SCENES.includes(scene)) ? CARD_SYMMETRY_KINDS : DIET_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : SYMMETRY_KINDS
+  const kinds = HOME_SCENES.includes(scene) ? HOME_SYMMETRY_KINDS : (HOME_SHEET_SCENES.includes(scene) || SESSION_SHEET_SCENES.includes(scene)) ? HOME_SHEET_SYMMETRY_KINDS : (CARD_SCENES.includes(scene) || SUMMARY_SCENES.includes(scene)) ? CARD_SYMMETRY_KINDS : (DIET_SCENES.includes(scene) || HISTORY_SCENES.includes(scene)) ? HOME_SYMMETRY_KINDS : SYMMETRY_KINDS
   const judgedPairs = pairs.filter((p) => kinds.has(p.kind))
   const sym = insetSymmetryVerdict(SYMMETRY_JUDGED.has(scene) ? judgedPairs : pairs, EXPECTED_PAIRS[scene] ?? [])
   const rest = SYMMETRY_JUDGED.has(scene) ? insetSymmetryVerdict(pairs.filter((p) => !kinds.has(p.kind)), []) : null
@@ -562,6 +564,221 @@ function inPageDietSeed({ planId, count }) {
       tx.onerror = () => reject(tx.error)
     }
   })
+}
+
+/**
+ * SS4: 기록 화면이 다 보이게 시드를 심는다(page.evaluate용 — 바깥 변수를 못 본다). 끝난 세션 하나(base)를 바탕으로
+ *   - 같은 날 두 번째 세션(복귀 모드 + 루틴에 없는 종목 한 줄) → 달력 칸 `운동 2회`·복귀 뱃지·고아 카드·`현재 루틴에 없음`
+ *   - 이번 달 빈 날의 세션 하나(보조 무게 종목만) → 종목별의 보조 무게 안내
+ *   - 이번 달 1~4일 식단: 준수·일부·미달(슬롯 셋)·판정 전(슬롯 하나)
+ * 돌려주는 값은 되돌릴 때 쓴다: { sessionIds, dates, prev, baseDate, assistDate, dayId }
+ */
+function inPageHistorySeed() {
+  return new Promise((resolve, reject) => {
+    const pad = (n) => String(n).padStart(2, '0')
+    const open = indexedDB.open('workout-tracker')
+    open.onerror = () => reject(open.error)
+    open.onsuccess = () => {
+      const idb = open.result
+      const tx = idb.transaction(['sessions', 'dietDays'], 'readwrite')
+      const ss = tx.objectStore('sessions')
+      const dd = tx.objectStore('dietDays')
+      let out = null
+      const all = ss.getAll()
+      all.onsuccess = () => {
+        const base = all.result.find((x) => x.endedAt)
+        if (!base) return
+        const now = new Date()
+        const ym = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`
+        const used = new Set(all.result.map((x) => x.date))
+        let day = 28
+        while (day > 1 && (used.has(`${ym}-${pad(day)}`) || `${ym}-${pad(day)}` === base.date)) day -= 1
+        const assistDate = `${ym}-${pad(day)}`
+        const at = (iso, ms) => new Date(new Date(iso).getTime() + ms).toISOString()
+        const done = (n) => Array.from({ length: n }, () => ({ weight: 30, reps: 8, done: true, doneAt: base.endedAt }))
+        const two = {
+          ...base,
+          id: 'ui-check-ss4-two',
+          mode: 'return',
+          startedAt: at(base.startedAt, 3600000),
+          endedAt: at(base.endedAt, 3600000),
+          entries: [
+            ...base.entries,
+            { recordKey: `ss4-ghost@${base.dayId}`, plannedOrder: base.entries.length, performedOrder: base.entries.length + 1, firstSetAt: base.endedAt, compensation: '없음', skipped: false, extra: true, sets: done(2) },
+          ],
+        }
+        const assist = {
+          ...base,
+          id: 'ui-check-ss4-assist',
+          date: assistDate,
+          mode: 'normal',
+          startedAt: `${assistDate}T09:00:00.000Z`,
+          endedAt: `${assistDate}T09:40:00.000Z`,
+          entries: [{ recordKey: `assisted-pullup@${base.dayId}`, plannedOrder: 0, performedOrder: 1, firstSetAt: `${assistDate}T09:05:00.000Z`, compensation: '없음', skipped: false, extra: true, sets: done(3) }],
+        }
+        ss.put(two)
+        ss.put(assist)
+        const rec = (quality) => ({ checkedItemIds: [], substitution: { text: '시드', quality } })
+        const plan = [
+          ['01', ['breakfast', 'lunch', 'afternoon'], 'similar'],
+          ['02', ['breakfast', 'lunch', 'afternoon'], 'other'],
+          ['03', ['breakfast', 'lunch', 'afternoon'], 'cheat'],
+          ['04', ['breakfast'], 'similar'],
+        ]
+        const dates = plan.map(([d]) => `${ym}-${d}`)
+        const prev = []
+        let left = plan.length
+        for (const [d, slots, quality] of plan) {
+          const date = `${ym}-${d}`
+          const got = dd.get(date)
+          got.onsuccess = () => {
+            prev.push(got.result ?? null)
+            dd.put({ date, planId: 'cut-1500-u', isTrainingDay: false, slots: Object.fromEntries(slots.map((s) => [s, rec(quality)])) })
+            left -= 1
+          }
+        }
+        out = { sessionIds: [two.id, assist.id], dates, prev, baseDate: base.date, assistDate, dayId: base.dayId, pending: () => left }
+      }
+      tx.oncomplete = () => {
+        idb.close()
+        if (!out) return reject(new Error('시드 실패: 끝난 세션이 없다'))
+        const { pending, ...rest } = out
+        if (pending() !== 0) return reject(new Error('식단 시드 일부 실패'))
+        resolve(rest)
+      }
+      tx.onerror = () => reject(tx.error)
+    }
+  })
+}
+
+/** SS4: inPageHistorySeed가 심은 것을 원래대로(세션은 지우고, 식단은 없던 날은 지우고 있던 날은 되쓴다) */
+function inPageHistoryRestore({ sessionIds, dates, prev }) {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open('workout-tracker')
+    open.onerror = () => reject(open.error)
+    open.onsuccess = () => {
+      const idb = open.result
+      const tx = idb.transaction(['sessions', 'dietDays'], 'readwrite')
+      for (const id of sessionIds) tx.objectStore('sessions').delete(id)
+      const dd = tx.objectStore('dietDays')
+      for (const date of dates) {
+        const row = prev.find((r) => r && r.date === date)
+        if (row) dd.put(row)
+        else dd.delete(date)
+      }
+      tx.oncomplete = () => {
+        idb.close()
+        resolve(null)
+      }
+      tx.onerror = () => reject(tx.error)
+    }
+  })
+}
+
+/**
+ * SS4 달력 칸 한 줄 일곱의 모양(page.evaluate용): 칸이 카드 안쪽 폭 안에 드는지, 칸끼리·칸 안 부품끼리 겹치지 않는지, 날짜 글자가 잘리지 않는지,
+ * 칸 안 내용이 세로·가로 가운데인지, 줄 간격이 같은지, 요일 머리가 칸 열과 같은 가운데인지, 누르는 영역이 44 이상인지를 잰다. 칸이 0개면 ok가 아니다.
+ */
+function inPageCalendarFit() {
+  const cells = [...document.querySelectorAll('button.ax-cal-cell')]
+  if (cells.length === 0) return { ok: false, detail: '칸 0개' }
+  const grid = cells[0].parentElement
+  const inner = grid.parentElement.getBoundingClientRect()
+  const r = cells.map((c) => c.getBoundingClientRect())
+  const bad = []
+  const nm = (c) => (c.getAttribute('aria-label') || c.textContent).trim().slice(0, 12)
+  r.forEach((q, i) => {
+    if (q.left < inner.left - 0.5 || q.right > inner.right + 0.5) bad.push(`안쪽 폭 밖 ${nm(cells[i])}`)
+    if (q.width < 44 || q.height < 44) bad.push(`누르는 영역 ${nm(cells[i])} ${Math.round(q.width)}x${Math.round(q.height)}`)
+  })
+  for (let i = 0; i < r.length; i++)
+    for (let j = i + 1; j < r.length; j++) {
+      const ox = Math.min(r[i].right, r[j].right) - Math.max(r[i].left, r[j].left)
+      const oy = Math.min(r[i].bottom, r[j].bottom) - Math.max(r[i].top, r[j].top)
+      if (ox > 1 && oy > 1) bad.push(`칸 겹침 ${nm(cells[i])}×${nm(cells[j])}`)
+    }
+  let maxOff = 0
+  let maxOffX = 0
+  cells.forEach((c, i) => {
+    const q = r[i]
+    const kids = [...c.querySelectorAll('.ax-cal-num, .ax-cal-flame, .ax-cal-dot')].map((k) => k.getBoundingClientRect()).filter((k) => k.width > 0 && k.height > 0)
+    const numOnly = [c.querySelector('.ax-cal-num').getBoundingClientRect()]
+    const num = c.querySelector('.ax-cal-num')
+    if (num && num.scrollWidth > num.clientWidth + 1) bad.push(`날짜 잘림 ${nm(c)}`)
+    if (kids.length) {
+      const top = Math.min(...numOnly.map((k) => k.top))
+      const bottom = Math.max(...numOnly.map((k) => k.bottom))
+      maxOff = Math.max(maxOff, Math.abs(top - q.top - (q.bottom - bottom)))
+      const nr = num.getBoundingClientRect()
+      maxOffX = Math.max(maxOffX, Math.abs(nr.left + nr.width / 2 - (q.left + q.width / 2)))
+      for (let a = 0; a < kids.length; a++) for (let b = a + 1; b < kids.length; b++) {
+        const ox = Math.min(kids[a].right, kids[b].right) - Math.max(kids[a].left, kids[b].left)
+        const oy = Math.min(kids[a].bottom, kids[b].bottom) - Math.max(kids[a].top, kids[b].top)
+        if (ox > 1 && oy > 1) bad.push(`칸 안 겹침 ${nm(c)}`)
+      }
+      for (const k of kids) if (k.left < q.left - 0.5 || k.right > q.right + 0.5 || k.top < q.top - 0.5 || k.bottom > q.bottom + 0.5) bad.push(`칸 안 부품이 칸 밖 ${nm(c)}`)
+    }
+  })
+  if (maxOff > 2) bad.push(`세로 가운데 어긋남 ${maxOff.toFixed(1)}px`)
+  if (maxOffX > 1) bad.push(`가로 가운데 어긋남 ${maxOffX.toFixed(1)}px`)
+  const tops = [...new Set(r.map((q) => Math.round(q.top)))].sort((a, b) => a - b)
+  const rowGaps = [...new Set(tops.slice(1).map((t, i) => t - tops[i]))]
+  if (rowGaps.length > 1) bad.push(`줄 간격이 다르다 ${rowGaps.join('/')}`)
+  const heads = [...grid.parentElement.children].filter((e) => e.classList.contains('ax-cal-grid') && e !== grid)[0]
+  const wd = heads ? [...heads.children].map((e) => e.getBoundingClientRect()) : []
+  const firstRow = r.slice(0, 7)
+  if (wd.length !== 7) bad.push(`요일 머리 ${wd.length}개`)
+  else wd.forEach((q, i) => { if (Math.abs(q.left + q.width / 2 - (firstRow[i].left + firstRow[i].width / 2)) > 1) bad.push(`요일 열 어긋남 ${i}`) })
+  return { ok: bad.length === 0, detail: bad.join(' · ') || `칸 ${cells.length}개 · 안쪽 폭 안 · 겹침 0 · 누르는 영역 44 이상 · 세로 어긋남 ${maxOff.toFixed(1)}px · 가로 어긋남 ${maxOffX.toFixed(1)}px · 줄 간격 ${rowGaps.join('/')}px · 요일 열 일치` }
+}
+
+/**
+ * SS4 달력의 네 신호가 서로 구분되는가: 오늘(테두리 --color-accent)·고른 날(면 --color-accent-muted)·일반 칸(둘 다 없음)의 계산된 모양이 다르고,
+ * 식단 점 네 가지(준수·일부·미달·판정 전)의 계산된 색이 토큰과 같고 서로 다르며 강조색이 아니다. 오늘 칸과 고른 칸이 같으면(오늘을 골랐다) 실패다.
+ */
+function inPageCalendarSignals() {
+  const resolve = (prop, token) => {
+    const p = document.createElement('span')
+    p.style[prop] = `var(${token})`
+    document.body.appendChild(p)
+    const v = getComputedStyle(p)[prop]
+    p.remove()
+    return v
+  }
+  const cells = [...document.querySelectorAll('button.ax-cal-cell')]
+  const today = cells.find((c) => c.hasAttribute('data-today'))
+  const selected = cells.find((c) => c.hasAttribute('data-selected'))
+  const plain = cells.find((c) => !c.hasAttribute('data-today') && !c.hasAttribute('data-selected') && !c.hasAttribute('data-out') && !c.querySelector('.ax-cal-flame'))
+  const face = (c) => (c ? { border: getComputedStyle(c).borderTopColor, bg: getComputedStyle(c).backgroundColor } : null)
+  const t = face(today)
+  const s = face(selected)
+  const p = face(plain)
+  const accent = resolve('color', '--color-accent')
+  const muted = resolve('backgroundColor', '--color-accent-muted')
+  const tokens = { good: resolve('backgroundColor', '--color-success'), mid: resolve('backgroundColor', '--color-warning'), poor: resolve('backgroundColor', '--color-error'), partial: resolve('backgroundColor', '--color-text-secondary') }
+  const dots = {}
+  for (const k of Object.keys(tokens)) {
+    const d = document.querySelector(`.ax-cal-dot[data-diet="${k}"]`)
+    dots[k] = d ? getComputedStyle(d).backgroundColor : null
+  }
+  const bad = []
+  if (!today) bad.push('오늘 칸 없음')
+  if (!selected) bad.push('고른 칸 없음')
+  if (today && selected && today === selected) bad.push('오늘과 고른 칸이 같아 구분을 못 잼')
+  if (t && t.border !== accent) bad.push(`오늘 테두리 ${t.border} ≠ 강조 ${accent}`)
+  if (s && s.bg !== muted) bad.push(`고른 날 면 ${s.bg} ≠ ${muted}`)
+  if (t && s && t.border === s.border) bad.push('오늘·고른 날 테두리가 같다')
+  if (t && s && t.bg === s.bg) bad.push('오늘·고른 날 면이 같다')
+  if (p && (p.border === accent || p.bg === muted)) bad.push('일반 칸이 오늘·고른 날과 같다')
+  for (const k of Object.keys(tokens)) {
+    if (dots[k] === null) bad.push(`식단 점 ${k} 없음`)
+    else if (dots[k] !== tokens[k]) bad.push(`점 ${k} ${dots[k]} ≠ ${tokens[k]}`)
+    if (dots[k] === resolve('backgroundColor', '--color-accent')) bad.push(`점 ${k}가 강조색`)
+  }
+  if (new Set(Object.values(dots)).size !== 4) bad.push('식단 점 색이 서로 같다')
+  const flames = cells.filter((c) => c.querySelector('.ax-cal-flame')).length
+  if (flames < 1) bad.push('🔥 없음')
+  return { ok: bad.length === 0, detail: bad.join(' · ') || `오늘 테두리 ${t.border} · 고른 날 면 ${s.bg} · 일반 칸 테두리 ${p?.border}/면 ${p?.bg} · 점 ${Object.entries(dots).map(([k, v]) => `${k} ${v}`).join(' ')} · 🔥 칸 ${flames}개` }
 }
 
 /** SS2 검증: 식단 품목 토글(눌리지 않은 것) 하나의 계산된 모양 — 식단 탭과 기록 화면 안 편집기가 같은 부품이면 같다 */
@@ -1869,22 +2086,113 @@ async function runScenes(browser, port, scheme) {
       await settle(page, 800)
     })
 
-    // 기록
-    await page.getByRole('button', { name: '기록', exact: true }).click()
-    await settle(page, 800)
-    await snap('history')
-    await wrapProbe('history')
+    // 기록 — SS4: 달력·세션 줄이 다 보이게 시드를 심는다(식단 점 넷·같은 날 두 번째 세션(복귀)·루틴에 없는 종목·보조 무게 세션). 종목별 장면 뒤에 되돌린다.
+    // 시드가 실패하면 SS4 흐름 전부가 실패다(조용히 건너뛰지 않는다).
+    const SS4_NAMES = ['SS4 시드 심기', 'SS4 달력 칸 이름', 'SS4 달력 칸 신호 구분', 'SS4 달력 칸 일곱 한 줄', 'SS4 날짜 고르기', 'SS4 다른 달', 'SS4 종목별 → 세션', 'SS4 보조 무게 종목']
+    let ss4Seed = null
+    const backToHistory = async () => {
+      await page.reload()
+      await page.getByRole('button', { name: '기록', exact: true }).click()
+      await settle(page, 800)
+    }
+    // ClickableCard의 이름 붙은 button은 눈에 안 보이는 안쪽 부품이다 — 사람이 누르는 카드 면(바로 위 상자)을 누른다
+    const tapCard = (loc) => loc.locator('xpath=..').click()
+    const ss4Back = async () => {
+      await page.locator('.ax-screen').getByRole('button', { name: '기록', exact: true }).click()
+      await settle(page, 400)
+    }
+    await guardedFlow(SS4_NAMES, async () => {
+      ss4Seed = await page.evaluate(inPageHistorySeed)
+      if (!light) flows.push(['SS4 시드 심기', { ok: true, detail: `같은 날(${ss4Seed.baseDate}) 두 번째 세션(복귀)·루틴에 없는 종목 · 보조 무게 세션(${ss4Seed.assistDate}) · 식단 ${ss4Seed.dates.join(' ')}` }])
+    })
+    try {
+      await backToHistory()
+      await snap('history')
+      await wrapProbe('history')
+      if (!light) await screenWrapFlow('SS4 history 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
+      if (!light) {
+        // ② 칸 이름: 오늘 칸·세션 두 번인 칸·식단 점이 있는 칸 (하나라도 못 찾으면 실패)
+        await guardedFlow(['SS4 달력 칸 이름'], async () => {
+          const todayCell = page.locator('button.ax-cal-cell[data-today]')
+          const todayName = (await todayCell.count()) === 1 ? await todayCell.getAttribute('aria-label') : null
+          const twoCells = await page.getByRole('button', { name: /^\d+일 운동 2회/ }).evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))
+          const dietNames = await page.getByRole('button', { name: /식단 (준수|일부|미달|판정 전)$/ }).evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))
+          const kinds = new Set(dietNames.map((n) => n.split('식단 ')[1]))
+          const startsOk = [todayName, ...twoCells, ...dietNames].every((n) => n && /^\d+일/.test(n))
+          flows.push(['SS4 달력 칸 이름', { ok: todayName !== null && twoCells.length >= 1 && kinds.size === 4 && startsOk, detail: `오늘 칸 "${todayName}" · 두 번 운동한 칸 ${twoCells.length}개 "${twoCells[0]}" · 식단 점이 있는 칸 ${dietNames.length}개(종류 ${[...kinds].join('·')}) · 이름이 날짜로 시작 ${startsOk}` }])
+        })
+        // 한 줄에 일곱 칸: 겹침·잘림·가운데·간격·누르는 영역을 390·375에서 잰다
+        await guardedFlow(['SS4 달력 칸 일곱 한 줄'], async () => {
+          const out = []
+          try {
+            for (const w of [390, 375]) {
+              await page.setViewportSize({ width: w, height: w === 375 ? 812 : 844 })
+              await settle(page, 400)
+              out.push([w, await page.evaluate(inPageCalendarFit)])
+            }
+          } finally {
+            await page.setViewportSize({ width: 390, height: 844 })
+            await settle(page, 400)
+          }
+          flows.push(['SS4 달력 칸 일곱 한 줄', { ok: out.every(([, r]) => r.ok), detail: out.map(([w, r]) => `${w}: ${r.detail}`).join(' / ') }])
+        })
+      }
     await requiredScene('history-375', () => at375(() => snap('history-375')))
     // 세션이 있는 날(달력 칸의 🔥)을 고른 상태 — 그날 세션 줄 + 그날 식단 편집기. 끝에 "전체 보기"로 되돌린다
     await requiredScene('history-day', async () => {
-      await page.getByRole('button', { name: /🔥/ }).first().click({ timeout: 3000 })
+      await page.getByRole('button', { name: /^\d+일 운동 \d+회/ }).first().click({ timeout: 3000 })
       await page.getByRole('button', { name: '전체 보기', exact: true }).waitFor({ timeout: 3000 })
       await settle(page, 800)
       await snap('history-day')
       histItemFace = await page.evaluate(inPageItemFace)
-      // 편집기는 legacy 기록 화면 안의 섬(.ax-scope) — 그 섬 안만 잰다(앞에 다른 .ax-scope가 없다)
-      if (!light) await screenWrapFlow('SS2 history-day 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-scope')
-      await page.getByRole('button', { name: '전체 보기', exact: true }).click()
+      // 기록 화면 전체가 Astryx다 — 화면 틀(.ax-history) 안을 잰다
+      if (!light) await screenWrapFlow('SS2 history-day 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
+      if (!light) await screenWrapFlow('SS4 history-day 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
+      if (!light) {
+        // ① 날짜 고르기 → 그날 세션 카드와 그날 식단 → 세션 카드 1탭 → 상세 제목 → `기록` 1탭으로 돌아온다
+        await guardedFlow(['SS4 날짜 고르기'], async () => {
+          const cards = page.getByRole('button', { name: / \d{4}-\d{2}-\d{2}$/ })
+          const nCards = await cards.count()
+          const dietHeads = await page.getByRole('heading', { level: 2, name: /^\d{4}-\d{2}-\d{2} 식단$/ }).count()
+          await tapCard(cards.first())
+          await page.getByRole('button', { name: '기록으로', exact: true }).waitFor({ timeout: 3000 })
+          const title = (await page.getByRole('heading', { level: 1 }).first().textContent())?.trim() ?? ''
+          await ss4Back()
+          const kept = await page.getByRole('button', { name: '전체 보기', exact: true }).count()
+          flows.push(['SS4 날짜 고르기', { ok: nCards >= 1 && dietHeads === 1 && title.length > 0 && kept === 1, detail: `그날 세션 카드 ${nCards}개 · 그날 식단 제목 ${dietHeads}개 · 상세 제목 "${title}" · 돌아온 뒤 고른 날 유지(전체 보기 ${kept}개)` }])
+        })
+        // 오늘·고른 날·🔥·식단 점이 서로 구분되는가 — 오늘이 아닌 🔥 칸(보조 무게 세션의 날)을 골라서 잰다
+        await guardedFlow(['SS4 달력 칸 신호 구분'], async () => {
+          const assistDay = Number(ss4Seed.assistDate.slice(8))
+          await page.getByRole('button', { name: '전체 보기', exact: true }).click()
+          await page.getByRole('button', { name: new RegExp(`^${assistDay}일 운동 1회`) }).first().click()
+          await page.getByRole('button', { name: '전체 보기', exact: true }).waitFor({ timeout: 3000 })
+          await settle(page, 400)
+          const r = await page.evaluate(inPageCalendarSignals)
+          flows.push(['SS4 달력 칸 신호 구분', { ok: r.ok, detail: r.detail }])
+          // 처음 고른 날로 되돌린다(뒤 스크린샷·흐름이 같은 상태에서)
+          await page.getByRole('button', { name: '전체 보기', exact: true }).click()
+          await settle(page, 300)
+        })
+        // ③ 다른 달: 이전 달 1탭 → 고른 날짜가 풀리고, 다음 달 1탭으로 돌아온다
+        await guardedFlow(['SS4 다른 달'], async () => {
+          await page.getByRole('button', { name: /^\d+일 운동/ }).first().click()
+          await page.getByRole('button', { name: '전체 보기', exact: true }).waitFor({ timeout: 3000 })
+          const before = await page.getByRole('heading', { level: 2 }).first().textContent()
+          await btn(page, '이전 달').click()
+          await settle(page, 400)
+          const released = await page.getByRole('button', { name: '전체 보기', exact: true }).count()
+          const header = await page.getByText('이 달의 세션', { exact: true }).count()
+          const after = await page.getByRole('heading', { level: 2 }).first().textContent()
+          const outDisabled = await page.locator('button.ax-cal-cell[data-out][disabled]').count()
+          await btn(page, '다음 달').click()
+          await settle(page, 400)
+          flows.push(['SS4 다른 달', { ok: released === 0 && header === 1 && after !== before, detail: `이전 달 → 전체 보기 ${released}개(0이어야) · "이 달의 세션" ${header}개 · 달 이름 "${before}" → "${after}" · 다른 달 칸 중 눌리지 않는 것 ${outDisabled}개 · 다음 달로 돌아옴` }])
+        })
+      }
+      await page.getByRole('button', { name: /^\d+일 운동/ }).first().waitFor({ timeout: 3000 })
+      const stillSelected = await page.getByRole('button', { name: '전체 보기', exact: true }).count()
+      if (stillSelected) await page.getByRole('button', { name: '전체 보기', exact: true }).click()
       await settle(page, 400)
     })
     // 종목별: 목록과 한 종목(메모 이력이 보이게 끝난 세션에 감각 메모를 심었다가 되돌린다)
@@ -1894,18 +2202,51 @@ async function runScenes(browser, port, scheme) {
         await page.reload()
         await page.getByRole('button', { name: '기록', exact: true }).click()
         await settle(page, 600)
-        await btn(page, '종목별').click()
-        await page.getByRole('button', { name: /\d+회 ▸$/ }).first().waitFor({ timeout: 4000 })
+        await page.getByRole('radio', { name: '종목별', exact: true }).click()
+        const keyCards = page.getByRole('button', { name: / D\d$/ })
+        await keyCards.first().waitFor({ timeout: 4000 })
         await settle(page, 500)
         await snap('history-exercise')
-        await page.getByRole('button', { name: /\d+회 ▸$/ }).first().click()
+        if (!light) await screenWrapFlow('SS4 history-exercise 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
+        await tapCard(keyCards.first())
         await page.getByText(/^메모 이력 \(\d+\)$/).waitFor({ timeout: 4000 })
         await settle(page, 500)
         await snap('history-exercise-detail')
         await wrapProbe('history-exercise-detail')
-        await btn(page, '‹ 종목 목록').click()
+        if (!light) await screenWrapFlow('SS4 history-exercise-detail 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
+        await btn(page, '종목 목록').click()
         await settle(page, 300)
-        await btn(page, '달력').click()
+        if (!light) {
+          // ④ 종목별 → 세션: 종목 1탭 → 그 종목의 세션 카드 1탭 → 상세 제목 → `기록` 1탭으로 목록에 돌아온다(루틴에 없는 종목 뱃지가 목록에 있다)
+          await guardedFlow(['SS4 종목별 → 세션'], async () => {
+            const nKeys = await keyCards.count()
+            const ghost = await page.getByText('현재 루틴에 없음', { exact: true }).count()
+            await tapCard(keyCards.first())
+            const sessionCards = page.getByRole('button', { name: /요일 세션$/ })
+            await sessionCards.first().waitFor({ timeout: 3000 })
+            const nSessions = await sessionCards.count()
+            await tapCard(sessionCards.first())
+            await page.getByRole('button', { name: '기록으로', exact: true }).waitFor({ timeout: 3000 })
+            const title = (await page.getByRole('heading', { level: 1 }).first().textContent())?.trim() ?? ''
+            await ss4Back()
+            const back = await keyCards.count()
+            flows.push(['SS4 종목별 → 세션', { ok: nKeys >= 2 && ghost >= 1 && nSessions >= 1 && title.length > 0 && back > 0, detail: `종목 카드 ${nKeys}개 · 현재 루틴에 없음 뱃지 ${ghost}개 · 종목의 세션 카드 ${nSessions}개 · 상세 제목 "${title}" · 돌아온 목록 카드 ${back}개` }])
+          })
+          // ⑤ 보조 무게 종목: e1RM·최고 뱃지·볼륨이 없고 안내 글자의 계산된 색 = 경고 토큰(라이트·다크 둘 다)
+          await guardedFlow(['SS4 보조 무게 종목'], async () => {
+            await tapCard(page.getByRole('button', { name: /^어시스티드 풀업 D\d$/ }).first())
+            await page.getByText(/보조 무게 종목/).waitFor({ timeout: 3000 })
+            const e1rm = await page.getByText(/최고 e1RM/).count()
+            const bestBadge = await page.getByText('최고', { exact: true }).count()
+            const volume = await page.getByText('kg·회', { exact: true }).count()
+            const warn = await warnColorBothSchemes('.ax-text-warning', '보조 무게 종목', 'warning')
+            const wrapped = await page.evaluate(inPageInnerOverflow, '.ax-history')
+            await btn(page, '종목 목록').click()
+            await settle(page, 300)
+            flows.push(['SS4 보조 무게 종목', { ok: e1rm === 0 && bestBadge === 0 && volume === 0 && warn.same && wrapped.ok, detail: `e1RM ${e1rm}개 · 최고 뱃지 ${bestBadge}개 · 볼륨(kg·회) ${volume}개 · 안내 글자 계산된 색 ${warn.actual} (토큰 ${warn.token}) · ${wrapped.detail}` }])
+          })
+        }
+        await page.getByRole('radio', { name: '달력', exact: true }).click()
         await settle(page, 400)
       } finally {
         await page.evaluate(inPageNoteSeed, originals)
@@ -1914,19 +2255,42 @@ async function runScenes(browser, port, scheme) {
         await settle(page, 800)
       }
     })
+    } finally {
+      if (ss4Seed) {
+        await page.evaluate(inPageHistoryRestore, ss4Seed)
+        await backToHistory()
+      }
+    }
     await requiredScene(['history-detail', 'history-detail-end'], async () => {
-      await page.getByRole('button', { name: /\d{4}-\d{2}-\d{2} \([월화수목금토일]\)/ }).first().click({ timeout: 3000 })
+      await tapCard(page.getByRole('button', { name: / \d{4}-\d{2}-\d{2}$/ }).first())
       await page.getByRole('button', { name: '기록으로', exact: true }).waitFor({ timeout: 3000 })
       await settle(page, 800)
       await snap('history-detail')
       await wrapProbe('history-detail')
+      if (!light) await screenWrapFlow('SS4 history-detail 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
+      if (!light) {
+        // 안 눌린 토글이 맨 글자가 되지 않게: 유산소 종류 토글은 눌리지 않았을 때도 면이나 테두리가 있고, 눌린 것과 다르다
+        await guardedFlow(['SS4 상세 유산소 토글 맨 글자 아님'], async () => {
+          const r = await page.evaluate(() => {
+            const label = [...document.querySelectorAll('body *')].find((e) => e.children.length === 0 && e.textContent.trim() === '유산소')
+            let c = label
+            while (c && !c.querySelector('button[aria-pressed]')) c = c.parentElement
+            const toggles = c ? [...c.querySelectorAll('button[aria-pressed]')] : []
+            const face = (b) => { const s = getComputedStyle(b); return { bg: s.backgroundColor, border: parseFloat(s.borderTopWidth), h: Math.round(b.getBoundingClientRect().height) } }
+            const faces = toggles.map(face)
+            const bare = toggles.filter((b, i) => b.getAttribute('aria-pressed') !== 'true' && (faces[i].bg === 'rgba(0, 0, 0, 0)' || faces[i].bg === 'transparent') && faces[i].border === 0).map((b) => b.textContent.trim())
+            return { n: toggles.length, bare, heights: [...new Set(faces.map((f) => f.h))] }
+          })
+          flows.push(['SS4 상세 유산소 토글 맨 글자 아님', { ok: r.n >= 2 && r.bare.length === 0 && r.heights.length === 1, detail: `유산소 토글 ${r.n}개 · 맨 글자(면·테두리 없음) [${r.bare.join(', ')}] · 높이 ${r.heights.join('/')}px` }])
+        })
+      }
       await toEnd()
       await snap('history-detail-end')
       await toTop()
       // Day 변경: 다른 Day를 고르면 기록 키 재매핑 표가 보이는 상태 (재매핑이 있는 Day가 나올 때까지 후보를 차례로 눌러 본다)
       await requiredScene('history-detail-change', async () => {
         await btn(page, '잘못된 Day로 기록했나요?').click({ timeout: 3000 })
-        // 유산소 종류 알약도 같은 줄 모양이라, 안내 문구 바로 뒤의 Day 후보만 고른다
+        // 안내 문구 바로 뒤의 Day 후보만 고른다
         const pills = page.getByText('이 세션을 어느 Day로 옮길까요?').locator('xpath=following-sibling::*[1]').getByRole('button')
         const n = await pills.count()
         if (n === 0) throw new Error('Day 후보가 없다')
@@ -1944,8 +2308,24 @@ async function runScenes(browser, port, scheme) {
         await page.getByText(/기록 키 재매핑 \d+건/).scrollIntoViewIfNeeded()
         await settle(page, 500)
         await snap('history-detail-change')
-        await btn(page, '취소').click()
-        await settle(page, 300)
+        if (!light) await screenWrapFlow('SS4 history-detail-change 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
+        // ⑥ Day 변경 2단계(취소로 끝낸다 — 기록을 안 바꾼다): 2단계(변경 적용·취소)에서 취소 → 1단계(Day 고르기)에서 취소 → 진입 버튼
+        if (!light) {
+          await guardedFlow(['SS4 Day 변경 2단계'], async () => {
+            const apply = await btn(page, '변경 적용').count()
+            const cancel2 = await btn(page, '취소').count()
+            await btn(page, '취소').click()
+            await settle(page, 300)
+            const step1 = await page.getByText('이 세션을 어느 Day로 옮길까요?').count()
+            await btn(page, '취소').click()
+            await settle(page, 300)
+            const entry = await btn(page, '잘못된 Day로 기록했나요?').count()
+            flows.push(['SS4 Day 변경 2단계', { ok: apply === 1 && cancel2 === 1 && step1 === 1 && entry === 1, detail: `2단계: 변경 적용 ${apply}개·취소 ${cancel2}개 → 취소 → 1단계 안내 ${step1}개 → 취소 → 진입 버튼 ${entry}개(기록은 안 바꿨다)` }])
+          })
+        } else {
+          await btn(page, '취소').click()
+          await settle(page, 300)
+        }
         await toTop()
       })
       // 기록 편집에서 카드를 펼친 상태 (RR7의 세트 숫자·섬 버튼을 볼 장면)
@@ -1954,8 +2334,23 @@ async function runScenes(browser, port, scheme) {
         await settle(page, 500)
         await snap('history-detail-edit')
       })
-      await btn(page, '‹ 기록').click()
-      await settle(page, 400)
+      if (!light) {
+        // ⑦ 위험 구역 2단 확인(취소로 끝낸다): 삭제 버튼 → 확인 문구(오류 색)·정말 삭제·취소 → 취소 → 삭제 버튼. 세션은 그대로다
+        await guardedFlow(['SS4 위험 구역 2단 확인'], async () => {
+          await btn(page, '이 세션 삭제').scrollIntoViewIfNeeded()
+          await btn(page, '이 세션 삭제').click()
+          await page.getByText('이 세션 기록이 삭제됩니다. 되돌릴 수 없습니다.').waitFor({ timeout: 3000 })
+          const sure = await btn(page, '정말 삭제').count()
+          const err = await warnColorBothSchemes('.ax-text-error', '이 세션 기록이 삭제됩니다', 'error')
+          await btn(page, '취소').click()
+          await settle(page, 300)
+          const entry = await btn(page, '이 세션 삭제').count()
+          const alive = await page.getByRole('button', { name: '기록으로', exact: true }).count()
+          flows.push(['SS4 위험 구역 2단 확인', { ok: sure === 1 && err.same && entry === 1 && alive === 1, detail: `정말 삭제 ${sure}개 · 확인 글자 계산된 색 ${err.actual} (토큰 ${err.token}) · 취소 뒤 삭제 버튼 ${entry}개 · 세션 화면 ${alive}개(안 지웠다)` }])
+          await toTop()
+        })
+      }
+      await ss4Back()
     })
 
     // 분석

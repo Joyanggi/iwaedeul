@@ -1064,7 +1064,8 @@ describe("v120 RR9 — 요약", () => {
   })
 
   it("v120 RR9 반려: 줄 오른쪽 값은 StackItem size=\"static\"(flex-shrink 0)에 담기고 손으로 지은 ax-row-end는 없다 · inPageMidWordBreaks는 이웃 글자 노드(\"0\"+\"점\")를 한 덩어리로 잰다", () => {
-    expect(code(SUMMARY)).toMatch(/<StackItem size="static">\{end\}<\/StackItem>/)
+    // v1.21 SS4: `Row`가 SummaryScreen에서 src/ax/index.tsx로 옮겨 갔다(기록 화면도 쓴다) — 마크업은 같고 읽는 파일만 바뀌었다
+    expect(code("/src/ax/index.tsx")).toMatch(/<StackItem size="static">\{end\}<\/StackItem>/)
     expect(code(SUMMARY)).not.toContain("ax-row-end")
     expect(ui()).toMatch(/if \(n\.parentNode !== prevParent\) prevTop = null/)
   })

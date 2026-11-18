@@ -20,14 +20,13 @@
 /*
  * 눌림 — 기본 규칙 하나 + 덮어쓰는 무리 둘. 클래스 목록으로 버튼을 다 찍지 않는다.
  * 기본: 모든 legacy 버튼에 면 위 덮개(배경 이미지라 배경색을 갈아 끼우지 않는다). 눌릴 때는 전환 없이 바로, 뗄 때만 돌아온다.
- * 제외: Astryx 화면·부품(자기 눌림이 있다), 뒤로 링크(아래 둘째 무리가 글자만 옅게 한다).
+ * 제외: Astryx 화면·부품(자기 눌림이 있다).
  */
 :where(button, [role='button']):active:not(:disabled):not([aria-disabled='true']):not(
     :where(
         .ax-screen *,
         [class*='astryx-'],
-        [class*='astryx-'] *,
-        .back-link
+        [class*='astryx-'] *
       )
   ) {
   background-image: linear-gradient(var(--press-overlay), var(--press-overlay));
@@ -45,14 +44,6 @@
   transition: none;
 }
 
-.back-link {
-  transition: opacity var(--motion-fast) var(--ease-leave);
-}
-.back-link:active:not(:disabled) {
-  opacity: 0.55;
-  transition: none;
-}
-
 /* 움직임 줄이기: 크기 변화와 올라오는 움직임을 끈다. 눌림 덮개·투명도는 남는다(눌렸다는 것은 계속 보인다).
    휴식 바 진행 채움·타이머 링은 시간이 흐르는 것을 보여 주는 정보라 그대로 둔다. */
 @media (prefers-reduced-motion: reduce) {
@@ -65,8 +56,7 @@
   .btn,
   .pill,
   .chip,
-  .segment button,
-  .back-link {
+  .segment button {
     transition-duration: 0.01ms;
   }
 }

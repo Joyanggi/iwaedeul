@@ -12,6 +12,7 @@ import { SizeProvider } from '@astryxdesign/core/SizeContext'
 import { Button } from '@astryxdesign/core/Button'
 import { HStack } from '@astryxdesign/core/HStack'
 import { VStack } from '@astryxdesign/core/VStack'
+import { StackItem } from '@astryxdesign/core/Stack'
 import { Card as AstryxCard, type CardProps } from '@astryxdesign/core/Card'
 import { ClickableCard as AstryxClickableCard, type ClickableCardProps } from '@astryxdesign/core/ClickableCard'
 import { NumberInput } from '@astryxdesign/core/NumberInput'
@@ -154,6 +155,33 @@ interface TextFieldProps extends TextInputProps {
 export function TextField({ isNumeric = false, isProminent = false, ...props }: TextFieldProps) {
   const numeric = isProminent ? 'ax-num-prominent' : isNumeric ? 'ax-num' : undefined
   return <TextInput {...AX_NO_AUTOFILL} controlStyle={isProminent ? PROMINENT_STYLE : CONTROL_STYLE} controlClassName={numeric} {...props} />
+}
+
+/**
+ * 카드 안 한 줄 — 이름(+뱃지)·설명·오른쪽 끝 값. ListItem을 안 쓴 이유: ListItem은 줄마다 위·아래 안쪽 여백 8px이 있어
+ * 카드의 마지막 줄 아래가 제목 위보다 9px 넓어졌다(ui-check 안쪽 대칭 실측). 줄 사이 간격은 VStack gap 하나다.
+ * label·description은 Text 노드로 넘긴다 — 긴 글이 잘리지 않게.
+ */
+export function Row({ label, description, end }: { label: ReactNode; description?: ReactNode; end?: ReactNode }) {
+  return (
+    <HStack role="listitem" gap={3} align="start" justify="between">
+      <VStack gap={1}>
+        {label}
+        {description}
+      </VStack>
+      {/* 오른쪽 값은 줄어들지 않는다(StackItem static = flex-shrink 0) — 줄어드는 쪽은 설명 글이다 (RR9 화면 검증 반려: "0점"이 "0/점"으로 꺾임) */}
+      {end && <StackItem size="static">{end}</StackItem>}
+    </HStack>
+  )
+}
+
+/** 카드 안 줄 목록 */
+export function Rows({ children }: { children: ReactNode }) {
+  return (
+    <VStack role="list" gap={3}>
+      {children}
+    </VStack>
+  )
 }
 
 /** 불러오는 중 표시. 화면 가운데에 Spinner와 문구. */

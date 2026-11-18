@@ -87,7 +87,8 @@ export const inPageLayout = () => {
   for (const g of [...frame.querySelectorAll('.ax-group')].filter(vis)) res.cardGaps.push(...gapsOf(g))
   for (const g of [...frame.querySelectorAll('.ax-groups')].filter(vis)) res.sectionGaps.push(...gapsOf(g))
   // 카드 안쪽: 첫 카드의 왼쪽 가장자리에서 첫 글자까지(테두리는 안쪽 여백의 일부가 아니라 뺀다)
-  const card = [...frame.querySelectorAll('.card, [class*="astryx-card"]')].find(vis)
+  // 달력 카드는 첫 글자(월 이름)가 이전·다음 버튼 사이 가운데에 놓여 안쪽 여백을 못 잰다 — 다음 카드를 잰다(SS4)
+  const card = [...frame.querySelectorAll('.card, [class*="astryx-card"]')].find((c) => vis(c) && !c.querySelector('.ax-cal-grid'))
   if (card) {
     const cr = card.getBoundingClientRect()
     const w = document.createTreeWalker(card, NodeFilter.SHOW_TEXT)
@@ -126,7 +127,7 @@ export function spaceRoleVerdicts(layouts, judged = new Set()) {
   const sections = SCREENS.flatMap((s) => (layouts[s]?.sectionGaps ?? []).map((g) => [s, g]))
   const sectionSet = [...new Set(sections.map((p) => p[1]))]
   // 카드 안쪽은 Astryx `Card`를 쓰는 장면끼리만 견준다(홈 RR4 · 루틴 편집). 안 옮긴 화면은 legacy `.card`라 값이 다르고, 옮기는 작업(RR5~RR9)이 이 목록에 더한다
-  const INSET_SCENES = new Set(['home', 'home-375', 'home-banner', 'summary', 'editor', 'diet'])
+  const INSET_SCENES = new Set(['home', 'home-375', 'home-banner', 'summary', 'editor', 'diet', 'history'])
   const inset = SCREENS.filter((s) => INSET_SCENES.has(s) && layouts[s]?.cardInset != null).map((s) => [s, layouts[s].cardInset])
   const insetScenes = new Set(inset.map((p) => p[0]))
   const sectionScenes = new Set(sections.map((p) => p[0]))
@@ -259,8 +260,15 @@ export const EXPECTED_PAIRS = {
   'diet-375': ['bar', 'tab-indicator', 'tab-content', 'button', 'card'],
   'diet-log-open': ['bar', 'button', 'card'],
   'diet-streak': ['bar', 'button', 'card'],
-  'history-day': ['button', 'card'],
-  'history-detail-end': ['card'],
+  // SS4: 기록 탭 전체가 Astryx다 — 아래 띠·탭, 달력·세션·종목 카드, 버튼. 상세는 카드와 버튼(기록으로)
+  history: ['bar', 'tab-indicator', 'tab-content', 'button', 'card'],
+  'history-375': ['bar', 'tab-indicator', 'tab-content', 'button', 'card'],
+  'history-day': ['bar', 'button', 'card'],
+  'history-exercise': ['bar', 'card'],
+  'history-exercise-detail': ['bar', 'button', 'card', 'badge'],
+  'history-detail': ['bar', 'button', 'card'],
+  'history-detail-end': ['bar', 'button', 'card'],
+  'history-detail-change': ['bar', 'button', 'card'],
   // RR9: 요약 — 홈으로 버튼과 카드. 뱃지는 PR·수행 순서 뱃지가 있는 장면에서
   summary: ['button', 'card'],
   'summary-zero': ['button', 'card'],

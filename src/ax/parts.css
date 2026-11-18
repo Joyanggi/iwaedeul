@@ -306,6 +306,110 @@
     color: var(--color-text-secondary);
   }
 
+  /*
+   * 기록 달력 (SS4 — Astryx `Calendar`는 칸에 내용을 못 넣는다). 요일 머리와 칸이 같은 7열 정의를 읽는다.
+   * 칸의 버튼 모양·눌림·포커스 링은 Astryx `Button`의 것이고, 여기는 안의 배치와 상태 색만 정한다.
+   * 역할을 나눈다: 테두리 = 오늘 / 면 = 고른 날 / 🔥 = 운동 / 점 = 식단(강조색을 안 쓴다 — 강조색은 내비게이션 상태의 색이다).
+   */
+  .ax-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    row-gap: var(--spacing-1);
+    column-gap: 0;
+    text-align: center;
+  }
+
+  .ax-cal-cell {
+    box-sizing: border-box;
+    min-width: 0;
+    position: relative;
+    min-height: var(--spacing-12);
+    padding-inline: 0;
+    border: 1px solid transparent;
+  }
+
+  /* Button이 children을 감싸는 안쪽 span — 날짜 글자를 칸 가운데에 둔다(🔥은 위, 점은 아래에 떠 있어 날짜의 자리가 칸마다 같다) */
+  .ax-cal-cell span:has(> .ax-cal-num) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .ax-cal-cell[data-out] {
+    opacity: 0.5;
+  }
+
+  .ax-cal-cell[data-today] {
+    border-color: var(--color-accent);
+  }
+
+  .ax-cal-cell[data-selected] {
+    background: var(--color-accent-muted);
+  }
+
+  .ax-cal-num {
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .ax-cal-flame {
+    position: absolute;
+    top: var(--spacing-1);
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.75rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .ax-cal-flame::before {
+    content: '🔥';
+  }
+
+  /* 같은 날 세션이 둘 이상이면 🔥 옆에 수 */
+  .ax-cal-flame:not([data-sessions='1'])::after {
+    content: attr(data-sessions);
+    font-size: 0.5625rem;
+    font-weight: 700;
+    color: var(--color-accent);
+  }
+
+  .ax-cal-dot {
+    position: absolute;
+    bottom: var(--spacing-1);
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(var(--spacing-1) * 1.5);
+    height: calc(var(--spacing-1) * 1.5);
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .ax-cal-dot[data-diet='good'] {
+    background: var(--color-success);
+  }
+
+  .ax-cal-dot[data-diet='mid'] {
+    background: var(--color-warning);
+  }
+
+  .ax-cal-dot[data-diet='poor'] {
+    background: var(--color-error);
+  }
+
+  /* 기록은 있으나 판정 보류 (X2) — 준수도가 아니라 "아직 판정 안 함" */
+  .ax-cal-dot[data-diet='partial'] {
+    background: var(--color-text-secondary);
+  }
+
+  /* 기록 탭 틀의 한글 줄바꿈(.ax-diet와 같다). SS8이 앱 전체 규칙으로 모은다 */
+  .ax-history :is(p, span, div, h1, h2) {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
   /* 식단 화면 틀의 한글 줄바꿈(요약의 .ax-summary와 같다). SS8이 앱 전체 규칙으로 모은다 */
   .ax-diet :is(p, span, div, h1, h2) {
     word-break: keep-all;

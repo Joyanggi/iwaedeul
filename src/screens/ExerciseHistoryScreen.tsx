@@ -6,6 +6,7 @@ import { noteHistory, noteLineText } from '../lib/noteHistory'
 import { isInverseKey } from '../lib/weightScale'
 import type { RoutineBundle } from '../lib/useRoutine'
 import type { Session } from '../types'
+import { Badge, Button, Card, Center, ClickableCard, Group, HStack, Icon, Row, Rows, Text, VStack } from '../ax'
 
 /**
  * 종목별 보기 (DESIGN.md §5.3).
@@ -40,41 +41,46 @@ export default function ExerciseHistoryScreen({
     bundle.catalog.get(exerciseId)?.shortName ?? exerciseId
 
   if (keys.length === 0) {
-    return <p className="center-note">아직 기록이 없습니다.</p>
+    return (
+      <Center>
+        <Text color="secondary">아직 기록이 없습니다.</Text>
+      </Center>
+    )
   }
 
   if (!selected) {
     return (
-      <div className="card">
-        <div className="card-label">종목별 기록</div>
-        <p className="row-sub mb-row">
+      <Group>
+        <Text type="supporting" color="secondary">
           같은 기계라도 Day가 다르면 다른 기록입니다 (무게대와 목적이 다름).
-        </p>
+        </Text>
         {keys.map((info) => (
-          <button className="row" key={info.recordKey} onClick={() => setSelected(info.recordKey)}>
-            <div className="row-main">
-              <div className="row-title">
-                {nameOf(info.exerciseId)}
-                <span className="chip ml-inline">
-                  {info.dayId.toUpperCase()}
-                </span>
-                {info.group && (
-                  <span className="chip ml-inline">
-                    {info.group}
-                  </span>
-                )}
-                {!info.known && (
-                  <span className="chip chip-warn ml-inline">
-                    현재 루틴에 없음
-                  </span>
-                )}
-              </div>
-              <div className="row-sub mono">{info.recordKey}</div>
-            </div>
-            <div className="row-meta">{info.sessionCount}회 ▸</div>
-          </button>
+          <ClickableCard
+            key={info.recordKey}
+            label={`${nameOf(info.exerciseId)} ${info.dayId.toUpperCase()}`}
+            onClick={() => setSelected(info.recordKey)}
+          >
+            <Rows>
+            <Row
+              label={
+                <HStack gap={2} align="center" wrap="wrap">
+                  <Text weight="semibold">{nameOf(info.exerciseId)}</Text>
+                  <Badge variant="neutral" label={info.dayId.toUpperCase()} />
+                  {info.group && <Badge variant="neutral" label={info.group} />}
+                  {!info.known && <Badge variant="warning" label="현재 루틴에 없음" />}
+                </HStack>
+              }
+              description={
+                <Text type="code" size="sm" color="secondary">
+                  {info.recordKey}
+                </Text>
+              }
+              end={<Text color="secondary">{info.sessionCount}회</Text>}
+            />
+            </Rows>
+          </ClickableCard>
         ))}
-      </div>
+      </Group>
     )
   }
 
@@ -88,88 +94,121 @@ export default function ExerciseHistoryScreen({
 
   return (
     <>
-      <button className="back-link" onClick={() => setSelected(null)}>
-        ‹ 종목 목록
-      </button>
-      <div className="card">
-        <div className="card-label">{info ? nameOf(info.exerciseId) : selected}</div>
-        <div className="row">
-          <div className="row-main">
-            <div className="row-title mono">{selected}</div>
-            <div className="row-sub">{history.length}개 세션</div>
-          </div>
-          {!inverse && <div className="row-meta">최고 e1RM {best.toFixed(1)}kg</div>}
-        </div>
-        {inverse && (
-          <p className="row-sub" style={{ color: 'var(--warn)' }}>
-            보조 무게 종목 — 숫자가 <strong>줄어드는 것이 진전</strong>입니다. e1RM·볼륨은
-            방향이 반대라 표시하지 않습니다.
-          </p>
-        )}
-      </div>
-
-      {/*
-        메모 타임라인 (CC14). 저장은 이미 있으니 **읽기만** 추가한다 —
-        같은 종목에서 반복되는 감각·보상작용 패턴이 한 화면에 보여야 한다.
-      */}
-      {notes.length > 0 && (
-        <div className="card">
-          <div className="card-label">메모 이력 ({notes.length})</div>
-          {notes.map((n) => (
-            <div className="row" key={n.sessionId}>
-              <div className="row-main">
-                <div className="row-title">
-                  {n.date} ({weekdayKo(n.date)})
-                  {n.sensoryScore !== undefined && (
-                    <span className="chip ml-inline">
-                      감각 {n.sensoryScore}
-                    </span>
-                  )}
-                </div>
-                <div className="row-sub" style={{ whiteSpace: 'normal' }}>
-                  {noteLineText(n)}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="card">
-        <div className="card-label">세션 히스토리 (최신순)</div>
-        {history.map((point) => (
-          <button className="row" key={point.sessionId} onClick={() => onOpenSession(point.sessionId)}>
-            <div className="row-main">
-              <div className="row-title">
-                {point.date} ({weekdayKo(point.date)})
-                {point.mode !== 'normal' && (
-                  <span className="chip chip-warn ml-inline">
-                    {point.mode === 'return' ? '복귀' : '디로드'}
-                  </span>
-                )}
-                {!inverse && point.bestE1rm >= best && history.length > 1 && (
-                  <span className="chip chip-accent ml-inline">
-                    최고
-                  </span>
-                )}
-              </div>
-              <div className="row-sub">
-                {point.topWeight}kg · {point.sets.map((s) => s.reps).join(' / ')}
-                {point.sensoryScore !== undefined && ` · 감각 ${point.sensoryScore}`}
-                {hasCompensation(point.compensation) && ' · 보상작용'}
-                {point.pain && ' · 통증'}
-              </div>
-            </div>
-            {!inverse && (
-              <div className="row-meta">
-                {Math.round(point.volume).toLocaleString()}
-                <br />
-                <span style={{ fontSize: 11 }}>kg·회</span>
-              </div>
+      <HStack>
+        <Button variant="ghost" icon={<Icon icon="chevronLeft" />} label="종목 목록" onClick={() => setSelected(null)} />
+      </HStack>
+      <Group>
+        <Card>
+          <VStack gap={3}>
+            <Text type="supporting" color="secondary">
+              {info ? nameOf(info.exerciseId) : selected}
+            </Text>
+            <Rows>
+              <Row
+                label={
+                  <Text type="code" weight="semibold">
+                    {selected}
+                  </Text>
+                }
+                description={
+                  <Text type="supporting" color="secondary">
+                    {history.length}개 세션
+                  </Text>
+                }
+                end={!inverse && <Text color="secondary">최고 e1RM {best.toFixed(1)}kg</Text>}
+              />
+            </Rows>
+            {inverse && (
+              <Text type="supporting" className="ax-text-warning">
+                보조 무게 종목 — 숫자가 <strong>줄어드는 것이 진전</strong>입니다. e1RM·볼륨은 방향이 반대라 표시하지 않습니다.
+              </Text>
             )}
-          </button>
+          </VStack>
+        </Card>
+
+        {/*
+          메모 타임라인 (CC14). 저장은 이미 있으니 **읽기만** 추가한다 —
+          같은 종목에서 반복되는 감각·보상작용 패턴이 한 화면에 보여야 한다.
+        */}
+        {notes.length > 0 && (
+          <Card>
+            <VStack gap={3}>
+              <Text type="supporting" color="secondary">
+                메모 이력 ({notes.length})
+              </Text>
+              <Rows>
+                {notes.map((n) => (
+                  <Row
+                    key={n.sessionId}
+                    label={
+                      <HStack gap={2} align="center" wrap="wrap">
+                        <Text weight="semibold">
+                          {n.date} ({weekdayKo(n.date)})
+                        </Text>
+                        {n.sensoryScore !== undefined && <Badge variant="neutral" label={`감각 ${n.sensoryScore}`} />}
+                      </HStack>
+                    }
+                    description={
+                      <Text type="supporting" color="secondary">
+                        {noteLineText(n)}
+                      </Text>
+                    }
+                  />
+                ))}
+              </Rows>
+            </VStack>
+          </Card>
+        )}
+      </Group>
+
+      <Group>
+        <Text type="supporting" color="secondary">
+          세션 히스토리 (최신순)
+        </Text>
+        {history.map((point) => (
+          <ClickableCard
+            key={point.sessionId}
+            label={`${point.date} ${weekdayKo(point.date)}요일 세션`}
+            onClick={() => onOpenSession(point.sessionId)}
+          >
+            <Rows>
+            <Row
+              label={
+                <HStack gap={2} align="center" wrap="wrap">
+                  <Text weight="semibold">
+                    {point.date} ({weekdayKo(point.date)})
+                  </Text>
+                  {point.mode !== 'normal' && (
+                    <Badge variant="warning" label={point.mode === 'return' ? '복귀' : '디로드'} />
+                  )}
+                  {!inverse && point.bestE1rm >= best && history.length > 1 && <Badge variant="info" label="최고" />}
+                </HStack>
+              }
+              description={
+                <Text type="supporting" color="secondary">
+                  {point.topWeight}kg · {point.sets.map((s) => s.reps).join(' / ')}
+                  {point.sensoryScore !== undefined && ` · 감각 ${point.sensoryScore}`}
+                  {hasCompensation(point.compensation) && ' · 보상작용'}
+                  {point.pain && ' · 통증'}
+                </Text>
+              }
+              end={
+                !inverse && (
+                  <VStack gap={0} align="end">
+                    <Text weight="semibold" hasTabularNumbers>
+                      {Math.round(point.volume).toLocaleString()}
+                    </Text>
+                    <Text type="supporting" color="secondary">
+                      kg·회
+                    </Text>
+                  </VStack>
+                )
+              }
+            />
+            </Rows>
+          </ClickableCard>
         ))}
-      </div>
+      </Group>
     </>
   )
 }
