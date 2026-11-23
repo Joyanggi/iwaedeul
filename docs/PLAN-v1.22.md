@@ -6,7 +6,8 @@
 >
 > **성격**: Dexie 스키마 버전(3)과 백업 `SCHEMA_VERSION`(3)은 올리지 않는다. 동기화 장부는 **별도 IndexedDB**(`workout-tracker-sync`)에 둔다.
 > 로그인하지 않으면 지금과 하나도 다르지 않다. 빌드에 서버 주소가 없으면(CI·설정 전) 계정 카드 자체가 없다.
-> 판정·제안·내보내기는 바뀌지 않는다 — 동기화는 같은 행을 다른 기기로 옮길 뿐이다.
+> 판정·제안·내보내기의 **로직**은 바뀌지 않는다 — 동기화는 같은 행을 다른 기기로 옮길 뿐이다. 동기화로 입력 행이 바뀌면 그 기록의 결과는 바뀐 행으로 다시 계산된다(그 기기에서 직접 고친 것과 같다, 아래 "과거 판정 불변").
+> 검토 반영(2026-11-23): `.reports/v1.22-codex.md`·`.reports/v1.22-antigravity.md` — 맨 끝 "검토 반영 기록".
 
 ---
 
@@ -30,8 +31,10 @@ v1.16이 ③을 위해 지켜 둔 것(루틴 = 행 하나, 내 종목 = `exercis
 | 오프라인 | **유지한다.** 화면은 지금처럼 기기 IndexedDB만 읽고 쓴다(저장 버튼 없음, 즉시 반영). 서버는 **계정별 사본**이고 뒤에서 맞춘다 | 서버를 직접 읽는 앱: 헬스장 신호가 없으면 기록이 안 된다(README "입력 즉시 반영"·DESIGN 9.3 "오프라인"을 잃는다) |
 | 동기화 단위 | **행 단위.** 일곱 테이블의 행 하나 = 서버 `records` 행 하나 | 백업 파일 통째(Gist처럼): 두 기기가 다른 날을 적어도 한쪽이 통째로 진다 |
 | 바뀐 행 찾기 | **내용 지문 비교.** 마지막으로 맞춘 행의 SHA-256을 장부에 두고, 동기화 때 지금 행의 지문과 비교한다. 쓰기 자리에 훅을 달지 않는다 | Dexie 훅/미들웨어로 바뀐 목록 쌓기: `clear()`·복원·시드·옛 버전(되돌리기 중)이 쓴 것을 놓치는 길이 생긴다. 지문 비교는 **누가 썼든** 잡는다. 비용은 지금 Gist 동기화가 이미 매번 하는 전체 덤프 + SHA-256과 같다 |
-| 충돌 | **행마다 마지막으로 올린 쪽이 이긴다.** 받을 때 이 기기에서 아직 안 올린 행은 덮지 않는다 | 행 안 필드 병합: 세션·식단 하루는 한 사람이 한 기기에서 적는 것이 보통이라 값이 작다 |
-| 로그인 방식 | 이메일 + 비밀번호(사람이 정할 것 1의 추천). iOS 홈 화면 앱에서 다른 창으로 나가지 않는다 | 아래 "사람이 정할 것" 1 |
+| 충돌 | **행마다 서버에 마지막으로 올린 쪽이 이긴다.** "마지막"은 서버가 받은 순서(업로드 순서)다 — 고친 시각이 아니다. 오프라인에서 먼저 고친 기기라도 나중에 연결해 올리면 이긴다. 받을 때 이 기기에서 아직 안 올린 행은 덮지 않는다 | 행 안 필드 병합: 세션·식단 하루는 한 사람이 한 기기에서 적는 것이 보통이라 값이 작다 · 고친 시각 비교: 폰 시계를 믿어야 한다(cursor처럼 서버 시각만 쓴다) |
+| 로그인 방식 | **이메일 + 비밀번호, 확인 메일 끔.** iOS 홈 화면 앱에서 다른 창으로 나가지 않고, 메일 서버가 필요 없다. 비밀번호를 잊으면 운영자가 대시보드에서 바꿔 준다. 남의 이메일로 가입할 수 있다(그 사람 기록에는 닿지 않는다) | 이메일 6자리 코드: 메일 서버(SMTP — Resend 등)가 필요하다. Supabase 기본 메일은 개발용이라 팀원 주소 말고는 보내지 않고 시간당 몇 통으로 막혀 있다 · 구글·애플: iOS 홈 화면 앱에서 로그인 창이 Safari로 나가 돌아오지 않는 문제가 있다(저장소가 다르다). 이번 범위에서 검증할 수 없다 |
+| 플랜 | **Supabase Free.** 500MB·월 5만 명. 1주일 동안 요청이 없으면 멈추고(누가 하루라도 쓰면 안 멈춘다), 멈추면 동기화만 실패하고 기록은 기기에 남는다 | Pro(월 $25): 멈추지 않지만 텍스트 기록 몇 명분에는 필요 없다 |
+| Gist 걷는 시점 | **TT1~TT3를 먼저 배포하고, 실기기 확인 ①~⑧ 뒤 TT4를 별도 PR.** 계정 동기화가 검증되기 전까지 Gist가 앱 밖 사본으로 남는다 | 한 PR: 계정 동기화에 문제가 있으면 앱 밖 사본이 JSON 파일뿐이다 · Gist를 계속 둔다: 백업 길이 둘로 남고 요청 1과 어긋난다 |
 | 장부 위치 | 별도 DB `workout-tracker-sync`. 백업 파일에 계정 정보가 섞이지 않고, 메인 DB 버전을 안 올려 v1.21로 되돌릴 수 있다 | Dexie v4에 테이블 추가: v1.21 코드가 v4 DB를 못 연다(되돌리기 불가) |
 
 ---
@@ -92,24 +95,31 @@ v1.16이 ③을 위해 지켜 둔 것(루틴 = 행 하나, 내 종목 = `exercis
 
 **파일:** `src/lib/syncPlan.ts`(순수), `src/lib/syncDb.ts`(장부 DB), `src/lib/syncEngine.ts`(한 번의 동기화 — 저장소와 서버를 주입받는다). 셋 다 `src/lib/` 바로 아래(변이 테스트 대상).
 
-**1. 무엇이 동기화되나 — `isSyncedRow(tbl, row)` 한 곳 (초크포인트)**
+**1. 무엇이 동기화되나 — `isSyncedKey(tbl, pk, bundled)` · `isSyncedRow(tbl, row, bundled)` 한 곳 (초크포인트)**
 
 | 테이블 | 올리고 받는 행 | 안 올리는 행과 이유 |
 |---|---|---|
-| `routines` | 전부 | — |
-| `exercises` | `custom === true`인 행만 | 번들 카탈로그: 시드가 매 부팅 앱 번들에서 쓴다(`seed.ts:96`). 올리면 앱 버전이 다른 두 기기가 서로의 카탈로그를 번갈아 덮는다 |
-| `sessions` | 전부(진행 중 세션도 올린다 — 운동 중 폰이 죽어도 서버에 남게) | — |
+| `routines` | 번들 루틴 id(`BUNDLED_ROUTINE.id`)가 아닌 행 | 번들 루틴: 그 기기 앱 번들에서 시드가 쓴다(`seed.ts:98-110`). 올리면 번들이 다른 기기로 간다 — 옛 앱 기기는 새 번들 루틴이 자기 카탈로그로 검사에 걸려 `repaired`로 옛 번들을 다시 쓰고(`seed.ts:86-90`) 그것을 올려, 새 앱 기기가 옛 루틴을 받은 채 리비전이 같아 다시는 시드하지 않는다. 앱에서 고치면 복사본(새 id)이 되므로(`RoutineEditorScreen.tsx:57-59`) 사용자가 고친 루틴은 동기화된다 |
+| `exercises` | `custom === true`이고 번들 종목 id가 아닌 행 | 번들 카탈로그: 시드가 매 부팅 앱 번들에서 쓴다(`seed.ts:96`). 올리면 앱 버전이 다른 두 기기가 서로의 카탈로그를 번갈아 덮는다 |
+| `sessions` | **끝난 세션(`endedAt` 있음)만** | 진행 중 세션: 다른 기기가 받으면 같은 세션이 두 기기에서 열린다(부팅의 진행 중 복구 `App.tsx:98-106`). 받지 않을 것을 올리면 서버에 아무도 못 받는 행이 남는다. 앱이 죽어도 기기 IndexedDB에 남아 다음 부팅에 복구된다(`db/index.ts:124-128`). 세션은 끝난 뒤 다시 열리지 않는다(`session.ts`의 `finish`만 `endedAt`을 쓰고 지우는 곳이 없다) — 그래서 장부에 든 세션이 "동기화 안 함"으로 바뀌는 일이 없다 |
 | `settings` | `DEVICE_LOCAL_SETTING_KEYS`와 비밀 키(`isSecretSettingKey`) 말고 전부 | `seededRoutineRevision` `seededDietRevision`(그 기기 앱 번들의 시드 장부 — 공유하면 버전이 다른 기기가 시드를 번갈아 다시 쓴다) · `gistId` `lastBackupAt` `lastBackupHash`(그 기기의 Gist 장부) · `soundVolume` `duckOthers`(그 기기의 스피커·이어폰에 따른 것) |
-| `exerciseNotes` `dietPlans` `dietDays` | 전부 | — |
+| `dietPlans` | 번들 식단 플랜 id(`BUNDLED_DIET_PLANS`)가 아닌 행 | 번들 플랜: 루틴과 같은 이유(`seed.ts:116-119`) |
+| `exerciseNotes` `dietDays` | 전부 | — |
 
 ```ts
 export const SYNC_TABLES = ['routines','exercises','sessions','settings','exerciseNotes','dietPlans','dietDays'] as const
 export type SyncTable = (typeof SYNC_TABLES)[number]
 export const DEVICE_LOCAL_SETTING_KEYS: readonly string[]  // 위 일곱 개
+export interface BundledIds { routineId: string; dietPlanIds: readonly string[]; exerciseIds: readonly string[] }  // 부르는 쪽(TT3)이 seed.ts의 번들에서 만든다. syncPlan.ts는 db를 import하지 않는다
 export function pkOf(tbl: SyncTable, row: unknown): string    // 위 PK 표
-export function isSyncedRow(tbl: SyncTable, row: unknown): boolean
+/** pk만으로 정한다: 번들 id·기기 전용 키·비밀 키면 false. 지워진 받은 행(data: null)은 이것만 본다 */
+export function isSyncedKey(tbl: SyncTable, pk: string, bundled: BundledIds): boolean
+/** isSyncedKey(tbl, pkOf(tbl,row)) && 행 조건(exercises는 custom === true, sessions는 endedAt 있음) */
+export function isSyncedRow(tbl: SyncTable, row: unknown, bundled: BundledIds): boolean
 export function rowKey(tbl: SyncTable, pk: string): string     // `${tbl}\u0000${pk}`
 ```
+- 받은 행이 `deleted: true`(`data: null`)면 `isSyncedKey`만 본다. `isSyncedRow`에 `null`을 넣으면 `custom`을 못 봐서, 다른 기기에서 지운 내 종목이 이 기기에서 영영 안 지워진다.
+- JSON 가져오기로 번들 id를 그대로 쓴 루틴·식단 플랜은 그 기기에만 남는다(범위 제외).
 
 **2. 지문**
 
@@ -150,20 +160,25 @@ export function planPush(local: Map<string, LocalRow>, synced: Map<string, Synce
 
 ```ts
 interface PulledRow { tbl: SyncTable; pk: string; data: unknown | null; deleted: boolean; updatedAt: string; hash: string | null }  // hash: deleted면 null
-export function planPull(pulled: PulledRow[], local: Map<string, LocalRow>, synced: Map<string, SyncedEntry>):
-  { puts: PulledRow[]; deletes: { tbl; pk; baseText: string }[]; setSynced: SyncedEntry[]; dropSynced: string[]; skipped: { key: string; reason: 'local-change' | 'open-session' | 'not-synced' }[] }
+export function planPull(pulled: PulledRow[], local: Map<string, LocalRow>, synced: Map<string, SyncedEntry>,
+                         openSessionIds: ReadonlySet<string>, bundled: BundledIds):
+  { puts: { row: PulledRow; baseText: string | null }[]; deletes: { tbl: SyncTable; pk: string; baseText: string }[];
+    setSynced: SyncedEntry[]; dropSynced: string[]; skipped: { key: string; reason: 'local-change' | 'open-session' | 'not-synced' }[] }
 ```
+- `local`은 `isSyncedRow`인 로컬 행만 담는다. `openSessionIds`는 로컬의 진행 중 세션 id(`local`에 없다 — 판정 2가 따로 본다).
+- `baseText`: 계획을 세운 순간의 로컬 `text`. `puts`의 `null`은 "그때 로컬에 그 행이 없었다"이고, 쓰기 직전에도 없어야 쓴다.
+
 행마다 이 순서로 판정한다:
 
 | # | 조건 | 결과 |
 |---|---|---|
-| 1 | `isSyncedRow`가 아니다(번들 종목·기기 전용 키가 어쩌다 서버에 있다) | `not-synced`로 건너뜀 |
-| 2 | `sessions`이고 로컬 행이나 받은 행이 진행 중(`endedAt` 없음) | `open-session`으로 건너뜀. 끝나지 않은 세션은 그 기기에서 끝난 뒤에 온다. 같은 세션을 두 기기에서 열지 않게 하려는 것 |
+| 1 | 지워진 행이면 `isSyncedKey`, 아니면 `isSyncedRow`가 아니다(번들 행·기기 전용 키·진행 중 세션이 어쩌다 서버에 있다) | `not-synced`로 건너뜀 |
+| 2 | `sessions`이고 pk가 `openSessionIds`에 있다 | `open-session`으로 건너뜀. 정상 흐름에서는 생기지 않는다(진행 중 세션은 올라가지 않고, 세션 id는 만든 기기에만 있다). 받은 끝난 행이 이 기기의 진행 중 세션을 덮지 않게 지키는 방어다 |
 | 3 | 받은 지문 = 로컬 지문(둘 다 없음 포함) | 쓰지 않고 장부만 맞춘다(`setSynced` 또는 `dropSynced`) |
 | 4 | 로컬 지문 ≠ 장부 지문 (이 기기에서 아직 안 올린 변경) | `local-change`로 건너뜀. 다음 올리기가 서버를 덮는다 |
 | 5 | 그 밖 | 받은 것으로 쓴다(`puts` 또는 `deletes`) + 장부 맞춤 |
 
-`deletes`·`puts`에는 계획을 세운 순간의 로컬 `text`(`baseText`)를 함께 둔다 — 아래 7의 "쓰기 직전 재확인"에 쓴다.
+`deletes`·`puts`의 `baseText`는 아래 7의 "쓰기 직전 재확인"에 쓴다.
 
 **6. 한꺼번에 지우기 멈춤 — `massDeleteCount(deletes)`**
 
@@ -186,6 +201,7 @@ type CycleResult = { status: 'done'; pulled: number; pushed: number; conflicts: 
 ```
 순서: ① `pull(cursor − 5분)` (cursor가 없으면 전부) → 지문 계산 → `planPull` → `applyLocal` → 장부 ② 로컬을 다시 읽어 `planPush` → 멈춤 검사 → `push`(200행·1MB씩 나눠, TT2가 나눈다) → 올린 행의 지문으로 장부 ③ `cursor = max(cursor, 받은 updatedAt)`, `lastSyncAt = now`.
 - **5분 겹침:** 서버는 행마다 커밋 직전 시각을 매긴다. 늦게 커밋된 행이 이미 지나간 cursor보다 이른 시각을 가질 수 있어, 매번 5분을 겹쳐 다시 받는다. 다시 받은 행은 판정 3으로 아무것도 안 한다.
+- **건너뛴 행과 cursor:** cursor는 건너뛴 행(`not-synced`·`open-session`·`local-change`)까지 포함한 최댓값으로 나아간다. 건너뛴 행을 다시 받을 필요가 없어서다 — `local-change`는 이 기기가 곧 올려 덮고, 서버 행이 나중에 바뀌면 트리거(`records_touch`)가 `updated_at`을 새로 매겨 cursor 뒤로 다시 온다.
 - **쓰기 직전 재확인:** `applyLocal`은 Dexie 트랜잭션 안에서 행을 다시 읽어 `baseText`와 **글자로** 비교한다. 트랜잭션 안에서 `crypto.subtle`을 기다리면 Dexie가 트랜잭션을 먼저 닫으므로 지문은 트랜잭션 밖에서만 계산한다. 계획을 세운 뒤 사용자가 적은 값을 받은 값이 덮지 않게 하는 장치다.
 - 올리는 도중 사용자가 쓴 값은 장부 지문과 달라 다음 바퀴에 올라간다(놓치지 않는다).
 - 한 번에 한 바퀴만 돈다(진행 중이면 끝난 뒤 한 번 더 예약).
@@ -193,8 +209,9 @@ type CycleResult = { status: 'done'; pulled: number; pushed: number; conflicts: 
 **8. 처음 연결 — `joinCase`**
 
 ```ts
-export function hasUserData(snapshot, bundled: { routineId: string; dietPlanIds: string[] }): boolean
-// sessions·dietDays·exerciseNotes 중 하나라도 행이 있거나, 번들이 아닌 루틴·식단 플랜, custom 종목이 있으면 true. settings는 보지 않는다(온보딩이 쓴다)
+export function hasUserData(snapshot, bundled: BundledIds): boolean
+// settings 말고 isSyncedRow인 행이 하나라도 있으면 true(끝난 세션·식단 하루·종목 메모·번들 아닌 루틴·식단 플랜·내 종목). settings는 보지 않는다(온보딩이 쓴다)
+// 서버 쪽 serverHasData도 같은 정의다: settings 말고 지워지지 않은 행이 있다(TT2 hasUserRecords). 서버에는 isSyncedRow인 행만 올라가므로 두 정의가 같다
 export type JoinCase = 'resume' | 'upload' | 'download' | 'ask' | 'foreign'
 export function joinCase(a: { linkedAccountId: string | null; accountId: string; serverHasData: boolean; localHasUserData: boolean }): JoinCase
 ```
@@ -204,38 +221,49 @@ export function joinCase(a: { linkedAccountId: string | null; accountId: string;
 | 같은 계정 | — | — | `resume`: 보통 바퀴 |
 | 다른 계정 | — | 기록 있음 | `foreign`: 로그인하지 않는다(다른 사람 기록이 섞이지 않게) |
 | 다른 계정 | — | 기록 없음 | 장부를 지우고 아래 줄로 |
-| 없음 | 비었다 | — | `upload`: 장부 없이 바퀴를 돌면 전부 올라간다(지움 0) |
+| 없음 | 비었다(`settings`만 있음 포함) | — | `upload`: 장부 없이 바퀴를 돌면 전부 올라간다(지움 0) |
 | 없음 | 있다 | 기록 없음 | `download`: 받기 |
-| 없음 | 있다 | 기록 있음 | `ask`: 사람에게 묻는다(TT3) |
+| 없음 | 있다 | 기록 있음 | `ask`: 사람에게 묻는다(TT3) — 받기·합치기·취소 |
 
-**받기(`download`)** = `receiveAll`: 서버 행 전부(지워진 것 제외)를 받아, 한 트랜잭션에서 **동기화 대상 행만** 지우고(번들 종목·기기 전용 키는 남긴다) 받은 행을 넣는다. 진행 중 세션은 넣지 않는다(판정 2와 같다). 장부 = 받은 지문, cursor = 받은 최댓값. 끝나면 화면을 새로 연다(복원과 같다, `GistPanel.tsx`의 `window.location.reload()`).
+"서버가 비었다"가 `settings`를 보지 않는 이유: 빈 기기(온보딩만 마침)에서 먼저 로그인하면 서버에 `settings`만 올라간다. 그것을 "기록 있음"으로 보면 기록이 많은 둘째 기기가 `ask`로 떨어진다.
+
+**장부 없는 바퀴(`upload`·합치기)** = 보통 `runCycle`을 장부·cursor 없이 돈다. 판정으로 이렇게 된다: 서버에만 있는 행은 받는다(판정 5) · 이 기기에만 있는 행은 올린다 · 양쪽에 있고 내용이 다른 행은 판정 4(로컬 지문 ≠ 장부 없음)로 건너뛰고 올려 **이 기기 것이 이긴다** · 지움은 0이다(장부가 비어 있다). 그래서 합치기에 새 엔진 코드가 없다.
+
+**받기(`download`)** = `receiveAll`: 서버 행 전부(지워진 것 제외)를 받아, 받은 행 중 `isSyncedRow`인 것만 남기고, 한 트랜잭션에서 로컬의 **`isSyncedRow`인 행만** 지운 뒤(번들 행·기기 전용 키·진행 중 세션은 남긴다 — 진행 중 세션이 있으면 TT3가 받기를 막는다) 받은 행을 넣는다. 장부 = 넣은 행의 지문(`isSyncedRow`가 아니어서 버린 행은 장부에 없다), cursor = 받은 모든 행(버린 행 포함)의 최댓값 — 버린 행이 나중에 바뀌면 새 `updated_at`으로 다시 온다. 끝나면 화면을 새로 연다(복원과 같다, `GistPanel.tsx:143`의 `window.location.reload()`).
 
 ### 검증 (`src/lib/v122.test.ts`, describe `TT1`)
 
 예시:
-- `isSyncedRow('exercises', 번들 종목)` false, `custom: true` 종목 true. `settings`의 `seededRoutineRevision`·`soundVolume`·`gistToken` false, `currentPhase`·`userFoods` true.
+- `isSyncedRow('exercises', 번들 종목)` false, `custom: true` 종목 true. `settings`의 `seededRoutineRevision`·`soundVolume`·`gistToken` false, `currentPhase`·`userFoods` true. 번들 루틴·번들 식단 플랜 false, 복사본 루틴(`forkRoutine`이 준 새 id)·가져온 새 id 플랜 true. 진행 중 세션 false, 끝난 세션 true.
+- 원격 지움: 다른 기기에서 지운 내 종목(`deleted: true, data: null`)이 내려오면 로컬 `deletes`에 들고 장부에서 빠진다. 같은 꼴의 번들 종목 pk·`soundVolume` 지움은 `not-synced`.
 - 처음 바퀴(장부 없음, 서버 빈 것): 로컬 동기화 대상 행이 전부 `upserts`, `deletes` 0.
 - 한 번 맞춘 뒤 세션 하나를 고치면 그 세션 하나만 `upserts`.
 - 세션 하나를 지우면 `deletes` 1, 서버 행은 `deleted: true, data: null`.
 - 받은 행이 이 기기에서 안 올린 행이면 건너뛰고(`local-change`), 다음 `planPush`에 그 행이 남는다.
-- 진행 중 세션은 받아도 쓰지 않는다(로컬이 진행 중일 때, 받은 것이 진행 중일 때 둘 다). 로컬 진행 중 세션은 올라간다.
+- 진행 중 세션: 로컬 진행 중 세션은 `upserts`에 없다. 서버에 어쩌다 있는 진행 중 세션은 `not-synced`. 로컬이 진행 중인 pk로 끝난 행이 내려와도 쓰지 않는다(`open-session`).
+- 세션을 마치기까지 5분 넘게 걸려도 다른 기기가 받는다: 가짜 서버에서 A가 세션을 시작(올라가지 않음) → B 바퀴 여러 번(cursor 전진) → 가짜 시계 6분 뒤 A가 마치고 바퀴 → B의 다음 바퀴에 그 세션이 있다.
+- 같은 행 오프라인 충돌: A·B가 같은 `dietDays` 하루를 다르게 고친 뒤 A 바퀴 → B 바퀴 → A 바퀴면 두 기기 모두 B의 값이다. 순서를 B → A → B로 바꾸면 A의 값이다(고친 시각과 상관없이 서버에 마지막으로 올린 쪽).
 - 세션 11건을 지운 바퀴는 `held`이고 `push`가 한 번도 불리지 않는다. `allowMassDelete` true면 올리고 false로 돌아간다. 지움 9건은 그대로 올린다. `settings` 지움은 세지 않는다.
 - 5분 겹침: 가짜 서버가 cursor보다 2분 이른 `updatedAt`으로 행을 늦게 넣으면 다음 바퀴가 받는다(겹침을 없애면 못 받는다).
 - 재확인: `planPull` 뒤 `applyLocal` 전에 같은 행을 로컬에서 고치면 받은 값이 덮지 않고, 다음 바퀴에 로컬 값이 올라간다.
 - `joinCase` 표의 여섯 줄 그대로. 시드만 있는 새 기기(온보딩만 마침) + 서버 기록 있음 → `download`.
-- `receiveAll` 뒤 번들 종목 행과 기기 전용 키(`soundVolume`)는 남아 있고, 서버에 없던 로컬 세션은 없다.
+- 장부 없는 바퀴(합치기): 서버에만 있는 세션은 로컬에 들어오고, 로컬에만 있는 세션은 올라가고, 같은 `dietDays` 날짜가 양쪽에 다르면 로컬 값이 서버에 남는다. `push`에 지움이 0이다.
+- `receiveAll` 뒤 번들 종목 행·번들 루틴과 기기 전용 키(`soundVolume`)는 남아 있고, 서버에 없던 로컬 세션은 없다. 서버에 섞인 `not-synced` 행은 로컬에도 장부에도 없다.
 
 속성 (`src/lib/properties.test.ts`에 옮긴다):
 - `stableStringify`는 객체 키 순서를 어떻게 섞어도 같은 글자다. `JSON.parse(stableStringify(x))`는 `JSON.parse(JSON.stringify(x))`와 깊이 같다.
 - **수렴:** 어떤 로컬 행·서버 상태에서도 `runCycle`(멈춤 없이)을 한 번 돈 뒤 `planPush`는 빈 계획이다.
 - **두 번 해도 같다:** 바뀐 것 없이 `runCycle`을 두 번 돌면 두 번째는 `push`를 부르지 않고 `applyLocal`이 아무것도 쓰지 않는다.
-- **두 기기:** 기기 A·B가 서로 다른 행만 고치는 어떤 순서(각자 고침 → 바퀴)에서도, A 바퀴 → B 바퀴 → A 바퀴 뒤 두 기기의 동기화 대상 행이 같다.
-- **기기 전용은 안 나간다:** 어떤 로컬에서도 `upserts`에 `DEVICE_LOCAL_SETTING_KEYS`·비밀 키·번들 종목이 없다.
+- **두 기기:** 기기 A·B가 어떤 행을 고치든(같은 행 포함) 각자 고친 뒤 A 바퀴 → B 바퀴 → A 바퀴면 두 기기의 동기화 대상 행이 같다. 둘 다 고친 행은 B의 값이다(마지막에 올린 쪽).
+- **기기 전용은 안 나간다:** 어떤 로컬에서도 `upserts`에 `DEVICE_LOCAL_SETTING_KEYS`·비밀 키·번들 종목·번들 루틴·번들 식단 플랜·진행 중 세션이 없다.
+- **pk 판정이 행 판정을 감싼다:** 어떤 행에서도 `isSyncedRow(tbl, row)`가 true면 `isSyncedKey(tbl, pkOf(tbl, row))`도 true다(지움과 살아 있는 행의 판정이 어긋나지 않는다).
 - **안 올린 변경은 받기에 지지 않는다:** 어떤 받은 행에서도 `planPull`은 로컬 지문 ≠ 장부 지문인 행을 `puts`·`deletes`에 넣지 않는다.
 
 ### 범위 제외
 
-- 필드 단위 병합: 같은 행을 두 기기가 오프라인에서 고치면 나중에 올린 쪽이 이긴다(README에 적는다).
+- 필드 단위 병합: 같은 행을 두 기기가 오프라인에서 고치면 서버에 나중에 올린 쪽이 이긴다(README에 적는다).
+- 진행 중 세션의 서버 사본: 운동 중 폰을 잃으면 그 세션 하나는 잃는다. 다른 기기에서 이어받는 길은 "같은 세션이 두 곳에서 열림"을 풀어야 해서 이번에 하지 않는다.
+- 번들 id를 쓴 가져온 루틴·식단 플랜의 동기화: 루틴은 앱에서 한 번 고쳐 저장하면 복사본(새 id)이 되어 동기화된다. 식단 플랜은 다른 기기에서도 같은 JSON을 가져온다.
 - 서버 행 검증(`validateRoutine` 등): 같은 계정의 다른 기기에서 검증을 거쳐 쓰인 행이다. 복원 경로의 검증은 그대로다.
 - 지움 표시(tombstone) 정리: 서버에 남는다. 크기가 작다(데이터 없음).
 
@@ -320,9 +348,9 @@ export function setCloudSession(s: CloudSession | null): void
 | `signIn(email, password)` | `POST /auth/v1/token?grant_type=password` | `CloudSession` |
 | `refresh(refreshToken)` | `POST /auth/v1/token?grant_type=refresh_token` 본문 `{refresh_token}` | 새 `CloudSession`(refresh token도 바뀐다 — 새 것을 저장) |
 | `signOutRemote(accessToken)` | `POST /auth/v1/logout` | 실패해도 무시(로컬 로그아웃은 계속) |
-| `pullRecords(token, since)` | `GET /rest/v1/records?select=tbl,pk,data,deleted,updated_at&order=updated_at.asc,tbl.asc,pk.asc&limit=1000` + `since`가 있으면 `&updated_at=gte.<since>` | 행 전부. 한 페이지가 1000행이면 마지막 행의 `updated_at`으로 `gte` 다음 페이지(겹친 행은 `tbl+pk`로 하나만 남긴다) |
-| `hasAnyRecord(token)` | `GET /rest/v1/records?select=pk&deleted=is.false&limit=1` | boolean |
-| `countSessions(token)` | `HEAD /rest/v1/records?tbl=eq.sessions&deleted=is.false` + `Prefer: count=exact` → `Content-Range`의 `/n` | number (처음 연결 `ask` 문구에 쓴다) |
+| `pullRecords(token, since)` | `GET /rest/v1/records?select=tbl,pk,data,deleted,updated_at&order=updated_at.asc,tbl.asc,pk.asc&limit=1000` + `since`가 있으면 `&updated_at=gte.<since>` | 행 전부. 한 페이지가 1000행이면 마지막 행의 `updated_at`으로 `gte` 다음 페이지(겹친 행은 `tbl+pk`로 하나만 남긴다). 꽉 찬 페이지의 첫 행과 마지막 행 `updated_at`이 같으면 `CloudError('unknown')`(무한 반복 방지 — 트리거가 행마다 `clock_timestamp()`를 매겨 1000행이 같은 시각일 수 없다) |
+| `hasUserRecords(token)` | `GET /rest/v1/records?select=pk&deleted=is.false&tbl=neq.settings&limit=1` | boolean (`joinCase`의 `serverHasData` — `settings`는 보지 않는다, TT1의 8) |
+| `countSessions(token)` | `HEAD /rest/v1/records?tbl=eq.sessions&deleted=is.false` + `Prefer: count=exact` → `Content-Range`의 `/` 뒤 숫자(`0-36/37`, 0건이면 `*/0`) | number (처음 연결 `ask` 문구에 쓴다). 숫자를 못 읽으면 `CloudError('unknown')` |
 | `upsertRecords(token, userId, rows)` | `POST /rest/v1/records?on_conflict=user_id,tbl,pk` + `Prefer: resolution=merge-duplicates,return=minimal`. 행마다 `user_id`를 넣는다. 200행 또는 본문 1MB를 넘기 전에 끊어 여러 번 | void |
 | `deleteMyAccount(token)` | `POST /rest/v1/rpc/delete_my_account` | void |
 
@@ -352,9 +380,10 @@ export function setCloudSession(s: CloudSession | null): void
 - 상태 코드·`error_code` → kind 표 그대로. fetch 예외 → `network`.
 - `signUp` 응답에 `access_token`이 없으면 `confirmRequired`.
 - `refresh`가 돌려준 새 refresh token을 쓴다(옛 것을 다시 보내지 않는다).
-- `pullRecords`: 1000행 페이지 다음에 `updated_at=gte.<마지막 행>`으로 한 번 더 부르고, 겹친 행은 하나만 남는다. 999행이면 한 번만 부른다.
+- `pullRecords`: 1000행 페이지 다음에 `updated_at=gte.<마지막 행>`으로 한 번 더 부르고, 겹친 행은 하나만 남는다. 999행이면 한 번만 부른다. 1000행이 전부 같은 `updated_at`이면 두 번째 요청 없이 `unknown`.
+- `hasUserRecords`: URL에 `tbl=neq.settings`와 `deleted=is.false`가 있다. 빈 배열 → false.
 - `upsertRecords`: 450행 → 요청 3번(200·200·50). 큰 행(400KB) 5개 → 1MB 안 넘게 나뉜다. 모든 행에 `user_id`가 있다. 지움은 `deleted: true, data: null`.
-- `countSessions`가 `Content-Range: 0-0/37`에서 37.
+- `countSessions`가 `Content-Range: 0-36/37`에서 37, `*/0`에서 0, 헤더가 없으면 `unknown`.
 - `isCloudAvailable()`: 둘 중 하나라도 비면 false, `http://`면 false.
 - `'cloudSession'`: `setSetting('cloudSession', …)`이 예외, `isSecretSettingKey` true.
 - `supabase/schema.sql` 글자 스캔(`?raw`): `enable row level security`가 있다, 정책 셋이 모두 `auth.uid()) = user_id`를 쓴다, `for delete` 정책이 없다, `to anon`이 없다, `revoke all on public.records from anon`이 있다, 트리거가 `clock_timestamp()`, `delete_my_account`가 `security definer`와 `set search_path = ''`.
@@ -397,8 +426,10 @@ type CloudState =
   | { status: 'error'; email: string; message: string; offline: boolean }
 export function getCloudState(): CloudState; export function subscribeCloud(l): () => void
 export async function signUpAndJoin(email, password): Promise<void>
-export async function signInAndJoin(email, password): Promise<void>   // 로그인 → joinCase → upload/download/ask/foreign
-export async function resolveAsk(choice: 'download' | 'cancel'): Promise<void>   // cancel = 로그아웃(기기 기록 그대로, 장부 없음)
+export async function signInAndJoin(email, password): Promise<void>   // 로그인 → joinCase(serverHasData = hasUserRecords) → upload/download/ask/foreign
+export async function resolveAsk(choice: 'download' | 'merge' | 'cancel'): Promise<void>
+// download = receiveAll(이 기기 기록이 계정 기록으로 바뀐다) · merge = 장부 없는 바퀴(TT1의 8 — 양쪽이 다 남고, 양쪽에 다 있는 행은 이 기기 것) · cancel = 로그아웃(기기 기록 그대로, 장부 없음)
+// "이 기기 기록으로 계정을 덮기"(서버에만 있는 행을 지움으로 올리기)는 두지 않는다 — 계정 기록을 되돌릴 수 없게 지우는 길이고, 필요하면 합친 뒤 지우면 된다
 export async function resolveHeld(choice: 'push' | 'download'): Promise<void>    // push = 서버에서도 지움, download = 받기
 export function requestCloudSync(delayMs: number): void   // 로그인 상태가 아니면 아무것도 안 한다
 export function flushCloudSync(): void                    // 예약이 있으면 지금
@@ -412,8 +443,9 @@ export function cloudBackupStatus(): { signedIn: boolean; lastSyncAt: string | n
 ```
 - 바퀴 전에 `expiresAt − 60초`가 지났으면 `refresh`. 동시에 두 번 refresh하지 않는다(진행 중 약속을 공유). `auth` 오류 → `expired`.
 - 바퀴 뒤 `settingsTouched`면 `useSettings.getState().load()`(다른 기기의 Phase·체중·템포 설정이 화면에 반영되게).
-- 진행 중 세션이 있으면 `signInAndJoin`의 받기·`signOutAndWipe`·`resolveAsk('download')`·`resolveHeld('download')`를 하지 않고 문구를 낸다(v1.16의 루틴 저장과 같은 규칙). 보통 바퀴는 돈다(판정 2가 진행 중 세션을 지킨다).
-- `deps` 구현: `readLocal`은 일곱 테이블 `toArray`, `applyLocal`은 일곱 테이블 `rw` 트랜잭션(TT1의 재확인), 장부는 `syncDb`.
+- 진행 중 세션이 있으면 `signInAndJoin`의 받기·`signOutAndWipe`·`resolveAsk('download')`·`resolveHeld('download')`를 하지 않고 문구를 낸다(v1.16의 루틴 저장과 같은 규칙, 판정은 `getOpenSession()` 한 곳). 보통 바퀴·합치기는 돈다(진행 중 세션은 동기화 대상이 아니고, 판정 2가 지킨다).
+- `deps` 구현: `readLocal`은 일곱 테이블 `toArray`, `applyLocal`은 일곱 테이블 `rw` 트랜잭션(TT1의 재확인), 장부는 `syncDb`. `BundledIds`는 `seed.ts`의 `BUNDLED_ROUTINE.id`·`BUNDLED_DIET_PLANS`·`BUNDLED_EXERCISES`에서 한 번 만든다.
+- 기기 DB를 지우는 길(`signOutAndWipe`의 지움, `receiveAll`)은 끝에 `window.location.reload()` — `resetAll`(`SettingsScreen.tsx:107-110`)과 같이, 열린 `useLiveQuery`가 지운 DB를 붙잡지 않게.
 
 **2. 기존 코드에 잇는 곳 (줄 수를 최소로)**
 
@@ -427,7 +459,7 @@ export function cloudBackupStatus(): { signedIn: boolean; lastSyncAt: string | n
 
 **3. 계정 카드 — `src/components/AccountPanel.tsx`**
 
-자리: 설정 탭, `소리·템포` 묶음과 `기록 내보내기·백업` 묶음 사이에 새 묶음 `Group` + `Heading level={2}` `계정·동기화`. `isCloudAvailable()`가 false면 묶음째 그리지 않는다. 헬스장에서 바꾸는 것(위 두 묶음)보다 아래, 백업 옆이다(v1.21 SS6 순서 원칙).
+자리: 설정 탭, `소리·템포` 묶음과 `기록 내보내기·백업` 묶음 사이에 `SettingsScreen.tsx`가 `{isCloudAvailable() && <AccountPanel />}` 한 줄을 둔다. **묶음(`Group` + `Heading level={2}` `계정·동기화`)은 `AccountPanel`이 그린다** — 묶음째 조건부라 묶음을 가진 쪽이 컴포넌트이고, `SettingsScreen.tsx`의 `<Heading level={2}>` 넷을 고정한 `v121.test.ts:481`을 고치지 않는다. 헬스장에서 바꾸는 것(위 두 묶음)보다 아래, 백업 옆이다(v1.21 SS6 순서 원칙).
 
 부품(전부 `src/ax`를 거친다. 모양은 `GistPanel`의 카드와 같은 꼴):
 
@@ -435,12 +467,12 @@ export function cloudBackupStatus(): { signedIn: boolean; lastSyncAt: string | n
 |---|---|
 | 공통 | `Card` > `VStack gap={3}` > 머리 `Text type="supporting" color="secondary"` `계정` |
 | `signedOut` | 안내 `Text type="supporting" color="secondary"`(문구 A) · `SegmentedControl` + `SegmentedControlItem` 둘(`로그인`·`가입`, 설정의 `소리 크기`와 같은 쓰임) · `TextField type="email" label="이메일"` · `TextField type="password" label="비밀번호"` · `HStack` > `Button variant="primary" size="sm"`(`로그인`/`가입`, 진행 중 `확인 중…`, 빈 칸이면 `isDisabled`) · 오류는 상태 줄 `Text`(`GistPanel`의 `ax-text-error` 쓰임과 같다) |
-| `ask` | `Banner status="warning" collapsible={false}`(문구 B) · `HStack gap={2}`: `Button variant="secondary"` `로그인 취소` · `Button variant="destructive"` `계정 기록 받기` → 누르면 `정말 받기`(두 단계, `GistPanel` 복원과 같은 꼴) |
+| `ask` | `Banner status="warning" collapsible={false}`(문구 B) · `HStack gap={2} wrap="wrap"`: `Button variant="secondary"` `로그인 취소` · `Button variant="primary"` `합치기` · `Button variant="destructive"` `계정 기록 받기` → 누르면 `정말 받기`(두 단계, `GistPanel` 복원과 같은 꼴). 합치기는 지우는 것이 없어 한 단계다 |
 | `foreign` | `Banner status="warning" collapsible={false}`(문구 C) · `Button variant="secondary"` `확인`(로그아웃 상태로) |
 | 로그인됨 (`idle`·`pending`·`syncing`·`done`·`error`) | `Rows`: `Row` `계정`(이메일) · `Row` `마지막 동기화`(`formatDateTimeLocal` 또는 `아직 없음`) · 상태 줄 `Text` · `HStack gap={2} wrap="wrap"`: `Button variant="primary" size="sm"` `지금 동기화` · `Button variant="secondary" size="sm"` `로그아웃` · `Button variant="secondary" size="sm"` `계정 삭제` |
 | `held` | 로그인됨 위에 `Banner status="warning" collapsible={false}`(문구 D) · `HStack gap={2}`: `Button variant="secondary"` `계정 기록으로 되돌리기` · `Button variant="destructive"` `계정에서도 지우기` → `정말 지우기` |
 | `expired` | `Banner status="warning"`(문구 E) + `signedOut`의 폼(이메일 칸은 채워 둔다) |
-| 로그아웃 누름 | 올라가지 않은 기록이 없으면 확인 한 번: `Banner status="warning"`(문구 F) + `취소`·`로그아웃`(destructive). 바퀴가 실패했으면 문구 G + `취소`·`그래도 로그아웃`(destructive) |
+| 로그아웃 누름 | 올라가지 않은 기록이 없으면 확인 한 번: `Banner status="warning"`(문구 F) + `취소`·`로그아웃`(destructive). 바퀴가 실패했으면 문구 G + `취소`·`그래도 로그아웃`(destructive). 지우지 않는 안(사람이 정할 것 1의 B)이면 문구 F′ 한 번만, G는 없다 |
 | 계정 삭제 누름 | `Banner status="warning"`(문구 H) + `취소`·`계정 삭제`(destructive) → `정말 삭제` |
 
 - `AlertDialog`를 쓰지 않는 이유(한 줄): 설정의 다른 확인(Gist 복원·토큰 삭제·초기화)이 카드 안 두 단계 버튼이라 같은 꼴로 둔다.
@@ -470,7 +502,7 @@ export function cloudBackupStatus(): { signedIn: boolean; lastSyncAt: string | n
 | `settings-account` | 로그인 안 함, 폼 |
 | `settings-account-375` | 같은 상태 375 폭 |
 | `settings-account-error` | 로그인 누름 → 400 `invalid_credentials` |
-| `settings-account-ask` | 로그인 → `hasAnyRecord` true, `countSessions` 37, 픽스처 세션 있음 |
+| `settings-account-ask` | 로그인 → `hasUserRecords` true, `countSessions` 37, 픽스처 세션 있음 (버튼 셋) |
 | `settings-account-signed-in` | localStorage에 세션, 장부 DB에 meta, 서버 응답 빈 목록 → `done` |
 | `settings-account-held` | 장부에 없는 세션 pk 12개를 장부 DB에 심고 → 바퀴 → `held` |
 | `settings-account-logout-confirm` | 로그인됨에서 `로그아웃` 누름 |
@@ -479,22 +511,46 @@ export function cloudBackupStatus(): { signedIn: boolean; lastSyncAt: string | n
 
 `ui-space.mjs`에 장면마다 `['button', 'card']`. 기존 `settings*` 장면은 uicheck 빌드에서 계정 묶음이 하나 더 보인다 — `before`와 다른 것은 그 묶음뿐이어야 한다.
 
+**6. 화면 문구** (확정 — 검토자 반대 없음. 고칠 것이 있으면 사람이 말한다)
+
+| 자리 | 문구 |
+|---|---|
+| 묶음 제목 / 카드 머리 | `계정·동기화` / `계정` |
+| A 로그인 전 안내 | `로그인하면 기록이 계정별로 서버에 저장되고, 같은 계정으로 로그인한 다른 기기와 맞춰집니다. 기록은 지금처럼 이 기기에 먼저 저장되므로 오프라인에서도 그대로 씁니다. 서버는 앱 운영자가 관리하며, 운영자는 저장된 기록을 볼 수 있습니다. 로그인하지 않으면 이 기기에만 저장됩니다.` |
+| 폼 | `로그인` · `가입` · `이메일` · `비밀번호` · `확인 중…` |
+| B 처음 연결 — 둘 다 기록 있음 | 제목 `이 계정에 이미 기록이 있습니다` / `계정에 세션 <n>개, 이 기기에 세션 <m>개가 있습니다. 합치면 양쪽 기록이 모두 남고, 같은 날 식단처럼 양쪽에 다 있는 기록은 이 기기 것이 남습니다. 계정 기록을 받으면 이 기기의 기록은 지워지고 계정 기록으로 바뀝니다. 이 기기 기록이 필요하면 먼저 "기록 내보내기"로 JSON 파일을 저장해 두세요.` · `로그인 취소` · `합치기` · `계정 기록 받기` · `정말 받기` |
+| C 다른 계정의 기기 | 제목 `이 기기에는 다른 계정의 기록이 있습니다` / `<이메일> 계정으로 로그인하거나, 설정 → 위험 구역에서 이 기기 데이터를 초기화한 뒤 로그인하세요.` · `확인` |
+| D 한꺼번에 지움 | 제목 `기록 <n>건이 이 기기에서 사라졌습니다` / `계정의 기록은 아직 그대로입니다. 이 기기에서 일부러 지운 것이 아니면 계정 기록으로 되돌리세요.` · `계정 기록으로 되돌리기` · `계정에서도 지우기` · `정말 지우기` |
+| E 만료 | `로그인이 만료됐습니다. 다시 로그인하면 그동안의 기록이 이어서 올라갑니다.` |
+| F 로그아웃 확인 (사람이 정할 것 1이 A) | `로그아웃하면 이 기기의 기록이 지워집니다. 기록은 계정에 남아 있어 다시 로그인하면 받아집니다.` · `취소` · `로그아웃` |
+| F′ 로그아웃 확인 (사람이 정할 것 1이 B) | `로그아웃해도 이 기기의 기록은 남습니다. 같은 계정으로 다시 로그인하면 이어서 맞춥니다.` · `취소` · `로그아웃` |
+| G 올라가지 않은 기록 (A일 때만) | `아직 계정에 올라가지 않은 기록이 있을 수 있습니다(서버에 연결하지 못했습니다). 지금 로그아웃하면 그 기록은 사라집니다.` · `취소` · `그래도 로그아웃` |
+| H 계정 삭제 | `계정과 서버의 기록을 모두 지웁니다. 이 기기의 기록은 남습니다. 되돌릴 수 없습니다.` · `취소` · `계정 삭제` · `정말 삭제` |
+| 진행 중 세션 | `진행 중인 세션을 마치거나 버린 뒤에 할 수 있습니다` |
+| 줄 / 버튼 | `계정` · `마지막 동기화` · `아직 없음` · `지금 동기화` · `로그아웃` · `계정 삭제` |
+| 상태 줄 | `잠시 후 자동으로 맞춥니다…` · `맞추는 중…` · `맞춤 완료 <시각>` · `변경 없음 — <시각>` · `오프라인 — 연결되면 다시 맞춥니다` · `실패: <메시지>` |
+| 오류 | TT2 kind 표의 여덟 문구 |
+| 초기화 확인에 더하는 줄 (로그인 상태일 때만) | `계정의 기록은 서버에 남습니다. 다시 로그인하면 받아집니다.` |
+| 홈 배너 | 오래됨 `마지막 동기화가 N일 전이에요` / `연결되면 자동으로 맞춥니다. 지금 맞추려면 설정 → 계정 → 지금 동기화` · 미설정 `백업이 설정되지 않았어요` / `설정 → 계정에서 로그인하면 기록이 서버에 저장되고 다른 기기에서도 이어집니다` · (TT4, 서버 없는 빌드) `설정 → 기록 내보내기에서 JSON 파일로 저장해 두세요` |
+
 ### 검증 (`v122.test.ts`, describe `TT3` — 엔진·API는 가짜 서버로)
 
 - 가입 → 서버 빈 것 → `upload`: 픽스처의 세션·식단·내 종목·사용자 루틴이 전부 가짜 서버에 있고, 번들 종목·`soundVolume`·`seededRoutineRevision`·`gistId`는 없다.
 - 기기 B(시드만, 온보딩 끝) 로그인 → `download` → B의 동기화 대상 행이 A와 같다. **B에서 `suggestNextDay`·`weekly`(홈 볼륨 바)·`sessionToMarkdown`(마지막 세션) 결과가 A와 같다**(과거 판정 불변 — 같은 행이면 같은 판정).
-- 기록 있는 기기 + 서버 기록 있음 → `ask`. `cancel`이면 서버·기기 둘 다 그대로이고 세션이 지워져 있다. `download`면 기기가 서버와 같아진다.
+- 기록 있는 기기 + 서버 기록 있음 → `ask`. `cancel`이면 서버·기기 둘 다 그대로이고 로그인 세션이 지워져 있다. `download`면 기기가 서버와 같아진다. `merge`면 양쪽 세션의 합집합이 기기와 서버에 있고 서버로 간 지움이 0이다.
+- 빈 기기(온보딩만)로 먼저 가입해 서버에 `settings`만 있는 계정에, 세션 있는 기기로 로그인 → `ask`가 아니라 `upload`이고, 그 기기 세션이 전부 서버에 올라가며 그 기기 `settings` 값이 서버에 남는다.
 - `foreign`: 장부가 다른 계정이고 기록이 있으면 로그인 세션이 저장되지 않는다.
 - 로그인 상태에서 `restoreBackup`(세션 3개짜리 백업, 서버에는 20개) → 다음 바퀴가 `held`가 아니고 서버의 나머지 17개가 지움으로 올라간다.
 - 로그인 상태에서 초기화(`forgetCloudOnDevice` → `db.delete`) → 서버 요청 0, 장부 DB 없음, localStorage 세션 없음.
-- `signOutAndWipe`: 바퀴 성공 → 기기 DB·장부·세션이 지워진다. 가짜 서버가 네트워크 오류 → `'unsynced'`를 돌려주고 아무것도 지우지 않는다. `force: true`면 지운다.
+- `signOutAndWipe`: 바퀴 성공 → 기기 DB·장부·세션이 지워지고 `reload`가 한 번 불린다. 가짜 서버가 네트워크 오류 → `'unsynced'`를 돌려주고 아무것도 지우지 않는다. `force: true`면 지운다. (사람이 정할 것 1이 B면 이 항목 대신: 로그아웃 → 기기 기록과 장부(계정 id·지문)는 그대로, 로그인 세션만 없음, 서버 요청은 `logout` 하나. 같은 계정 다시 로그인 → `resume`이고 그동안 적은 세션이 올라간다. 다른 계정 → `foreign`)
 - `deleteAccountKeepDevice`: RPC가 불리고, 기기 기록은 그대로, 장부·세션은 없다.
 - 토큰 만료 직전 → 바퀴 전에 refresh 한 번. refresh 400 → `expired`, 기기 기록 그대로, 그 뒤 `requestCloudSync`는 요청을 보내지 않는다. 다시 로그인(같은 계정) → `resume`이고 그동안 적은 세션이 올라간다.
 - 진행 중 세션이 있으면 `resolveAsk('download')`·`signOutAndWipe`가 아무것도 하지 않고 문구를 낸다.
 - 바퀴가 `settings` 행을 받으면 `useSettings.load`가 한 번 불린다. 안 받으면 안 불린다.
 - 홈 배너 값 고르기: 위 4의 표 네 줄(`isCloudAvailable`을 바꿔 가며, 순수 함수 `pickBackupStatus`로 빼서 테스트).
 - 스캔: `AccountPanel`이 `isCloudAvailable`로 감싸져 그려진다(`SettingsScreen.tsx`) · `gistSync.ts` `requestSync`의 첫 문장이 `requestCloudSync(` · `resetAll` 안에서 `forgetCloudOnDevice`가 `db.delete` 앞 · `restoreBackup` 안에 `markLocalReplaced` · `cloudSync.ts`·`syncEngine.ts`의 `transaction(` 블록 안에 `rowHash(`·`crypto.subtle`이 없다 · `AccountPanel.tsx`에 `autoComplete=`가 없다.
-- 기존 테스트는 **수정 없이** 통과한다: `dietBackup.test.ts`(부르는 곳 목록), `backupTime.test.ts`, `gist.test.ts`, `inputProps.test.ts`, `v121.test.ts`(설정 순서 — 새 묶음은 그 목록의 자리 사이에 들어가지 않는다: `템포 가이드` 뒤 `<ExportPanel` 앞. `at()` 순서가 오름차순으로 남는지 구현자가 먼저 돌려 본다. 깨지면 멈추고 보고).
+- 기존 테스트는 **수정 없이** 통과한다: `dietBackup.test.ts`(부르는 곳 목록), `backupTime.test.ts`, `gist.test.ts`, `inputProps.test.ts`, `v121.test.ts`(설정 순서 — 새 줄은 그 목록에 없고 `템포 가이드` 뒤 `<ExportPanel` 앞이라 `at()` 순서가 오름차순으로 남는다 · 묶음 제목 넷 `:481` — 새 `Heading`은 `AccountPanel.tsx`에 있어 `SettingsScreen.tsx`의 개수가 그대로다. 구현자가 먼저 돌려 본다. 깨지면 멈추고 보고).
+- 스캔: `SettingsScreen.tsx`에 `계정·동기화`가 없고 `AccountPanel.tsx`에 `<Heading level={2}>계정·동기화</Heading>`이 있다.
 
 속성:
 - `pickBackupStatus`: 로그인했으면 Gist 값과 상관없이 계정 값을 쓴다. 서버 주소가 없으면 어떤 입력에서도 지금(v1.21)과 같은 값이다.
@@ -502,7 +558,7 @@ export function cloudBackupStatus(): { signedIn: boolean; lastSyncAt: string | n
 ### 범위 제외
 
 - 온보딩에서 로그인: 새 기기는 온보딩을 마친 뒤 설정에서 로그인하면 받기(`download`)로 온보딩 값이 계정 값으로 바뀐다. 온보딩을 고치지 않는다.
-- 비밀번호 재설정·이메일 바꾸기: 메일 서버가 필요하다(사람이 정할 것 1). 운영자가 대시보드에서 바꾼다.
+- 비밀번호 재설정·이메일 바꾸기: 메일 서버가 필요하다("설계자가 정한 것"의 로그인 방식). 운영자가 대시보드에서 바꾼다.
 - 다른 사람과 기록 공유·코치 보기: 요청에 없다.
 - 첫 화면: 계정 코드는 작다(SDK 없음). 정적 import로 두고 `first-load --check`가 360KB를 지키는지 본다. 넘으면 `AccountPanel`만 lazy(설정 탭이 이미 lazy라 대개 첫 화면에 안 든다).
 
@@ -514,9 +570,10 @@ export function cloudBackupStatus(): { signedIn: boolean; lastSyncAt: string | n
 - "핵심 설계 결정"에 새 절 `### 계정 · 동기화` (백업·비밀값 절 앞):
   - **기기가 먼저, 서버는 계정별 사본이다.** 화면은 IndexedDB만 읽고 쓴다. 동기화는 세션 종료·식단·루틴 쓰기 8초 뒤, 앱을 열 때와 돌아올 때, 백그라운드로 갈 때 돈다. 서버는 Supabase(Postgres + Auth)이고 앱은 SDK 없이 REST를 부른다.
   - **바뀐 행은 쓰기 자리가 아니라 내용 지문으로 찾는다.** 마지막으로 맞춘 행의 SHA-256을 장부(`workout-tracker-sync` DB)에 두고 비교한다. 복원·시드·옛 버전이 쓴 것도 빠짐없이 잡힌다. 장부를 메인 DB와 나눈 것은 Dexie 버전을 올리지 않아 배포를 되돌릴 수 있게 하고, 백업 파일에 계정 정보가 섞이지 않게 하려는 것이다.
-  - **올리지 않는 것:** 번들 종목 카탈로그, 시드 장부(`seeded*Revision`), Gist 장부, 소리 크기·덕킹. 앱 번들이나 그 기기에서 오는 것이라, 올리면 버전이 다른 두 기기가 서로 덮는다.
-  - **충돌은 행마다 나중에 올린 쪽이 이긴다.** 받을 때 이 기기에서 아직 안 올린 행은 덮지 않는다. 같은 세션·같은 날 식단·내 음식 목록을 두 기기가 오프라인에서 고치면 한쪽이 진다. 끝나지 않은 세션은 다른 기기로 받지 않는다.
-  - **처음 연결:** 서버가 비었으면 올리고, 이 기기에 기록이 없으면 받고, 둘 다 있으면 묻는다(받으면 이 기기 기록은 지워진다). 다른 계정의 기록이 있는 기기는 로그인하지 않는다.
+  - **올리지 않는 것:** 번들 종목 카탈로그·번들 루틴·번들 식단 플랜, 시드 장부(`seeded*Revision`), Gist 장부, 소리 크기·덕킹. 앱 번들이나 그 기기에서 오는 것이라, 올리면 버전이 다른 두 기기가 서로 덮는다. 판정은 `isSyncedKey`·`isSyncedRow`(`src/lib/syncPlan.ts`) 한 곳이다. 번들 루틴을 고치면 복사본이 되어 올라간다.
+  - **끝나지 않은 세션은 올리지 않는다.** 마친 뒤에 올라간다. 같은 세션이 두 기기에서 열리지 않게 하려는 것이고, 운동 중 앱이 죽어도 기기에 남아 다음 실행에 이어진다.
+  - **충돌은 행마다 서버에 나중에 올린 쪽이 이긴다.** "나중"은 업로드 순서이고 고친 시각이 아니다(폰 시계를 믿지 않는다). 받을 때 이 기기에서 아직 안 올린 행은 덮지 않는다. 같은 세션·같은 날 식단·내 음식 목록을 두 기기가 오프라인에서 고치면 나중에 연결한 쪽이 이긴다.
+  - **처음 연결:** 서버에 기록(설정 말고)이 없으면 올리고, 이 기기에 기록이 없으면 받고, 둘 다 있으면 묻는다 — 받기(이 기기 기록이 계정 기록으로 바뀐다)·합치기(양쪽이 다 남고, 양쪽에 다 있는 기록은 이 기기 것)·취소. 다른 계정의 기록이 있는 기기는 로그인하지 않는다.
   - **한꺼번에 10건 이상 지우는 바퀴는 멈추고 묻는다.** 기기 저장소가 비면 지문 비교가 "전부 지웠다"로 읽기 때문이다. 복원 직후는 묻지 않는다(복원은 계정 기록도 그 백업으로 바꾼다).
   - **계정별 분리는 서버의 행 수준 보안(RLS)이 지킨다.** 앱의 키는 공개용 키(publishable)뿐이고, 스키마는 `supabase/schema.sql`에 있다. 로그인 세션은 localStorage에만 두고 Dexie·백업에 들어가지 않는다(비밀 키 목록에 `cloudSession`).
 - Architecture 그림에 `Dexie -->|계정별 동기화| Cloud["Supabase<br/>records (RLS)"]`, `LS` 칸에 `로그인 세션`.
@@ -531,7 +588,7 @@ export function cloudBackupStatus(): { signedIn: boolean; lastSyncAt: string | n
 
 ### 진단
 
-요청 1은 "Gist 대신 DB"다. TT3 뒤에는 백업 길이 둘(Gist·계정)이라 설정과 배너가 둘을 다 말한다. 다만 TT3가 실기기에서 검증되기 전에는 Gist가 앱 밖의 유일한 사본이라 같은 PR에서 걷지 않는다(사람이 정할 것 3).
+요청 1은 "Gist 대신 DB"다. TT3 뒤에는 백업 길이 둘(Gist·계정)이라 설정과 배너가 둘을 다 말한다. 다만 TT3가 실기기에서 검증되기 전에는 Gist가 앱 밖의 유일한 사본이라 같은 PR에서 걷지 않는다("설계자가 정한 것"의 Gist 걷는 시점).
 
 ### 설계
 
@@ -553,7 +610,7 @@ export function cloudBackupStatus(): { signedIn: boolean; lastSyncAt: string | n
 | `gist.test.ts` | Gist API 예시는 지운다. `backupReminder` describe는 `sync.ts`를 import해 **단언을 그대로** 옮긴다 |
 | `backupTime.test.ts` | import를 `./sync`로. `gistSync.ts`·`GistPanel.tsx`를 읽는 스캔 셋은 `sync.ts`·`AccountPanel.tsx`가 공용 날짜 함수(`formatDateTimeLocal`·`localDateOf`)를 쓰는지로 옮긴다. `skipped` 스캔은 지운다(그 경로가 없다) |
 | `dietBackup.test.ts` | `SYNC_DEBOUNCE_MS` import를 `./sync`로. 부르는 곳 목록의 정의 줄을 `/src/lib/sync.ts`로. `gistSync` 지문 건너뛰기 스캔은 지운다 |
-| `v121.test.ts` | `GistPanel` raw import와 SS6 두 단언을 `AccountPanel`로(`variant="destructive"` 3개 이상, 상태 줄 `ax-text-error`). 설정 순서의 `'<GistPanel'`을 `'<AccountPanel'`로 — 순서가 `템포 가이드` → `<AccountPanel` → `<ExportPanel`이 된다 |
+| `v121.test.ts` | `GistPanel` raw import와 SS6 두 단언을 `AccountPanel`로(`variant="destructive"` 3개 이상, 상태 줄 `ax-text-error`). 설정 순서 배열(`:491`)에서 `at('<GistPanel')`을 **지우고** `at('<AccountPanel')`을 `at(/\n\s+템포 가이드\n/)`와 `at('<ExportPanel')` **사이에 넣는다** — 자리만 바꿔 넣으면 `<ExportPanel` 뒤에 와서 오름차순 단언(`:492`)이 깨진다. 묶음 제목 넷(`:481`)은 그대로(새 제목은 `AccountPanel.tsx`에 있다) |
 | `scripts/ss0.test.mjs` `scripts/ss6.test.mjs` `scripts/lib/ui-space.mjs` | `settings-gist`를 `settings-account`로, 흐름 이름 `settings-gist GitHub을 부르지 않는다`를 `settings-account 서버 말고는 부르지 않는다`로 |
 
 ### 검증 (`v122.test.ts`, describe `TT4`)
@@ -603,7 +660,8 @@ uicheck 빌드(`npm run build -- --mode uicheck`)에서 `node scripts/ui-check.m
 |---|---|
 | 기존 IndexedDB (`workout-tracker` v3) | 그대로. 스키마·행 형태 무변경. 로그인 전에는 아무것도 바뀌지 않는다 |
 | 처음 로그인하는 기기(앱 주인의 폰) | 새 계정은 서버가 비어 있어 `upload` — 동기화 대상 행이 전부 올라간다. 기기 데이터는 그대로 |
-| 둘째 기기 | `download` — 서버 행으로 바뀐다(번들 종목·기기 전용 키는 그 기기 것) |
+| 둘째 기기 | 기록이 없으면 `download` — 서버 행으로 바뀐다(번들 행·기기 전용 키는 그 기기 것). 기록이 있으면 묻는다(받기·합치기·취소) |
+| 번들 id를 쓴 가져온 루틴·식단 플랜 | 그 기기에만 남는다. 루틴은 앱에서 한 번 고쳐 저장하면 복사본으로 올라간다 |
 | 기존 Gist·JSON 백업 | 그대로 복원된다. 로그인 상태에서 복원하면 계정 기록도 그 백업으로 바뀐다 |
 | v1.22가 만든 백업 | `SCHEMA_VERSION` 3 그대로. 계정 정보·로그인 세션은 없다(장부는 다른 DB, 세션은 localStorage + 비밀 키) |
 | 새 저장 자리 | IndexedDB `workout-tracker-sync`(장부), localStorage `workout-tracker.cloudSession`(로그인 세션), 서버 `public.records` |
@@ -625,16 +683,19 @@ uicheck 빌드(`npm run build -- --mode uicheck`)에서 `node scripts/ui-check.m
 
 ## 과거 판정 불변
 
-바뀌지 않는 것: 판정·제안·내보내기·가져오기 전부. `git diff --stat main..HEAD -- src/lib`에 판정 파일(`suggestNextDay`·`dashboard`·`prefill`·`progression`·`phaseReadiness`·`exportMarkdown`·`diet*`·`history`·`analysis`)이 없다. `src/db`는 무변경, `src/store`는 무변경(`useSettings.load`를 부르기만 한다). 골든(`v113`~`v117` 내보내기 글자)은 한 글자도 안 고치고 통과한다.
+구분: **판정 로직**(함수와 알고리즘)은 바뀌지 않는다. **입력 행**은 동기화로 바뀔 수 있고, 그러면 그 기록의 판정 결과는 바뀐 행으로 다시 계산된다 — 같은 행이면 어느 기기에서든 같은 판정이다.
 
-달라지는 것:
+바뀌지 않는 것: 판정·제안·내보내기·가져오기의 로직 전부. `git diff --stat main..HEAD -- src/lib`에 판정 파일(`suggestNextDay`·`dashboard`·`prefill`·`progression`·`phaseReadiness`·`exportMarkdown`·`diet*`·`history`·`analysis`)이 없다. `src/db`는 무변경, `src/store`는 무변경(`useSettings.load`를 부르기만 한다). 골든(`v113`~`v117` 내보내기 글자)은 한 글자도 안 고치고 통과한다.
+
+달라지는 것 (전부 입력 행이 바뀌는 경우다):
 
 | 무엇 | 언제 | 과거 기록 |
 |---|---|---|
 | 다른 기기에서 고친 세션·식단·루틴이 이 기기에 들어온다 | 로그인한 두 기기 | 그 기록의 판정이 고친 내용으로 다시 계산된다 — 그 기기에서 고친 것과 같다(TT3 검증: 받은 기기의 제안·볼륨·내보내기가 보낸 기기와 같다) |
-| 같은 행을 두 기기가 오프라인에서 고쳤다 | 드묾 | 나중에 올린 쪽만 남는다 |
+| 같은 행을 두 기기가 오프라인에서 고쳤다 | 드묾 | 서버에 나중에 올린 쪽만 남는다 |
+| 처음 연결에서 합치기 | 사람이 고를 때 | 양쪽 기록이 다 남는다. 양쪽에 다 있는 행(같은 날 식단 등)은 이 기기 것이 남는다 |
 | 로그인 상태에서 복원 | 사람이 고를 때 | 계정 기록도 백업으로 바뀐다(다른 기기에도 퍼진다) |
-| 로그아웃 | 사람이 고를 때 | 이 기기 기록이 지워진다(사람이 정할 것 2의 추천안). 계정에는 남는다 |
+| 로그아웃 | 사람이 고를 때 | 사람이 정할 것 1에 따라: A면 이 기기 기록이 지워지고 계정에는 남는다 · B면 바뀌지 않는다 |
 
 ---
 
@@ -657,7 +718,7 @@ uicheck 빌드(`npm run build -- --mode uicheck`)에서 `node scripts/ui-check.m
   ③ (TT1) `stableStringify`가 키를 정렬하지 않게 → 속성 키 순서 실패 + "두 번 해도 같다" 실패
   ④ (TT1) `MASS_DELETE_LIMIT` 검사를 지운다 → 세션 11건 `held` 단언 실패
   ⑤ (TT1) `joinCase`가 서버에 기록이 있어도 `upload` → 표 단언 실패
-  ⑥ (TT1) 판정 2(진행 중 세션)를 지운다 → 진행 중 세션 단언 실패
+  ⑥ (TT1) 판정 2(진행 중 세션)를 지운다 → "로컬이 진행 중인 pk로 끝난 행" 단언 실패 · `isSyncedRow('sessions')`가 `endedAt`을 안 보게 → "진행 중 세션은 `upserts`에 없다" 단언·속성 "기기 전용은 안 나간다" 실패
   ⑦ (TT1) `pull(cursor − 5분)`을 `pull(cursor)`로 → 늦게 커밋된 행 단언 실패
   ⑧ (TT1) `applyLocal`의 `baseText` 재확인을 지운다 → 재확인 단언 실패
   ⑨ (TT2) `cloudApi`의 오류 문구에 토큰을 넣는다 → 토큰 노출 단언 실패
@@ -670,7 +731,10 @@ uicheck 빌드(`npm run build -- --mode uicheck`)에서 `node scripts/ui-check.m
   ⑯ (TT3) `requestSync`에서 `requestCloudSync(` 줄을 Gist 검사 아래로 → 스캔 실패(Gist 없는 사용자는 계정 동기화가 안 돈다)
   ⑰ (TT3) `signOutAndWipe`가 바퀴 실패에도 지우게 → `'unsynced'` 단언 실패
   ⑱ (TT3) uicheck 흐름에서 `page.route` 하나를 뺀다 → `settings-account 서버 말고는 부르지 않는다` 실패
-  ⑲ (TT4) `api.github.com`을 한 파일에 되살린다 → TT4 스캔 실패
+  ⑲ (TT1) 판정 1이 지워진 행에도 `isSyncedRow(tbl, null)`을 쓰게 → 원격 지움(내 종목) 단언 실패
+  ⑳ (TT1) `isSyncedKey`가 번들 루틴 id를 true로 → 속성 "기기 전용은 안 나간다" 실패
+  ㉑ (TT2) `hasUserRecords`에서 `tbl=neq.settings`를 뺀다 → URL 단언 실패 + TT3 "`settings`만 있는 계정 → `upload`" 실패
+  ㉒ (TT4) `api.github.com`을 한 파일에 되살린다 → TT4 스캔 실패
 - **변이 테스트:** TT1·TT2·TT3 커밋마다 `npm run mutation`(대상 `syncPlan.ts`·`syncEngine.ts`·`syncDb.ts`·`cloudApi.ts`·`cloudConfig.ts`·`cloudSync.ts`·`secrets.ts`·`backup.ts`·`gistSync.ts` 중 그 커밋에서 바뀐 것) 표를 DEV-RECORD에. `syncPlan.ts`·`syncEngine.ts`는 살아남은 변이마다 이유를 적는다(동기화는 조용히 틀리는 곳이다).
 - **과거 판정 불변 확인 절**(DEV-RECORD): ① `git diff --stat main..HEAD -- src/db src/store` 출력이 비어 있다(복사) ② `git diff --stat main..HEAD -- src/lib`(복사)에 판정 파일이 없다 ③ 골든 수정 없이 통과 ④ TT3의 "받은 기기의 제안·볼륨·내보내기가 같다" 테스트 이름 ⑤ 달라지는 것: "과거 판정 불변" 표.
 - 완료 후 `docs/DEV-RECORD-v1.22.md`(맨 위 "이 환경에서 확인된 제약"은 v1.21 목록을 이어받고 더한다: Dexie 트랜잭션 안에서 Dexie 밖 약속(`crypto.subtle`)을 기다리면 트랜잭션이 닫힌다 — 실제로 확인한 결과, Supabase Auth 오류 코드의 출처, uicheck 빌드와 일반 빌드의 첫 화면 크기). "배포 영향" 절에 아래를 남기고 PR 본문 맨 위에도 넣는다:
@@ -689,7 +753,7 @@ uicheck 빌드(`npm run build -- --mode uicheck`)에서 `node scripts/ui-check.m
   ⑤ 비행기 모드에서 세션을 기록하고 끈 뒤 앱을 열면 상태 줄이 `맞춤 완료`가 된다
   ⑥ 다른 계정 B로 로그인한 기기에서 A의 기록이 안 보인다
   ⑦ 비밀번호 칸에서 iOS 키체인이 저장·채우기를 제안하는가(자동완성 끔 상태 — 안 되면 적는다. 고치지 않는다)
-  ⑧ 로그아웃 → 기기가 처음 상태 → 다시 로그인 → 받기로 전부 돌아온다
+  ⑧ 로그아웃 → (사람이 정할 것 1이 A면) 기기가 처음 상태 → 다시 로그인 → 받기로 전부 돌아온다 · (B면) 기기 기록이 그대로이고, 같은 계정으로 다시 로그인하면 묻지 않고 이어진다
 - TT4 실기기 확인: 설정에 Gist 카드가 없다. 홈 배너가 계정 문구다.
 
 리뷰 단위: 작업별 — TT1은 무엇을 지우고 덮는지 정하는 엔진, TT2는 서버 권한(RLS)과 비밀값, TT3는 처음 연결·로그아웃·복원·초기화처럼 기록을 통째로 바꾸는 길이 모인다. 셋 다 틀리면 조용히 기록을 잃는다.
@@ -700,7 +764,7 @@ uicheck 빌드(`npm run build -- --mode uicheck`)에서 `node scripts/ui-check.m
 
 1. supabase.com 가입 → New project. 지역 **Northeast Asia (Seoul)**, 플랜 Free. DB 비밀번호는 어디에도 적지 않는다(앱은 쓰지 않는다).
 2. SQL Editor에 레포의 `supabase/schema.sql`을 붙여 Run.
-3. Authentication → Sign In / Providers → Email: **Confirm email 끄기**(사람이 정할 것 1이 A일 때).
+3. Authentication → Sign In / Providers → Email: **Confirm email 끄기**.
 4. Project Settings → API Keys: Project URL과 **publishable key**(`sb_publishable_…`)를 복사 → GitHub 레포 Settings → Secrets and variables → Actions → **Variables**에 `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`. secret key(`sb_secret_…`)는 어디에도 넣지 않는다.
 5. 머지 전에 폰에서 설정 → 기록 내보내기로 JSON을 한 번 저장해 둔다.
 
@@ -708,53 +772,62 @@ uicheck 빌드(`npm run build -- --mode uicheck`)에서 `node scripts/ui-check.m
 
 ## 사람이 정할 것
 
-**1. 로그인 방식**
+**1. 로그아웃할 때 이 기기의 기록** (검토에서 판단이 갈렸다 — 설계자 A, Antigravity B)
 
-| 안 | 내용 | 대가 |
+| 안 | 내용 | 바뀌는 것 |
 |---|---|---|
-| **A (추천)** 이메일 + 비밀번호, 확인 메일 끔 | 앱 안에서 끝난다. 메일 서버가 필요 없다 | 비밀번호를 잊으면 운영자가 대시보드에서 바꿔 준다. 남의 이메일로 가입할 수 있다(그 사람 기록에는 닿지 않는다) |
-| B 이메일로 받은 6자리 코드 | 비밀번호가 없다 | 메일 서버(SMTP — Resend 등) 연결이 필요하다. Supabase 기본 메일은 개발용이라 팀원 주소 말고는 보내지 않고 시간당 몇 통으로 막혀 있다 |
-| C 구글·애플 로그인 | 익숙하다 | iOS 홈 화면 앱에서 로그인 창이 Safari로 나가 돌아오지 않는 문제가 있다(홈 화면 앱과 Safari는 저장소가 다르다). 이번 범위에서는 검증할 수 없다 |
+| A (설계자 추천) 지운다 | 기록은 계정에 있으니 기기를 처음 상태로 둔다. 다른 사람이 같은 기기로 로그인해도 섞이지 않는다. 올라가지 않은 기록이 있으면 한 번 더 묻는다(문구 F·G) | 본문 그대로: `signOutAndWipe`, 장부·세션·기기 DB를 지우고 `reload` |
+| B (Antigravity 추천) 남긴다 | 로그인 전처럼 기기에서 계속 쓴다(오프라인에서도 기록이 보인다). 잘못 눌러도 잃는 것이 없다. 장부(계정 id)가 남아 같은 계정은 묻지 않고 이어지고, 다른 계정은 `foreign`으로 막힌다(설정 → 초기화 뒤에 로그인) | `signOutAndWipe` 대신 `signOutKeepDevice()`: 로그인 세션만 지운다. 문구 F′, G 없음. 결함 복원 ⑰은 "로그아웃이 장부를 지우게 → 같은 계정 재로그인 `resume` 단언 실패"로 바뀐다 |
 
-**2. 로그아웃할 때 이 기기의 기록**
+설계자가 A를 추천한 이유: 계정이 있는 앱에서 "로그아웃"은 보통 그 기기에서 내 기록을 치우는 뜻이고, 이 앱은 이제 여러 사람이 쓴다(이슈 #31 요청 5).
+Antigravity가 B를 추천한 이유: 오프라인 우선 앱에서 실수·불안정한 연결 중 로그아웃이 기기 기록을 지우면 오프라인에서 기록을 볼 수 없다. 섞임은 `foreign`이 막고, 비우려면 "모든 데이터 초기화"가 이미 있다.
 
-| 안 | 내용 |
+---
+
+## 검토 반영 기록 (2026-11-23, 검토 커밋 `f949ce5`)
+
+근거 보고: `.reports/v1.22-codex.md`(Codex), `.reports/v1.22-antigravity.md`(Antigravity). 지적마다 코드를 직접 확인했다.
+
+**반영**
+
+| 지적 | 확인한 코드 | 고친 곳 |
+|---|---|---|
+| Antigravity 1-① `v121.test.ts:481`이 `SettingsScreen.tsx`의 `<Heading level={2}>`를 정확히 4개로 고정한다 — 새 묶음 제목을 거기 두면 "기존 테스트 수정 없음"이 거짓 | `v121.test.ts:480-481` | TT3 3: 묶음(`Group`+`Heading`)을 `AccountPanel`이 그리고 `SettingsScreen`은 `{isCloudAvailable() && <AccountPanel />}`만. TT3 검증에 스캔 한 줄 |
+| Antigravity 1-② TT4의 순서 배열에서 `'<GistPanel'` 자리에 `'<AccountPanel'`을 넣으면 `<ExportPanel` 뒤가 되어 `:492`가 깨진다 | `v121.test.ts:491-492` | TT4 테스트 옮김 `v121.test.ts` 줄: 지우고 `템포 가이드`와 `<ExportPanel` 사이에 넣는다 |
+| Antigravity 2-1 원격 지움(`data: null`)은 `isSyncedRow`로 `custom`을 못 봐 내 종목 지움이 안 내려온다 | PLAN 판정 1 · `exercises`의 판정이 행의 `custom`에 기댄다 | TT1 1: `isSyncedKey(tbl, pk)`를 두고 지운 행은 그것만 본다. 예시·속성("pk 판정이 행 판정을 감싼다")·결함 복원 ⑲ |
+| Antigravity 2-2 `hasAnyRecord`가 `settings`를 세서, 빈 기기로 먼저 가입한 계정에 기록 많은 기기가 `ask`로 떨어지고 받기·취소밖에 없다 | 온보딩이 `settings`를 쓴다(`hasUserData` 주석이 이미 같은 이유로 `settings`를 뺐다) | TT2 `hasUserRecords`(`tbl=neq.settings`) · TT1 8 "서버가 비었다" 정의 · TT3 검증 · 결함 복원 ㉑ |
+| Antigravity 2-2 `ask`에 이 기기 기록을 계정에 올리는 길이 없다 | `resolveAsk` 선택지가 둘뿐이다 | **조건을 바꿔 반영:** "덮어 올리기"가 아니라 `merge`(장부 없는 바퀴 — 새 엔진 코드 없음). 덮어 올리기는 서버에만 있는 행을 되돌릴 수 없게 지우는 길이라 두지 않는다. 화면 버튼 `합치기`, 문구 B |
+| Antigravity 2-3·원칙 / 고칠 것 5 진행 중 세션은 올리지만 누구도 받지 않는다 | `planPull` 판정 2·`receiveAll`이 진행 중 세션을 건너뛴다. 앱이 죽어도 IndexedDB에 남고 부팅이 복구한다(`db/index.ts:124-128`). 세션은 다시 열리지 않는다(`session.ts`의 `finish`) | TT1 1: `sessions`는 끝난 세션만 동기화. 판정 2는 로컬 진행 중 세션을 지키는 방어로 남김. 범위 제외에 "운동 중 폰 분실" |
+| Antigravity 2-4 번들 루틴·식단 플랜도 번들 카탈로그와 같은 문제 | `seed.ts:86-90`(`repaired`)·`:98-110`·`:116-119`. 다만 지적의 "매번 핑퐁"은 코드와 다르다 — 시드는 기기 전용 `seeded*Revision`으로만 다시 쓰므로 번갈아 덮지 않는다. 실제 결함은 옛 앱 기기가 `repaired`로 옛 번들을 올리면 새 앱 기기가 그것을 받고 리비전이 같아 다시는 시드하지 않는 것 | TT1 1: 번들 id 루틴·식단 플랜 제외(`BundledIds`). 앱에서 고친 루틴은 복사본(`RoutineEditorScreen.tsx:57-59`)이라 그대로 동기화. 범위 제외·데이터 이전에 번들 id로 가져온 파일 |
+| Antigravity 고칠 것 6 `puts` 타입에 `baseText`가 없다 | PLAN 안의 모순 | TT1 5 `planPull` 반환 타입 |
+| Antigravity 4 `Content-Range: */0` | — | TT2 `countSessions` 설명·검증 |
+| Antigravity 4 같은 `updated_at` 페이지 경계 | `gte` + `tbl+pk` 중복 제거로 경계는 이미 맞다. 남는 위험은 1000행이 같은 시각일 때의 무한 반복뿐 | TT2 `pullRecords`에 꽉 찬 같은 시각 페이지 → `unknown` 방어와 검증 |
+| Antigravity 4 지운 뒤 `reload` | `SettingsScreen.tsx:107-110` | TT3 1에 지우는 길 끝의 `reload`, 검증 |
+| Codex 2-③·고칠 것 2 "마지막"이 업로드 순서임을 명시하고 같은 행 오프라인 충돌을 검증 | 판정 4 + 단순 upsert → 나중에 올린 쪽이 이긴다 | 설계자가 정한 것 "충돌", TT1 검증(순서를 뒤집는 예시), 속성 "두 기기"를 같은 행까지, README·과거 판정 불변 표 |
+| Codex 5·고칠 것 3 "판정 불변"과 "입력 행이 바뀌면 결과 재계산"을 구분 | — | 머리말 "성격", "과거 판정 불변" 첫 단락과 표 머리 |
+| Codex 5 `receiveAll`도 같은 판정을 쓰고 제외한 행의 장부·cursor 뜻을 정해야 한다 | — | TT1 7 "건너뛴 행과 cursor", TT1 8 `receiveAll` 정의, TT1 검증 |
+
+**기각**
+
+| 지적 | 이유 |
 |---|---|
-| **A (추천)** 지운다 | 기록은 계정에 있으니 기기를 처음 상태로 둔다. 다른 사람이 같은 기기로 로그인해도 섞이지 않는다. 올라가지 않은 기록이 있으면 한 번 더 묻는다 |
-| B 남긴다 | 로그인 전처럼 기기에서 계속 쓴다. 다른 계정으로 로그인하면 `foreign`으로 막힌다(설정 → 초기화 뒤에 로그인) |
+| Codex 2-①·고칠 것 1 열린 세션을 건너뛰고 cursor가 나아가면, 5분 넘게 걸려 끝난 세션을 못 받는다 | 코드(스키마)와 맞지 않는다: `records_touch` 트리거가 **update마다** `updated_at := clock_timestamp()`를 매기므로, 세션을 마치고 올리면 그 행은 새 시각을 받아 cursor 뒤로 다시 온다. 보고도 "`updated_at`이 행 변경 때 갱신된다는 전제에서"라고 적었는데 그 전제에서는 누락이 생기지 않는다. 게다가 반영 후에는 진행 중 세션이 서버에 올라가지 않아 건너뛸 행 자체가 없다. 다만 값싼 확인이라 "6분 뒤 마친 세션을 받는다" 예시는 TT1 검증에 넣었다. Antigravity는 같은 지점(진행 중 세션)을 "올리지만 받지 않는 행"으로 봤고, 코드 기준으로 그쪽이 맞다 |
+| Codex 2-② 처음 연결 받기에서 진행 중 세션 때문에 부분 교체로 끝난다 | 같은 이유(트리거가 새 시각을 매긴다)로 다음 바퀴가 받는다. 로컬 진행 중 세션이 있으면 TT3가 받기를 막는다. `receiveAll`의 장부·cursor 뜻은 위 "반영"처럼 명시했다 |
+| Codex 4 TT3의 수명주기 경로가 한데 있어 위험하다 | 리뷰 단위가 이미 "작업별"이고 TT3 검증이 경로마다 있다. 이번 반영으로 합치기·`settings`만 있는 계정·`reload` 검증을 더했다. 작업을 더 쪼개지 않는다 — TT3의 경로들은 같은 `cloudSync.ts` 상태 기계를 공유해 따로 배포할 수 없다 |
 
-**3. Gist를 걷는 시점 (TT4)**
+**두 검토자가 다르게 본 지점**
 
-| 안 | 내용 |
-|---|---|
-| **A (추천)** TT1~TT3를 먼저 배포하고, 실기기 확인 ①~⑧ 뒤 TT4를 별도 PR | 계정 동기화가 검증되기 전까지 Gist가 앱 밖 사본으로 남는다 |
-| B TT1~TT4를 한 PR | 설정이 한 번에 정리된다. 계정 동기화에 문제가 있으면 앱 밖 사본이 없다(JSON 파일뿐) |
-| C Gist를 계속 둔다 | 백업 길이 둘로 남는다. 이슈 #31 요청 1과 어긋난다 |
+| 지점 | Codex | Antigravity | 코드 기준 판단 |
+|---|---|---|---|
+| 진행 중 세션 | 건너뛴 뒤 cursor가 나아가 끝난 세션을 놓친다 | 올리지만 아무도 받지 않는다 | Antigravity가 맞다. 트리거가 update마다 시각을 새로 매겨 놓치지 않는다. 받을 길이 없는 것은 사실이라 올리지 않게 바꿨다 |
+| 과거 판정 불변 | 표현이 모순 | 잘 지켜진다 | 둘 다 맞다 — 로직은 불변, 입력 행은 바뀐다. 표현만 고쳤다 |
 
-**4. 무료 플랜**
+**사람이 정할 것 처리**
 
-| 안 | 내용 |
-|---|---|
-| **A (추천)** Free로 시작 | 500MB·월 5만 명까지. 1주일 동안 요청이 없으면 멈춘다(누가 하루라도 쓰면 안 멈춘다). 멈추면 동기화만 실패하고 기록은 기기에 남는다 |
-| B Pro (월 $25) | 멈추지 않는다 |
-
-**5. 화면 문구** (원문 — 고칠 것만 말하면 된다)
-
-| 자리 | 문구 |
-|---|---|
-| 묶음 제목 / 카드 머리 | `계정·동기화` / `계정` |
-| A 로그인 전 안내 | `로그인하면 기록이 계정별로 서버에 저장되고, 같은 계정으로 로그인한 다른 기기와 맞춰집니다. 기록은 지금처럼 이 기기에 먼저 저장되므로 오프라인에서도 그대로 씁니다. 서버는 앱 운영자가 관리하며, 운영자는 저장된 기록을 볼 수 있습니다. 로그인하지 않으면 이 기기에만 저장됩니다.` |
-| 폼 | `로그인` · `가입` · `이메일` · `비밀번호` · `확인 중…` |
-| B 처음 연결 — 둘 다 기록 있음 | 제목 `이 계정에 이미 기록이 있습니다` / `계정에 세션 <n>개, 이 기기에 세션 <m>개가 있습니다. 계정 기록을 받으면 이 기기의 기록은 지워지고 계정 기록으로 바뀝니다. 이 기기 기록이 필요하면 먼저 "기록 내보내기"로 JSON 파일을 저장해 두세요.` · `로그인 취소` · `계정 기록 받기` · `정말 받기` |
-| C 다른 계정의 기기 | 제목 `이 기기에는 다른 계정의 기록이 있습니다` / `<이메일> 계정으로 로그인하거나, 설정 → 위험 구역에서 이 기기 데이터를 초기화한 뒤 로그인하세요.` · `확인` |
-| D 한꺼번에 지움 | 제목 `기록 <n>건이 이 기기에서 사라졌습니다` / `계정의 기록은 아직 그대로입니다. 이 기기에서 일부러 지운 것이 아니면 계정 기록으로 되돌리세요.` · `계정 기록으로 되돌리기` · `계정에서도 지우기` · `정말 지우기` |
-| E 만료 | `로그인이 만료됐습니다. 다시 로그인하면 그동안의 기록이 이어서 올라갑니다.` |
-| F 로그아웃 확인 | `로그아웃하면 이 기기의 기록이 지워집니다. 기록은 계정에 남아 있어 다시 로그인하면 받아집니다.` · `취소` · `로그아웃` |
-| G 올라가지 않은 기록 | `아직 계정에 올라가지 않은 기록이 있을 수 있습니다(서버에 연결하지 못했습니다). 지금 로그아웃하면 그 기록은 사라집니다.` · `취소` · `그래도 로그아웃` |
-| H 계정 삭제 | `계정과 서버의 기록을 모두 지웁니다. 이 기기의 기록은 남습니다. 되돌릴 수 없습니다.` · `취소` · `계정 삭제` · `정말 삭제` |
-| 진행 중 세션 | `진행 중인 세션을 마치거나 버린 뒤에 할 수 있습니다` |
-| 줄 / 버튼 | `계정` · `마지막 동기화` · `아직 없음` · `지금 동기화` · `로그아웃` · `계정 삭제` |
-| 상태 줄 | `잠시 후 자동으로 맞춥니다…` · `맞추는 중…` · `맞춤 완료 <시각>` · `변경 없음 — <시각>` · `오프라인 — 연결되면 다시 맞춥니다` · `실패: <메시지>` |
-| 오류 | TT2 kind 표의 여덟 문구 |
-| 초기화 확인에 더하는 줄 (로그인 상태일 때만) | `계정의 기록은 서버에 남습니다. 다시 로그인하면 받아집니다.` |
-| 홈 배너 | 오래됨 `마지막 동기화가 N일 전이에요` / `연결되면 자동으로 맞춥니다. 지금 맞추려면 설정 → 계정 → 지금 동기화` · 미설정 `백업이 설정되지 않았어요` / `설정 → 계정에서 로그인하면 기록이 서버에 저장되고 다른 기기에서도 이어집니다` · (TT4, 서버 없는 빌드) `설정 → 기록 내보내기에서 JSON 파일로 저장해 두세요` |
+| 항목 | Codex | Antigravity | 처리 |
+|---|---|---|---|
+| 로그인 방식 A(이메일+비밀번호, 확인 메일 끔) | 의견 없음 | 동의 | 확정 → "설계자가 정한 것" |
+| 로그아웃 때 기기 기록 A(지운다) | 의견 없음 | **반대(B)** | 사람에게 남김(사람이 정할 것 1). 두 안의 설계 차이를 그 절에 적었다 |
+| Gist 걷는 시점 A(별도 PR) | 의견 없음 | 동의 | 확정 → "설계자가 정한 것" |
+| 무료 플랜 A(Free) | 의견 없음 | 동의 | 확정 → "설계자가 정한 것" |
+| 화면 문구 | 의견 없음 | 의견 없음 | 확정 → TT3 6. 처음 연결 문구 B와 버튼에 `합치기`를 더했고, 로그아웃 B안용 F′를 더했다 |
