@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import type { DietSlot, SlotQuality, SlotRecord } from '../types'
 import { additionNote, QUALITY_LABEL, substitutionNote } from '../lib/diet'
-import { NO_AUTOFILL } from '../lib/inputProps'
-import { SheetFrame } from './SheetFrame'
+import { Button, Heading, HStack, Sheet, Text, TextField, VStack } from '../ax'
+import { RadioList, RadioListItem } from '../ax/diet'
 
 /**
  * 자가 태그 기준 — 앱이 음식을 판단하지 않으므로 기준을 사용자에게 그대로 보여준다.
@@ -88,145 +88,125 @@ export default function DietSlotSheet({
     setMode(next)
   }
 
-  const act = (fn: () => void) => {
-    fn()
-    onClose()
-  }
-
   return (
-    <SheetFrame label={`${slot.name} 기록`} onClose={onClose}>
-      {(dismiss) => (
-        <>
-          <div className="card-label">
-            {slot.name} · {slot.timeHint}
-          </div>
+    <Sheet label={`${slot.name} 기록`} purpose="form" onClose={onClose}>
+      {(dismiss) => {
+        // 동작 뒤 `dismiss()` — 닫기 버튼·막 누름과 같이 내려가며 닫힌다 (PLAN v1.21 SS3)
+        const act = (fn: () => void) => {
+          fn()
+          dismiss()
+        }
+        return (
+          <VStack gap={5} paddingBlockEnd={3}>
+            <Heading level={2}>
+              {slot.name} · {slot.timeHint}
+            </Heading>
 
-          {mode === null ? (
-            <>
-              {/*
-                지금 기록 상태를 메뉴가 말한다 (AA3) — 무엇이 이미 적혀 있는지 모르면
-                "수정"과 "지우기" 버튼이 무엇에 대한 것인지 알 수 없다.
-                문구는 카드와 공유한다 (`diet.substitutionNote`) — 같은 사실은 같은 말로.
-              */}
-              {(record?.substitution || record?.addition || record?.skipped) && (
-                <div className="row-sub diet-sheet-state">
-                  {record.skipped && <div>안 먹음</div>}
-                  {record.substitution && <div>{substitutionNote(record.substitution)}</div>}
-                  {record.addition && <div>{additionNote(record.addition)}</div>}
-                </div>
-              )}
-
-              <button className="btn btn-primary mt-row" onClick={() => act(onCheckAll)}>
-                전부 먹음 ({slot.items.length}개)
-              </button>
-              {/*
-                대체와 추가가 **같은 모양의 행**을 갖는다 (AA3): [기록/수정] + [지우기].
-                예전엔 추가만 지우기가 있었고 대체는 슬롯 전체 삭제밖에 없었다 —
-                지우기가 비대칭이면 대체를 고치려고 추가까지 다시 적어야 한다.
-              */}
-              <div className="btn-row mt-row">
-                <button className="btn" onClick={() => openMode('substitution')}>
-                  {record?.substitution ? '대체 수정' : '대체했어요'}
-                </button>
-                {record?.substitution && (
-                  <button className="btn" onClick={() => act(onClearSubstitution)}>
-                    대체 지우기
-                  </button>
+            {mode === null ? (
+              <VStack gap={3}>
+                {/*
+                  지금 기록 상태를 메뉴가 말한다 (AA3) — 무엇이 이미 적혀 있는지 모르면
+                  "수정"과 "지우기" 버튼이 무엇에 대한 것인지 알 수 없다.
+                  문구는 카드와 공유한다 (`diet.substitutionNote`) — 같은 사실은 같은 말로.
+                */}
+                {(record?.substitution || record?.addition || record?.skipped) && (
+                  <VStack gap={1}>
+                    {record.skipped && <Text type="supporting" color="secondary">안 먹음</Text>}
+                    {record.substitution && (
+                      <Text type="supporting" color="secondary">{substitutionNote(record.substitution)}</Text>
+                    )}
+                    {record.addition && (
+                      <Text type="supporting" color="secondary">{additionNote(record.addition)}</Text>
+                    )}
+                  </VStack>
                 )}
-              </div>
-              {/*
-                추가는 대체와 별개 항목이다 (G2). 추가 섭취를 대체로 적으면
-                "일부 대체"로 해석돼 점수가 부당하게 깎이고, 분석에서 결식·대체·과식을
-                구분할 수 없다.
-              */}
-              <div className="btn-row mt-row">
-                <button className="btn" onClick={() => openMode('addition')}>
-                  {record?.addition ? '추가 기록 수정' : '추가로 먹었어요'}
-                </button>
-                {record?.addition && (
-                  <button className="btn" onClick={() => act(onClearAddition)}>
-                    추가 지우기
-                  </button>
-                )}
-              </div>
-              <button className="btn mt-row" onClick={() => act(onSkip)}>
-                안 먹음
-              </button>
-              {record && (
-                <>
-                  <button className="btn mt-row" onClick={() => act(onClear)}>
-                    기록 지우기
-                  </button>
-                </>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="card-label mt-row">
-                {MODE_COPY[mode].title}
-              </div>
-              <p className="row-sub">
-                {mode === 'addition' ? '계획을 먹은 위에 추가로' : '계획된 끼니 대신'} 먹은 것을
-                그대로 적어주세요. 이 문장이 내보내기에 실려서 LLM이 패턴을 찾습니다
-                (앱은 좋고 나쁨을 판단하지 않습니다).
-              </p>
-              <input
-                {...NO_AUTOFILL}
-                className="field"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder={MODE_COPY[mode].placeholder}
-                aria-label={MODE_COPY[mode].title}
-                autoFocus
-              />
 
-              <div className="card-label mt-group">
-                어느 쪽이었나요
-              </div>
-              <div className="check-list">
-                {QUALITY.map((q) => (
-                  <button
-                    key={q.id}
-                    className={`check-item${quality === q.id ? ' check-item-on' : ''}`}
-                    aria-pressed={quality === q.id}
-                    onClick={() => setQuality(q.id)}
-                  >
-                    <span className="check-box" aria-hidden="true">
-                      {quality === q.id ? '✓' : ''}
-                    </span>
-                    <span className="stack-tight">
-                      <span className="row-title">{QUALITY_LABEL[q.id]}</span>
-                      <span className="row-sub">{q.hint}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
+                <Button variant="primary" width="100%" label={`전부 먹음 (${slot.items.length}개)`} onClick={() => act(onCheckAll)} />
+                {/*
+                  대체와 추가가 **같은 모양의 행**을 갖는다 (AA3): [기록/수정] + [지우기].
+                  예전엔 추가만 지우기가 있었고 대체는 슬롯 전체 삭제밖에 없었다 —
+                  지우기가 비대칭이면 대체를 고치려고 추가까지 다시 적어야 한다.
+                */}
+                <HStack gap={2} wrap="wrap">
+                  <Button
+                    variant="secondary"
+                    label={record?.substitution ? '대체 수정' : '대체했어요'}
+                    onClick={() => openMode('substitution')}
+                  />
+                  {record?.substitution && (
+                    <Button variant="secondary" onClick={() => act(onClearSubstitution)} label="대체 지우기" />
+                  )}
+                </HStack>
+                {/*
+                  추가는 대체와 별개 항목이다 (G2). 추가 섭취를 대체로 적으면
+                  "일부 대체"로 해석돼 점수가 부당하게 깎이고, 분석에서 결식·대체·과식을
+                  구분할 수 없다.
+                */}
+                <HStack gap={2} wrap="wrap">
+                  <Button
+                    variant="secondary"
+                    label={record?.addition ? '추가 기록 수정' : '추가로 먹었어요'}
+                    onClick={() => openMode('addition')}
+                  />
+                  {record?.addition && (
+                    <Button variant="secondary" label="추가 지우기" onClick={() => act(onClearAddition)} />
+                  )}
+                </HStack>
+                <Button variant="secondary" width="100%" label="안 먹음" onClick={() => act(onSkip)} />
+                {record && <Button variant="secondary" width="100%" label="기록 지우기" onClick={() => act(onClear)} />}
+              </VStack>
+            ) : (
+              <VStack gap={5}>
+                <VStack gap={2}>
+                  <Heading level={3}>{MODE_COPY[mode].title}</Heading>
+                  <Text color="secondary">
+                    {mode === 'addition' ? '계획을 먹은 위에 추가로' : '계획된 끼니 대신'} 먹은 것을
+                    그대로 적어주세요. 이 문장이 내보내기에 실려서 LLM이 패턴을 찾습니다
+                    (앱은 좋고 나쁨을 판단하지 않습니다).
+                  </Text>
+                  <TextField
+                    label={MODE_COPY[mode].title}
+                    isLabelHidden
+                    value={text}
+                    onChange={setText}
+                    placeholder={MODE_COPY[mode].placeholder}
+                    hasAutoFocus
+                  />
+                </VStack>
 
-              <button
-                className="btn btn-primary mt-group"
-                
-                disabled={!canSave}
-                onClick={() =>
-                  act(() =>
-                    mode === 'substitution'
-                      ? onSubstitute({ text: text.trim(), quality })
-                      : onAddition({ text: text.trim(), quality }),
-                  )
-                }
-              >
-                저장
-              </button>
-              <button className="btn mt-row" onClick={() => setMode(null)}>
-                뒤로
-              </button>
-            </>
-          )}
+                <RadioList
+                  label="어느 쪽이었나요"
+                  value={quality}
+                  onChange={(v) => setQuality(v as SlotQuality)}
+                >
+                  {QUALITY.map((q) => (
+                    <RadioListItem key={q.id} value={q.id} label={QUALITY_LABEL[q.id]} description={q.hint} />
+                  ))}
+                </RadioList>
 
-          <button className="btn mt-row" onClick={dismiss}>
-            닫기
-          </button>
-        </>
-      )}
-    </SheetFrame>
+                <VStack gap={3}>
+                  <Button
+                    variant="primary"
+                    width="100%"
+                    label="저장"
+                    isDisabled={!canSave}
+                    onClick={() =>
+                      act(() =>
+                        mode === 'substitution'
+                          ? onSubstitute({ text: text.trim(), quality })
+                          : onAddition({ text: text.trim(), quality }),
+                      )
+                    }
+                  />
+                  <Button variant="secondary" width="100%" label="뒤로" onClick={() => setMode(null)} />
+                </VStack>
+              </VStack>
+            )}
+
+            <Button variant="secondary" width="100%" label="닫기" onClick={dismiss} />
+          </VStack>
+        )
+      }}
+    </Sheet>
   )
 }

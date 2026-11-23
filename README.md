@@ -236,38 +236,30 @@
   떠 있는 띠와 시트도 테마의 표면색입니다(v1.20에서 유리를 걷었습니다).
   이 앱만의 부품(세트 행, 요일 점, 띠)의 CSS는 `src/ax/parts.css`에 있고 값은 테마 토큰에서만 가져옵니다.
 
-- **recharts는 분석 탭만 지연 로딩한다**
-  차트 3개를 위해 gzip 112KB가 붙어 앱 전체가 두 배가 됩니다. 설계 문서(§2 스택 표)가
-  지정한 스택이므로 바꾸지 않되, `React.lazy`로 분리해 **헬스장에서 쓰는 경로(홈 → 세션)가
-  차트 코드를 파싱하지 않게** 했습니다. 서비스워커가 두 청크를 모두 precache하므로
-  오프라인에서 분석 탭도 그대로 열립니다.
+- **화면은 나눠 읽는다 — 처음 여는 순간에는 홈만**
+  앱을 처음 여는 순간 읽는 코드는 홈과 앱 틀(탭·띠·테마)뿐입니다. 세션·요약·식단·기록·설정은 `React.lazy`로 나눠,
+  홈이 뜬 1초 뒤 미리 읽어 둡니다(누르기 전에 준비된다). 시트 부품도 처음 열 때 읽습니다. 분석 탭은 미리 읽지 않습니다 —
+  recharts가 gzip 110KB가 넘어 **헬스장에서 쓰는 경로(홈 → 세션)가 차트 코드를 파싱하지 않게** 하려는 것이고
+  (설계 문서 §2가 지정한 스택이라 바꾸지 않는다), 분석 탭을 열 때 읽습니다. 서비스워커가 모든 청크를 precache하므로
+  오프라인에서도 전부 열립니다. 처음 여는 순간 읽는 크기는 `node scripts/first-load.mjs`가 재고 `npm run check`가
+  360KB(gzip)를 넘지 않게 지킵니다.
 
   분석 탭 청크가 메인 번들과 비슷한 크기입니다 (recharts). 정확한 값은
   `npm run build` 출력이 말해줍니다 — 여기 적어두면 코드가 커질 때마다 낡습니다.
 
-- **Astryx 테마는 앱 뿌리에 한 번 걸고, 안 옮긴 화면의 CSS는 범위를 가둔다**
-  테마(`src/ax/theme.ts`)와 기본 크기는 `AppRoot`가 앱 전체에 한 번 겁니다. 화면은 `src/ax/`의 부품만 가져다 쓰고,
-  Astryx 버전은 정확한 값으로 고정합니다(베타). 아직 안 옮긴 화면의 CSS(`global.css`)는 `legacy` 레이어에 있어
-  Astryx 부품에 지고, 맨 요소 규칙(`button`의 최소 높이 등)은 `@scope`로 legacy 화면 안에만 걸립니다.
-  Astryx의 리셋은 반대로 legacy 화면 밖에만 걸립니다. 화면을 옮기면 그 화면이 쓰던 `global.css` 규칙을 지웁니다.
-  테마가 앱 전체에 걸리면서 번지는 글꼴·글자색·제목/문단 규칙은 legacy 화면 안에서 예전 값으로 되돌립니다(`global.css`의 같은 `@scope` 블록).
+- **Astryx 테마는 앱 뿌리에 한 번 걸고, 앱 CSS는 `src/ax`의 두 파일뿐이다**
+  테마(`src/ax/theme.ts`)와 기본 크기는 `AppRoot`가 앱 전체에 한 번 겁니다. 화면은 `src/ax/`의 부품만 가져다 쓰고, Astryx 버전은 정확한 값으로 고정합니다(베타). 앱이 쓰는 CSS는 Astryx의 것과 `src/ax`의 `ax.css`(범위 한정 리셋 사본·문서 바탕)·`parts.css`(Astryx에 없는 이 앱만의 부품 — 세트 표, 요일 점, 달력 칸, 띠, 템포 무대)뿐이고, 레이어 순서는 `src/ax/layers.css` 한 줄이 정합니다. 손으로 짠 CSS(`src/styles/`)는 v1.21에서 없앴고, `node scripts/astryx-inventory.mjs --check`가 되살아나지 않게 지킵니다.
   헬스장 경로(홈 → 세션)도 Astryx를 읽습니다. 서비스워커가 전부 precache하므로 오프라인에서 그대로 열리고,
-  처음 여는 순간 읽는 코드는 늘었습니다(`npm run build` 출력과 `node scripts/first-screen.mjs`).
+  처음 여는 순간 읽는 크기는 `node scripts/first-load.mjs`가 지킵니다(위 '화면은 나눠 읽는다').
 - **눌림과 움직임은 Astryx 테마의 값을 따르고, "동작 줄이기"를 존중한다**
-  아직 안 옮긴 화면(식단·기록·분석·설정)의 버튼은 눌린 순간 바로 덮개가 얹히고(기본 규칙 하나가 모든 버튼에 걸립니다), 버튼·알약은
-  작아지기도 하며, 뗄 때 돌아옵니다.
-  시트는 화면 아래에서 올라옵니다. 길이·곡선·눌림 크기는 `src/styles/motion.css`가 정하고,
-  옮긴 화면은 Astryx 부품의 눌림·움직임을 그대로 씁니다. `motion.css`의 값은 안 옮긴 화면을 위해 Astryx 테마에서 옮겨 적은 사본이고, 화면을 다 옮기면 없어집니다.
+  버튼의 눌림, 시트가 올라오고 내려가는 움직임은 Astryx 부품의 것입니다.
   iOS Safari는 `touchstart` 처리기가 없으면 눌림(`:active`)을 그리지 않아서 `main.tsx`가 빈 처리기를 답니다.
   폰의 "동작 줄이기"가 켜지면 크기 변화와 올라오는 움직임을 끄고, 눌림 덮개와 휴식 타이머의 진행 표시는 남깁니다.
-  움직이는 것은 `transform`·`opacity`·`background-color`뿐이고, 시트 뒤 막은 `opacity`로 움직이지 않습니다
-  (`opacity`가 1보다 작은 조상은 시트의 흐림을 끊습니다).
+  움직이는 것은 `transform`·`opacity`·`background-color`뿐이고, 시트 뒤 막은 `opacity`로 움직이지 않습니다.
 - **여백은 역할 토큰 한 벌이다**
-  간격 단위는 Astryx의 4px 단계이고, 화면 좌우·카드 안쪽·줄 사이·묶음 사이·카드 사이·섹션 위 같은
-  역할마다 토큰이 하나씩 있습니다(`src/styles/space.css`). 같은 역할은 어느 화면에서나 같은 값입니다.
-  화면 좌우 여백은 Astryx 화면(`.ax-screen`)과 같습니다.
-  `.tsx`에 여백을 인라인으로 적지 않습니다(`v119.test.ts`가 지킵니다).
-  옮긴 화면은 묶음 사이·카드 사이·카드 안쪽을 `src/ax`의 `Groups`·`Group`·`Card`가 정하고, 검사는 값이 아니라 관계를 잽니다 — 안에 든 요소가 바깥 요소 안에서 대칭인가, 같은 역할의 간격이 화면 사이에서 같은가(`node scripts/ui-check.mjs`의 `안쪽 대칭`·`같은 역할`). `space.css`는 안 옮긴 화면이 씁니다.
+  간격 단위는 Astryx의 간격 단계(`--spacing-*`)이고, 묶음 사이·카드 사이·카드 안쪽은 `src/ax`의 `Groups`·`Group`·`Card`가 정합니다(화면은 숫자를 적지 않습니다). 화면 좌우는 `.ax-screen` 한 곳입니다. `.tsx`에 인라인 스타일을 적지 않습니다(`astryx-inventory`가 지킵니다). 검사는 값이 아니라 관계를 잽니다 — 안에 든 요소가 바깥 요소 안에서 대칭인가, 같은 역할의 간격이 화면 사이에서 같은가(`node scripts/ui-check.mjs`의 `안쪽 대칭`·`같은 역할`).
+- **한글은 단어 사이에서만 줄을 바꾼다**
+  한글은 기본이 음절 단위 줄바꿈이라 375 폭에서 `기/록`처럼 글자 중간에서 꺾입니다. 화면과 시트의 글은 `parts.css`의 한 규칙(`word-break: keep-all`, 한 단어가 줄보다 길 때만 `overflow-wrap: anywhere`)으로 단어 사이에서만 꺾고, `ui-check`의 흐름이 390·375 폭에서 글자 중간 꺾임을 셉니다.
 
 ### 백업 · 비밀값
 
@@ -358,7 +350,7 @@ suggestNextDay(sessions, routine, today):
 flowchart TB
   subgraph device["iOS 홈 화면 앱 (standalone)"]
     UI["React 화면<br/>홈 · 세션 · 기록 · 설정"]
-    Lazy["분석 탭 (React.lazy)<br/>recharts"]
+    Lazy["세션·요약·식단·기록·설정·분석<br/>(React.lazy — 분석 말고는 미리 읽기)"]
     Store["zustand<br/>설정 · 진행 중 세션"]
     Dexie["Dexie / IndexedDB<br/>routines · exercises · sessions · settings"]
     LS["localStorage<br/>Gist 토큰 · 휴식 타이머"]
@@ -368,7 +360,7 @@ flowchart TB
     UI -.->|탭 진입 시| Lazy
     Lazy --> Dexie
     UI <--> LS
-    SW -->|오프라인 셸 + 두 청크| UI
+    SW -->|오프라인 셸 + 모든 청크| UI
   end
 
   Seed["src/data/routine-v2.4.json<br/>+ exercises.json"] -->|최초 실행 시 주입| Dexie
@@ -382,8 +374,8 @@ flowchart TB
 - UI: React 19 (라우터 없음 — 탭 4개라 상태로 충분)
 - 상태: zustand (설정 · 진행 중 세션 · 휘발성 UI 상태만. 나머지는 `dexie-react-hooks` live query로 직접 읽음)
 - 저장: Dexie (IndexedDB, 스키마 v3) + localStorage (비밀값·휴식 타이머·백업 대기 플래그)
-- UI 부품: Astryx 0.7.13 (@astryxdesign/core, 베타 — 버전 고정. 앱 틀·홈·세션·요약·루틴 편집)
-- 차트: recharts (분석 탭만 `React.lazy`로 지연 로딩)
+- UI 부품: Astryx 0.7.13 (@astryxdesign/core, 베타 — 버전 고정. 모든 화면)
+- 차트: recharts (분석 탭 청크 — 미리 읽지 않는다)
 - PWA: vite-plugin-pwa (manifest + Workbox SW), iOS 스플래시 8종
 - 테스트: Vitest (알고리즘·파생 계산 단위 테스트, CI에서 배포 전 실행). 개수는 `npm test`가 말해줍니다
 - 검사: `npm run check` 하나가 CI와 같은 목록을 돕니다 — 흔적 검사(자체 스크립트), ESLint(React 훅·접근성), Knip(안 쓰는 파일·의존성), Astryx 뒷걸음 검사, 테스트(fast-check 속성 테스트 포함), 빌드. 변이 테스트(StrykerJS, `npm run mutation`)와 화면 검사(Playwright + axe-core, `scripts/ui-check.mjs`)는 로컬에서 돌리고, CodeQL·OSV-Scanner는 별도 워크플로로 돕니다
@@ -402,7 +394,7 @@ src/
   store/        zustand (settings · 진행 중 세션 · 배너 dismiss)
   screens/      탭 화면 + 세션/상세/요약
   components/   운동 카드 · 스테퍼 · 바텀시트 · 차트 위젯
-  ax/           Astryx를 쓰는 한 곳 — 테마(`theme.ts`), 앱 뿌리, 띠, 시트, 이 앱만의 부품 CSS(`parts.css`)
+  ax/           Astryx를 쓰는 한 곳 — 테마(`theme.ts`), 앱 뿌리, 띠, 시트, 이 앱만의 부품 CSS(`parts.css`), 레이어 순서(`layers.css`)
   data/         routine-v2.4.json · exercises.json (교체 가능한 시드)
 ```
 
@@ -527,4 +519,4 @@ JSON 백업은 파일 앱에 보관하는 것이 목적이므로 `navigator.shar
 - Gist는 secret gist입니다 — **URL을 아는 사람은 볼 수 있습니다.** GitHub에 완전 비공개 gist는 없습니다.
 - 대체운동의 **첫 세트 시작 무게는 추정값**입니다. 종목 간 하중 전이에 검증된 공식은 없습니다(머신 표시 무게가 브랜드·지렛대 구조에 따라 다름). 그래서 첫 세트를 RIR 3~4로 수행하고 그 실측으로 2세트부터 무게를 다시 계산합니다.
 - 홈·기록·분석 화면이 세션 테이블을 전체 조회합니다. 세션 수백 건까지는 문제없지만, 더 쌓이면 `date` 인덱스 범위 쿼리로 좁혀야 합니다.
-- 앱 전체가 폰의 라이트/다크 설정을 따릅니다. 식단·기록·분석·설정 화면은 아직 Astryx 부품으로 옮기지 않아 색만 테마를 따르고 모양(모서리·여백)은 예전 그대로입니다. 앱을 여는 순간의 스플래시는 늘 어둡습니다. iOS 17.5 이상이 필요합니다.
+- 앱 전체가 폰의 라이트/다크 설정을 따릅니다. 앱을 여는 순간의 스플래시는 늘 어둡습니다. iOS 17.5 이상이 필요합니다.

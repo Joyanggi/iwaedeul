@@ -249,7 +249,7 @@ export default function ExerciseCard({
 
   return (
     <>
-      <Card variant={entry.skipped ? 'muted' : undefined} className="ax-scope">
+      <Card variant={entry.skipped ? 'muted' : undefined}>
         <Collapsible
           isOpen={open}
           onOpenChange={() => onToggleOpen()}

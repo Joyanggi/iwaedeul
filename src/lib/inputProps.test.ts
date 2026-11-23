@@ -29,13 +29,16 @@ const files = Object.keys(sources)
   .filter((f) => f.endsWith('.tsx'))
   .sort()
 
+/** 맨 입력 태그. SS6 뒤 화면에 맨 입력이 0개다(전부 Astryx TextField — AX_NO_AUTOFILL은 ax/index.tsx의 한 곳) */
+const FIELD_TAG = /<(?:input|textarea)\b/g
+
 describe('자동완성 억제 전수 적용', () => {
   it('input·textarea 개수와 NO_AUTOFILL spread 개수가 같다', () => {
     const counts = files.map((f) => {
       const src = sources[f]
       return {
         file: f,
-        fields: (src.match(/<(?:input|textarea)\b/g) ?? []).length,
+        fields: (src.match(FIELD_TAG) ?? []).length,
         spreads: (src.match(/\{\.\.\.NO_AUTOFILL\}/g) ?? []).length,
       }
     })
@@ -48,7 +51,8 @@ describe('자동완성 억제 전수 적용', () => {
     ).toEqual([])
 
     // 스캔 자체가 헛돌지 않는지 (입력이 하나도 안 잡히면 정규식이 깨진 것)
-    expect(counts.reduce((n, c) => n + c.fields, 0)).toBeGreaterThan(10)
+    // (SS6 뒤 맨 입력이 0개다 — 파일 세기 대신 정규식이 입력 태그를 실제로 잡는지를 본다. 맨 입력이 다시 생기면 위 검사가 spread를 요구한다)
+    expect('<input type="text" /><textarea />'.match(FIELD_TAG)).toHaveLength(2)
   })
 
   it('name 속성을 쓰지 않는다 — iOS가 그 이름으로 필드 종류를 추측한다', () => {

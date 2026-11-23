@@ -48,21 +48,17 @@ describe("QQ3 — 시트 틀 하나", () => {
       ([path, text]) => /Sheet\.tsx$/.test(path) && !/SheetFrame\.tsx$/.test(path) && !/from '\.\.\/ax/.test(text),
     )
 
-  // v1.20 RR5: 홈의 둘이 ../ax의 Sheet로 옮겨 14→12. RR8: 세션의 여덟이 옮겨 12→4(식단 시트 넷만 남는다)
-  it("legacy 시트 4개가 전부 SheetFrame을 import하고 sheet-backdrop 글자가 0건이다", () => {
-    const files = legacy()
-    expect(files.length).toBe(4)
-    const offenders = files
-      .filter(([, text]) => !/import \{ SheetFrame \} from '\.\/SheetFrame'/.test(text) || /sheet-backdrop/.test(stripComments(text)))
-      .map(([path]) => path)
-    expect(offenders).toEqual([])
+  // v1.20 RR5: 홈의 둘이 ../ax의 Sheet로 옮겨 14→12. RR8: 세션의 여덟이 옮겨 12→4. v1.21 SS3: 식단 시트 넷이 옮겨 4→0(SheetFrame 삭제)
+  it("legacy 시트가 0개이고 SheetFrame 파일이 없다", () => {
+    expect(legacy().map(([path]) => path)).toEqual([])
+    expect(Object.keys(COMPONENTS).some((p) => /SheetFrame/.test(p))).toBe(false)
   })
 
-  it("sheet-backdrop·className=\"sheet\"·sheet-grip이 나오는 .tsx는 SheetFrame.tsx 하나뿐이다", () => {
+  it("sheet-backdrop·className=\"sheet\"·sheet-grip이 나오는 .tsx가 없다 (SheetFrame 삭제)", () => {
     const hits = Object.entries(ALL_SRC)
       .filter(([path, text]) => /\.tsx$/.test(path) && /sheet-backdrop|className="sheet"|sheet-grip/.test(stripComments(text)))
       .map(([path]) => path)
-    expect(hits).toEqual(["/src/components/SheetFrame.tsx"])
+    expect(hits).toEqual([])
   })
 
   it("legacy 시트에 onClick={onClose}·onClick={() => onClose()}가 0건이다 (닫기 버튼은 dismiss를 부른다)", () => {
@@ -77,19 +73,6 @@ describe("QQ3 — 시트 틀 하나", () => {
       .filter(([path, text]) => !/v119\.test\.ts$/.test(path) && /useSheetDismiss/.test(text))
       .map(([path]) => path)
     expect(hits).toEqual([])
-  })
-
-  it("SheetFrame.tsx가 ../ax·Astryx 패키지를 import하지 않는다 (헬스장 경로)", () => {
-    const text = stripComments(COMPONENTS["/src/components/SheetFrame.tsx"])
-    // 글자를 쪼갠 것은 v117 OO2 스캔(src/ax 밖 import 금지)이 이 테스트 파일을 위반으로 세지 않게 하려는 것
-    expect(text).not.toMatch(new RegExp("from '\\.\\./ax|@astryx" + "design"))
-  })
-
-  it("SheetFrame이 닫힘을 once로 감싸고 움직임 줄이기면 기다리지 않는다 (두 번 누르기·animationend 안 옴 대비)", () => {
-    const text = stripComments(COMPONENTS["/src/components/SheetFrame.tsx"])
-    expect(text).toMatch(/once\(/)
-    expect(text).toMatch(/prefers-reduced-motion: reduce/)
-    expect(text).toMatch(/setTimeout\(finish/)
   })
 
   it("once는 두 번 불러도 한 번, 다른 인자로 불러도 한 번만 통과시킨다", () => {
@@ -108,22 +91,22 @@ describe("QQ4 — 여백 토큰 한 벌", () => {
   const LIB = import.meta.glob("/scripts/lib/ui-space.mjs", { query: "?raw", import: "default", eager: true }) as Record<string, string>
   const code = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
-  it("ui-check 정적 검사가 space.css의 layer(legacy) import를 확인한다", () => {
+  it("ui-check 정적 검사에 space.css의 layer(legacy) import 확인이 없다(v1.21 SS8: space.css·legacy 레이어가 없어졌다)", () => {
     const text = code(LIB["/scripts/lib/ui-space.mjs"])
-    expect(text).toContain("space\\.css")
-    expect(text).toContain("layer\\(legacy\\)")
+    expect(text).not.toContain("space.css")
+    expect(text).not.toContain("layer(legacy)")
   })
 
-  it("ui-check 정적 검사가 여백 값의 Astryx 단계·--inset- 사용·토큰 순서를 모두 본다", () => {
+  it("ui-check 정적 검사(여백 값의 Astryx 단계·--inset- 사용·토큰 순서)가 없다 — 그 토큰·CSS가 없어졌고 역할 간격은 장면에서 관계로 잰다(v1.21 SS8)", () => {
     const text = code(LIB["/scripts/lib/ui-space.mjs"])
-    expect(text).toMatch(/STEPS = new Set\(\[0, 2, 4, 6, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48\]\)/)
-    expect(text).toContain("var\\(--inset-")
-    expect(text).toMatch(/t\['space-tight'\] < t\['space-row'\]/)
+    expect(text).not.toContain("STEPS")
+    expect(text).not.toContain("--inset-")
+    expect(text).not.toContain("space-tight")
   })
 
-  it("ui-check.mjs가 정적 검사와 여백 한 벌 비교를 부른다", () => {
+  it("ui-check.mjs가 여백 한 벌 비교만 부른다(여백 정적 검사 spaceStaticChecks는 v1.21 SS8에서 지웠다)", () => {
     const text = code(SCRIPTS["/scripts/ui-check.mjs"])
-    expect(text).toMatch(/spaceStaticChecks\(allCss\)/)
+    expect(text).not.toContain("spaceStaticChecks")
     expect(text).toMatch(/spaceRoleVerdicts\(layouts/) // v1.20 RR12: spaceSetVerdicts를 넓혀 이름을 바꿨다(같은 비교, 역할이 늘었다)
   })
 })
@@ -176,34 +159,30 @@ describe("QQ5 — 인라인 여백을 클래스로", () => {
   })
 })
 
-describe("QQ6 — 카드 줄 안의 버튼을 작게", () => {
-  // .css는 vitest에서 빈 문자열이라(제약 3) global.css 규칙은 ui-check 정적 검사(rowButtonStaticChecks)가 읽는다.
-  // 여기서는 그 검사가 규칙 두 개를 다 보고 ui-check에 물려 있는지, 화면 검사가 .row > .btn을 재는지를 잠근다.
+describe("QQ6 — 카드 줄 안의 버튼을 작게 (SS6: .row > .btn 정적 검사는 legacy와 함께 지우고 Row 오른쪽 칸 안 Astryx 버튼을 잰다)", () => {
   const LIB = import.meta.glob("/scripts/lib/ui-check-lib.mjs", { query: "?raw", import: "default", eager: true }) as Record<string, string>
   const code = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
   const lib = () => code(LIB["/scripts/lib/ui-check-lib.mjs"])
 
-  it("정적 검사가 .row > .btn이 .btn-sm과 같은 선택자 목록에 있는지 본다", () => {
-    expect(lib()).toContain("rowButtonStaticChecks")
-    expect(lib()).toMatch(/\.btn-sm/)
-    expect(lib()).toContain("'.row > .btn'")
+  it("정적 검사(rowButtonStaticChecks)가 없다 — 지울 legacy 규칙이 없다", () => {
+    expect(lib()).not.toContain("rowButtonStaticChecks")
+    expect(lib()).not.toContain("'.row > .btn'")
   })
 
-  it("정적 검사가 .row > .btn 규칙의 width: auto와 flex-shrink: 0을 본다", () => {
-    expect(lib()).toContain("width:\\s*auto")
-    expect(lib()).toContain("flex-shrink:\\s*0")
-  })
-
-  it("줄 안 버튼 검사가 폭 절반·높이 44·한 줄을 재고, 0개면 실패한다", () => {
+  it("줄 안 버튼 검사가 Row의 오른쪽 칸 안 Astryx 버튼의 폭 절반·한 줄·줄 안을 재고, 0개면 실패한다", () => {
     expect(lib()).toContain("inPageRowButtons")
-    expect(lib()).toMatch(/row\.width \/ 2/)
-    expect(lib()).toMatch(/b\.height < 44/)
+    expect(lib()).toContain('[role="listitem"]')
+    expect(lib()).toContain("lastElementChild")
+    expect(lib()).toMatch(/r\.width \/ 2/)
+    expect(lib()).toMatch(/lines > 1/)
+    expect(lib()).toContain("글자 잘림") // SS6 리뷰: 늘어난 버튼(⑰)의 증상인 이웃 버튼 글자 잘림
     expect(lib()).toMatch(/n === 0\) return \{ ok: false/)
   })
 
-  it("ui-check.mjs가 정적 검사와 줄 안 버튼 검사를 부른다", () => {
+  it("ui-check.mjs가 줄 안 버튼 검사를 설정 장면에서 부르고 정적 검사는 안 부른다", () => {
     const text = code(SCRIPTS["/scripts/ui-check.mjs"])
-    expect(text).toMatch(/rowButtonStaticChecks\(allCss\)/)
+    expect(text).not.toMatch(/rowButtonStaticChecks/)
     expect(text).toMatch(/inPageRowButtons/)
+    expect(text).toMatch(/ROW_BUTTON_SCENES = \['settings', 'settings-routines'\]/)
   })
 })

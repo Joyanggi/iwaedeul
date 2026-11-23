@@ -39,9 +39,10 @@ describe('X6 — 파괴적 동작의 시각 언어가 하나다', () => {
   it('삭제 진입 버튼이 전부 btn-danger다', () => {
     for (const { path, label } of DESTRUCTIVE) {
       const src = file(path)
-      // 라벨 앞쪽 className에 btn-danger가 있어야 한다
+      // 라벨 앞쪽에 btn-danger(legacy) 또는 variant="destructive"(Astryx)가 있어야 한다
       const around = src.slice(Math.max(0, src.indexOf(label) - 260), src.indexOf(label))
-      expect(around, `${path}의 "${label}"`).toMatch(/btn-danger/)
+      // v1.21 SS2: 식단·기록 상세의 삭제 진입 버튼이 Astryx `Button variant="destructive"`로 옮겨 간다(legacy btn-danger와 같은 뜻 — 파괴적 동작의 시각 언어가 하나)
+      expect(around, `${path}의 "${label}"`).toMatch(/btn-danger|variant="destructive"/)
     }
   })
 
@@ -122,7 +123,8 @@ describe('캘린더 신호 분리 (식단 = 점)', () => {
   })
 
   it('식단은 점으로 그린다', () => {
-    expect(cal()).toMatch(/cal-diet-dot-\$\{dietDot\}/)
+    // v1.21 SS4: 점은 `data-diet={dietDot}` 속성으로 그린다(옛 클래스 `cal-diet-dot-${dietDot}`와 같은 뜻 — 점 하나가 등급을 다 나른다)
+    expect(cal()).toMatch(/data-diet=\{dietDot/)
   })
 
   it('판정된 날과 보류된 날이 같은 점 경로를 지난다', () => {
@@ -132,14 +134,14 @@ describe('캘린더 신호 분리 (식단 = 점)', () => {
 
   it('식단 색에 내비게이션 색(--accent)을 쓰지 않는다', () => {
     // --accent는 오늘·선택 표시 색이다. 식단이 그 색을 쓰면 구분이 불가능해진다
-    const css = import.meta.glob('/src/styles/*.css', {
+    const css = import.meta.glob('/src/ax/parts.css', {
       query: '?raw',
       import: 'default',
       eager: true,
     }) as Record<string, string>
     // ⚠ vitest에서 CSS ?raw는 빈 문자열이다 (§X8) — 그래서 CSS는 여기서 검사하지 않는다.
     // 이 테스트는 그 사실 자체를 남긴다: 색 검증은 브라우저 computed style로 한다.
-    expect(typeof css['/src/styles/global.css']).toBe('string')
+    expect(typeof css['/src/ax/parts.css']).toBe('string')
   })
 })
 

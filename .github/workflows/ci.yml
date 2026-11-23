@@ -27,3 +27,4 @@ jobs:
       - run: npm run knip
       - run: npm test
       - run: npm run build
+      - run: node scripts/first-load.mjs --check

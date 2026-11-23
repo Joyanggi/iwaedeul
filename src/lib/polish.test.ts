@@ -102,7 +102,8 @@ describe('BB5 — 버전을 손으로 적지 않는다', () => {
   */
   const versionLine = () => {
     const src = file('/src/screens/SettingsScreen.tsx')
-    const line = /<p className="screen-sub">([^<]*)<\/p>/.exec(src)?.[1]
+    // SS6: 버전을 그리는 Text는 제목(설정) 바로 다음 Text다
+    const line = /<Heading level=\{1\}>설정<\/Heading>[\s\S]*?<Text[^>]*>([^<]*)<\/Text>/.exec(src)?.[1]
     expect(line, '버전 표시 줄을 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
     return line!
   }

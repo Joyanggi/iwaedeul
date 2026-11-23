@@ -1044,9 +1044,11 @@ describe("NN2 루틴 편집 화면", () => {
 
     it("NN2 설정의 편집 버튼 근처에 disabled와 진행 중 세션 문구가 있고, App의 View에 'routineEdit'가 있다", () => {
       const s = src("src/screens/SettingsScreen.tsx")
-      const at = s.search(/편집\s*<\/button>/)
-      const around = s.slice(Math.max(0, at - 400), at + 200)
-      expect(around).toContain("disabled")
+      // SS6: 편집은 Astryx Button이다 — label="편집"이 든 <Button 태그(`/>`까지 — onClick의 =>·>에서 끊지 않는다) 안에 isDisabled
+      const at = s.indexOf('label="편집"')
+      expect(at).toBeGreaterThan(0)
+      const tag = s.slice(s.lastIndexOf("<Button", at), s.indexOf("/>", at))
+      expect(tag).toContain("isDisabled={openSession !== null}")
       expect(s).toContain("OPEN_SESSION_BLOCK.edit")
       expect(src("src/App.tsx")).toMatch(/type View = .*'routineEdit'/)
     })
@@ -1244,7 +1246,8 @@ describe("NN4 루틴 목록", () => {
       const src = panel()
       const at = src.indexOf("kind: 'delete' })")
       expect(at).toBeGreaterThan(0)
-      expect(src.slice(Math.max(0, at - 200), at)).toMatch(/btn-danger/)
+      // SS6: 삭제 진입 버튼은 Astryx Button variant="destructive"다
+      expect(src.slice(Math.max(0, at - 200), at)).toMatch(/btn-danger|variant="destructive"/)
     })
   })
 })

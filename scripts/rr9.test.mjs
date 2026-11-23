@@ -7,16 +7,17 @@ const noComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '')
 const rules = (css) => [...noComments(css).matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }))
 
 describe('v120 RR9 — 요약 글줄바꿈', () => {
-  it('v120 RR9: parts.css의 .ax-summary 규칙이 한글을 단어 사이에서만 꺾는다(keep-all + overflow-wrap anywhere)', () => {
-    const rule = rules(read('../src/ax/parts.css')).find((r) => /\.ax-summary\b/.test(r.sel))
-    expect(rule, '.ax-summary 규칙을 못 찾았다').toBeTruthy()
-    expect(rule.sel).toMatch(/:is\(p, span, div, h1, h2\)/)
+  it('v120 RR9 → v121 SS8: 요약도 앱 전체 한 규칙(.ax-screen)이 한글을 단어 사이에서만 꺾는다(keep-all + overflow-wrap anywhere) — .ax-summary 선택자는 없다', () => {
+    const rule = rules(read('../src/ax/parts.css')).find((r) => r.sel === ':is(.ax-screen, dialog) :is(p, span, div, h1, h2, h3, li)')
+    expect(rule, '한글 줄바꿈 규칙을 못 찾았다').toBeTruthy()
+    expect(read('../src/ax/parts.css')).not.toContain('.ax-summary')
     expect(rule.body).toMatch(/word-break:\s*keep-all/)
     expect(rule.body).toMatch(/overflow-wrap:\s*anywhere/)
   })
 
-  it('v120 RR9: 요약 화면이 .ax-summary를 Groups에 단다', () => {
-    expect(read('../src/screens/SummaryScreen.tsx')).toContain('<Groups className="ax-summary">')
+  it('v120 RR9 → v121 SS8: 요약 화면은 틀 이름 없이 Groups만 쓴다(Groups는 className을 받지 않는다)', () => {
+    expect(read('../src/screens/SummaryScreen.tsx')).toContain('<Groups>')
+    expect(read('../src/screens/SummaryScreen.tsx')).not.toContain('ax-summary')
   })
 
   it('v120 RR9 반려: 줄 오른쪽 값의 안 접힘은 Astryx StackItem size="static"이 맡고 parts.css에 .ax-row-end가 없다', () => {

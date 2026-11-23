@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
-import { AppRoot, AxRoot, Banner, Bar, Center, Heading, Spinner, Text, VStack } from './ax'
+import { AppRoot, AxRoot, Banner, Bar, Heading, Loading, Text, VStack, preloadSheet } from './ax'
 import TabBar, { type TabId } from './components/TabBar'
 import SessionResumeStrip from './components/SessionResumeStrip'
 import UpdatePrompt from './components/UpdatePrompt'
@@ -8,20 +8,38 @@ import { configureAudioSession, installAudioRecovery } from './lib/beep'
 import { flushPendingSync, installSyncLifecycle } from './lib/gistSync'
 import { usePwaUpdate } from './lib/usePwaUpdate'
 import { useRoutine } from './lib/useRoutine'
-import DietScreen from './screens/DietScreen'
-import HistoryScreen from './screens/HistoryScreen'
 import HomeScreen from './screens/HomeScreen'
-import Onboarding from './screens/Onboarding'
-import SessionScreen from './screens/SessionScreen'
-import SettingsScreen from './screens/SettingsScreen'
-import SummaryScreen from './screens/SummaryScreen'
 import { findDay } from './lib/derive'
 import { useRestTimer } from './lib/useRestTimer'
 import { useSessionStore } from './store/session'
 import { useSettings } from './store/settings'
 
 /**
- * 분석 탭만 지연 로딩한다.
+ * 홈만 정적으로 읽고 나머지 화면은 나눠 읽는다(첫 화면 코드 — PLAN v1.21 SS1). 읽는 함수는 이 한 표에 둔다.
+ * 분석·루틴 편집은 미리 읽지 않는 화면이라 이 표에 넣지 않고 아래에 따로 둔다.
+ */
+const LOADERS = {
+  session: () => import('./screens/SessionScreen'),
+  summary: () => import('./screens/SummaryScreen'),
+  diet: () => import('./screens/DietScreen'),
+  history: () => import('./screens/HistoryScreen'),
+  settings: () => import('./screens/SettingsScreen'),
+  onboarding: () => import('./screens/Onboarding'),
+} as const
+
+/** 홈이 뜬 뒤 미리 읽는 화면. 온보딩은 처음 한 번뿐이라 뺀다. 분석은 헬스장 경로가 차트 코드를 파싱하지 않게 뺀다. */
+const PRELOAD = ['session', 'summary', 'diet', 'history', 'settings'] as const
+const PRELOAD_DELAY_MS = 1000
+
+const SessionScreen = lazy(LOADERS.session)
+const SummaryScreen = lazy(LOADERS.summary)
+const DietScreen = lazy(LOADERS.diet)
+const HistoryScreen = lazy(LOADERS.history)
+const SettingsScreen = lazy(LOADERS.settings)
+const Onboarding = lazy(LOADERS.onboarding)
+
+/**
+ * 분석 탭은 미리 읽지 않는다.
  *
  * recharts가 gzip 130KB로 앱 나머지(98KB)보다 크다. §2가 지정한 스택이므로 바꾸지 않되,
  * **헬스장에서 쓰는 경로(홈 → 세션)가 차트 코드를 파싱하지 않게** 분리한다.
@@ -95,6 +113,17 @@ function AppBody() {
   // 백그라운드 전환 직전에 밀린 백업을 flush (P1-3)
   useEffect(() => installSyncLifecycle(), [])
 
+  // 홈이 뜬 뒤 1초 있다가 나머지 화면과 시트 코드를 미리 읽는다. 실패는 무시한다 — 그 화면을 열 때 lazy가 다시 읽고 실패를 드러낸다
+  const ready = Boolean(seed && loaded && onboardingDone)
+  useEffect(() => {
+    if (!ready) return
+    const id = setTimeout(() => {
+      for (const key of PRELOAD) void LOADERS[key]().catch(() => undefined)
+      void preloadSheet().catch(() => undefined)
+    }, PRELOAD_DELAY_MS)
+    return () => clearTimeout(id)
+  }, [ready])
+
   const banner = <UpdatePrompt {...pwa} />
 
   if (bootError) {
@@ -127,7 +156,9 @@ function AppBody() {
     return (
       <>
         {banner}
-        <Onboarding />
+        <Suspense fallback={<Loading text="불러오는 중…" />}>
+          <Onboarding />
+        </Suspense>
       </>
     )
   }
@@ -135,18 +166,24 @@ function AppBody() {
   // 세션·요약 화면은 탭바를 숨긴다 (§5.2 전체화면 입력)
   if (view === 'session' && bundle) {
     return (
-      <SessionScreen
-        bundle={bundle}
-        timer={timer}
-        onMinimize={() => setView('tabs')}
-        onFinished={() => setView('summary')}
-        onDiscarded={() => setView('tabs')}
-      />
+      <Suspense fallback={<Loading text="불러오는 중…" />}>
+        <SessionScreen
+          bundle={bundle}
+          timer={timer}
+          onMinimize={() => setView('tabs')}
+          onFinished={() => setView('summary')}
+          onDiscarded={() => setView('tabs')}
+        />
+      </Suspense>
     )
   }
 
   if (view === 'summary' && bundle) {
-    return <SummaryScreen bundle={bundle} onDone={() => setView('tabs')} />
+    return (
+      <Suspense fallback={<Loading text="불러오는 중…" />}>
+        <SummaryScreen bundle={bundle} onDone={() => setView('tabs')} />
+      </Suspense>
+    )
   }
 
   if (view === 'routineEdit' && bundle) {
@@ -160,29 +197,31 @@ function AppBody() {
   return (
     <>
       {banner}
-      {tab === 'home' && (
-        <HomeScreen onEnterSession={() => setView('session')} onOpenDiet={() => setTab('diet')} />
-      )}
-      {tab === 'diet' && <DietScreen />}
-      {tab === 'history' &&
-        (bundle ? <HistoryScreen bundle={bundle} /> : <Loading text="불러오는 중…" />)}
-      {tab === 'analyze' &&
-        (bundle ? (
-          <Suspense fallback={<Loading text="차트를 불러오는 중…" />}>
-            <AnalyzeScreen bundle={bundle} />
-          </Suspense>
-        ) : (
-          <Loading text="불러오는 중…" />
-        ))}
-      {tab === 'settings' && (
-        <SettingsScreen
-          seed={seed}
-          onEditRoutine={(target) => {
-            setEditTarget(target)
-            setView('routineEdit')
-          }}
-        />
-      )}
+      <Suspense fallback={<Loading text="불러오는 중…" />}>
+        {tab === 'home' && (
+          <HomeScreen onEnterSession={() => setView('session')} onOpenDiet={() => setTab('diet')} />
+        )}
+        {tab === 'diet' && <DietScreen />}
+        {tab === 'history' &&
+          (bundle ? <HistoryScreen bundle={bundle} /> : <Loading text="불러오는 중…" />)}
+        {tab === 'analyze' &&
+          (bundle ? (
+            <Suspense fallback={<Loading text="차트를 불러오는 중…" />}>
+              <AnalyzeScreen bundle={bundle} />
+            </Suspense>
+          ) : (
+            <Loading text="불러오는 중…" />
+          ))}
+        {tab === 'settings' && (
+          <SettingsScreen
+            seed={seed}
+            onEditRoutine={(target) => {
+              setEditTarget(target)
+              setView('routineEdit')
+            }}
+          />
+        )}
+      </Suspense>
       <Bar position="bottom">
         {/*
           최소화된 세션의 재개 스트립 (Z5) — 어느 탭에 있든 보인다.
@@ -199,18 +238,6 @@ function AppBody() {
         <TabBar active={tab} onChange={setTab} />
       </Bar>
     </>
-  )
-}
-
-/** 불러오는 중 표시. 화면 가운데에 Spinner와 문구. */
-function Loading({ text }: { text: string }) {
-  return (
-    <Center>
-      <VStack gap={2}>
-        <Spinner />
-        <Text color="secondary">{text}</Text>
-      </VStack>
-    </Center>
   )
 }
 

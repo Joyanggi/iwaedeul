@@ -8,6 +8,7 @@ import {
 } from '../lib/backup'
 import { pickTextFile } from '../lib/pickFile'
 import { formatDateTimeLocal } from '../lib/dates'
+import { Banner, Button, Card, HStack, Row, Rows, Text, VStack } from '../ax'
 
 /**
  * JSON 복원 (DESIGN.md §5.5).
@@ -45,91 +46,90 @@ export default function ImportPanel() {
   }
 
   return (
-    <div className="card">
-      <div className="card-label">가져오기 (JSON 복원)</div>
+    <Card>
+      <VStack gap={3}>
+        <Text type="supporting" color="secondary">
+          가져오기 (JSON 복원)
+        </Text>
 
-      {problems.length > 0 && (
-        <div className="banner banner-danger" style={{ alignItems: 'flex-start' }}>
-          <span>
-            불러올 수 없는 파일입니다
-            <br />
-            {problems.map((p) => (
-              <small key={p}>
+        {problems.length > 0 && (
+          <Banner
+            status="error"
+            title="불러올 수 없는 파일입니다"
+            collapsible={false}
+            description={problems.map((p) => (
+              <span key={p}>
                 · {p}
                 <br />
-              </small>
+              </span>
             ))}
-          </span>
-        </div>
-      )}
+          />
+        )}
 
-      {!staged ? (
-        <>
-          <button className="btn btn-sm" onClick={() => void onPick()}>
-            백업 파일 선택
-          </button>
-          <p className="row-sub mt-row">
-            현재 데이터를 <strong>전부 교체</strong>합니다. 병합하지 않습니다.
-          </p>
-        </>
-      ) : (
-        <>
-          <div className="row">
-            <div className="row-main">
-              <div className="row-title mono">{staged.name}</div>
-              <div className="row-sub">
-                내보낸 시각 {formatDateTimeLocal(staged.summary.exportedAt)}
-              </div>
-            </div>
-          </div>
-          <div className="row">
-            <div className="row-main">
-              <div className="row-title">세션</div>
-              <div className="row-sub">
-                {staged.summary.oldestSession ?? '—'} ~ {staged.summary.newestSession ?? '—'}
-              </div>
-            </div>
-            <div className="row-meta">{staged.summary.sessions}개</div>
-          </div>
-          <div className="row">
-            <div className="row-main">
-              <div className="row-title">루틴 / 종목</div>
-            </div>
-            <div className="row-meta">
-              {staged.summary.routines} / {staged.summary.exercises}
-            </div>
-          </div>
+        {!staged ? (
+          <>
+            <HStack>
+              <Button variant="secondary" size="sm" label="백업 파일 선택" onClick={() => void onPick()} />
+            </HStack>
+            <Text type="supporting" color="secondary">
+              현재 데이터를 <b>전부 교체</b>합니다. 병합하지 않습니다.
+            </Text>
+          </>
+        ) : (
+          <>
+            <Rows>
+              <Row
+                label={<Text type="code">{staged.name}</Text>}
+                description={
+                  <Text type="supporting" color="secondary">
+                    내보낸 시각 {formatDateTimeLocal(staged.summary.exportedAt)}
+                  </Text>
+                }
+              />
+              <Row
+                label={<Text>세션</Text>}
+                description={
+                  <Text type="supporting" color="secondary">
+                    {staged.summary.oldestSession ?? '—'} ~ {staged.summary.newestSession ?? '—'}
+                  </Text>
+                }
+                end={<Text color="secondary" hasTabularNumbers>{staged.summary.sessions}개</Text>}
+              />
+              <Row
+                label={<Text>루틴 / 종목</Text>}
+                end={
+                  <Text color="secondary" hasTabularNumbers>
+                    {staged.summary.routines} / {staged.summary.exercises}
+                  </Text>
+                }
+              />
+            </Rows>
 
-          {!confirming ? (
-            <div className="btn-row mt-group">
-              <button className="btn btn-sm" onClick={() => setStaged(null)}>
-                취소
-              </button>
-              <button className="btn btn-sm btn-danger" onClick={() => setConfirming(true)}>
-                이 파일로 교체
-              </button>
-            </div>
-          ) : (
-            <>
-              <p className="row-sub mt-group" style={{ color: 'var(--danger)' }}>
-                현재 기록이 모두 삭제되고 이 파일의 내용으로 대체됩니다. 되돌릴 수 없습니다.
-              </p>
-              <div className="btn-row">
-                <button className="btn btn-sm" onClick={() => setConfirming(false)} disabled={busy}>
-                  취소
-                </button>
-                <button
-                  className="btn btn-sm btn-danger"
-                  onClick={() => void onRestore()}
-                  disabled={busy}
-                >
-                  {busy ? '복원 중…' : '정말 교체'}
-                </button>
-              </div>
-            </>
-          )}
-        </>
-      )}
-    </div>
+            {!confirming ? (
+              <HStack gap={2}>
+                <Button variant="secondary" size="sm" label="취소" onClick={() => setStaged(null)} />
+                <Button variant="destructive" size="sm" label="이 파일로 교체" onClick={() => setConfirming(true)} />
+              </HStack>
+            ) : (
+              <>
+                <Text className="ax-text-error">
+                  현재 기록이 모두 삭제되고 이 파일의 내용으로 대체됩니다. 되돌릴 수 없습니다.
+                </Text>
+                <HStack gap={2}>
+                  <Button variant="secondary" size="sm" label="취소" isDisabled={busy} onClick={() => setConfirming(false)} />
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    label={busy ? '복원 중…' : '정말 교체'}
+                    isDisabled={busy}
+                    onClick={() => void onRestore()}
+                  />
+                </HStack>
+              </>
+            )}
+          </>
+        )}
+      </VStack>
+    </Card>
   )
 }

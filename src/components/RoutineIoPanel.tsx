@@ -5,6 +5,7 @@ import { validateRoutine } from '../db/validateRoutine'
 import { pickTextFile } from '../lib/pickFile'
 import { OUTCOME_MESSAGE, shareFile } from '../lib/share'
 import type { Exercise, RoutineTemplate } from '../types'
+import { Banner, Button, Card, HStack, Row, Rows, Text, VStack } from '../ax'
 
 /**
  * 루틴 JSON 가져오기/내보내기 (DESIGN.md §5.5 — v2.4 교체 경로).
@@ -81,66 +82,61 @@ export default function RoutineIoPanel({
   }
 
   return (
-    <div className="card">
-      <div className="card-label">루틴 JSON</div>
+    <Card>
+      <VStack gap={3}>
+        <Text type="supporting" color="secondary">
+          루틴 JSON
+        </Text>
 
-      {problems.length > 0 && (
-        <div className="banner banner-danger" style={{ alignItems: 'flex-start' }}>
-          <span>
-            정합성 검사 실패 — 가져오지 않았습니다
-            <br />
-            {problems.map((p) => (
-              <small key={p}>
+        {problems.length > 0 && (
+          <Banner
+            status="error"
+            title="정합성 검사 실패 — 가져오지 않았습니다"
+            collapsible={false}
+            description={problems.map((p) => (
+              <span key={p}>
                 · {p}
                 <br />
-              </small>
+              </span>
             ))}
-          </span>
-        </div>
-      )}
+          />
+        )}
 
-      {staged ? (
-        <>
-          <div className="row">
-            <div className="row-main">
-              <div className="row-title">{staged.routine.name}</div>
-              <div className="row-sub mono">
-                {staged.routine.id} · v{staged.routine.version}
-              </div>
-            </div>
-            <div className="row-meta">
-              Day {staged.routine.days.length}+{staged.routine.fallbackDays?.length ?? 0}
-            </div>
-          </div>
-          <p className="row-sub">
-            정합성 검사 통과. 적용하면 활성 루틴이 이 루틴으로 바뀝니다. 세션 기록은 그대로
-            유지됩니다 (기록 키 기준).
-          </p>
-          <div className="btn-row mt-row">
-            <button className="btn btn-sm" onClick={() => setStaged(null)}>
-              취소
-            </button>
-            <button className="btn btn-sm btn-primary" onClick={() => void onApply()}>
-              적용
-            </button>
-          </div>
-        </>
-      ) : (
-        <div className="btn-row">
-          <button className="btn btn-sm" onClick={() => void onExport()}>
-            현재 루틴 내보내기
-          </button>
-          <button className="btn btn-sm" onClick={() => void onPick()}>
-            루틴 가져오기
-          </button>
-        </div>
-      )}
+        {staged ? (
+          <>
+            <Rows>
+              <Row
+                label={<Text weight="semibold">{staged.routine.name}</Text>}
+                description={
+                  <Text type="code">
+                    {staged.routine.id} · v{staged.routine.version}
+                  </Text>
+                }
+                end={
+                  <Text color="secondary">
+                    Day {staged.routine.days.length}+{staged.routine.fallbackDays?.length ?? 0}
+                  </Text>
+                }
+              />
+            </Rows>
+            <Text type="supporting" color="secondary">
+              정합성 검사 통과. 적용하면 활성 루틴이 이 루틴으로 바뀝니다. 세션 기록은 그대로
+              유지됩니다 (기록 키 기준).
+            </Text>
+            <HStack gap={2}>
+              <Button variant="secondary" size="sm" label="취소" onClick={() => setStaged(null)} />
+              <Button variant="primary" size="sm" label="적용" onClick={() => void onApply()} />
+            </HStack>
+          </>
+        ) : (
+          <HStack gap={2} wrap="wrap">
+            <Button variant="secondary" size="sm" label="현재 루틴 내보내기" onClick={() => void onExport()} />
+            <Button variant="secondary" size="sm" label="루틴 가져오기" onClick={() => void onPick()} />
+          </HStack>
+        )}
 
-      {status && (
-        <p className="row-sub mt-row" style={{ color: 'var(--accent)' }}>
-          {status}
-        </p>
-      )}
-    </div>
+        {status && <Text color="accent">{status}</Text>}
+      </VStack>
+    </Card>
   )
 }

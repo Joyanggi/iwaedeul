@@ -14,7 +14,7 @@
  * 못 읽었을 때 실패하는 방향이 "지금과 같은 그림"이어야 한다 (X5의 실패 방향 원칙).
  */
 
-/** 폴백 = `global.css`의 현재 값. 토큰을 못 읽는 환경(테스트 등)에서 쓰인다 */
+/** 폴백 = 옛 다크 값(토큰이 지금 그리는 값과 같은 짝). 토큰을 못 읽는 환경(테스트 등)에서 쓰인다 */
 const FALLBACK = {
   accent: '#ff7a1a',
   ok: '#34c759',
@@ -29,16 +29,17 @@ const FALLBACK = {
 
 export type ChartColorKey = keyof typeof FALLBACK
 
+/** Astryx 토큰 이름(PLAN v1.21 SS5 — 옛 `--accent` 같은 다리를 거치지 않고 직접 읽는다). `faint`는 보조 글자색과 같은 토큰이다 */
 const TOKEN: Record<ChartColorKey, string> = {
-  accent: '--accent',
-  ok: '--ok',
-  warn: '--warn',
-  text: '--text',
-  dim: '--text-dim',
-  faint: '--text-faint',
-  line: '--line',
-  surface: '--surface',
-  surface2: '--surface-2',
+  accent: '--color-accent',
+  ok: '--color-text-success',
+  warn: '--color-text-warning',
+  text: '--color-text-primary',
+  dim: '--color-text-secondary',
+  faint: '--color-text-secondary',
+  line: '--color-border',
+  surface: '--color-background-card',
+  surface2: '--color-background-muted',
 }
 
 /**

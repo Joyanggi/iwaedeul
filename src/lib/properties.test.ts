@@ -2,8 +2,10 @@
 // 판정·계산 함수에 새 규칙을 더할 때 여기에 속성을 한 줄 더한다(agents/IMPLEMENTER.md 2절).
 // 실패하면 fast-check가 가장 작은 반례를 찍어 준다. 그 반례를 이름 붙은 예시 테스트로 옮겨 고정한다.
 import fc from 'fast-check'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clampStep } from '../ax/clampStep'
+import { sensoryDot } from '../screens/AnalyzeScreen'
+import { chartColor, type ChartColorKey } from './chartTheme'
 import { addDays, daysBetween, parseDateStr, weekDates, weekStart } from './dates'
 import { STEP_PRESETS, snapDownToScale, stepBelow, stepDown, stepUp } from './weightScale'
 
@@ -123,6 +125,44 @@ describe('속성: 날짜 (dates)', () => {
         expect(days).toHaveLength(7)
         expect(days).toContain(d)
         expect(new Set(days.map(weekStart)).size).toBe(1)
+      }),
+    )
+  })
+})
+
+const chartKey = fc.constantFrom<ChartColorKey>('accent', 'ok', 'warn', 'text', 'dim', 'faint', 'line', 'surface', 'surface2')
+
+describe('속성: 분석 차트 색·감각 점 (v1.21 SS5)', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('chartColor는 어떤 열쇠에서도 빈 글자를 돌려주지 않는다 — 문서가 없을 때·토큰이 비었을 때는 폴백', () => {
+    fc.assert(
+      fc.property(chartKey, (k) => {
+        expect(chartColor(k)).not.toBe('')
+      }),
+    )
+    fc.assert(
+      fc.property(chartKey, fc.constantFrom('', ' ', '  \n'), (k, empty) => {
+        const fallback = chartColor(k) // 문서가 없는 node 환경 = 폴백
+        vi.stubGlobal('document', { documentElement: {} })
+        vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: () => empty }))
+        const got = chartColor(k)
+        vi.unstubAllGlobals()
+        expect(got).not.toBe('')
+        expect(got).toBe(fallback)
+      }),
+    )
+  })
+
+  it('sensoryDot의 level은 0~3의 정수이고 점수가 커지면 줄지 않는다(단조)', () => {
+    const score = fc.oneof(fc.constant(null), fc.double({ min: 0, max: 3, noNaN: true }))
+    fc.assert(
+      fc.property(score, score, (a, b) => {
+        for (const s of [a, b]) {
+          const { level } = sensoryDot(s)
+          expect(Number.isInteger(level) && level >= 0 && level <= 3).toBe(true)
+        }
+        if (a !== null && b !== null && a <= b) expect(sensoryDot(a).level).toBeLessThanOrEqual(sensoryDot(b).level)
       }),
     )
   })

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { LOW_KCAL_STREAK_WARN, planDiffText, planTotals, visiblePlans } from '../lib/diet'
 import type { DietPlan } from '../types'
-import { SheetFrame } from './SheetFrame'
+import { Button, Heading, HStack, Icon, List, ListItem, Sheet, Text, VStack } from '../ax'
 
 /** "내일부터 N일"의 상한. 4일째부터 경고 대상이므로 3일까지만 미리 잡을 수 있게 한다 */
 const MAX_AHEAD = LOW_KCAL_STREAK_WARN - 1
@@ -37,14 +37,14 @@ export default function DietPlanSheet({
   const base = listed.find((p) => p.isDefault)
 
   return (
-    <SheetFrame label="식단 플랜 전환" onClose={onClose}>
+    <Sheet label="식단 플랜 전환" purpose="info" onClose={onClose}>
       {(dismiss) => (
-        <>
-          <div className="card-label">식단 플랜</div>
+        <VStack gap={5} paddingBlockEnd={3}>
+          <Heading level={2}>식단 플랜</Heading>
 
           {ahead === null ? (
             <>
-              <div className="check-list mt-row">
+              <List>
                 {listed.map((plan) => {
                   const { kcal, proteinG } = planTotals(plan)
                   /*
@@ -55,80 +55,71 @@ export default function DietPlanSheet({
                   */
                   const diff = base && base.id !== plan.id ? planDiffText(base, plan) : ''
                   return (
-                    <button
+                    <ListItem
                       key={plan.id}
-                      className={`check-item${plan.id === currentPlanId ? ' check-item-on' : ''}`}
-                      aria-pressed={plan.id === currentPlanId}
+                      label={plan.name}
+                      description={
+                        <VStack gap={0}>
+                          <Text color="secondary" textWrap="wrap">
+                            {kcal.toLocaleString()}kcal · 단백질 {proteinG}g
+                          </Text>
+                          {diff !== '' && (
+                            <Text color="secondary" textWrap="wrap">
+                              {base?.name} 대비 {diff}
+                            </Text>
+                          )}
+                        </VStack>
+                      }
+                      isSelected={plan.id === currentPlanId}
+                      endContent={plan.id === currentPlanId ? <Icon icon="check" /> : null}
                       onClick={() => {
                         onPickToday(plan.id)
-                        onClose()
+                        dismiss()
                       }}
-                    >
-                      <span className="check-box" aria-hidden="true">
-                        {plan.id === currentPlanId ? '✓' : ''}
-                      </span>
-                      <span className="stack-tight" style={{ flex: 1 }}>
-                        <span className="row-title">{plan.name}</span>
-                        <span className="row-sub">
-                          {kcal.toLocaleString()}kcal · 단백질 {proteinG}g
-                        </span>
-                        {diff !== '' && (
-                          <span className="row-sub diet-plan-diff">
-                            {base?.name} 대비 {diff}
-                          </span>
-                        )}
-                      </span>
-                    </button>
+                    />
                   )
                 })}
-              </div>
-              <p className="row-sub mt-row">
+              </List>
+              <Text color="secondary">
                 고르면 <strong>오늘</strong>만 바뀝니다. 며칠을 미리 정하려면 아래를 쓰세요.
-              </p>
-              <div className="btn-row mt-row">
+              </Text>
+              <HStack gap={2} wrap="wrap">
                 {listed
                   .filter((p) => p.id !== currentPlanId)
                   .map((p) => (
-                    <button key={p.id} className="btn btn-sm" onClick={() => setAhead(p.id)}>
-                      내일부터 {p.name}
-                    </button>
+                    <Button key={p.id} variant="secondary" size="sm" label={`내일부터 ${p.name}`} onClick={() => setAhead(p.id)} />
                   ))}
-              </div>
+              </HStack>
             </>
           ) : (
             <>
-              <p className="row-sub mt-row">
+              <Text color="secondary">
                 {listed.find((p) => p.id === ahead)?.name}을 <strong>내일부터 며칠</strong> 적용할까요?
-              </p>
-              <div className="btn-row mt-row">
+              </Text>
+              <HStack gap={2} wrap="wrap">
                 {Array.from({ length: MAX_AHEAD }, (_, i) => i + 1).map((n) => (
-                  <button
+                  <Button
                     key={n}
-                    className="btn btn-sm"
+                    variant="secondary"
+                    label={`${n}일`}
                     onClick={() => {
                       onPickAhead(ahead, n)
-                      onClose()
+                      dismiss()
                     }}
-                  >
-                    {n}일
-                  </button>
+                  />
                 ))}
-              </div>
-              <p className="row-sub mt-row">
+              </HStack>
+              <Text color="secondary">
                 {LOW_KCAL_STREAK_WARN}일 이상 연속되면 경고가 뜹니다 — 루틴 문서 15장이 만회성
                 절식을 금지하기 때문입니다.
-              </p>
-              <button className="btn mt-row" onClick={() => setAhead(null)}>
-                뒤로
-              </button>
+              </Text>
+              <Button variant="secondary" label="뒤로" onClick={() => setAhead(null)} />
             </>
           )}
 
-          <button className="btn mt-row" onClick={dismiss}>
-            닫기
-          </button>
-        </>
+          <Button variant="secondary" width="100%" label="닫기" onClick={dismiss} />
+        </VStack>
       )}
-    </SheetFrame>
+    </Sheet>
   )
 }

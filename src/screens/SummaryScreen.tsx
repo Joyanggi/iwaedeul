@@ -17,34 +17,7 @@ import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
 import { useSettings } from '../store/settings'
 import { parseRecordKey } from '../types'
-import { AxRoot, Badge, Button, Card, Center, Grid, Group, Groups, Heading, HStack, StackItem, Text, VStack } from '../ax'
-
-/**
- * 카드 안 한 줄 — 이름(+뱃지)·설명·오른쪽 끝 값. ListItem을 안 쓴 이유: ListItem은 줄마다 위·아래 안쪽 여백 8px이 있어
- * 카드의 마지막 줄 아래가 제목 위보다 9px 넓어졌다(ui-check 안쪽 대칭 실측). 줄 사이 간격은 VStack gap 하나다.
- * label·description은 Text 노드로 넘긴다 — 긴 글이 잘리지 않게.
- */
-function Row({ label, description, end }: { label: ReactNode; description?: ReactNode; end?: ReactNode }) {
-  return (
-    <HStack role="listitem" gap={3} align="start" justify="between">
-      <VStack gap={1}>
-        {label}
-        {description}
-      </VStack>
-      {/* 오른쪽 값은 줄어들지 않는다(StackItem static = flex-shrink 0) — 줄어드는 쪽은 설명 글이다 (RR9 화면 검증 반려: "0점"이 "0/점"으로 꺾임) */}
-      {end && <StackItem size="static">{end}</StackItem>}
-    </HStack>
-  )
-}
-
-/** 카드 안 줄 목록 */
-function Rows({ children }: { children: ReactNode }) {
-  return (
-    <VStack role="list" gap={3}>
-      {children}
-    </VStack>
-  )
-}
+import { AxRoot, Badge, Button, Card, Center, Grid, Group, Groups, Heading, HStack, Row, Rows, Text, VStack } from '../ax'
 
 export default function SummaryScreen({ bundle, onDone }: { bundle: RoutineBundle; onDone: () => void }) {
   const session = useSessionStore((s) => s.lastFinished)
@@ -155,7 +128,7 @@ export default function SummaryScreen({ bundle, onDone }: { bundle: RoutineBundl
   // 카드 묶음 셋: 이번 세션 → 다음에 할 것 → 되돌아보기 (PLAN v1.20 RR9). 카드의 내용과 보이는 조건은 그대로다.
   return (
     <AxRoot>
-      <Groups className="ax-summary">
+      <Groups>
         <Group>
           <Heading level={1}>수고했어요 🔥</Heading>
           <Text color="secondary">

@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest'
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8')
 const parts = read('../src/ax/parts.css')
-const globalCss = read('../src/styles/global.css')
+// v1.21 SS8: `src/styles/`가 없다. 옛 "global.css에 X가 없다"는 앱 CSS(ax.css·parts.css) 전체에 X가 없다로 읽는다
+const globalCss = read('../src/ax/ax.css') + '\n' + parts
 const noComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '')
 /** 선택자(앞)와 본문(뒤)의 쌍. 중첩이 한 겹뿐인 이 파일(@layer 안 규칙)에 맞춰 가장 안쪽 `{…}`만 센다 */
 const rules = (css) => [...noComments(css).matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }))
@@ -28,12 +29,14 @@ describe('v120 RR8 — 템포 무대와 시트 글줄바꿈', () => {
     expect(tempo.find((r) => r.sel === '.ax-tempo-ring-eccentric').body).toContain('var(--color-text-success)')
   })
 
-  it('v120 RR8: 여덟 시트의 이름(aria-label)이 한글 단어 단위 줄바꿈(keep-all + anywhere) 규칙에 다 들어 있다 — 제목(h1·h2)까지', () => {
-    const rule = rules(parts).find((r) => /dialog:is\(/.test(r.sel) && /word-break:\s*keep-all/.test(r.body))
+  it('v120 RR8 → v121 SS8: 여덟 시트(제목 h1·h2 포함)의 글도 시트 이름 목록이 아니라 앱 전체 한 규칙(dialog)의 한글 단어 단위 줄바꿈(keep-all + anywhere)이 덮는다', () => {
+    const rule = rules(parts).find((r) => r.sel === ':is(.ax-screen, dialog) :is(p, span, div, h1, h2, h3, li)')
     expect(rule, 'keep-all 규칙을 못 찾았다').toBeTruthy()
-    for (const name of SHEETS) expect(rule.sel, name).toContain(`[aria-label='${name}']`)
-    expect(rule.sel).toMatch(/:is\(p, span, div, h1, h2\)/)
+    expect(rule.sel).toContain('dialog')
+    expect(rule.sel).toMatch(/h1, h2/)
+    expect(rule.body).toMatch(/word-break:\s*keep-all/)
     expect(rule.body).toMatch(/overflow-wrap:\s*anywhere/)
+    for (const name of SHEETS) expect(parts, name).not.toContain(`[aria-label='${name}']`)
   })
 
   it('v120 RR8: global.css에서 옮긴 시트의 legacy 규칙이 사라졌다 — .tempo-*·.sheet-row·.sub-field·.chip-row·.chip-btn·.setup-edit', () => {

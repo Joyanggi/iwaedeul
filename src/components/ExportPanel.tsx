@@ -8,6 +8,8 @@ import { exportMarkdown, type ExportRange } from '../lib/exportMarkdown'
 import { OUTCOME_MESSAGE, copyText, shareFile, shareText } from '../lib/share'
 import type { RoutineBundle } from '../lib/useRoutine'
 import type { Phase, Session } from '../types'
+import { Button, Card, HStack, Text, ToggleButton, VStack } from '../ax'
+import { CodeBlock } from '../ax/settings'
 
 type PresetId = 'w2' | 'w4' | 'month' | 'm3' | 'all'
 
@@ -120,63 +122,56 @@ export default function ExportPanel({
   }
 
   return (
-    <div className="card">
-      <div className="card-label">내보내기</div>
+    <Card>
+      <VStack gap={3}>
+        <Text type="supporting" color="secondary">
+          내보내기
+        </Text>
 
-      <div className="pill-row">
-        {PRESETS.map((p) => (
-          <button
-            key={p.id}
-            className={`pill${preset === p.id ? ' pill-on' : ''}`}
-            onClick={() => {
-              setPreset(p.id)
-              setPreview(null)
-            }}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+        {/* 다섯 기간이 한 줄(SegmentedControl)에 안 들어가 글자가 잘린다(390 실측) — 줄을 바꾸는 켜기 버튼으로 둔다 */}
+        <HStack wrap="wrap" gap={2}>
+          {PRESETS.map((p) => (
+            <ToggleButton
+              key={p.id}
+              className="ax-toggle"
+              label={p.label}
+              isPressed={preset === p.id}
+              onPressedChange={() => {
+                setPreset(p.id)
+                setPreview(null)
+              }}
+            />
+          ))}
+        </HStack>
 
-      <p className="row-sub mt-row">
-        {range.from} ~ {range.to} · 세션 {inRange.length}개
-      </p>
+        <Text type="supporting" color="secondary">
+          {range.from} ~ {range.to} · 세션 {inRange.length}개
+        </Text>
 
-      <div className="card-label mt-group">
-        Markdown (LLM 분석용)
-      </div>
-      <div className="btn-row">
-        <button className="btn btn-sm btn-primary" onClick={() => void onShareMd()}>
-          공유
-        </button>
-        <button className="btn btn-sm" onClick={() => void onCopyMd()}>
-          복사
-        </button>
-        <button
-          className="btn btn-sm"
-          onClick={() => setPreview(preview === null ? buildMd() : null)}
-        >
-          {preview === null ? '미리보기' : '닫기'}
-        </button>
-      </div>
+        <Text weight="semibold">Markdown (LLM 분석용)</Text>
+        <HStack gap={2} wrap="wrap">
+          <Button variant="primary" size="sm" label="공유" onClick={() => void onShareMd()} />
+          <Button variant="secondary" size="sm" label="복사" onClick={() => void onCopyMd()} />
+          <Button
+            variant="secondary"
+            size="sm"
+            label={preview === null ? '미리보기' : '닫기'}
+            onClick={() => setPreview(preview === null ? buildMd() : null)}
+          />
+        </HStack>
 
-      {preview !== null && <pre className="preview">{preview}</pre>}
+        {preview !== null && <CodeBlock code={preview} isWrapped maxHeight="40vh" hasCopyButton={false} />}
 
-      <div className="card-label mt-group">
-        JSON (전체 백업)
-      </div>
-      <button className="btn btn-sm" onClick={() => void onShareJson()}>
-        백업 파일 공유
-      </button>
-      <p className="row-sub mt-row">
-        기간과 무관하게 전체를 담습니다. Gist 토큰 같은 비밀값은 포함되지 않습니다.
-      </p>
+        <Text weight="semibold">JSON (전체 백업)</Text>
+        <HStack>
+          <Button variant="secondary" size="sm" label="백업 파일 공유" onClick={() => void onShareJson()} />
+        </HStack>
+        <Text type="supporting" color="secondary">
+          기간과 무관하게 전체를 담습니다. Gist 토큰 같은 비밀값은 포함되지 않습니다.
+        </Text>
 
-      {status && (
-        <p className="row-sub mt-row" style={{ color: 'var(--accent)' }}>
-          {status}
-        </p>
-      )}
-    </div>
+        {status && <Text color="accent">{status}</Text>}
+      </VStack>
+    </Card>
   )
 }

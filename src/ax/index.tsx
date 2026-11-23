@@ -2,29 +2,41 @@
  * 앱이 Astryx를 쓰는 한 곳. 화면은 `@astryxdesign/…`를 직접 import하지 않고 여기서만 가져다 쓴다.
  * 버전을 올릴 때 고칠 자리가 이 폴더뿐이다. `App`이 정적으로 읽고, 테마는 `AppRoot`가 앱 뿌리에 한 번 건다.
  */
+import './layers.css'
 import '@astryxdesign/core/astryx.css'
 import './ax.css'
 import './parts.css'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Theme } from '@astryxdesign/core/theme'
 import { SizeProvider } from '@astryxdesign/core/SizeContext'
 import { Button } from '@astryxdesign/core/Button'
 import { HStack } from '@astryxdesign/core/HStack'
 import { VStack } from '@astryxdesign/core/VStack'
+import { StackItem } from '@astryxdesign/core/Stack'
 import { Card as AstryxCard, type CardProps } from '@astryxdesign/core/Card'
 import { ClickableCard as AstryxClickableCard, type ClickableCardProps } from '@astryxdesign/core/ClickableCard'
 import { NumberInput } from '@astryxdesign/core/NumberInput'
 import { TextInput, type TextInputProps } from '@astryxdesign/core/TextInput'
+import { Center } from '@astryxdesign/core/Center'
+import { Spinner } from '@astryxdesign/core/Spinner'
+import { Text } from '@astryxdesign/core/Text'
 import { TextArea, type TextAreaProps } from '@astryxdesign/core/TextArea'
-import { BottomSheet, type BottomSheetProps } from '@astryxdesign/core/BottomSheet'
+import type { BottomSheetProps } from '@astryxdesign/core/BottomSheet'
 import { AX_NO_AUTOFILL } from '../lib/inputProps'
 import { once } from '../lib/once'
 import { appTheme } from './theme'
 import { clampStep } from './clampStep'
 
+/** 시트 부품은 처음 열 때 읽는다(첫 화면 코드 — PLAN v1.21 SS1). `preloadSheet`가 부팅 뒤 미리 읽는다. */
+const loadBottomSheet = () => import('@astryxdesign/core/BottomSheet').then((m) => ({ default: m.BottomSheet }))
+const BottomSheet = lazy(loadBottomSheet)
+export function preloadSheet() {
+  return loadBottomSheet()
+}
+
 /** 입력칸 글자 16px 이상 (iOS가 포커스 시 확대하지 않게) */
-const CONTROL_STYLE = { fontSize: 'max(16px, 1em)' } as const
+export const CONTROL_STYLE = { fontSize: 'max(16px, 1em)' } as const
 
 /** `NumberInput`은 autoComplete만 받는다. 값은 `NO_AUTOFILL`에서 온다(필드별로 속성을 직접 적지 않는다 — inputProps.test X5·Y2). */
 const NUMBER_AUTOFILL = { autoComplete: AX_NO_AUTOFILL.autoComplete } as const
@@ -46,16 +58,15 @@ export function AxRoot({ children }: { children: ReactNode }) {
 /**
  * 여백 역할 (v1.20 RR12). 묶음 사이·카드 사이·카드 안쪽의 단계 숫자는 이 파일에만 적는다.
  * 화면은 `Groups`·`Group`·`Card`를 쓰고 숫자를 적지 않는다 — 같은 역할에 다른 값이 생길 길이가 없다.
- * (안 옮긴 화면의 짝은 `styles/space.css`의 `--space-section`·`--space-card`·`--inset-card`이고 같은 길이다.)
  */
 const GROUP_GAP = 5
 const CARD_GAP = 3
 const CARD_PADDING = 4
 
 /** 화면 안의 묶음들을 세로로 쌓는다. 화면은 `AxRoot` 안에 `Groups` 하나를 둔다. */
-export function Groups({ children, className }: { children: ReactNode; className?: string }) {
+export function Groups({ children }: { children: ReactNode }) {
   return (
-    <VStack gap={GROUP_GAP} className={className ? `ax-groups ${className}` : 'ax-groups'}>
+    <VStack gap={GROUP_GAP} className="ax-groups">
       {children}
     </VStack>
   )
@@ -83,7 +94,7 @@ export function ClickableCard(props: Omit<ClickableCardProps, 'padding'>) {
 /**
  * 화면 위나 아래에 붙어 있는 띠(Astryx에 없는 부품 — Layout은 iOS의 문서 스크롤을 잃게 해서 안 쓴다).
  * 재질은 `parts.css`의 `.ax-bar` 한 곳. 자기 높이를 `--ax-bar-top`·`--ax-bar-bottom`으로 문서에 알려
- * 화면 틀(`.ax-screen`)과 안 옮긴 화면(`.screen`)이 그만큼 비운다. 안전 영역은 띠가 스스로 띄운다.
+ * 화면 틀(`.ax-screen`)이 그만큼 비운다. 안전 영역은 띠가 스스로 띄운다.
  */
 export function Bar({
   position,
@@ -144,6 +155,46 @@ interface TextFieldProps extends TextInputProps {
 export function TextField({ isNumeric = false, isProminent = false, ...props }: TextFieldProps) {
   const numeric = isProminent ? 'ax-num-prominent' : isNumeric ? 'ax-num' : undefined
   return <TextInput {...AX_NO_AUTOFILL} controlStyle={isProminent ? PROMINENT_STYLE : CONTROL_STYLE} controlClassName={numeric} {...props} />
+}
+
+/**
+ * 카드 안 한 줄 — 이름(+뱃지)·설명·오른쪽 끝 값. ListItem을 안 쓴 이유: ListItem은 줄마다 위·아래 안쪽 여백 8px이 있어
+ * 카드의 마지막 줄 아래가 제목 위보다 9px 넓어졌다(ui-check 안쪽 대칭 실측). 줄 사이 간격은 VStack gap 하나다.
+ * label·description은 Text 노드로 넘긴다 — 긴 글이 잘리지 않게.
+ * `isListItem={false}`: `Rows` 밖(`Collapsible`의 펼침 줄 안 — 버튼 안에 listitem 역할을 두면 axe가 막는다)에서 쓸 때.
+ */
+export function Row({ label, description, end, isListItem = true }: { label: ReactNode; description?: ReactNode; end?: ReactNode; isListItem?: boolean }) {
+  return (
+    <HStack role={isListItem ? 'listitem' : undefined} gap={3} align="start" justify="between">
+      <VStack gap={1}>
+        {label}
+        {description}
+      </VStack>
+      {/* 오른쪽 값은 줄어들지 않는다(StackItem static = flex-shrink 0) — 줄어드는 쪽은 설명 글이다 (RR9 화면 검증 반려: "0점"이 "0/점"으로 꺾임) */}
+      {end && <StackItem size="static">{end}</StackItem>}
+    </HStack>
+  )
+}
+
+/** 카드 안 줄 목록 */
+export function Rows({ children }: { children: ReactNode }) {
+  return (
+    <VStack role="list" gap={3}>
+      {children}
+    </VStack>
+  )
+}
+
+/** 불러오는 중 표시. 화면 가운데에 Spinner와 문구. */
+export function Loading({ text }: { text: string }) {
+  return (
+    <Center>
+      <VStack gap={2}>
+        <Spinner />
+        <Text color="secondary">{text}</Text>
+      </VStack>
+    </Center>
+  )
 }
 
 /** 여러 줄 입력. `TextField`처럼 자동완성 억제(G5)와 16px 하한을 빠뜨릴 수 없게 한다. */
@@ -241,18 +292,20 @@ export function Sheet({ label, purpose = 'info', height = 'hug', onClose, childr
   const dismiss = () => setClosing(true)
 
   return (
-    <BottomSheet
-      label={label}
-      purpose={purpose}
-      height={height}
-      isOpen={!closing}
-      onOpenChange={(next) => {
-        if (!next) dismiss()
-      }}
-    >
-      {/* 시트는 화면과 다른 층에 그려져 크기 기본값이 새로 시작한다 → 화면과 같은 크기를 다시 건다 */}
-      <SizeProvider value="lg">{typeof children === 'function' ? children(dismiss) : children}</SizeProvider>
-    </BottomSheet>
+    <Suspense fallback={null}>
+      <BottomSheet
+        label={label}
+        purpose={purpose}
+        height={height}
+        isOpen={!closing}
+        onOpenChange={(next) => {
+          if (!next) dismiss()
+        }}
+      >
+        {/* 시트는 화면과 다른 층에 그려져 크기 기본값이 새로 시작한다 → 화면과 같은 크기를 다시 건다 */}
+        <SizeProvider value="lg">{typeof children === 'function' ? children(dismiss) : children}</SizeProvider>
+      </BottomSheet>
+    </Suspense>
   )
 }
 

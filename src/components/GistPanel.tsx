@@ -11,7 +11,8 @@ import {
   type SyncState,
 } from '../lib/gistSync'
 import { getGistToken, maskToken, setGistToken } from '../lib/secrets'
-import { NO_AUTOFILL } from '../lib/inputProps'
+import { Banner, Button, Card, HStack, Row, Rows, Text, TextField, VStack } from '../ax'
+import { Link } from '../ax/settings'
 import { formatDateTimeLocal } from '../lib/dates'
 
 const TOKEN_HELP = 'https://github.com/settings/tokens/new?scopes=gist&description=workout-tracker'
@@ -148,151 +149,131 @@ export default function GistPanel() {
   }
 
   return (
-    <div className="card">
-      <div className="card-label">Gist 백업</div>
+    <Card>
+      <VStack gap={3}>
+        <Text type="supporting" color="secondary">
+          Gist 백업
+        </Text>
 
-      {!configured ? (
-        <>
-          <p className="row-sub mb-row">
-            <strong>gist</strong> 권한만 있는 개인 액세스 토큰을 붙여넣으세요. 토큰은 이 기기의
-            localStorage에만 저장되고 백업 파일이나 코드에는 들어가지 않습니다.
-          </p>
-          <a className="ext-link" href={TOKEN_HELP} target="_blank" rel="noreferrer">
-            GitHub에서 토큰 발급하기 ↗
-          </a>
-          <input
-            {...NO_AUTOFILL}
-            className="field mt-row"
-            
-            type="password"
-            value={tokenInput}
-            onChange={(e) => setTokenInput(e.target.value)}
-            placeholder="ghp_… 또는 github_pat_…"
-            aria-label="GitHub 개인 액세스 토큰"
-          />
-          <button
-            className="btn btn-sm btn-primary mt-row"
-            onClick={() => void onSaveToken()}
-            disabled={busy || tokenInput.trim().length === 0}
-          >
-            {busy ? '확인 중…' : '토큰 저장'}
-          </button>
-        </>
-      ) : (
-        <>
-          <div className="row">
-            <div className="row-main">
-              <div className="row-title">토큰 저장됨</div>
-              <div className="row-sub mono">{masked ?? '••••'}</div>
-            </div>
-            {account && <div className="row-meta">{account}</div>}
-          </div>
-          <div className="row">
-            <div className="row-main">
-              <div className="row-title">연결된 Gist</div>
-              <div className="row-sub mono">{gistId ?? '아직 없음 (첫 백업에서 생성)'}</div>
-            </div>
-          </div>
-          <div className="row">
-            <div className="row-main">
-              <div className="row-title">마지막 백업</div>
-              <div className="row-sub">
-                {lastBackupAt ? formatDateTimeLocal(lastBackupAt) : '없음'}
-              </div>
-            </div>
-          </div>
+        {!configured ? (
+          <>
+            <Text type="supporting" color="secondary">
+              <b>gist</b> 권한만 있는 개인 액세스 토큰을 붙여넣으세요. 토큰은 이 기기의
+              localStorage에만 저장되고 백업 파일이나 코드에는 들어가지 않습니다.
+            </Text>
+            <Link href={TOKEN_HELP} isExternalLink>
+              GitHub에서 토큰 발급하기
+            </Link>
+            <TextField
+              type="password"
+              label="GitHub 개인 액세스 토큰"
+              isLabelHidden
+              value={tokenInput}
+              onChange={setTokenInput}
+              placeholder="ghp_… 또는 github_pat_…"
+            />
+            <HStack>
+              <Button
+                variant="primary"
+                size="sm"
+                label={busy ? '확인 중…' : '토큰 저장'}
+                isDisabled={busy || tokenInput.trim().length === 0}
+                onClick={() => void onSaveToken()}
+              />
+            </HStack>
+          </>
+        ) : (
+          <>
+            <Rows>
+              <Row
+                label={<Text>토큰 저장됨</Text>}
+                description={<Text type="code">{masked ?? '••••'}</Text>}
+                end={account ? <Text color="secondary">{account}</Text> : null}
+              />
+              <Row
+                label={<Text>연결된 Gist</Text>}
+                description={<Text type="code">{gistId ?? '아직 없음 (첫 백업에서 생성)'}</Text>}
+              />
+              <Row
+                label={<Text>마지막 백업</Text>}
+                description={
+                  <Text type="supporting" color="secondary">
+                    {lastBackupAt ? formatDateTimeLocal(lastBackupAt) : '없음'}
+                  </Text>
+                }
+              />
+            </Rows>
 
-          <div className="btn-row mt-row">
-            <button className="btn btn-sm btn-primary" onClick={() => void onBackupNow()} disabled={busy}>
-              지금 백업
-            </button>
-            <button
-              className="btn btn-sm"
-              onClick={() => void onFetchGist()}
-              disabled={busy || !gistId}
-            >
-              Gist에서 복원
-            </button>
-          </div>
+            <HStack gap={2} wrap="wrap">
+              <Button variant="primary" size="sm" label="지금 백업" isDisabled={busy} onClick={() => void onBackupNow()} />
+              <Button variant="secondary" size="sm" label="Gist에서 복원" isDisabled={busy || !gistId} onClick={() => void onFetchGist()} />
+            </HStack>
 
-          {restoreStaged && (
-            <>
-              <div className="warn-box mt-group">
-                <strong>Gist 백업 내용</strong>
-                <br />
-                세션 {restoreStaged.summary.sessions}개 ({restoreStaged.summary.oldestSession ?? '—'} ~{' '}
-                {restoreStaged.summary.newestSession ?? '—'})
-                <br />
-                내보낸 시각 {formatDateTimeLocal(restoreStaged.summary.exportedAt)}
-                <br />
-                복원하면 현재 데이터를 <strong>전부 교체</strong>합니다.
-              </div>
-              {!confirmRestore ? (
-                <div className="btn-row">
-                  <button className="btn btn-sm" onClick={() => setRestoreStaged(null)}>
-                    취소
-                  </button>
-                  <button className="btn btn-sm btn-danger" onClick={() => setConfirmRestore(true)}>
-                    이 내용으로 교체
-                  </button>
-                </div>
-              ) : (
-                <div className="btn-row">
-                  <button className="btn btn-sm" onClick={() => setConfirmRestore(false)} disabled={busy}>
-                    취소
-                  </button>
-                  <button className="btn btn-sm btn-danger" onClick={() => void onRestore()} disabled={busy}>
-                    {busy ? '복원 중…' : '정말 교체'}
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-
-          <div className="btn-row mt-row">
-            {confirmRemove ? (
+            {restoreStaged && (
               <>
-                <button className="btn btn-sm" onClick={() => setConfirmRemove(false)}>
-                  취소
-                </button>
-                <button className="btn btn-sm btn-danger" onClick={() => void onRemoveToken()}>
-                  토큰 삭제 확인
-                </button>
-              </>
-            ) : (
-              <>
-                <button className="btn btn-sm" onClick={() => setConfirmRemove(true)}>
-                  토큰 삭제
-                </button>
-                {gistId && (
-                  <button className="btn btn-sm" onClick={() => void onForgetGist()}>
-                    Gist 연결 해제
-                  </button>
+                <Banner
+                  status="warning"
+                  title="Gist 백업 내용"
+                  collapsible={false}
+                  description={
+                    <>
+                      세션 {restoreStaged.summary.sessions}개 ({restoreStaged.summary.oldestSession ?? '—'} ~{' '}
+                      {restoreStaged.summary.newestSession ?? '—'})
+                      <br />
+                      내보낸 시각 {formatDateTimeLocal(restoreStaged.summary.exportedAt)}
+                      <br />
+                      복원하면 현재 데이터를 <b>전부 교체</b>합니다.
+                    </>
+                  }
+                />
+                {!confirmRestore ? (
+                  <HStack gap={2}>
+                    <Button variant="secondary" size="sm" label="취소" onClick={() => setRestoreStaged(null)} />
+                    <Button variant="destructive" size="sm" label="이 내용으로 교체" onClick={() => setConfirmRestore(true)} />
+                  </HStack>
+                ) : (
+                  <HStack gap={2}>
+                    <Button variant="secondary" size="sm" label="취소" isDisabled={busy} onClick={() => setConfirmRestore(false)} />
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      label={busy ? '복원 중…' : '정말 교체'}
+                      isDisabled={busy}
+                      onClick={() => void onRestore()}
+                    />
+                  </HStack>
                 )}
               </>
             )}
-          </div>
-        </>
-      )}
 
-      {sync.status !== 'idle' && (
-        <p
-          className="row-sub mt-row"
-          style={{ color: sync.status === 'error' ? 'var(--danger)' : 'var(--accent)' }}
-        >
-          {stateLabel(sync)}
-        </p>
-      )}
-      {message && (
-        <p className="row-sub mt-row" style={{ color: 'var(--accent)' }}>
-          {message}
-        </p>
-      )}
+            <HStack gap={2} wrap="wrap">
+              {confirmRemove ? (
+                <>
+                  <Button variant="secondary" size="sm" label="취소" onClick={() => setConfirmRemove(false)} />
+                  <Button variant="destructive" size="sm" label="토큰 삭제 확인" onClick={() => void onRemoveToken()} />
+                </>
+              ) : (
+                <>
+                  <Button variant="secondary" size="sm" label="토큰 삭제" onClick={() => setConfirmRemove(true)} />
+                  {gistId && <Button variant="secondary" size="sm" label="Gist 연결 해제" onClick={() => void onForgetGist()} />}
+                </>
+              )}
+            </HStack>
+          </>
+        )}
 
-      <p className="row-sub mt-row">
-        secret gist로 만들어집니다 (URL을 아는 사람만 볼 수 있음). 세션을 종료하면 자동으로
-        올라갑니다.
-      </p>
-    </div>
+        {sync.status !== 'idle' && (
+          <Text className={sync.status === 'error' ? 'ax-text-error' : undefined} color={sync.status === 'error' ? undefined : 'accent'}>
+            {stateLabel(sync)}
+          </Text>
+        )}
+        {message && <Text color="accent">{message}</Text>}
+
+        <Text type="supporting" color="secondary">
+          secret gist로 만들어집니다 (URL을 아는 사람만 볼 수 있음). 세션을 종료하면 자동으로
+          올라갑니다.
+        </Text>
+      </VStack>
+    </Card>
   )
 }

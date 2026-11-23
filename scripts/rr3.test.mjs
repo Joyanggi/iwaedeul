@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest'
 const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8')
 const strip = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '')
 const partsCss = strip(read('src/ax/parts.css'))
-const globalCss = strip(read('src/styles/global.css'))
+// v1.21 SS8: `src/styles/`가 없다. 옛 "global.css에 X가 없다"는 앱 CSS(ax.css·parts.css) 전체에 X가 없다로 읽는다
+const globalCss = strip(read('src/ax/ax.css') + read('src/ax/parts.css'))
 
 const cssFiles = (dir) =>
   readdirSync(new URL(`../${dir}`, import.meta.url), { withFileTypes: true }).flatMap((e) =>
@@ -53,8 +54,8 @@ describe('v120 RR3 — parts.css와 legacy CSS', () => {
     }
   })
 
-  it('v120 RR3: 화면 아래 여백(.screen·.ax-screen)이 띠가 알린 높이(--ax-bar-bottom)를 쓴다', () => {
-    expect(globalCss).toMatch(/\.screen \{[^}]*--ax-bar-bottom/)
+  it('v120 RR3: 화면 아래 여백(.ax-screen)이 띠가 알린 높이(--ax-bar-bottom)를 쓴다(SS6: legacy .screen 규칙은 설정을 끝으로 지웠다)', () => {
+    expect(globalCss).not.toMatch(/\.screen \{/)
     expect(strip(read('src/ax/ax.css'))).toMatch(/\.ax-screen \{[^}]*--ax-bar-bottom[^}]*\}/)
   })
 })

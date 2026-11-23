@@ -7,6 +7,8 @@
 > **범위:** (1) 첫 화면 코드 분할 (2) 식단·기록·분석·설정·온보딩 화면과 그 시트·패널 21개 파일을 Astryx 부품으로 (3) 그 뒤 `global.css`·`motion.css`·`space.css`·`index.css`·`SheetFrame`·Astryx 섬(`ax-scope`)을 지운다.
 > **v1.20에서 이어받는 결정:** 테마 Neutral + 파랑 강조, 불투명 표면, 여백은 관계로 잰다(`안쪽 대칭`·`같은 역할`·`가까움 순서`), 한글은 단어 사이에서만 꺾는다(375 폭), 경고색은 계산값으로 잰다, 안쪽 폭 넘침을 잰다, 새 검사는 예외·0개를 통과로 삼키지 않는다. 이 PLAN은 이것들을 다시 정하지 않고 남은 화면에 건다.
 > **사람이 정할 것은 없다**(이슈 #52: "식단·기록·분석의 배치 갈림길은 설계자가 추천안으로 정하고 PR에서 사람이 본다"). 설계자가 정한 배치는 끝의 "알려 둘 것"에 모았다.
+> **개정 1:** 2026-11-17, SS0 리뷰(`.reports/review-SS0.md` "SS1 전에 정할 것")를 반영했다(작성: Claude Opus 5.5, 설계자). "작업 커밋마다 `after --check` 종료 코드 0"과 "전부터 있던 실패로 넘기는 칸 없음"이 SS1~SS4에서 같이 지켜질 수 없었다 — 새 장면이 처음 드러낸 legacy 칸 실패 셋을 SS5·SS6이 고치기 때문이다. **이름 붙은 그 세 칸만 상세 글자까지 같을 때 `알려진 실패`로 두고, 목록은 줄기만 한다**(SS0 보강 — `KNOWN_FAILURES`). 바뀐 곳: SS0 설계·검증, SS1·SS5·SS6 검증, SS8 검사 도구, 관례의 `ui-check` 종료 코드, 결함 복원 ㉔㉕, 끝의 "검토 반영 기록 — 개정 1". 다른 내용·범위는 그대로다.
+> **개정 2:** 2026-11-18, SS4 리뷰(`.reports/review-SS4.md` 3절)의 사람 결정을 반영했다(작성: Claude Opus 5.5, 설계자). **달력 칸의 보이는 글자는 `17일`(날짜+일), 접근성 이름은 `{d}일 …`** — 보이는 글자가 이름 안에 낱말로 들어 있어야 axe `label-content-name-mismatch`가 통과한다(숫자만 보이면 낱말 `17`이 이름에 없어 칸마다 위반). 바뀐 곳: SS4 설계(`.ax-cal-cell`·달력·칸 이름 줄), 화면 검증 SS4 줄, 결함 복원 ⑫, 사람이 볼 화면 변화 표, "알려 둘 것"의 접근성 이름 줄, 끝의 "검토 반영 기록 — 개정 2". 다른 내용·범위는 그대로다.
 
 ---
 
@@ -23,7 +25,7 @@
 
 | ID | 내용 | 화면 변화 | 숫자 (안 읽는 파일 / 인라인 / legacy) |
 |---|---|---|---|
-| SS0 | 도구·기준선: 남은 화면의 장면을 더하고(필수 장면 — 못 만들면 실패), `before` 스크린샷·배치 기록, 첫 화면 크기 스크립트(기록만), 인벤토리의 "화면이 아닌 파일" | 없음 | 23→21(정의) / 51 / 270 |
+| SS0 | 도구·기준선: 남은 화면의 장면을 더하고(필수 장면 — 못 만들면 실패), `before` 스크린샷·배치 기록, 첫 화면 크기 스크립트(기록만), 인벤토리의 "화면이 아닌 파일", 알려진 실패 세 칸(개정 1 — SS5·SS6까지) | 없음 | 23→21(정의) / 51 / 270 |
 | SS1 | **첫 화면 코드 분할**: 홈 밖의 화면을 지연 읽기, 시트 부품 지연, 부팅 뒤 미리 읽기. 첫 화면 크기 검사를 `npm run check`·CI에 | 없음(화면을 처음 열 때 잠깐 "불러오는 중"이 보일 수 있다 — SS1) | 그대로 |
 | SS2 | 식단 탭: `DietScreen`·`DietDayEditor`·`MealReminderPanel` | 식단 탭, 기록 상세·기록 탭의 그날 식단 | 21→18 / 51→45 / 270→235 |
 | SS3 | 식단 시트 넷 + `SheetFrame` 삭제 | 플랜 전환·끼니·단백질원·먹은 것 추가 시트 | 18→13 / 45→38 / 235→194 |
@@ -169,7 +171,10 @@ E3 뒤 메인 청크(927KB, 소스맵으로 나눔): `react-dom` 22.7%, `dexie` 
 | `before` | `node scripts/ui-check.mjs before --ver=v1.21`로 `docs/screenshots/v1.21/before/`에 찍고 `layout.json`(배치 기록)을 남긴다. `node scripts/argos-upload.mjs before` |
 | 새 파일 `scripts/first-load.mjs` | 사용: `npm run build && node scripts/first-load.mjs [--check]`. `dist/index.html`에서 `<script type="module" src>`·`<link rel="modulepreload" href>`·`<link rel="stylesheet" href>`를 모아(같은 파일은 한 번) 파일마다 `zlib.gzipSync`(기본값) 크기를 kB(1000)로 찍고 합을 낸다. `--check`이면 합이 `FIRST_LOAD_BUDGET_KB`(이 파일의 상수, **360**)를 넘을 때 종료 코드 1. `dist/index.html`이 없거나, 스크립트 태그가 0개거나, 적힌 파일이 없으면 **종료 코드 1**(빈 통과 없음). 모으는 부분은 `scripts/lib/first-load-lib.mjs`의 순수 함수 `collectFirstLoad(html)` → `string[]`. SS0에서는 `--check`를 안 쓴다(지금 474KB라 실패한다) |
 | `scripts/astryx-inventory.mjs` — 화면이 아닌 파일 | `NOT_SCREENS = { 'src/main.tsx': '진입점 — 화면을 그리지 않는다', 'src/components/icons.tsx': '앱의 SVG 그림(불꽃·식기·달력·차트·톱니·조절·저울) — Astryx Icon에 같은 그림이 없다(PLAN v1.21 확인한 것 1)' }`. 이 둘은 표에 그대로 남기되 "Astryx" 칸에 `제외`라 적고 첫째 숫자에서 뺀다. 이 파일들에 인라인·legacy 클래스가 생기면 둘째·셋째 숫자에는 그대로 센다. `--write`로 표를 다시 쓴다 |
+| `scripts/lib/ui-check-lib.mjs` — 알려진 실패 (개정 1) | `export const KNOWN_FAILURES = [{ scene, column, detail, until }]` **세 항목뿐**: `analyze-empty`·`여백 격자`·`SS5`, `settings-export-preview`·`접근성`·`SS6`, `settings-export-preview`·`눌림 반응`·`SS6`. `detail`은 SS0 `before --check` 출력 "상세"의 그 줄에서 `- 실패 <장면> · <칸>: ` 뒤 글자 **그대로**(DEV-RECORD SS0 표의 세 칸). 순수 함수 `applyKnownFailures(rows, known)` → `{ rows, known: n, stale: [{ scene, column, until }] }`: `상태 '실패'`이고 `(행 이름, 칸, 상세)`가 항목과 **글자까지 같은** 칸만 `상태 '알려진 실패'`로 바꾼다(상세는 그대로). 같은 칸이라도 상세가 다르면(다른 접근성 규칙이 더해졌다, 여백 값이 바뀌었다, `장면 실패`의 예외 줄) `실패` 그대로다. 행은 있는데 그 칸이 `실패`가 아닌 항목은 `stale`. 행이 없는 항목(`--only`로 거른 장면)은 둘 다 아니다. `ui-check.mjs`의 `printResults`가 `phase === 'after'`에서만 부른다: `알려진 실패`는 세지 않고 `- 알려진 실패 <장면> · <칸>: <상세> (<until>이 고친다)`와 합계 줄 `알려진 실패 N건`을 찍는다. `stale`은 하나마다 `- 실패 <장면> · <칸>: 알려진 실패가 고쳐졌다 — KNOWN_FAILURES에서 지운다`로 **실패에 센다**(고친 작업이 같은 커밋에서 목록을 줄이게). `before`에는 걸지 않는다 |
 | 새 파일 `src/lib/v121.test.ts`, `scripts/ss0.test.mjs` | 이 PLAN의 스캔을 모으는 곳 |
+
+> 알려진 실패는 **SS0의 고침 커밋**(리뷰 반려 반영)에 넣는다. SS1이 시작될 때 이미 있어야 한다.
 
 ### 검증
 
@@ -179,6 +184,8 @@ E3 뒤 메인 청크(927KB, 소스맵으로 나눔): `react-dom` 22.7%, `dexie` 
 - `node scripts/first-load.mjs` 출력(지금 값 — 474KB 안팎)을 DEV-RECORD에. `vite build` 출력의 gzip과 파일마다 같은지 나란히 적는다.
 - `astryx-inventory --check`: 첫째 숫자 23 → 21, 나머지 그대로. 표에서 두 파일의 칸이 `제외`.
 - `ui-check before --check`: 새 장면이 전부 찍혔다(`장면 실패` 0개). 장면을 준비하는 선택자를 일부러 틀리게 한 결함 복원(⑳)에서 그 장면이 실패하고 종료 코드 1.
+- `scripts/ss0.test.mjs` — 알려진 실패(개정 1): `applyKnownFailures`가 ① 세 칸이 항목과 글자까지 같으면 `알려진 실패` 셋, `실패` 0 ② 상세가 한 글자 다르면 `실패` 그대로 ③ 같은 상세가 다른 칸·다른 장면(`-light` 행 포함)에 있으면 `실패` 그대로 ④ 칸이 `통과`인 항목은 `stale` ⑤ 행이 없는 항목은 `stale`도 아니고 바뀐 칸도 없다 ⑥ `장면 실패` 행(칸 전부 `실패`, 상세는 예외 첫 줄)은 하나도 안 바뀐다. **속성:** 어떤 행·항목 배열에서도 (뒤의 `실패` 칸 수 + `알려진 실패` 칸 수) = (앞의 `실패` 칸 수)이고 `실패`가 아니던 칸의 상태는 그대로다(숨기기만 하고 만들지 않는다), 두 번 걸어도 같다. **목록은 늘지 않는다:** `KNOWN_FAILURES`의 `(scene, column)`이 위 세 쌍의 부분집합이고 길이 3 이하.
+- `ui-check after --check`(SS0 고침 커밋): 종료 코드 0, 합계 `알려진 실패 3건`. 결함 복원 ㉔.
 - 사람 눈: `before` 폴더에 새 장면마다 다크·라이트 두 장.
 
 ### 범위 제외
@@ -228,7 +235,7 @@ E3 뒤 메인 청크(927KB, 소스맵으로 나눔): `react-dom` 22.7%, `dexie` 
 - 안 고치고 통과: `timerOwnership.test.ts`, `v117.test.ts`(`lazy(() => import('./screens/RoutineEditorScreen'))`), `v120.test.ts` RR1·RR3(App의 `AppRoot`·`Bar`·`Loading` — `Loading`은 SS1에서는 아직 `App.tsx`에 있다. RR3의 `<Spinner />` 줄은 SS2가 옮긴다), `audioRecovery.test.ts`.
 - `npm run build && node scripts/first-load.mjs --check`: **360KB 이하**(E3 실험 약 353KB). 출력을 DEV-RECORD에.
 - `node scripts/first-screen.mjs`(캐시 없는 첫 방문·다시 열기 중앙값)를 RR10 값(740ms·300ms)과 나란히 DEV-RECORD에. 판정하지 않는다.
-- `ui-check after --check`: 전 장면 통과(화면이 그대로다 — `--same-layout=all`을 직전 커밋의 배치 기록과 견줘 통과). 새 흐름 셋(`guardedFlow`):
+- `ui-check after --check`: 전 장면 통과(`KNOWN_FAILURES` 세 칸은 `알려진 실패` — 개정 1)(화면이 그대로다 — `--same-layout=all`을 직전 커밋의 배치 기록과 견줘 통과). 새 흐름 셋(`guardedFlow`):
   ① `지연 화면 오프라인`: precache가 끝난 뒤 네트워크를 끊고(`context.setOffline(true)`) 새로 고침 → 홈 → 세션 시작 → 요약, 식단·기록·설정·분석 탭을 차례로 연다 — 각 화면의 제목이 보인다. 하나라도 안 뜨면 실패
   ② `미리 읽기`: 부팅 뒤 2초 안에 세션·요약·식단·기록·설정 청크와 시트 청크가 요청되고(`page.on('request')`로 파일 이름의 접두사를 센다 — 0개면 실패), 분석 청크(`AnalyzeScreen-`)는 요청되지 **않는다**
   ③ `시트 첫 열기`: 새로 고침 직후(미리 읽기 전, 100ms 안) 홈의 [변경]을 누르면 Day 선택 시트가 뜬다(청크를 그때 읽는다)
@@ -420,7 +427,7 @@ E3 뒤 메인 청크(927KB, 소스맵으로 나눔): `react-dom` 22.7%, `dexie` 
 | 클래스 | 무엇 |
 |---|---|
 | `.ax-cal-grid` | 7열 격자(`grid-template-columns: repeat(7, 1fr)`, 간격은 토큰). 요일 머리와 칸이 같은 열 정의를 읽는다(세트 표와 같은 이유) |
-| `.ax-cal-cell` | 칸 버튼 안의 배치(날짜 숫자·🔥·점을 세로로). 상태는 `data-*` 속성: `data-out`(다른 달 — 흐린 글자), `data-today`(테두리 `--color-border-emphasized`가 아니라 `--color-accent`), `data-selected`(면 `--color-accent-muted`). 칸의 버튼 모양·눌림·포커스 링은 Astryx `Button`의 것 |
+| `.ax-cal-cell` | 칸 버튼 안의 배치(날짜 글자 `17일`·🔥·점을 세로로). 상태는 `data-*` 속성: `data-out`(다른 달 — 흐린 글자), `data-today`(테두리 `--color-border-emphasized`가 아니라 `--color-accent`), `data-selected`(면 `--color-accent-muted`). 칸의 버튼 모양·눌림·포커스 링은 Astryx `Button`의 것 |
 | `.ax-cal-dot[data-diet]` | 식단 점: `good` 성공, `mid` 경고, `bad` 오류, `partial` 보조 글자(지금 `.cal-diet-dot-*`의 뜻과 같다 — 강조색을 안 쓴다, uiConsistency의 "식단 색에 내비게이션 색을 쓰지 않는다") |
 | `.ax-history` | 화면 틀의 한글 줄바꿈(SS2의 `.ax-diet`와 같다) |
 
@@ -429,8 +436,8 @@ E3 뒤 메인 청크(927KB, 소스맵으로 나눔): `react-dom` 22.7%, `dexie` 
 | 자리 | 지금 | Astryx |
 |---|---|---|
 | 기록 탭 틀 | `.screen` | `AxRoot` + `Groups className="ax-history"`: [머리] `Heading level={1}` "기록", `SegmentedControl label="보기" value={mode} onChange={(v) => setMode(v as Mode)}`(항목 `달력`·`종목별`) / [달력] `MonthCalendar`, 범례 `Text type="supporting" color="secondary"` / [세션] 머리 줄 + 카드들 / [그날 식단] `Heading level={2}` `{날짜} 식단` + `DietDayEditor` |
-| 달력 (`MonthCalendar`) | `.card` + `.cal-*` | `Card` + `VStack gap={3}`: 머리 `HStack justify="between" align="center"`(`Button variant="ghost" isIconOnly icon={<Icon icon="chevronLeft" />} label="이전 달"`, `Heading level={2}` `monthLabel(month)`, 다음 달 같은 꼴), 요일 `div.ax-cal-grid` 안 `Text type="supporting" color="secondary"` 일곱, 칸 `div.ax-cal-grid` 안 칸마다 `Button variant="ghost" className="ax-cal-cell" label={칸 이름} isDisabled={…지금 조건 그대로} onClick={() => onPickDate(cell.date)} data-out=… data-today=… data-selected=…` + 자식 `<span>{날짜}</span>`, 🔥(+세션 수), `<span className="ax-cal-dot" data-diet={dietDot} aria-hidden="true" />` |
-| 칸 이름 (새 접근성 이름) | 보이는 글자(`17🔥2`) | `{d}일` + 세션이 있으면 ` 운동 {k}회` + 식단 점이 있으면 ` 식단 {준수\|일부\|미달\|판정 전}`. 보이는 숫자가 이름의 맨 앞이다(`label-content-name-mismatch` 규칙) |
+| 달력 (`MonthCalendar`) | `.card` + `.cal-*` | `Card` + `VStack gap={3}`: 머리 `HStack justify="between" align="center"`(`Button variant="ghost" isIconOnly icon={<Icon icon="chevronLeft" />} label="이전 달"`, `Heading level={2}` `monthLabel(month)`, 다음 달 같은 꼴), 요일 `div.ax-cal-grid` 안 `Text type="supporting" color="secondary"` 일곱, 칸 `div.ax-cal-grid` 안 칸마다 `Button variant="ghost" className="ax-cal-cell" label={칸 이름} isDisabled={…지금 조건 그대로} onClick={() => onPickDate(cell.date)} data-out=… data-today=… data-selected=…` + 자식 `<span>{날짜}일</span>`(보이는 글자 `17일` — 개정 2), 🔥(+세션 수), `<span className="ax-cal-dot" data-diet={dietDot} aria-hidden="true" />` |
+| 칸 이름 (새 접근성 이름) | 보이는 글자(`17🔥2`) | `{d}일` + 세션이 있으면 ` 운동 {k}회` + 식단 점이 있으면 ` 식단 {준수\|일부\|미달\|판정 전}`(조각은 공백으로 잇는다). 보이는 글자 `{d}일`이 이름의 첫 낱말이다 — axe `label-content-name-mismatch`는 두 글자를 NFKD로 풀어 **낱말 단위**(`Intl.Segmenter`)로 견주므로, 보이는 글자가 숫자만이면 낱말 `17`이 `17일 …`에 없어 칸마다 위반이다(axe-core 4.14.0, SS4 리뷰 3절 — 개정 2) |
 | 세션 목록 머리 | `.week-head` + `chip` | `HStack justify="between" align="center"`: `Text weight="semibold"`(`{날짜} ({요일})` 또는 "이 달의 세션"), 날짜를 골랐으면 `Button variant="ghost" size="sm" label="전체 보기"`, 아니면 `Text weight="bold" hasTabularNumbers` `{n}회` |
 | 세션 줄 | `button.row` | `Group` 안 세션마다 `ClickableCard label={`${dayName} ${date}`} onClick={() => setDetailId(id)}` + `Row label={<HStack gap={2}><Text weight="semibold">{dayName}</Text>{복귀/디로드면 <Badge variant="warning" label=… />}</HStack>} description={<Text type="supporting" color="secondary">{날짜 · 세트 · 분 · 유산소}</Text>} end={<VStack gap={0} align="end"><Text weight="semibold" hasTabularNumbers>{볼륨}</Text><Text type="supporting" color="secondary">kg·회</Text></VStack>}`. 빈 목록 `Text color="secondary"` "기록이 없습니다." |
 | 종목별 목록 (`ExerciseHistoryScreen`) | `.card` + `button.row` | `Group`: 안내 `Text type="supporting" color="secondary"`, 종목마다 `ClickableCard label={이름 + Day}` + `Row label={이름 + Badge neutral Day + Badge neutral 그룹 + (현재 루틴에 없음이면 Badge warning)} description={기록 키 — Text type="code" size="sm"} end={`${n}회`}`. 기록 0: `Center` + `Text` "아직 기록이 없습니다." |
@@ -514,10 +521,10 @@ E3 뒤 메인 청크(927KB, 소스맵으로 나눔): `react-dom` 22.7%, `dexie` 
 - `v121` SS5: `chartTheme.ts`의 `TOKEN` 값이 전부 `--color-`로 시작하고, 아홉 짝이 위 표와 같다.
 - `src/lib/properties.test.ts`(구현자가 옮긴다) — **속성:** `chartColor`는 어떤 열쇠에서도 빈 글자를 돌려주지 않는다(문서가 없을 때 `FALLBACK`, 토큰이 비었을 때 `FALLBACK`). 감각 점의 `tone`·`level`을 정하는 순수 함수 `sensoryDot(score: number | null)`(화면 파일 안 — `v121`이 import)에서: 어떤 점수(0~3, null)에서도 `level`은 0~3의 정수이고, 점수가 커지면 `level`이 줄지 않는다(단조).
 - 안 고치고 통과: `polish.test.ts`의 AnalyzeScreen 줄(hex 사본 없음), `v120`의 `chartTheme` 스캔.
-- `ui-check after --check` — `analyze` `analyze-end` `analyze-375` `analyze-empty`: `안쪽 대칭`·`같은 역할`·`가까움 순서`, `가로 넘침` 0(종목 줄은 가로 스크롤 칸 안이라 뺀다 — v1.20 RR9의 규칙), 차트 색(`inPageChartColors`)이 다크·라이트에서 RR2 때와 같은 토큰으로 풀린다.
+- `ui-check after --check` — `analyze` `analyze-end` `analyze-375` `analyze-empty`: `안쪽 대칭`·`같은 역할`·`가까움 순서`, `가로 넘침` 0(종목 줄은 가로 스크롤 칸 안이라 뺀다 — v1.20 RR9의 규칙), 차트 색(`inPageChartColors`)이 다크·라이트에서 RR2 때와 같은 토큰으로 풀린다. `analyze-empty`의 `여백 격자` 통과 — 같은 커밋에서 `KNOWN_FAILURES`의 그 항목을 지운다(남기면 `stale`로 실패 — 결함 복원 ㉕). 합계 `알려진 실패 2건`.
 - 흐름: ① `SS5 종목 바꾸기`: 둘째 종목 1탭 → 최근 값 줄이 그 종목 이름으로 ② `SS5 지표 바꾸기` ③ `SS5 감각 점 이름`: 점마다 `aria-label`이 있고(0개면 실패) 기록 없는 주는 `기록 없음` ④ `SS5 실행 중 색 체계 전환`: 다크에서 연 채 라이트로 바꾸면 선 차트의 선 색이 라이트 토큰 값으로 바뀐다(새로 고침 없이) ⑤ `SS5 <장면> 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안`.
 - 변이 테스트: `npm run mutation`(바뀐 `src/lib` = `chartTheme.ts`) 표를 DEV-RECORD에.
-- 결함 복원: ⑭~⑮.
+- 결함 복원: ⑭~⑮, ㉕.
 
 ### 범위 제외
 
@@ -582,7 +589,7 @@ E3 뒤 메인 청크(927KB, 소스맵으로 나눔): `react-dom` 22.7%, `dexie` 
 - `v121` SS6: `SettingsScreen.tsx`에 `<Switch`가 하나(`템포 가이드 사용`), `<SegmentedControl`이 다섯(Phase·소리 크기·음악·이완 초·준비 시간)이고 `A_ECCENTRIC_OPTIONS.map`·`COUNT_IN_OPTIONS.map`이 그 안에 있다.
 - `EXPECTED_PAIRS`(`scripts/lib/ui-space.mjs`): `settings`를 `['bar', 'tab-indicator', 'tab-content', 'button', 'card']`로(지금 값에 둘을 더한다), 나머지 설정 장면 아홉(`settings-375`·`settings-open`·`settings-end`·`settings-routines`·`settings-routines-375`·`settings-routines-confirm-375`·`settings-gist`·`settings-export-preview`·`settings-reset-confirm`)을 `['button', 'card']`로(이 표는 "종류마다 1쌍 이상"을 요구하는 최소 목록이다 — 띠 쌍은 v1.20이 `settings`에서만 기대했으니 그대로 둔다. 뱃지는 Day를 펼친 장면에만 있어 기대에 넣지 않는다 — 넣으면 펼치지 않은 장면이 0개로 실패한다). 그 장면들을 `SYMMETRY_JUDGED`에 더한다.
 - 옮긴 스캔: `polish` BB5(버전 줄), `v116` NN2(편집 `isDisabled`)·NN4(루틴 삭제 `destructive`), `scripts/ui-space.test.mjs:44`(목록에서 `settings`를 빼고 `expect(EXPECTED_PAIRS.settings).toEqual(['bar', 'tab-indicator', 'tab-content', 'button', 'card'])`를 따로). 안 고치고 통과: `soundCancel`(`템포 경계음 미리 듣기`·`previewTempoTones(`), `v18` CC16, `v116`의 나머지, `backupTime`·`dietExport`, `scripts/legacy-scope.test.mjs`의 RRM 줄(유리 글자 없음).
-- `ui-check after --check` — `settings` `settings-375` `settings-open` `settings-end` `settings-routines` `settings-routines-375` `settings-routines-confirm-375` `settings-gist` `settings-export-preview` `settings-reset-confirm`: `안쪽 대칭`·`같은 역할`·`가까움 순서`(묶음 사이 > 카드 사이), `줄 안 버튼`(새 정의), `가로 넘침` 0(미리보기 칸 안은 뺀다), 접근성 0.
+- `ui-check after --check` — `settings` `settings-375` `settings-open` `settings-end` `settings-routines` `settings-routines-375` `settings-routines-confirm-375` `settings-gist` `settings-export-preview` `settings-reset-confirm`: `안쪽 대칭`·`같은 역할`·`가까움 순서`(묶음 사이 > 카드 사이), `줄 안 버튼`(새 정의), `가로 넘침` 0(미리보기 칸 안은 뺀다), 접근성 0. `settings-export-preview`의 `접근성`(`scrollable-region-focusable`)·`눌림 반응`(`.ext-link`) 통과 — 같은 커밋에서 `KNOWN_FAILURES`의 남은 두 항목을 지워 **빈 배열**로 하고, `scripts/ss0.test.mjs`의 "목록은 늘지 않는다"를 "빈 배열이다"로 좁힌다. 합계 `알려진 실패 0건`.
 - 흐름: ① `SS6 Phase 바꾸기`: Phase 1 1탭 → 설명 줄이 바뀌고, 다시 0으로(끝에 되돌린다) ② `SS6 템포 가이드 켜기`: 스위치 1탭 → 세션 화면의 세트 행에 ♩ 버튼이 생긴다(끝에 끈다) ③ `SS6 미리 듣기`: 버튼 1탭에 예외 없음(소리는 못 듣는다 — 제약 2) ④ `SS6 Day 펼치기` ⑤ `SS6 내보내기 미리보기`: 미리보기 1탭 → Markdown 칸에 `## ` 줄이 있다 → 닫기 ⑥ `SS6 초기화 2단 확인`(취소로 끝낸다) ⑦ `SS6 Gist 저장됨`: 마스킹된 토큰 줄이 보이고 토큰 원문이 화면 글자에 없다 ⑧ `SS6 <장면> 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안` ⑨ `SS6 오류·성공 글자색`: 전환 조건 ✓의 계산된 색 = 성공 토큰, 초기화 확인 문구 = 오류 토큰(다크·라이트).
 - 경계: 루틴이 하나뿐(삭제 버튼 없음), 진행 중 세션(편집·이 루틴 쓰기·새 루틴 비활성 + 안내), Phase 3(전환 조건 없음), 전환 조건 전부 충족(전환 버튼), 시드 문제 있음, 저장 공간 모름(`—`).
 - 결함 복원: ⑯~⑱.
@@ -658,7 +665,7 @@ SS7 뒤 legacy 화면이 없다. 남는 것: `src/styles/`의 네 파일(`global
 | 한글 줄바꿈 | 흩어진 규칙(`dialog[aria-label='Day 선택']`, 시트 여덟·식단 시트 넷 목록, `.ax-summary`·`.ax-tip`·`.ax-diet`·`.ax-history`·`.ax-analyze`·`.ax-settings`·`.ax-onboarding`)을 `parts.css`의 한 규칙으로: `:is(.ax-screen, dialog) :is(p, span, div, h1, h2, h3, li) { word-break: keep-all; overflow-wrap: anywhere; }`. 화면 틀의 `className`(`Groups className=…`)을 지우고 `Groups`의 `className` 속성도 지운다(쓰는 곳 0) |
 | 루틴 편집 인라인 5 | `style={GROW}` 둘 → 두 버튼을 `HStack` 안 `StackItem size="fill"`로, `Heading … style={{ flex: 1, minWidth: 0 }}` → `StackItem size="fill"`로 감싼 `Heading`, `div style={{ flex: 1, minWidth: 0 }}` 둘 → `StackItem size="fill"`. 화면은 같다(`--same-layout=editor,line-sheet`) |
 | `scripts/astryx-inventory.mjs` | legacy 정의를 바꾼다: ① `src/styles/`가 있으면 **실패**("legacy CSS가 되살아났다") ② 셋째 칸 "legacy 클래스" → **"정의 없는 클래스"**: `.tsx`의 `className` 글귀에 나오는 이름 가운데 `src/ax/parts.css`·`ax.css`의 클래스 선택자에 없는 것(템플릿 접두사 허용 목록은 이유와 함께 — 지금은 0개가 목표) ③ 넷째 숫자 → **"안 쓰는 parts.css 선택자"**: `parts.css`의 클래스 가운데 `src/**/*.{ts,tsx}`(테스트 제외)에 낱말로 안 나오는 것. `--check`는 넷 다 늘면 실패. 머리 주석과 `docs/ASTRYX-INVENTORY.md` 표 머리를 새 정의로 |
-| 검사 도구 | "확인한 것" 4의 SS8 줄: `눌림 반응`·움직임 정적 검사·`섬 버튼`·`ui-space.mjs`의 정적 검사와 legacy `.card`·`.screen` 갈래를 지운다. 지운 칸 이름을 DEV-RECORD에. `inPageLastVisible`·`inPageInnerOverflow`의 `.screen` 대안을 지운다 |
+| 검사 도구 | "확인한 것" 4의 SS8 줄: `눌림 반응`·움직임 정적 검사·`섬 버튼`·`ui-space.mjs`의 정적 검사와 legacy `.card`·`.screen` 갈래를 지운다. 지운 칸 이름을 DEV-RECORD에. `inPageLastVisible`·`inPageInnerOverflow`의 `.screen` 대안을 지운다. 빈 `KNOWN_FAILURES`·`applyKnownFailures`와 그 테스트도 지운다(개정 1 — 지운 테스트 이름을 DEV-RECORD에) |
 | 스캔 테스트 | "확인한 것" 3의 SS8 줄을 옮긴다. 한글 줄바꿈 규칙을 모으면서 깨지는 것도 같은 뜻으로 옮긴다: `scripts/rr5-wrap.test.mjs`(Day 선택 시트의 규칙)·`rr8.test.mjs`(시트 여덟의 이름 목록)·`rr9.test.mjs`(`.ax-summary` 선택자)·`v120.test.ts` RR9(요약의 `className` 이름 둘 — `ax-summary`가 빠지고 `ax-text-warning`만) → "`parts.css`의 한 규칙이 `.ax-screen`과 `dialog`를 덮는다". `scripts/legacy-scope.test.mjs`는 RRM·RR11 줄(유리 글자 없음, `color-scheme`) 가운데 아직 뜻이 있는 것을 `scripts/ss8.test.mjs`로 옮기고 파일을 지운다 |
 | `docs/ASTRYX-INVENTORY.md` | `--write` |
 | 기록 | `docs/DEV-RECORD-v1.21.md`, `package.json` **1.21.0** |
@@ -700,7 +707,7 @@ SS7 뒤 legacy 화면이 없다. 남는 것: `src/styles/`의 네 파일(`global
 | SS1 | `home` `session` `sheet-home` `diet` `settings` | `before`와 같은가(화면이 안 바뀌어야 한다). 새로 고침 직후 [변경]을 눌렀을 때 시트가 뜨는 한 장 |
 | SS2 | `diet` `diet-end` `diet-375` `diet-log-open` `diet-streak` `history-day` `history-detail-end` | 끼니 원형 버튼의 등급 표시가 다섯 색으로 구분되는가(다크·라이트), 품목 체크의 눌린 상태가 한눈에 보이는가, 먹은 것 줄의 시각·스테퍼·삭제가 한 줄에서 어긋나지 않는가(375), 식사 알림이 닫혀 있는가, 기록 화면 안의 편집기가 legacy 화면과 어색하게 섞이지 않는가 |
 | SS3 | `sheet-food` `sheet-food-new` `sheet-diet-plan` `sheet-diet-plan-ahead` `sheet-diet-slot` `sheet-diet-slot-edit` `sheet-diet-variant`(끝까지 스크롤) | 고른 줄(✓ 아이콘·선택 면)·라디오의 고른 상태, 하단 닫기 버튼이 다크에서 버튼으로 보이는가, 음식 목록의 스크롤 칸 끝, 긴 음식 이름, 375 |
-| SS4 | `history` `history-375` `history-day` `history-exercise` `history-exercise-detail` `history-detail` `history-detail-end` `history-detail-change` `history-detail-edit` | **달력 칸: 오늘·고른 날·🔥·식단 점이 서로 구분되는가**(v1.9의 "테두리 = 오늘·선택, 점 = 식단"), 다른 달의 칸이 흐린가, 세션 카드의 볼륨이 오른쪽에서 접히지 않는가, 기록 키가 카드 안에서 넘치지 않는가, Day 변경의 재매핑 표 |
+| SS4 | `history` `history-375` `history-day` `history-exercise` `history-exercise-detail` `history-detail` `history-detail-end` `history-detail-change` `history-detail-edit` | **달력 칸: 오늘·고른 날·🔥·식단 점이 서로 구분되는가**(v1.9의 "테두리 = 오늘·선택, 점 = 식단"), 날짜 글자 `N일`이 375 폭에서 칸 안에 들고 🔥과 겹치지 않는가(개정 2), 다른 달의 칸이 흐린가, 세션 카드의 볼륨이 오른쪽에서 접히지 않는가, 기록 키가 카드 안에서 넘치지 않는가, Day 변경의 재매핑 표 |
 | SS5 | `analyze` `analyze-end` `analyze-375` `analyze-empty` | 종목 줄의 가로 스크롤과 고른 종목, 차트 축·선 색(다크·라이트), 감각 점 네 단계가 구분되는가, 경고 배너 |
 | SS6 | `settings` `settings-375` `settings-open` `settings-end` `settings-routines*` `settings-gist` `settings-export-preview` `settings-reset-confirm` | **묶음 사이가 카드 사이보다 넓어 묶음이 읽히는가**, 소리·템포가 화면 둘째 장 안에 오는가, Phase·소리 크기의 선택 상태, 템포 스위치, 루틴 줄의 버튼이 한 줄, 미리보기 칸, 토큰 마스킹 |
 | SS7 | `onboarding` `onboarding-375` `onboarding-standalone` | 경고·준비 완료 배너, 단계 번호, 긴 주소가 카드 안에서 줄바꿈 |
@@ -761,6 +768,7 @@ SS7 뒤 legacy 화면이 없다. 남는 것: `src/styles/`의 네 파일(`global
 | 끼니 시트의 "어느 쪽이었나요" | ✓ 버튼 셋 | 라디오 셋 |
 | 기록 탭의 세션 줄·종목 줄 | 카드 하나 안의 줄 | 줄마다 누르는 카드 한 장 |
 | 기록 상세의 순서 | … 메모 → Day 변경 → 위험 구역 → 그날 식단 → 기록으로 | … 메모 → **그날 식단** → Day 변경 → 위험 구역 → 기록으로 |
+| 달력 칸의 보이는 날짜 | `17` | `17일`(개정 2 — 아래 접근성 이름과 낱말을 맞춘다) |
 | 달력 칸의 접근성 이름 | 보이는 글자(`17🔥2`) | `17일 운동 2회 식단 준수` 꼴 |
 | 식단 품목 "바꾸기"의 접근성 이름 | `{끼니} {품목} 다른 단백질원으로 바꾸기` | `바꾸기 — {끼니} {품목}, 다른 단백질원으로`(보이는 글자가 앞) |
 | 분석의 감각 점 | 이어진 불투명도 | 네 단계 불투명도(색·경계는 그대로) |
@@ -784,7 +792,7 @@ SS0의 `before`는 다른 작업 뒤에 못 찍는다. **SS1(분할)을 화면�
 - 커밋 개수는 실행 출력을 복사한다(`git log --oneline main..HEAD`). 커밋 메시지는 `git commit -F - <<'MSG'`.
 - **숫자:** 작업 커밋마다 `node scripts/astryx-inventory.mjs --check` 출력과 `node scripts/first-load.mjs` 출력(SS1부터)을 DEV-RECORD에 복사하고, `--write`한 표를 같은 커밋에 넣는다. 머리의 작업 표와 다르면 이유를 적는다.
 - **스캔 테스트** (v1.20 규칙 그대로): ① 판정·계산·내보내기를 재는 테스트(골든 포함)는 고치지 않는다 — 깨지면 멈추고 보고한다 ② `.tsx`를 글자로 읽는 스캔이 깨지면 먼저 코드 쪽에서 통과시킨다 ③ 마크업 글자에 묶여 통과시킬 수 없는 것만 같은 뜻으로 옮긴다(지우지 않는다). "확인한 것" 3에 없는 것을 옮기면 DEV-RECORD "옮긴 스캔" 표에 이름·전·후·같은 뜻인 이유 ④ `npm test`의 테스트 개수가 작업마다 줄지 않는다(SS8에서 지우는 검사 칸의 테스트만 예외 — 이름을 DEV-RECORD에).
-- **`ui-check` 종료 코드:** 작업 커밋마다 `node scripts/ui-check.mjs after --check --ver=v1.21; echo "종료 코드 $?"`의 마지막 줄이 `종료 코드 0`. `장면 실패`가 하나라도 있으면 0이 아니다(SS0). "전부터 있던 실패"로 넘기는 칸은 없다 — 멈추고 보고한다. 장면이 늘어 한 번에 10분을 넘으면 `--only`로 나눠 백그라운드로 돌리고(DEV-RECORD 제약 17·32) 나눈 실행의 종료 코드를 전부 적는다.
+- **`ui-check` 종료 코드:** 작업 커밋마다 `node scripts/ui-check.mjs after --check --ver=v1.21; echo "종료 코드 $?"`의 마지막 줄이 `종료 코드 0`. `장면 실패`가 하나라도 있으면 0이 아니다(SS0). "전부터 있던 실패"로 넘기는 칸은 SS0 `KNOWN_FAILURES`의 이름 붙은 세 칸(상세 글자까지 같을 때만, SS5·SS6까지 — 개정 1) 말고는 없다 — 그 밖의 실패는 멈추고 보고한다. 목록에 칸을 더하지 않는다. 출력의 `알려진 실패 N건`을 종료 코드와 함께 DEV-RECORD에 적는다(SS0 고침~SS4: 3, SS5: 2, SS6 뒤: 0). 장면이 늘어 한 번에 10분을 넘으면 `--only`로 나눠 백그라운드로 돌리고(DEV-RECORD 제약 17·32) 나눈 실행의 종료 코드를 전부 적는다.
 - 파일 편집은 Edit 도구로, 커밋 전 `grep -c $'\r' <파일>`로 CRLF가 없는지 본다(제약 17·30).
 - **새 스캔 결함 복원 확인:** `cp` 백업 뒤 결함을 되살려 실패를 보고 되돌린다(`cmp`로 같음 확인). 최소:
   ① (SS1) `App.tsx`에서 `DietScreen`을 다시 정적 import로 → `v121` SS1 실패
@@ -798,7 +806,7 @@ SS0의 `before`는 다른 작업 뒤에 못 찍는다. **SS1(분할)을 화면�
   ⑨ (SS3) 끼니 시트를 `purpose="info"`로 → `v121` SS3 실패 + 흐름 `입력 중 막 누름` 실패
   ⑩ (SS3) `SheetFrame.tsx`를 되살린다 → `v121` SS3 실패
   ⑪ (SS4) 기록 상세에서 `<DietDayEditor`를 위험 구역 아래로 → `v121` SS4 순서 실패
-  ⑫ (SS4) `cellLabel`이 날짜를 뒤에 붙이게 → 속성 테스트 실패 + 흐름 `달력 칸 이름` + 접근성(`label-content-name-mismatch`) 실패
+  ⑫ (SS4) `cellLabel`이 날짜를 뒤에 붙이게 → 속성 테스트 실패 + 흐름 `달력 칸 이름` 실패. 접근성(`label-content-name-mismatch`)은 이 결함을 **못 잡는다** — 보이는 글자 `17일`이 이름 뒤로 가도 낱말로 들어 있다(axe는 낱말이 들어 있는지만 본다, 개정 2)
   ⑬ (SS4) 세션 카드 하나를 `Card` + 안쪽 `ListItem`으로 → `안쪽 대칭` 실패(카드 위·아래)
   ⑭ (SS5) `chartTheme.ts`의 `accent`를 `--accent`로 되돌린다 → `v121` SS5 실패
   ⑮ (SS5) `sensoryDot`의 경계를 `< 1`로 → `v121` SS5 실패
@@ -810,6 +818,8 @@ SS0의 `before`는 다른 작업 뒤에 못 찍는다. **SS1(분할)을 화면�
   ㉑ (SS8) `.tsx` 하나에 `className="zz-none"`(어느 CSS에도 없는 이름) → `astryx-inventory --check` 실패(정의 없는 클래스 0 → 1). `src/styles/global.css`를 빈 파일로 되살린다 → 실패("legacy CSS가 되살아났다")
   ㉒ (SS8) `parts.css`의 한글 줄바꿈 규칙을 지운다 → 390·375 꺾임 흐름이 여러 장면에서 실패
   ㉓ (SS8) `layers.css` import를 `astryx.css` 뒤로 → `scripts/ss8.test.mjs` 실패 + `--same-layout` 실패(층 순서가 바뀌면 리셋이 Astryx를 이긴다 — 안 깨지면 DEV-RECORD에 "이 검사가 못 잡는다"를 적고 정적 스캔만 남긴다)
+  ㉔ (SS0 고침, 개정 1) `KNOWN_FAILURES`의 `analyze-empty` 항목 `detail`에서 한 글자를 바꾼다 → 그 칸 `실패`, 종료 코드 1. 넷째 항목(`settings-gist`·`접근성`)을 더한다 → `scripts/ss0.test.mjs` "목록은 늘지 않는다" 실패
+  ㉕ (SS5, 개정 1) 분석을 고친 뒤 `analyze-empty` 항목을 남긴다 → `알려진 실패가 고쳐졌다` 실패, 종료 코드 1
 - **과거 판정 불변 확인 절**(DEV-RECORD): ① `git diff --stat main..HEAD -- src/db src/store` 출력이 비어 있다(복사) ② `git diff --stat main..HEAD -- src/lib` 출력(복사)에 판정 파일이 없다 — `chartTheme.ts`·테스트뿐 ③ 골든 테스트 수정 없이 통과 ④ 달라지는 것: "과거 판정 불변" 표.
 - **변이 테스트:** SS5 커밋에서 `npm run mutation`(대상 `chartTheme.ts`) 표를 DEV-RECORD에. 다른 작업은 `src/lib`의 코드를 안 고쳐 대상이 없다 — "대상 없음"과 `git diff --stat` 근거.
 - 완료 후 `docs/DEV-RECORD-v1.21.md`(맨 위 "이 환경에서 확인된 제약"은 v1.20 목록을 이어받고 새로 확인한 것을 더한다: `TimeInput presentation="native"`가 이 Chromium에서 어떻게 그려지는지, `lazy` 시트의 첫 열기 시간, 미리 읽기가 요청하는 청크 이름, `first-load`·`first-screen`의 전·후 값, precache 개수·KiB, 옮긴 스캔 표, 지운 검사 칸). "배포 영향" 절에 아래를 남기고 PR 본문 맨 위에도 넣는다:
@@ -847,7 +857,7 @@ SS0의 `before`는 다른 작업 뒤에 못 찍는다. **SS1(분할)을 화면�
 - **기록 탭:** 세션 목록과 종목 목록이 줄마다 누르는 카드 한 장이 된다. **기록 상세에서 "그날 식단"이 Day 변경·위험 구역 위로 올라온다**(고치는 것을 위에, 관리를 맨 아래에 — 삭제 버튼 아래에 입력칸이 오지 않게).
 - **분석 탭:** 순서·차트 그대로. 감각 점의 진하기가 이어진 값에서 네 단계로 바뀐다(인라인 스타일을 없애려고 — 색과 경계는 그대로).
 - **설정 탭:** 카드 14장을 묶음으로 나눈다 — 훈련 → **소리·템포**(헬스장에서 바꾸는 것을 위로) → 기록 내보내기·백업 → 루틴·식단 파일 → 진단 → 위험 구역. 새로 보이는 묶음 제목: `훈련`, `소리·템포`, `기록 내보내기·백업`, `루틴·식단 파일`. 템포 가이드 "사용 / 사용 안 함" 버튼 둘이 스위치 하나 `템포 가이드 사용`이 된다.
-- **접근성 이름이 둘 바뀐다:** ① 기록 달력의 칸: 보이는 글자(`17🔥2`) → `17일 운동 2회 식단 준수` 꼴(식단 점은 `준수`·`일부`·`미달`·`판정 전`) ② 식단 품목의 바꾸기 버튼: `점심 닭가슴살 다른 단백질원으로 바꾸기` → `바꾸기 — 점심 닭가슴살, 다른 단백질원으로`(보이는 글자 `바꾸기`가 앞에 와야 한다는 접근성 규칙 때문). 그 밖의 화면 글자는 그대로다(▾·‹ 같은 기호가 아이콘으로 바뀌는 것 말고).
+- **접근성 이름이 둘 바뀐다:** ① 기록 달력의 칸: 보이는 글자(`17🔥2`) → `17일 운동 2회 식단 준수` 꼴(식단 점은 `준수`·`일부`·`미달`·`판정 전`) ② 식단 품목의 바꾸기 버튼: `점심 닭가슴살 다른 단백질원으로 바꾸기` → `바꾸기 — 점심 닭가슴살, 다른 단백질원으로`(보이는 글자 `바꾸기`가 앞에 와야 한다는 접근성 규칙 때문). 같은 규칙 때문에 기록 달력 칸의 보이는 날짜가 `17` → `17일`이 된다(개정 2 — 사람이 정했다). 그 밖의 화면 글자는 그대로다(▾·‹ 같은 기호가 아이콘으로 바뀌는 것 말고).
 - 식단 시트(플랜·단백질원·끼니)에서 고르면 시트가 바로 사라지지 않고 **내려가며 닫힌다.** 끼니 시트와 먹은 것 추가 시트는 입력 도중 막을 눌러도 닫히지 않는다(세션 시트와 같은 규칙).
 - 인벤토리의 "Astryx를 안 읽는 화면 파일"에서 `main.tsx`(진입점)와 `icons.tsx`(앱의 SVG 그림 — Astryx에 불꽃·식기·저울 같은 그림이 없다)를 뺀다. 그래서 그 숫자가 23에서 21로 시작한다. 숨기지 않고 표에 `제외`로 남긴다.
 - 끝나면 `src/styles/` 폴더가 없어진다. 앱의 CSS는 Astryx와 `src/ax`의 두 파일(`ax.css`·`parts.css`)뿐이고, 인벤토리가 되살아나지 않게 지킨다.
@@ -872,3 +882,27 @@ SS0의 `before`는 다른 작업 뒤에 못 찍는다. **SS1(분할)을 화면�
 **기각:** 없음.
 
 **"사람이 정할 것":** 0건 그대로. "알려 둘 것"에 두 검토자 모두 반대가 없다(Antigravity는 식사 알림 접힘·기록 상세 식단 위치·설정 묶음·템포 스위치에 명시적으로 동의). 그대로 확정한다.
+
+### 검토 반영 기록 — 개정 1
+
+근거: `.reports/review-SS0.md` "SS1 전에 정할 것"(지휘자 → 설계자). DEV-RECORD SS0 표의 실패 셋과 `scripts/ui-check.mjs`(`softVerdict`·`printResults`·`SYMMETRY_JUDGED`)를 열어 확인했다.
+
+| 선택지 | 판단 | 이유 |
+|---|---|---|
+| (a) 세 칸을 SS1에서 고친다 | 기각 | 고칠 자리(`p.center-note`의 여백, 미리보기 `pre`, `.ext-link`의 눌림)가 전부 legacy 마크업·CSS라 SS5·SS6이 통째로 다시 짜며 버린다. 눌림 반응을 legacy로 고치려면 `global.css`에 규칙을 더해야 해 CI의 Astryx 뒷걸음 검사와 부딪친다. SS1(분할)에 분석·설정 화면 수정이 섞여 "작업끼리 한 커밋에 섞지 않는다"도 깨진다. v1.20 개정 3이 허용 목록 없이 바로 고친 것은 고친 결과(접근성 이름)가 남는 경우였다 — 여기는 버릴 일이다 |
+| **(b) 이름 붙은 세 칸만 알려진 실패** | **채택** | 칸을 `(행 이름, 칸, 상세 글자)`로 못박아 같은 칸의 새 실패(다른 규칙·다른 값·장면 실패)도 바로 `실패`다. 목록은 테스트가 세 쌍의 부분집합으로 묶어 늘지 않고, 고친 뒤 남긴 항목은 `stale`로 실패해 SS5·SS6이 같은 커밋에서 줄인다. SS8이 빈 목록과 함수를 지운다 |
+| (c) 옮기기 전 화면의 그 칸을 `기록만` | 기각 | `SYMMETRY_JUDGED`처럼 장면 단위로 끄면 분석·설정 장면의 `접근성`·`눌림 반응`·`여백 격자`가 SS5·SS6까지 통째로 안 잰다. SS1~SS4가 그 장면에 새 실패를 만들어도(예: SS1의 지연 읽기가 분석 화면에 남긴 접근성 위반) 못 잡는다 |
+
+**SS0 커밋(`858816d`)은 고치지 않는다.** 알려진 실패는 SS0 리뷰 반려를 반영하는 고침 커밋에 함께 넣는다.
+
+### 검토 반영 기록 — 개정 2
+
+근거: `.reports/review-SS4.md` 3절(사람에게 묻는 것)과 5절(경미한 점). 사람의 답: **선택지 1** — 보이는 글자 `17일`, 이름 `{d}일 …`. `src/components/MonthCalendar.tsx:22`(`cellLabel`)·`:111`(`<span className="ax-cal-num">{dayNum}일</span>`)과 `src/lib/v121.test.ts:276-300`가 이미 이 꼴이라 코드·테스트는 그대로 맞는다.
+
+| 지적 | 판단 | 고친 곳 |
+|---|---|---|
+| 3절: PLAN의 "보이는 글자는 숫자만"과 axe 낱말 비교가 함께 성립하지 않는다 | **반영**(사람 결정) — 설계를 보이는 글자 `17일`로. 칸 이름 규칙·속성(`${날짜}일`로 시작)·흐름 ②는 결정과 맞아 그대로 | SS4 설계 세 줄, 화면 검증 SS4, 화면 변화 표, "알려 둘 것" |
+| 5절-3: ⑫의 예상에 "접근성 실패"가 있지만 보이는 글자가 `17일`이면 axe가 못 잡는다 | **반영** | 결함 복원 ⑫ |
+| 5절-1(DEV-RECORD의 `--same-layout` 실행 줄), 5절-7(들여쓰기·주석 열) | PLAN 밖 — 구현자가 다음 커밋에서 맞춘다. PLAN은 이미 그 검증을 요구한다 | — |
+| 5절-2(`SS4 검증 <장면>` 흐름이 늘 `ok`), 5절-5(`SS4 다른 달`이 판정 안 함), 5절-6(history의 `가까움 순서` 사실상 안 잼) | PLAN 밖 — 검사 도구의 판정 방식이다. SS8 검사 정리 때 다룬다(범위 그대로) | — |
+| 5절-4(`parts.css`가 `Button` 안쪽 `span` 구조에 기댐, 글자 크기 rem 숫자) | PLAN 밖 — 코드의 모양 문제다. 설계 원칙(값은 테마가 정한다)은 이미 이 PLAN에 있어 바꿀 문장이 없다 | — |

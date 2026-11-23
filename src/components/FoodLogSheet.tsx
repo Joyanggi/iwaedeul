@@ -10,10 +10,11 @@ import {
   type CatalogFood,
   type FoodInput,
 } from '../lib/foods'
-import { NO_AUTOFILL } from '../lib/inputProps'
 import { mutateUserFoods } from '../lib/useDiet'
 import type { DietDay, DietPlan, Food, FoodLogEntry } from '../types'
-import { SheetFrame } from './SheetFrame'
+import { Button, Heading, HStack, List, ListItem, Sheet, Text, TextField, VStack } from '../ax'
+import { TimeField } from '../ax/diet'
+import { ScrollableArea } from '../ax/scroll'
 
 /**
  * "먹은 것 추가" 시트 (MM2).
@@ -127,186 +128,143 @@ export default function FoodLogSheet({
   }
 
   return (
-    <SheetFrame label="먹은 것 추가" onClose={onClose}>
+    <Sheet label="먹은 것 추가" purpose="form" onClose={onClose}>
       {(dismiss) => (
-        <>
-          <div className="card-label">먹은 것 추가</div>
+        <VStack gap={5} paddingBlockEnd={3}>
+          <Heading level={2}>먹은 것 추가</Heading>
 
           {draft ? (
-            <>
-              <div className="card-label mt-row">
-                {draft.editingId ? '음식 수정' : '새 음식 등록'}
-              </div>
-              <input
-                {...NO_AUTOFILL}
-                className="field"
+            <VStack gap={3}>
+              <Heading level={3}>{draft.editingId ? '음식 수정' : '새 음식 등록'}</Heading>
+              <TextField
+                label="음식 이름"
+                isLabelHidden
                 value={draft.name}
-                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                onChange={(v) => setDraft({ ...draft, name: v })}
                 placeholder="이름 (예: 서브웨이 터키)"
-                aria-label="음식 이름"
               />
-              <input
-                {...NO_AUTOFILL}
-                className="field mt-row"
-                
+              <TextField
+                label="분량"
+                isLabelHidden
                 value={draft.qty}
-                onChange={(e) => setDraft({ ...draft, qty: e.target.value })}
+                onChange={(v) => setDraft({ ...draft, qty: v })}
                 placeholder="분량 (예: 15cm, 1개)"
-                aria-label="분량"
               />
-              <div className="btn-row mt-row">
-                <input
-                  {...NO_AUTOFILL}
-                  className="field"
+              <HStack gap={2}>
+                <TextField
+                  label="칼로리"
+                  isLabelHidden
                   inputMode="decimal"
                   value={draft.kcal}
-                  onChange={(e) => setDraft({ ...draft, kcal: e.target.value })}
+                  onChange={(v) => setDraft({ ...draft, kcal: v })}
                   placeholder="kcal (1개 기준)"
-                  aria-label="칼로리"
                 />
-                <input
-                  {...NO_AUTOFILL}
-                  className="field"
+                <TextField
+                  label="단백질"
+                  isLabelHidden
                   inputMode="decimal"
                   value={draft.proteinG}
-                  onChange={(e) => setDraft({ ...draft, proteinG: e.target.value })}
+                  onChange={(v) => setDraft({ ...draft, proteinG: v })}
                   placeholder="단백질 g"
-                  aria-label="단백질"
                 />
-              </div>
-              <p className="row-sub">영양값을 비워 두면 “영양 미입력”으로 기록됩니다.</p>
+              </HStack>
+              <Text type="supporting" color="secondary">영양값을 비워 두면 “영양 미입력”으로 기록됩니다.</Text>
               {draft.name.trim() !== '' && problems.length > 0 && (
-                <p className="row-sub" style={{ color: 'var(--danger)' }}>
+                <Text type="supporting" className="ax-text-error">
                   {problems.join(' · ')}
-                </p>
+                </Text>
               )}
-              <div className="btn-row mt-row">
-                <button className="btn" onClick={() => setDraft(null)}>
-                  취소
-                </button>
+              <HStack gap={2} wrap="wrap">
+                <Button variant="secondary" label="취소" onClick={() => setDraft(null)} />
                 {draft.editingId ? (
-                  <button
-                    className="btn btn-primary"
-                    disabled={problems.length > 0}
-                    onClick={() => save(false)}
-                  >
-                    저장
-                  </button>
+                  <Button variant="primary" label="저장" isDisabled={problems.length > 0} onClick={() => save(false)} />
                 ) : (
                   <>
-                    <button className="btn" disabled={problems.length > 0} onClick={() => save(false)}>
-                      등록
-                    </button>
-                    <button
-                      className="btn btn-primary"
-                      disabled={problems.length > 0 || noTime}
+                    <Button variant="secondary" label="등록" isDisabled={problems.length > 0} onClick={() => save(false)} />
+                    <Button
+                      variant="primary"
+                      label="등록하고 추가"
+                      isDisabled={problems.length > 0 || noTime}
                       onClick={() => save(true)}
-                    >
-                      등록하고 추가
-                    </button>
+                    />
                   </>
                 )}
-              </div>
+              </HStack>
               {!draft.editingId && noTime && (
-                <p className="row-sub">먹은 시각을 먼저 골라 주세요</p>
+                <Text type="supporting" color="secondary">먹은 시각을 먼저 골라 주세요</Text>
               )}
-              {draft.editingId && (
-                <div className="mt-row">
-                  {confirmRemove ? (
-                    <>
-                      <p className="row-sub" style={{ color: 'var(--danger)' }}>
-                        목록에서 지웁니다. 이미 적은 먹은 것 기록은 그대로입니다.
-                      </p>
-                      <div className="btn-row">
-                        <button className="btn btn-sm" onClick={() => setConfirmRemove(false)}>
-                          취소
-                        </button>
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => {
-                            mutateUserFoods((foods) => applyRemoveFood(foods, draft.editingId!))
-                            setDraft(null)
-                            setConfirmRemove(false)
-                          }}
-                        >
-                          정말 삭제
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <button className="btn btn-sm btn-danger" onClick={() => setConfirmRemove(true)}>
-                      목록에서 삭제
-                    </button>
-                  )}
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <label className="row-sub" htmlFor="food-log-time">
-                먹은 시각
-              </label>
-              <input
-                {...NO_AUTOFILL}
-                id="food-log-time"
-                className="field"
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                aria-label="먹은 시각"
-              />
-              {noTime && <p className="row-sub">먹은 시각을 먼저 골라 주세요</p>}
-              {last && <p className="row-sub">방금 추가: {last}</p>}
-              <input
-                {...NO_AUTOFILL}
-                className="field mt-row"
-                
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="음식 검색"
-                aria-label="음식 검색"
-              />
-
-              <div className="check-list mt-row" style={{ maxHeight: '40vh', overflowY: 'auto' }}>
-                {shown.map((f) => (
-                  <div className="diet-item-group" key={`${f.source}:${foodKey(f.name, f.qty)}`}>
-                    <button
-                      className="diet-item"
-                      disabled={noTime}
-                      onClick={() => add(f)}
-                    >
-                      <span>
-                        {f.name} <span className="row-sub">{f.qty}</span>
-                        {f.source === 'plan' && <span className="row-sub"> 플랜</span>}
-                      </span>
-                      <span className="row-sub">{nutritionText(f.kcal, f.proteinG)}</span>
-                    </button>
-                    {f.source === 'user' && (
-                      <button
-                        className="diet-variant-btn"
-                        aria-label={`${f.name} 편집`}
-                        onClick={() => edit(f)}
-                      >
-                        편집
-                      </button>
-                    )}
-                  </div>
+              {draft.editingId &&
+                (confirmRemove ? (
+                  <VStack gap={2}>
+                    <Text type="supporting" className="ax-text-error">
+                      목록에서 지웁니다. 이미 적은 먹은 것 기록은 그대로입니다.
+                    </Text>
+                    <HStack gap={2} wrap="wrap">
+                      <Button variant="secondary" label="취소" onClick={() => setConfirmRemove(false)} />
+                      <Button
+                        variant="destructive"
+                        label="정말 삭제"
+                        onClick={() => {
+                          mutateUserFoods((foods) => applyRemoveFood(foods, draft.editingId!))
+                          setDraft(null)
+                          setConfirmRemove(false)
+                        }}
+                      />
+                    </HStack>
+                  </VStack>
+                ) : (
+                  <Button variant="destructive" label="목록에서 삭제" onClick={() => setConfirmRemove(true)} />
                 ))}
-                {shown.length === 0 && <p className="row-sub">맞는 음식이 없습니다.</p>}
-              </div>
+            </VStack>
+          ) : (
+            <VStack gap={3}>
+              <TimeField label="먹은 시각" value={time} onChange={(v) => setTime(v ?? '')} />
+              {noTime && <Text type="supporting" color="secondary">먹은 시각을 먼저 골라 주세요</Text>}
+              {last && <Text type="supporting" color="secondary">방금 추가: {last}</Text>}
+              <TextField
+                label="음식 검색"
+                isLabelHidden
+                value={query}
+                onChange={setQuery}
+                placeholder="음식 검색"
+              />
 
-              <p className="row-sub">플랜에서 체크한 음식을 여기에도 적으면 합계에 두 번 들어갑니다.</p>
-              <button className="btn" onClick={() => setDraft({ ...EMPTY_DRAFT })}>
-                새 음식 등록
-              </button>
-            </>
+              <ScrollableArea axis="block" height="40vh" label="음식 목록">
+                <List>
+                  {shown.map((f) => (
+                    <ListItem
+                      key={`${f.source}:${foodKey(f.name, f.qty)}`}
+                      isDisabled={noTime}
+                      label={`${f.name} ${f.qty}`}
+                      description={
+                        <Text color="secondary" textWrap="wrap">
+                          {f.source === 'plan' ? '플랜 · ' : ''}
+                          {nutritionText(f.kcal, f.proteinG)}
+                        </Text>
+                      }
+                      /* 음식 줄에 aria-label을 주지 않는다 — 보이는 글자가 이름이다 (v1.20 RRM 보완) */
+                      endContent={
+                        f.source === 'user' ? (
+                          <Button variant="ghost" size="sm" label="편집" aria-label={`편집 — ${f.name}`} onClick={() => edit(f)} />
+                        ) : null
+                      }
+                      onClick={() => add(f)}
+                    />
+                  ))}
+                </List>
+                {shown.length === 0 && <Text color="secondary">맞는 음식이 없습니다.</Text>}
+              </ScrollableArea>
+
+              <Text type="supporting" color="secondary">
+                플랜에서 체크한 음식을 여기에도 적으면 합계에 두 번 들어갑니다.
+              </Text>
+              <Button variant="secondary" label="새 음식 등록" onClick={() => setDraft({ ...EMPTY_DRAFT })} />
+            </VStack>
           )}
 
-          <button className="btn mt-row" onClick={dismiss}>
-            닫기
-          </button>
-        </>
+          <Button variant="secondary" width="100%" label="닫기" onClick={dismiss} />
+        </VStack>
       )}
-    </SheetFrame>
+    </Sheet>
   )
 }

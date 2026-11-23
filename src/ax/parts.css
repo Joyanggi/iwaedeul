@@ -1,7 +1,7 @@
 /*
  * 이 앱만의 부품(띠, 요일 점, 세트 행, 템포 무대)의 CSS를 두는 한 곳 (v1.20 RR3).
  * 색 리터럴 0건. 길이는 Astryx 토큰(`--spacing-*`)·`%`·`1px`(선)·`0`·`env()`·`rem`·`100dvh`만 쓴다 — v120 스캔이 지킨다.
- * 클래스 이름은 `ax-`로 시작한다(예외: RR7의 `set-row*`, 식단 편집 줄의 legacy 요소 둘 `.btn-row:has(> .ax-scope) > input[type='time']`·`> .btn-danger`).
+ * 클래스 이름은 `ax-`로 시작한다(예외: RR7의 `set-row*`).
  */
 @layer astryx-theme {
   /*
@@ -174,31 +174,11 @@
     outline-offset: 0;
   }
   /*
-   * Day 선택 시트의 글은 단어(공백) 사이에서만 줄을 바꾼다 (RR5 재검증).
-   * 한글은 기본이 음절 단위 줄바꿈이라 375 폭에서 부제가 "기록 없/음"처럼 글자 중간에서 꺾였다.
-   * Astryx `Text`의 `wordBreak`는 `break-word`·`break-all`만 받아 `keep-all`을 못 넘기고, `Sheet`는 className을 안 받는다.
-   * 그래서 시트 이름(aria-label)으로 좁혀 여기서 건다. 한 단어가 줄보다 길 때만 `anywhere`로 끊어 넘치지 않게 한다.
+   * 한글은 단어(공백) 사이에서만 줄을 바꾼다 — 앱 전체 한 규칙(화면 틀 `.ax-screen`과 시트 `dialog`).
+   * 한글은 기본이 음절 단위 줄바꿈이라 375 폭에서 "기/록"·"0/점"처럼 글자 중간에서 꺾인다.
+   * Astryx `Text`의 `wordBreak`는 `break-word`·`break-all`만 받아 `keep-all`을 못 넘긴다. 한 단어가 줄보다 길 때만 `anywhere`로 끊어 넘치지 않게 한다.
    */
-  dialog[aria-label='Day 선택'] :is(p, span, div) {
-    word-break: keep-all;
-    overflow-wrap: anywhere;
-  }
-
-  /*
-   * 세션이 여는 시트 여덟의 글도 같은 규칙이다(RR8) — 시트 이름(aria-label)으로 좁힌다.
-   * 제목(h1·h2)까지 건다: 긴 종목 이름이 든 제목이 "대/체"처럼 글자 중간에서 꺾이지 않게.
-   */
-  dialog:is(
-      [aria-label='세션 종료'],
-      [aria-label='종목 추가'],
-      [aria-label='휴식 타이머'],
-      [aria-label='대체운동 선택'],
-      [aria-label='보상작용 입력'],
-      [aria-label='보상작용 반복 — 무게 하향'],
-      [aria-label='무게 단위 설정'],
-      [aria-label='템포 가이드']
-    )
-    :is(p, span, div, h1, h2) {
+  :is(.ax-screen, dialog) :is(p, span, div, h1, h2, h3, li) {
     word-break: keep-all;
     overflow-wrap: anywhere;
   }
@@ -271,24 +251,226 @@
     color: var(--color-text-warning);
   }
 
+  /* 오류·성공 글자색(SS2) — 같은 이유로 같은 세 겹 */
+  .ax-text-error.ax-text-error.ax-text-error {
+    color: var(--color-text-error);
+  }
+
+  .ax-text-success.ax-text-success.ax-text-success {
+    color: var(--color-text-success);
+  }
+
+  /* 끼니 원형 버튼 안의 표시 글자(○◔◐◕●✗) — 등급 여섯의 색. 원형 버튼의 면은 Astryx ToggleButton의 것 */
+  .ax-slot-mark[data-grade='full'],
+  .ax-slot-mark[data-grade='high'] {
+    color: var(--color-text-success);
+  }
+
+  .ax-slot-mark[data-grade='mid'] {
+    color: var(--color-accent);
+  }
+
+  .ax-slot-mark[data-grade='low'] {
+    color: var(--color-text-warning);
+  }
+
+  .ax-slot-mark[data-grade='zero'] {
+    color: var(--color-text-error);
+  }
+
+  .ax-slot-mark[data-grade='none'] {
+    color: var(--color-text-secondary);
+  }
+
   /*
-   * 스테퍼(NumberStepper)는 스스로 섬이다(`ax-scope`). 줄 안에서 남는 폭을 나눠 쓰되 입력칸의 고유 폭이 줄을 밀어내지 않게
-   * 줄어들 수 있어야(min-width 0) 한다. 세트 행에서는 열이, 식단 편집에서는 .btn-row 줄이 폭을 준다.
+   * 기록 달력 (SS4 — Astryx `Calendar`는 칸에 내용을 못 넣는다). 요일 머리와 칸이 같은 7열 정의를 읽는다.
+   * 칸의 버튼 모양·눌림·포커스 링은 Astryx `Button`의 것이고, 여기는 안의 배치와 상태 색만 정한다.
+   * 역할을 나눈다: 테두리 = 오늘 / 면 = 고른 날 / 🔥 = 운동 / 점 = 식단(강조색을 안 쓴다 — 강조색은 내비게이션 상태의 색이다).
    */
-  .set-row > .ax-scope {
+  .ax-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    row-gap: var(--spacing-1);
+    column-gap: 0;
+    text-align: center;
+  }
+
+  .ax-cal-cell {
+    box-sizing: border-box;
+    min-width: 0;
+    position: relative;
+    min-height: var(--spacing-12);
+    padding-inline: 0;
+    border: 1px solid transparent;
+  }
+
+  /* Button이 children을 감싸는 안쪽 span — 날짜 글자를 칸 가운데에 둔다(🔥은 위, 점은 아래에 떠 있어 날짜의 자리가 칸마다 같다) */
+  .ax-cal-cell span:has(> .ax-cal-num) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .ax-cal-cell[data-out] {
+    opacity: 0.5;
+  }
+
+  .ax-cal-cell[data-today] {
+    border-color: var(--color-accent);
+  }
+
+  .ax-cal-cell[data-selected] {
+    background: var(--color-accent-muted);
+  }
+
+  .ax-cal-num {
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .ax-cal-flame {
+    position: absolute;
+    top: var(--spacing-1);
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.75rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .ax-cal-flame::before {
+    content: '🔥';
+  }
+
+  /* 같은 날 세션이 둘 이상이면 🔥 옆에 수 */
+  .ax-cal-flame:not([data-sessions='1'])::after {
+    content: attr(data-sessions);
+    font-size: 0.5625rem;
+    font-weight: 700;
+    color: var(--color-accent);
+  }
+
+  .ax-cal-dot {
+    position: absolute;
+    bottom: var(--spacing-1);
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(var(--spacing-1) * 1.5);
+    height: calc(var(--spacing-1) * 1.5);
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .ax-cal-dot[data-diet='good'] {
+    background: var(--color-success);
+  }
+
+  .ax-cal-dot[data-diet='mid'] {
+    background: var(--color-warning);
+  }
+
+  .ax-cal-dot[data-diet='poor'] {
+    background: var(--color-error);
+  }
+
+  /* 기록은 있으나 판정 보류 (X2) — 준수도가 아니라 "아직 판정 안 함" */
+  .ax-cal-dot[data-diet='partial'] {
+    background: var(--color-text-secondary);
+  }
+
+  /* 줄 끝에서 하이픈·가운뎃점 뒤로 갈라지면 안 되는 표기(템포 3-1-1-1, 스위치·볼륨·출력) — 설정의 안내 글 안에서 쓴다 */
+  .ax-nowrap {
+    white-space: nowrap;
+  }
+
+  /*
+   * 온보딩 주소 조각: 조각은 안 쪼개지고('/' 뒤에서만 줄이 바뀐다) 카드보다 긴 조각만 조각 안에서 꺾인다.
+   * nowrap은 overflow-wrap을 막아 긴 조각이 카드 밖으로 잘리니, 주소 조각은 inline-block + anywhere로 바꾼다.
+   */
+  .ax-screen .ax-address-part {
+    display: inline-block;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+  }
+
+  /*
+   * 분석 차트 틀(recharts의 ResponsiveContainer가 부모 폭을 재므로 넘침을 막는다). 축 숫자가 카드 안쪽 왼쪽 끝에 닿게 한 단계 왼쪽으로 당긴다.
+   * recharts가 그리는 SVG의 클래스(.recharts-surface)는 우리가 못 붙이니 여기서 맞춘다.
+   */
+  .ax-chart {
+    margin-inline-start: calc(-1 * var(--spacing-1));
+    overflow: hidden;
+  }
+
+  .ax-chart .recharts-surface {
+    overflow: visible;
+  }
+
+  /* 종목 고르기 줄: 종목이 많으면 가로로 스크롤한다(줄바꿈되면 카드가 세로로 길어진다). 버튼은 줄어들거나 글자가 꺾이지 않는다 */
+  .ax-chips > * {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* 감각 점수 점 줄: 주마다 점 하나, 폭을 똑같이 나눈다. 색 계열은 data-tone, 불투명도는 data-level(0~3) 네 단계 */
+  .ax-sdots {
+    display: flex;
+    gap: var(--spacing-1);
+  }
+
+  .ax-sdot {
+    flex: 1;
+    min-width: var(--spacing-1);
+    height: var(--spacing-3);
+    border-radius: var(--radius-inner);
+  }
+
+  .ax-sdot[data-tone='none'] {
+    background: var(--color-border);
+  }
+
+  .ax-sdot[data-tone='warn'] {
+    background: var(--color-text-warning);
+  }
+
+  .ax-sdot[data-tone='accent'] {
+    background: var(--color-accent);
+  }
+
+  .ax-sdot[data-tone='ok'] {
+    background: var(--color-text-success);
+  }
+
+  .ax-sdot[data-level='0'] {
+    opacity: 0.4;
+  }
+
+  .ax-sdot[data-level='1'] {
+    opacity: 0.6;
+  }
+
+  .ax-sdot[data-level='2'] {
+    opacity: 0.8;
+  }
+
+  .ax-sdot[data-level='3'] {
+    opacity: 1;
+  }
+
+  /*
+   * 스테퍼(NumberStepper, `ax-stepper`)는 줄 안에서 남는 폭을 나눠 쓰되 입력칸의 고유 폭이 줄을 밀어내지 않게
+   * 줄어들 수 있어야(min-width 0) 한다. 세트 행에서는 열이 폭을 준다(식단 편집 줄은 HStack이다).
+   */
+  .set-row > .ax-stepper {
     min-width: 0;
   }
 
-  /* 식단 편집 줄: 남는 폭을 나눠 쓰되 단추 둘과 숫자 칸이 들어갈 만큼(36px 둘 + 숫자 칸)은 줄지 않는다 */
-  .btn-row > .ax-scope {
-    flex: 1;
-    min-width: calc(2 * var(--spacing-9) + var(--spacing-12));
-  }
-
-  .set-row > .ax-scope > :nth-child(2),
-  .btn-row > .ax-scope > :nth-child(2),
-  .set-row > .ax-scope input,
-  .btn-row > .ax-scope input {
+  .set-row > .ax-stepper > :nth-child(2),
+  .set-row > .ax-stepper input {
     min-width: 0;
   }
 
@@ -316,17 +498,6 @@
     border: 1px solid var(--color-border-emphasized);
   }
 
-  /* 요약(RR9): 한글이 "0세/트"처럼 글자 중간에서 꺾이던 것(375 폭)을 단어 사이에서만 꺾는다. 한 단어가 줄보다 길 때만 anywhere */
-  .ax-summary :is(p, span, div, h1, h2) {
-    word-break: keep-all;
-    overflow-wrap: anywhere;
-  }
-
-  .ax-tip :is(p, span, div) {
-    word-break: keep-all;
-    overflow-wrap: anywhere;
-  }
-
   /*
    * 켜고 끄는 글자 버튼(감각 점수·통증, RR7 재검증). 안 눌렸을 때도 "+ 세트" 알약처럼 바탕과 테두리가 보이고,
    * 눌리면 더 진한 바탕과 굵은 글씨로 구분한다. 높이는 36px 이상.
@@ -344,17 +515,6 @@
     background: var(--color-accent-muted);
     border-color: var(--color-accent);
     font-weight: 700;
-  }
-
-  /* 식단 편집 줄: 시각 칸이 줄어들 수 있어야 삭제 버튼이 카드 안쪽 폭을 넘지 않는다 */
-  .btn-row:has(> .ax-scope) > input[type='time'] {
-    flex: 0 1 8rem;
-    min-width: 0;
-  }
-
-  .btn-row:has(> .ax-scope) > .btn-danger {
-    width: auto;
-    flex: 0 0 auto;
   }
 
   /*
