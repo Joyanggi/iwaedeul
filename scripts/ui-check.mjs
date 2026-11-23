@@ -4251,7 +4251,7 @@ async function runSafeArea(browser, port) {
     await scene('session-safe', null)
     await btn(page, '종료').click()
     await page.getByRole('dialog', { name: '세션 종료' }).waitFor()
-    await scene('sheet-finish-safe', '[role=dialog] button')
+    await scene('sheet-finish-safe', ':is(dialog, [role=dialog]) button')
     await ctx.close()
   }
 }
