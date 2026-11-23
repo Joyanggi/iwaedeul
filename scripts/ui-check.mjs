@@ -4417,12 +4417,11 @@ function printResults() {
       if (!c.ok) failed++
     }
   } else console.log('\n정적 검사: before에서는 건너뜀')
-  const known = { rows }
   const mark = (c) => (c === null ? '·' : c.status)
   console.log(`\n| 장면 | ${COLUMNS.join(' | ')} |\n|---|${COLUMNS.map(() => '---').join('|')}|`)
-  for (const r of known.rows) console.log(`| ${r.scene} | ${COLUMNS.map((c) => mark(r.cells[c])).join(' | ')} |`)
+  for (const r of rows) console.log(`| ${r.scene} | ${COLUMNS.map((c) => mark(r.cells[c])).join(' | ')} |`)
   const lines = []
-  for (const r of known.rows) {
+  for (const r of rows) {
     for (const c of COLUMNS) {
       const cell = r.cells[c]
       if (!cell) continue

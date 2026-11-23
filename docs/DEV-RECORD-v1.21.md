@@ -955,8 +955,8 @@ PLAN과 다르게 한 것:
 |---|---|---|
 | ㉑ `.tsx`에 `className="zz-none"` | `astryx-inventory --check`: `정의 없는 클래스 0 → 1`(`안 쓰는 parts.css 선택자 0 → 1`도), 종료 코드 1 | `cmp` 같음 |
 | ㉑ 빈 `src/styles/global.css` 되살림 | `legacy CSS가 되살아났다: src/styles/가 있다`, 종료 코드 1 | 폴더 지움 |
-| ㉒ `parts.css`의 한글 줄바꿈 규칙을 지움 | `ss8.test.mjs`·`ss2`~`ss7`·`rr5-wrap`·`rr8`·`rr9` 10건 실패(390·375 꺾임 흐름은 `ui-check`가 보는데 이 복원 때 `ui-check`는 안 돌렸다) | `cmp` 같음 |
-| ㉓ `layers.css` import를 지움(첫 import 아님) | `ss8.test.mjs`·`v120` RR1 실패. **`--same-layout`이 이 결함을 잡는지는 확인하지 못했다**(정적 스캔만 남긴다 — PLAN이 허용) | `cmp` 같음 |
+| ㉒ `parts.css`의 한글 줄바꿈 규칙을 지움 | vitest(`ss8.test.mjs`·`ss2`~`ss7`·`rr5-wrap`·`rr8`·`rr9`) 10건 실패. 빌드 후 `ui-check after --check --ver=v9.99 --only=home-banner-375,history-375,settings-375,diet-375`(리뷰어 재현): 390·375 꺾임 흐름 실패 — `SS7 onboarding`·`SS7 onboarding-standalone`, `SS5 analyze`·`analyze-empty`, `Day 선택 시트 375`, `RR7 팁 카드 375`, `RR8` 시트 일곱(종료·휴식·종목 추가·대체·보상작용·보상작용 반복·템포), `RR9 summary-pr/memo/revert/deload`, `SS4 history`·`history-day`·`history-exercise(-detail)`·`history-detail(-change)`, `SS2 history-day`. 종료 코드 1 | `cmp` 같음, `docs/screenshots/v9.99` 지움 |
+| ㉓ `layers.css` import를 `astryx.css` 뒤로 옮김 | `ss8.test.mjs`(첫 import)·`v120` RR1 실패. **`--same-layout`은 이 결함을 못 잡는다** — `astryx.css`가 첫 줄에서 같은 레이어 순서를 선언해 결함이 빌드 CSS·화면을 바꾸지 않는다(빌드 CSS 첫 문장 `@layer reset,astryx-base,astryx-theme;` 그대로). 정적 스캔(`ss8`·`v120` RR1)만 남긴다 | `cmp` 같음, 재빌드 |
 | `guardedFlow`가 이름 중복으로만 판단(옛 `flows.some`) | `ss8.test.mjs` `guardedFlow는 이름이 이미 있다고 건너뛰지 않고 …` | `cmp` 같음 |
 
 ### 앞 Run이 넘긴 것
@@ -991,10 +991,23 @@ PLAN과 다르게 한 것:
 - **남은 일**:
   1. 검사 도구 판정 5(`SS4 다른 달`이 "눌리지 않는 칸" 개수를 찍기만 한다)·6(history `가까움 순서`가 달력 격자 `줄 사이 -48`을 잡아 사실상 안 잰다) — 설계 판단이 필요해 안 했다.
   2. `sheet-comp` 등 `h2` 폭 흔들림의 원인 — `--same-layout=all`이 간헐 실패할 수 있다.
-  3. `--same-layout`이 `layers.css` import 순서를 못 잡는지(㉓) 확인하지 못했다.
-  4. README 전체 개편(PLAN 문구만 반영했다 — 지시).
-  5. `parts.css`의 `.ax-cal-cell span:has(> .ax-cal-num)`가 Astryx `Button` 내부 구조에 기댄다(SS4 리뷰 4).
+  3. README 전체 개편(PLAN 문구만 반영했다 — 지시).
+  4. `parts.css`의 `.ax-cal-cell span:has(> .ax-cal-num)`가 Astryx `Button` 내부 구조에 기댄다(SS4 리뷰 4).
+
+### 배포 영향 (PR 본문 맨 위에도 넣는다)
+
+- 식단·기록·분석·설정·온보딩이 Astryx 부품과 테마 한 벌로 바뀌었다 — 이제 모든 화면이 홈·세션과 같은 모양이다. 손으로 짠 CSS(`src/styles/`)는 없어졌다. 기록·판정·내보내기·백업은 그대로다.
+- 처음 여는 순간 읽는 코드가 줄었다: 474 → **352.63KB**(gzip, 한계 360KB). **홈** 다시 열기 352 → 345ms(Chromium, CPU 4배 느리게 — SS1 때 홈이 뜬 값. `first-screen.mjs`는 새 문맥에서 온보딩을 재므로 SS8 값 811·616ms는 홈이 아니다). 홈 밖의 화면은 홈이 뜬 1초 뒤 미리 읽는다 — 그 전에 탭을 누르면 잠깐 "불러오는 중"이 보일 수 있다. 오프라인은 그대로다(precache 50개, 2761.00 KiB).
+- 바뀐 배치: 식단 탭의 식사 알림이 처음에는 접혀 있다. 기록 탭의 세션·종목이 줄마다 카드 한 장이다. 기록 상세에서 그날 식단이 Day 변경·위험 구역 위로 올라왔다. 설정은 훈련 → 소리·템포 → 내보내기·백업 → 파일 → 진단 → 위험 구역 순서로 묶였다. 템포 가이드는 스위치 하나다.
+- 세트 하나를 적는 탭 수는 그대로다. 식단 끼니 하나를 "전부 먹음"으로 적는 탭 수(1탭)도 그대로다(`ui-check` 탭 수 흐름 실패 0).
+- 화면 비교: Argos 빌드 주소(화면 검증 보고), `docs/screenshots/v1.21/before`·`after`. Astryx 적용 현황: `docs/ASTRYX-INVENTORY.md`(안 읽는 화면 파일 23 → 0, 인라인 51 → 0, legacy 클래스 270 → 0).
 
 ### 실행 결과 요약
 
 - `npm run check` 통과(흔적·Astryx 뒷걸음·린트·knip·테스트·빌드·첫 화면 크기). `Test Files  88 passed (88)`, `Tests  1922 passed (1922)`. 빌드 성공. `git rev-list --count main..HEAD`: 커밋 전 25 → 이 커밋 후 26. 변이 테스트·속성 테스트 대상 없음(`src/lib` 판정·계산 코드 불변).
+
+### 리뷰 반려 반영 (SS8 — 고칠 것 1~3)
+
+1. 위 "배포 영향" 절을 더했다(홈 ms는 SS1 때 홈이 뜬 값 352 → 345를 썼다).
+2. `scripts/ui-check.mjs`의 `const known = { rows }`를 지우고 `rows`를 바로 쓴다(동작 불변, `grep -n known` 0건).
+3. 결함 복원 ㉒(리뷰어 재현의 꺾임 흐름 실패 이름)·㉓(import를 `astryx.css` 뒤로, 이 검사가 못 잡음)을 고치고 "남은 일 3"을 지웠다.
