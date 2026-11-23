@@ -33,7 +33,7 @@ export default function DietScreen() {
 
   return (
     <AxRoot>
-      <Groups className="ax-diet">
+      <Groups>
         <Group>
           <Heading level={1}>식단</Heading>
         </Group>

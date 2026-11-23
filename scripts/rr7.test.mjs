@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest'
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8')
 const parts = read('../src/ax/parts.css')
-const globalCss = read('../src/styles/global.css')
+// v1.21 SS8: `src/styles/`가 없다. 옛 "global.css에 X가 없다"는 앱 CSS(ax.css·parts.css) 전체에 X가 없다로 읽는다
+const globalCss = read('../src/ax/ax.css') // parts.css는 이 앱만의 .set-*·.ax-* 규칙을 갖는 곳이라 뺀다(옛 "global.css에 없다" = legacy 규칙이 안 돌아왔다)
 
 /** CSS의 선택자만 모은다(주석 제외) */
 const selectors = (css) => [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)].map((m) => m[1].trim())
@@ -56,10 +57,10 @@ describe('v120 RR7 — parts.css의 세트 표와 숫자 칸', () => {
     expect(parts).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/)
   })
 
-  // v1.21 SS2: 식단 편집 줄이 legacy .btn-row에서 Astryx HStack으로 옮겨 가 `.btn-row > .ax-scope` 규칙이 지워졌다(PLAN SS2).
+  // v1.21 SS2: 식단 편집 줄이 legacy .btn-row에서 Astryx HStack으로 옮겨 가 `.btn-row > .ax-scope` 규칙이 지워졌다(PLAN SS2). SS8: 섬 이름 ax-scope는 ax-stepper가 됐다.
   // 줄 안에서 스테퍼가 폭을 밀어내지 않는지는 ui-check 흐름 `SS2 먹은 것 줄`(시각 칸·스테퍼 한 줄, 삭제는 둘째 줄·안쪽 폭 안)이 잰다
   it('v120 RR7: 스테퍼 줄이 폭을 밀어내지 않는다 — 세트 행의 열 안에서는 min-width 0이다(식단 줄의 .btn-row 규칙은 SS2가 지웠다)', () => {
-    expect(parts).toMatch(/\.set-row > \.ax-scope \{[^}]*min-width:\s*0/)
+    expect(parts).toMatch(/\.set-row > \.ax-stepper \{[^}]*min-width:\s*0/)
     expect(parts).not.toMatch(/\.btn-row/)
   })
 })

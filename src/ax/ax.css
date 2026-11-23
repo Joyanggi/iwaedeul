@@ -1,164 +1,156 @@
 /*
- * Astryx가 앱 뿌리에 걸려 있으므로 늘 읽히는 CSS.
- * 레이어 순서는 `src/styles/index.css`가 정한다.
- */
-
-/*
- * 범위 한정 리셋 — `@astryxdesign/core@0.7.13` `src/reset.css`에서 옮김. 버전을 올리면 다시 대조한다.
- * 전역 reset.css는 안 바꾼 화면을 흔들어서 쓰지 않고, `@scope`로 legacy 화면 밖에만 건다(`html` 아래 전부 + legacy 안의 Astryx 섬 `.ax-scope`).
- * 선택자·속성·값은 원본 그대로이고 `:where([data-astryx-theme])` 앞머리만 `@scope`로 바꿨다. 명시도는 원본처럼 0이다.
- * legacy 뿌리 목록은 `global.css`의 `@scope`와 글자 그대로 같아야 한다(v120 스캔). 화면을 옮겨 뿌리가 없어지면 두 곳을 같이 줄인다.
- * 옮기지 않은 것: `html`·`body` 규칙, `html[data-theme=…]`, 탭 하이라이트, `[data-astryx-media]`의 color-scheme
- * (문서 단위는 `global.css`와 아래 "문서 바탕"이 맡는다. 이유는 DEV-RECORD OO2 "PLAN과 다르게 한 것").
+ * Astryx가 앱 뿌리에 걸려 있으므로 늘 읽히는 CSS. 레이어 순서는 `src/ax/layers.css`가 정한다.
+ *
+ * 리셋 — `@astryxdesign/core@0.7.13` `src/reset.css`에서 옮김. 버전을 올리면 다시 대조한다.
+ * 전역 reset.css 대신 이 사본을 쓴다(`html`·`body` 규칙·탭 하이라이트·`[data-astryx-media]`의 color-scheme은 옮기지 않았고, 문서 단위는 아래 "문서 바탕"이 맡는다).
+ * 선택자·속성·값은 원본 그대로이고 `:where([data-astryx-theme])` 앞머리만 뺐다. 명시도는 원본처럼 0이다.
  */
 @layer reset {
-  @scope (html, .ax-scope) to (.screen, .banner) {
-    :where(*),
-    :where(*)::before,
-    :where(*)::after {
-      box-sizing: border-box;
-    }
+  :where(*),
+  :where(*)::before,
+  :where(*)::after {
+    box-sizing: border-box;
+  }
 
-    :where(*),
-    :where(*)::before,
-    :where(*)::after {
-      border-width: 0;
-      border-style: solid;
-      border-color: currentColor;
-    }
+  :where(*),
+  :where(*)::before,
+  :where(*)::after {
+    border-width: 0;
+    border-style: solid;
+    border-color: currentColor;
+  }
 
-    :where(h1, h2, h3, h4, h5, h6) {
-      font-size: inherit;
-      font-weight: inherit;
-    }
+  :where(h1, h2, h3, h4, h5, h6) {
+    font-size: inherit;
+    font-weight: inherit;
+  }
 
-    :where(h1, h2, h3, h4, h5, h6, p, blockquote, figure, pre, dl, dd) {
-      margin: 0;
-    }
+  :where(h1, h2, h3, h4, h5, h6, p, blockquote, figure, pre, dl, dd) {
+    margin: 0;
+  }
 
-    :where(a) {
-      color: inherit;
-      text-decoration: inherit;
-    }
+  :where(a) {
+    color: inherit;
+    text-decoration: inherit;
+  }
 
-    :where(b, strong) {
-      font-weight: bolder;
-    }
+  :where(b, strong) {
+    font-weight: bolder;
+  }
 
-    :where(code, kbd, samp, pre) {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-        'Liberation Mono', 'Courier New', monospace;
-      font-size: 1em;
-    }
+  :where(code, kbd, samp, pre) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      'Liberation Mono', 'Courier New', monospace;
+    font-size: 1em;
+  }
 
-    :where(small) {
-      font-size: 80%;
-    }
+  :where(small) {
+    font-size: 80%;
+  }
 
-    :where(sub, sup) {
-      font-size: 75%;
-      line-height: 0;
-      position: relative;
-      vertical-align: baseline;
-    }
+  :where(sub, sup) {
+    font-size: 75%;
+    line-height: 0;
+    position: relative;
+    vertical-align: baseline;
+  }
 
-    :where(sub) {
-      bottom: -0.25em;
-    }
+  :where(sub) {
+    bottom: -0.25em;
+  }
 
-    :where(sup) {
-      top: -0.5em;
-    }
+  :where(sup) {
+    top: -0.5em;
+  }
 
-    :where(ol, ul, menu) {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-    }
+  :where(ol, ul, menu) {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
 
-    :where(img, svg, video, canvas, audio, iframe, embed, object) {
-      display: block;
-      vertical-align: middle;
-    }
+  :where(img, svg, video, canvas, audio, iframe, embed, object) {
+    display: block;
+    vertical-align: middle;
+  }
 
-    :where(img, video) {
-      max-width: 100%;
-      height: auto;
-    }
+  :where(img, video) {
+    max-width: 100%;
+    height: auto;
+  }
 
-    :where(button, input, optgroup, select, textarea) {
-      font: inherit;
-      color: inherit;
-      margin: 0;
-      padding: 0;
-    }
+  :where(button, input, optgroup, select, textarea) {
+    font: inherit;
+    color: inherit;
+    margin: 0;
+    padding: 0;
+  }
 
-    :where(button, [type='button'], [type='reset'], [type='submit']) {
-      -webkit-appearance: button;
-      appearance: button;
-      background-color: transparent;
-      background-image: none;
-    }
+  :where(button, [type='button'], [type='reset'], [type='submit']) {
+    -webkit-appearance: button;
+    appearance: button;
+    background-color: transparent;
+    background-image: none;
+  }
 
-    :where(button, [role='button']) {
-      cursor: pointer;
-    }
+  :where(button, [role='button']) {
+    cursor: pointer;
+  }
 
-    :where(:disabled, [aria-disabled='true']) {
-      cursor: default;
-    }
+  :where(:disabled, [aria-disabled='true']) {
+    cursor: default;
+  }
 
-    :where(textarea) {
-      resize: vertical;
-    }
+  :where(textarea) {
+    resize: vertical;
+  }
 
-    :where(input, textarea)::placeholder {
-      opacity: 1;
-      color: var(--color-text-secondary, light-dark(#4E606F, #AAAFB5));
-    }
+  :where(input, textarea)::placeholder {
+    opacity: 1;
+    color: var(--color-text-secondary, light-dark(#4E606F, #AAAFB5));
+  }
 
-    :where([list])::-webkit-calendar-picker-indicator {
-      line-height: 1;
-    }
+  :where([list])::-webkit-calendar-picker-indicator {
+    line-height: 1;
+  }
 
-    :where([type='search'])::-webkit-search-decoration,
-    :where([type='search'])::-webkit-search-cancel-button {
-      -webkit-appearance: none;
-    }
+  :where([type='search'])::-webkit-search-decoration,
+  :where([type='search'])::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+  }
 
-    :where(fieldset) {
-      margin: 0;
-      padding: 0;
-    }
+  :where(fieldset) {
+    margin: 0;
+    padding: 0;
+  }
 
-    :where(legend) {
-      padding: 0;
-    }
+  :where(legend) {
+    padding: 0;
+  }
 
-    :where(table) {
-      text-indent: 0;
-      border-color: inherit;
-      border-collapse: collapse;
-    }
+  :where(table) {
+    text-indent: 0;
+    border-color: inherit;
+    border-collapse: collapse;
+  }
 
-    :where(hr) {
-      height: 0;
-      color: inherit;
-      border-top-width: 1px;
-    }
+  :where(hr) {
+    height: 0;
+    color: inherit;
+    border-top-width: 1px;
+  }
 
-    :where(summary) {
-      display: list-item;
-    }
+  :where(summary) {
+    display: list-item;
+  }
 
-    :where(dialog) {
-      padding: 0;
-      outline: none;
-    }
+  :where(dialog) {
+    padding: 0;
+    outline: none;
+  }
 
-    :where([hidden]:not([hidden='until-found' i])) {
-      display: none;
-    }
+  :where([hidden]:not([hidden='until-found' i])) {
+    display: none;
   }
 }
 
@@ -170,12 +162,27 @@
     background: var(--color-background-body);
   }
 
+  :where(*) {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* 홈 화면 앱에서 바운스 스크롤이 앱 셸을 흔드는 것을 막는다 */
+  /* 브라우저 기본 바깥 여백 8px가 화면 틀 밖에 남지 않게 한다(리셋은 body를 안 건드린다) */
+  body {
+    margin: 0;
+    overscroll-behavior-y: none;
+  }
+
+  #root {
+    min-height: 100dvh;
+  }
+
   .ax-screen {
     min-height: 100dvh;
-    max-width: 640px;
+    max-width: 40rem;
     margin: 0 auto;
     /* 띠(`Bar`)가 자기 높이를 --ax-bar-top·--ax-bar-bottom으로 알린다. 띠 높이는 안전 영역을 이미 품고 있다 */
-    padding: calc(max(env(safe-area-inset-top), var(--ax-bar-top, 0px)) + 12px) var(--inset-screen) calc(max(env(safe-area-inset-bottom), var(--ax-bar-bottom, 0px)) + 24px);
+    padding: calc(max(env(safe-area-inset-top), var(--ax-bar-top, 0px)) + var(--spacing-3)) var(--spacing-4) calc(max(env(safe-area-inset-bottom), var(--ax-bar-bottom, 0px)) + var(--spacing-6));
   }
 
   /* 홈 화면 앱의 상태바 글자는 항상 흰색이라, 라이트에서만 상태바 자리를 어둡게 받친다 (전 화면 — v1.20 RR2) */

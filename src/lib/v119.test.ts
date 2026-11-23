@@ -91,22 +91,22 @@ describe("QQ4 — 여백 토큰 한 벌", () => {
   const LIB = import.meta.glob("/scripts/lib/ui-space.mjs", { query: "?raw", import: "default", eager: true }) as Record<string, string>
   const code = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
-  it("ui-check 정적 검사가 space.css의 layer(legacy) import를 확인한다", () => {
+  it("ui-check 정적 검사에 space.css의 layer(legacy) import 확인이 없다(v1.21 SS8: space.css·legacy 레이어가 없어졌다)", () => {
     const text = code(LIB["/scripts/lib/ui-space.mjs"])
-    expect(text).toContain("space\\.css")
-    expect(text).toContain("layer\\(legacy\\)")
+    expect(text).not.toContain("space.css")
+    expect(text).not.toContain("layer(legacy)")
   })
 
-  it("ui-check 정적 검사가 여백 값의 Astryx 단계·--inset- 사용·토큰 순서를 모두 본다", () => {
+  it("ui-check 정적 검사(여백 값의 Astryx 단계·--inset- 사용·토큰 순서)가 없다 — 그 토큰·CSS가 없어졌고 역할 간격은 장면에서 관계로 잰다(v1.21 SS8)", () => {
     const text = code(LIB["/scripts/lib/ui-space.mjs"])
-    expect(text).toMatch(/STEPS = new Set\(\[0, 2, 4, 6, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48\]\)/)
-    expect(text).toContain("var\\(--inset-")
-    expect(text).toMatch(/t\['space-tight'\] < t\['space-row'\]/)
+    expect(text).not.toContain("STEPS")
+    expect(text).not.toContain("--inset-")
+    expect(text).not.toContain("space-tight")
   })
 
-  it("ui-check.mjs가 정적 검사와 여백 한 벌 비교를 부른다", () => {
+  it("ui-check.mjs가 여백 한 벌 비교만 부른다(여백 정적 검사 spaceStaticChecks는 v1.21 SS8에서 지웠다)", () => {
     const text = code(SCRIPTS["/scripts/ui-check.mjs"])
-    expect(text).toMatch(/spaceStaticChecks\(allCss\)/)
+    expect(text).not.toContain("spaceStaticChecks")
     expect(text).toMatch(/spaceRoleVerdicts\(layouts/) // v1.20 RR12: spaceSetVerdicts를 넓혀 이름을 바꿨다(같은 비교, 역할이 늘었다)
   })
 })

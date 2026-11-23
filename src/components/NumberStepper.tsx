@@ -102,7 +102,7 @@ export default function NumberStepper({
 
 
   return (
-    <HStack gap={2} className="ax-scope">
+    <HStack gap={2} className="ax-stepper">
       <Button
         variant="secondary"
         isIconOnly

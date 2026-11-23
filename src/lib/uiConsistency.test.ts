@@ -134,14 +134,14 @@ describe('캘린더 신호 분리 (식단 = 점)', () => {
 
   it('식단 색에 내비게이션 색(--accent)을 쓰지 않는다', () => {
     // --accent는 오늘·선택 표시 색이다. 식단이 그 색을 쓰면 구분이 불가능해진다
-    const css = import.meta.glob('/src/styles/*.css', {
+    const css = import.meta.glob('/src/ax/parts.css', {
       query: '?raw',
       import: 'default',
       eager: true,
     }) as Record<string, string>
     // ⚠ vitest에서 CSS ?raw는 빈 문자열이다 (§X8) — 그래서 CSS는 여기서 검사하지 않는다.
     // 이 테스트는 그 사실 자체를 남긴다: 색 검증은 브라우저 computed style로 한다.
-    expect(typeof css['/src/styles/global.css']).toBe('string')
+    expect(typeof css['/src/ax/parts.css']).toBe('string')
   })
 })
 

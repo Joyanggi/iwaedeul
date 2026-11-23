@@ -6,7 +6,7 @@
  *   before|after  저장 폴더 docs/screenshots/<버전>/<before|after>/<장면>.png (다크)와 <장면>-light.png (라이트). 전 장면을 두 벌로 찍는다
  *                 (지금 다크 고정인 화면의 라이트는 다크와 같게 나오는 것이 정상이다 — RR1까지)
  *   --ver=v1.20   저장 폴더의 버전. 없으면 package.json 버전의 앞 두 자리
- *   --check       장면마다 접근성(axe)·눌림 반응·움직임 줄이기·여백 격자·가로 넘침 + (띠·시트가 있으면) 띠·시트 버튼 검사를 재서 표로 찍는다.
+ *   --check       장면마다 접근성(axe)·여백 격자·가로 넘침 + (띠·시트가 있으면) 띠·시트 버튼 검사를 재서 표로 찍는다.
  *                 하나라도 실패면 종료 코드 1. 정적 검사는 after에서만(지금은 QQ1~QQ4가 더하는 만큼)
  *   --only=a,b    이 장면만 찍고 잰다(흐름은 앞에서부터 그대로 거친다)
  *   --press-shot=<장면>:<버튼 이름>  그 장면에서 그 버튼 가운데에 touchStart를 보내고 뗀 적 없는 상태로 <장면>-press.png를 찍는다(판정 없음, 화면 검증자가 보는 사진)
@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium, devices, webkit } from 'playwright'
 import { preview } from 'vite'
 import { collectFirstLoad } from './lib/first-load-lib.mjs'
-import { EXPECTED_PAIRS, inPageInsetSymmetry, inPageLayout, insetSymmetryVerdict, spaceRoleVerdicts, spaceStaticChecks } from './lib/ui-space.mjs'
+import { EXPECTED_PAIRS, inPageInsetSymmetry, inPageLayout, insetSymmetryVerdict, spaceRoleVerdicts } from './lib/ui-space.mjs'
 import {
   THEME_TOKENS,
   barStaticChecks,
@@ -44,7 +44,6 @@ import {
   installScript,
   sheetButtonVerdict,
   compareRects,
-  inPageIslandButtons,
   inPageLastVisible,
   inPageRects,
   inPageRowButtons,
@@ -59,11 +58,6 @@ import {
   inPageChartColors,
   rgbLuminance,
   chartColorVerdict,
-  measurePress,
-  motionStaticChecks,
-  pressVerdict,
-  KNOWN_FAILURES,
-  applyKnownFailures,
 } from './lib/ui-check-lib.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -110,13 +104,13 @@ const DEVICE = { ...IPHONE, viewport: { width: 390, height: 844 } }
 const settle = (page, ms = 600) => page.waitForTimeout(ms)
 const btn = (page, name) => page.getByRole('button', { name, exact: true })
 
-const COLUMNS = ['접근성', '눌림 반응', '움직임 줄이기', '여백 격자', '가로 넘침', '줄 안 버튼', '띠', '시트 버튼', '탭 누름', '지금 탭', '마지막 요소', '세트 숫자', '섬 버튼', '테마 토큰', '안쪽 대칭']
+const COLUMNS = ['접근성', '여백 격자', '가로 넘침', '줄 안 버튼', '띠', '시트 버튼', '탭 누름', '지금 탭', '마지막 요소', '세트 숫자', '테마 토큰', '안쪽 대칭']
 /**
  * RR0이 더한 칸은 `before`에서는 기록만 한다(실패로 세지 않는다). `after --check`에서 판정하기 시작하는 작업:
- * 탭 누름·마지막 요소 = RR3, 세트 숫자·섬 버튼 = RR7, 테마 토큰 = RR1(그 전 `before`에서는 테마가 있는 editor 장면만).
+ * 탭 누름·마지막 요소 = RR3, 세트 숫자 = RR7, 테마 토큰 = RR1(그 전 `before`에서는 테마가 있는 editor 장면만).
  * 작업이 끝날 때 해당 값을 true로 바꾼다.
  */
-const JUDGED = { '탭 누름': true, '지금 탭': true, '마지막 요소': true, '세트 숫자': true, '섬 버튼': true, '테마 토큰': true }
+const JUDGED = { '탭 누름': true, '지금 탭': true, '마지막 요소': true, '세트 숫자': true, '테마 토큰': true }
 /**
  * `안쪽 대칭`(RR12)은 이미 Astryx 부품인 장면(루틴 편집)에서만 판정하고, 나머지는 기록만 한다(옮기기 전 장면은 실패로 세지 않는다).
  * 화면·띠를 옮기는 작업(RR3·RR4·RR5·RR6·RR7)이 자기 장면을 여기에 더한다.
@@ -248,7 +242,6 @@ async function newColumns(page, scene, cells, light) {
   cells['지금 탭'] = TAB_NAV_SCENES.has(scene) ? verdict(await page.evaluate(inPageCurrentTab)) : { status: '건너뜀', detail: '아래 탭이 없는 장면' }
   cells['마지막 요소'] = LAST_SCENES.has(scene) ? softVerdict('마지막 요소', await page.evaluate(inPageLastVisible)) : { status: '건너뜀', detail: '이 장면은 재지 않는다' }
   cells['세트 숫자'] = SET_SCENES.has(scene) ? softVerdict('세트 숫자', await page.evaluate(inPageSetNumber)) : { status: '건너뜀', detail: '세트 행이 있는 장면만' }
-  cells['섬 버튼'] = softVerdict('섬 버튼', await page.evaluate(inPageIslandButtons))
   return name
 }
 
@@ -261,23 +254,6 @@ async function runChecks(page, scene) {
   const desc = (v) => `${v.id} ${v.nodes.length}건 [${v.nodes.slice(0, 2).map((n) => n.target.join(' ')).join(', ')}]`
   cells['접근성'] = { status: hard.length ? '실패' : '통과', detail: hard.map(desc).join(' / ') || '위반 0건' }
   axeInfo.push({ scene, hard: hard.length, hardList: hard.map(desc), contrast: contrast.reduce((a, v) => a + v.nodes.length, 0), incomplete: res.incomplete.filter((v) => v.id === 'color-contrast').reduce((a, v) => a + v.nodes.length, 0) })
-  // 눌림 반응
-  // 이 검사는 legacy 버튼만 잰다: Astryx 요소는 inPagePressTargets가 요소 단위로 뺀다(이 Chromium은 mouse.down으로 Astryx의 눌림을 못 칠한다 — DEV-RECORD 제약)
-  cells['눌림 반응'] = verdict(pressVerdict(await measurePress(page)))
-  // 움직임 줄이기 (시트 장면만 판정, 나머지는 눌림 transform만)
-  const sheetUp = await page.evaluate(() => window.__ui.sheetOf() !== null)
-  await page.emulateMedia({ reducedMotion: 'reduce' })
-  await settle(page, 150)
-  const matches = await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)
-  if (!matches) cells['움직임 줄이기'] = { status: '건너뜀', detail: 'reducedMotion 흉내가 안 먹는다' }
-  else if (!sheetUp) cells['움직임 줄이기'] = { status: '건너뜀', detail: '시트 장면에서만 잰다' }
-  else {
-    const press = await measurePress(page)
-    const bad = []
-    if (press.transformed.length) bad.push(`크기 변화 ${press.transformed.length}개: ${press.transformed.slice(0, 3).join(', ')}`)
-    cells['움직임 줄이기'] = { status: bad.length ? '실패' : '통과', detail: bad.join(' / ') || '크기 변화 0개' }
-  }
-  await page.emulateMedia({ reducedMotion: null })
   // 여백 격자·가로 넘침
   cells['여백 격자'] = verdict(await page.evaluate(inPageSpacing))
   layouts[scene] = await page.evaluate(inPageLayout)
@@ -737,7 +713,7 @@ function inPageAnalyzeSeed({ days }) {
  * ⑤ 차트 틀이 카드 안쪽 오른쪽 끝을 넘지 않는다 ⑥ 대체 수행 줄의 오른쪽 값(n회)이 한 줄이다. 대상이 0개면 실패다(빈 화면을 재고 통과하지 않는다).
  */
 function inPageAnalyzeRows() {
-  const root = document.querySelector('.ax-analyze')
+  const root = document.querySelector('.ax-screen')
   if (!root) return { ok: false, detail: '.ax-analyze가 없다' }
   const R = (e) => e.getBoundingClientRect()
   const overlap = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1
@@ -818,7 +794,7 @@ function inPageAnalyzeRows() {
  * ⑤ 글자와 버튼이 한 줄에 같이 있으면(활성 루틴의 `v2.4 [편집]`) 세로 가운데가 맞다(±3). 버튼 줄이 0개면 실패다(빈 화면을 재고 통과하지 않는다).
  */
 function inPageSettingsRows() {
-  const root = document.querySelector('.ax-settings')
+  const root = document.querySelector('.ax-screen')
   if (!root) return { ok: false, detail: '.ax-settings가 없다' }
   const vis = (e) => window.__vis(e)
   const R = (e) => e.getBoundingClientRect()
@@ -906,7 +882,7 @@ function inPageSettingsRows() {
 
 /** SS6: 선택 묶음마다 — 묶음 바탕이 보이고(알파 > 0 또는 테두리) 고른 항목과 안 고른 항목의 바탕이 다르다. 안 눌린 선택이 맨 글자로 떠 있지 않게 */
 function inPageSettingsToggles() {
-  const root = document.querySelector('.ax-settings')
+  const root = document.querySelector('.ax-screen')
   if (!root) return { ok: false, detail: '.ax-settings가 없다', n: 0 }
   const alpha = (c) => { const m = /rgba?\([^)]*?(?:,\s*([\d.]+))?\)$/.exec(c); return m && m[1] !== undefined ? Number(m[1]) : 1 }
   const out = []
@@ -1079,7 +1055,7 @@ function inPageCalendarSignals() {
  */
 function inPageSs4Verify() {
   const vis = (e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' }
-  const root = document.querySelector('.ax-history') ?? document.querySelector('.ax-screen') ?? document.body
+  const root = document.querySelector('.ax-screen') ?? document.body
   const nm = (e) => (e.getAttribute('aria-label') || e.innerText || e.getAttribute('placeholder') || e.tagName).trim().split('\n')[0].slice(0, 16)
   const res = {}
   const fams = new Map()
@@ -1091,8 +1067,6 @@ function inPageSs4Verify() {
   }
   res.fonts = [...fams.entries()].map(([f, c]) => `${f}×${c}`)
   res.bodyFont = getComputedStyle(document.body).fontFamily.split(',')[0].trim()
-  const sc = root.querySelector('.ax-scope')
-  res.scopeFont = sc ? getComputedStyle(sc).fontFamily.split(',')[0].trim() : null
   const cards = [...root.querySelectorAll('[class*="card"], [class*="Card"]')].filter((c) => vis(c) && !c.closest('button') && c.getBoundingClientRect().height > 40 && !c.parentElement.closest('[class*="card"], [class*="Card"]'))
   res.cards = cards.map((c) => {
     const cr = c.getBoundingClientRect()
@@ -1405,12 +1379,15 @@ async function runScenes(browser, port, scheme) {
     }
   }
   // 흐름(검사)은 optional에 넣지 않는다: 예외가 나면 건너뜀이 아니라 흐름 실패로 센다 (RR5 반려)
+  // 이름이 이미 있다는 이유로 건너뛰지 않는다: 고정 이름으로 다크·라이트 두 번 도는 흐름(settings-gist 등)은 라이트의 예외도 실패로 세야 한다.
+  // 이 실행이 던지기 전에 스스로 판정을 남긴 이름만 중복으로 본다(v1.21 SS8 — SS7 리뷰가 넘긴 것).
   const guardedFlow = async (names, fn) => {
+    const from = flows.length
     try {
       await fn()
     } catch (e) {
       const detail = `예외: ${String(e.message).split('\n')[0]}`
-      for (const n of names) if (!flows.some((f) => f[0] === n)) flows.push([n, { ok: false, detail }])
+      for (const n of names) if (!flows.slice(from).some((f) => f[0] === n)) flows.push([n, { ok: false, detail }])
     }
   }
   // 경고 글자색: 지금 체계와 반대 체계 둘 다 계산된 color가 --color-text-warning과 같은가 (흐름은 한 체계로만 돌아서 emulateMedia로 바꿔 잰다)
@@ -1482,7 +1459,7 @@ async function runScenes(browser, port, scheme) {
     await wrapProbe('onboarding')
     await at375(() => snap('onboarding-375'))
     // SS7: 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안(주소 줄 포함)
-    if (!light) await screenWrapFlow('SS7 onboarding 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-onboarding')
+    if (!light) await screenWrapFlow('SS7 onboarding 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-screen')
   })
   // SS7 반려: 주소 조각 하나가 카드 안쪽 폭보다 길어도(?q=x×120) 조각 안에서 꺾여 카드 안에 든다
   await requiredScene('onboarding-long-url', () =>
@@ -1498,11 +1475,11 @@ async function runScenes(browser, port, scheme) {
             try {
               // 카드가 넘친 글을 자르니(overflow hidden) 안쪽 폭 검사는 건너뛴다 — 잘림은 inPageNotClipped가 잡는다
               const needle = 'x'.repeat(10)
-              const i390 = await p.evaluate(inPageInnerOverflow, '.ax-onboarding')
+              const i390 = await p.evaluate(inPageInnerOverflow, '.ax-screen')
               const c390 = await p.evaluate(inPageNotClipped, needle)
               await p.setViewportSize({ width: 375, height: 812 })
               await settle(p, 400)
-              const i375 = await p.evaluate(inPageInnerOverflow, '.ax-onboarding')
+              const i375 = await p.evaluate(inPageInnerOverflow, '.ax-screen')
               const c375 = await p.evaluate(inPageNotClipped, needle)
               flows.push(['SS7 onboarding 긴 주소(?q=x×120) 390·375 폭 안쪽 폭 안', { ok: i390.ok && i375.ok && c390.ok && c375.ok, detail: `390: ${i390.detail} · 안 잘림 ${c390.detail} / 375: ${i375.detail} · 안 잘림 ${c375.detail}` }])
             } finally {
@@ -1533,7 +1510,7 @@ async function runScenes(browser, port, scheme) {
         await p.getByText('홈 화면 앱으로 실행 중입니다').waitFor({ timeout: 3000 })
         await settle(p, 600)
         await snap('onboarding-standalone', p)
-        if (!light) await screenWrapFlow('SS7 onboarding-standalone 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-onboarding', p)
+        if (!light) await screenWrapFlow('SS7 onboarding-standalone 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-screen', p)
         await guardedFlow([`SS7 시작하기(홈 화면 앱)${light ? ' (라이트)' : ''}`], async () => {
           const clicks = []
           await p.getByRole('button', { name: '시작하기', exact: true }).click()
@@ -1553,7 +1530,7 @@ async function runScenes(browser, port, scheme) {
       await p.getByText('기록이 쌓이면 추이가 표시됩니다.').waitFor({ timeout: 5000 })
       await settle(p, 600)
       await snap('analyze-empty', p)
-      if (!light) await screenWrapFlow('SS5 analyze-empty 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-analyze', p)
+      if (!light) await screenWrapFlow('SS5 analyze-empty 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-screen', p)
     }),
   )
 
@@ -2154,6 +2131,7 @@ async function runScenes(browser, port, scheme) {
       // phase: 이 장면 동안만 바꿀 currentPhase (settings 한 줄 — revertWarning은 Phase 2+만 본다). 끝에 원래 값으로 되돌린다
       const scene = async (kind, sceneName, check, phase) => {
         const keep = await page.evaluate(inPageSessionIds)
+        const flowsFrom = flows.length
         let phaseBefore = null
         try {
           if (phase !== undefined) phaseBefore = await page.evaluate(inPageSetSetting, { key: 'currentPhase', value: phase })
@@ -2165,7 +2143,7 @@ async function runScenes(browser, port, scheme) {
           await endButton(sceneName)
         } catch (e) {
           // 이 장면이 내야 할 흐름 셋 가운데 없는 것은 전부 실패로 센다
-          for (const n of [SUM[kind], wrapName(sceneName), endName(sceneName)]) if (!flows.some((f) => f[0] === n)) flows.push([n, { ok: false, detail: `예외: ${String(e.message).split('\n')[0]}` }])
+          for (const n of [SUM[kind], wrapName(sceneName), endName(sceneName)]) if (!flows.slice(flowsFrom).some((f) => f[0] === n)) flows.push([n, { ok: false, detail: `예외: ${String(e.message).split('\n')[0]}` }])
         } finally {
           if (phaseBefore) await page.evaluate(inPageSetSetting, { key: 'currentPhase', value: phaseBefore.value, remove: !phaseBefore.had })
           // 정리는 판정과 따로: 던져도 다음 장면이 깨끗한 홈에서 시작하게 한다
@@ -2541,7 +2519,7 @@ async function runScenes(browser, port, scheme) {
       await page.locator('.ax-screen').getByRole('button', { name: '기록', exact: true }).click()
       await settle(page, 400)
     }
-    /** SS4 화면 검증자 추가: 장면마다 390·375에서 inPageSs4Verify 값을 흐름 칸에 찍는다(판정은 보고서에서 사람이 읽고 한다) */
+    /** SS4 화면 검증자 추가: 장면마다 390·375에서 inPageSs4Verify 값을 기록 목록에 찍는다(판정은 보고서에서 사람이 읽고 한다) */
     const ss4Verify = (scene) => guardedFlow([`SS4 검증 ${scene}${light ? ' (라이트)' : ''}`], async () => {
       const out = []
       try {
@@ -2554,7 +2532,8 @@ async function runScenes(browser, port, scheme) {
         await page.setViewportSize({ width: 390, height: 844 })
         await settle(page, 400)
       }
-      flows.push([`SS4 검증 ${scene}${light ? ' (라이트)' : ''}`, { ok: true, detail: out.map(([w, r]) => `${w}: ${JSON.stringify(r)}`).join(' || ') }])
+      // 값만 찍는 기록이다 — 늘 통과로 세어 `흐름 통과` 개수를 부풀리지 않게 흐름이 아니라 기록 목록으로 보낸다(v1.21 SS8, SS4 리뷰 경미한 점 2)
+      wrapNotes.push(`SS4 검증 ${scene}${light ? ' (라이트)' : ''} — ${out.map(([w, r]) => `${w}: ${JSON.stringify(r)}`).join(' || ')}`)
     })
     await guardedFlow(SS4_NAMES, async () => {
       ss4Seed = await page.evaluate(inPageHistorySeed)
@@ -2565,7 +2544,7 @@ async function runScenes(browser, port, scheme) {
       await snap('history')
       await ss4Verify('history')
       await wrapProbe('history')
-      if (!light) await screenWrapFlow('SS4 history 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
+      if (!light) await screenWrapFlow('SS4 history 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-screen')
       if (!light) {
         // ② 칸 이름: 오늘 칸·세션 두 번인 칸·식단 점이 있는 칸 (하나라도 못 찾으면 실패)
         await guardedFlow(['SS4 달력 칸 이름'], async () => {
@@ -2616,9 +2595,9 @@ async function runScenes(browser, port, scheme) {
         flows.push(['SS4 검증 세션 카드 가장자리 누르기', { ok: res.every((r) => r.endsWith('열림') && !r.endsWith('안 열림')), detail: res.join(' · ') }])
       })
       histItemFace = await page.evaluate(inPageItemFace)
-      // 기록 화면 전체가 Astryx다 — 화면 틀(.ax-history) 안을 잰다
-      if (!light) await screenWrapFlow('SS2 history-day 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
-      if (!light) await screenWrapFlow('SS4 history-day 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
+      // 기록 화면 전체가 Astryx다 — 화면 틀(.ax-screen) 안을 잰다
+      if (!light) await screenWrapFlow('SS2 history-day 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-screen')
+      if (!light) await screenWrapFlow('SS4 history-day 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-screen')
       if (!light) {
         // ① 날짜 고르기 → 그날 세션 카드와 그날 식단 → 세션 카드 1탭 → 상세 제목 → `기록` 1탭으로 돌아온다
         await guardedFlow(['SS4 날짜 고르기'], async () => {
@@ -2679,14 +2658,14 @@ async function runScenes(browser, port, scheme) {
         await settle(page, 500)
         await snap('history-exercise')
       await ss4Verify('history-exercise')
-        if (!light) await screenWrapFlow('SS4 history-exercise 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
+        if (!light) await screenWrapFlow('SS4 history-exercise 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-screen')
         await tapCard(keyCards.first())
         await page.getByText(/^메모 이력 \(\d+\)$/).waitFor({ timeout: 4000 })
         await settle(page, 500)
         await snap('history-exercise-detail')
       await ss4Verify('history-exercise-detail')
         await wrapProbe('history-exercise-detail')
-        if (!light) await screenWrapFlow('SS4 history-exercise-detail 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
+        if (!light) await screenWrapFlow('SS4 history-exercise-detail 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-screen')
         await btn(page, '종목 목록').click()
         await settle(page, 300)
         if (!light) {
@@ -2713,7 +2692,7 @@ async function runScenes(browser, port, scheme) {
             const bestBadge = await page.getByText('최고', { exact: true }).count()
             const volume = await page.getByText('kg·회', { exact: true }).count()
             const warn = await warnColorBothSchemes('.ax-text-warning', '보조 무게 종목', 'warning')
-            const wrapped = await page.evaluate(inPageInnerOverflow, '.ax-history')
+            const wrapped = await page.evaluate(inPageInnerOverflow, '.ax-screen')
             await btn(page, '종목 목록').click()
             await settle(page, 300)
             flows.push(['SS4 보조 무게 종목', { ok: e1rm === 0 && bestBadge === 0 && volume === 0 && warn.same && wrapped.ok, detail: `e1RM ${e1rm}개 · 최고 뱃지 ${bestBadge}개 · 볼륨(kg·회) ${volume}개 · 안내 글자 계산된 색 ${warn.actual} (토큰 ${warn.token}) · ${wrapped.detail}` }])
@@ -2741,7 +2720,7 @@ async function runScenes(browser, port, scheme) {
       await snap('history-detail')
       await ss4Verify('history-detail')
       await wrapProbe('history-detail')
-      if (!light) await screenWrapFlow('SS4 history-detail 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
+      if (!light) await screenWrapFlow('SS4 history-detail 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-screen')
       if (!light) {
         // 안 눌린 토글이 맨 글자가 되지 않게: 유산소 종류 토글은 눌리지 않았을 때도 면이나 테두리가 있고, 눌린 것과 다르다
         await guardedFlow(['SS4 상세 유산소 토글 맨 글자 아님'], async () => {
@@ -2784,7 +2763,7 @@ async function runScenes(browser, port, scheme) {
         await settle(page, 500)
         await snap('history-detail-change')
       await ss4Verify('history-detail-change')
-        if (!light) await screenWrapFlow('SS4 history-detail-change 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-history')
+        if (!light) await screenWrapFlow('SS4 history-detail-change 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-screen')
         // ⑥ Day 변경 2단계(취소로 끝낸다 — 기록을 안 바꾼다): 2단계(변경 적용·취소)에서 취소 → 1단계(Day 고르기)에서 취소 → 진입 버튼
         if (!light) {
           await guardedFlow(['SS4 Day 변경 2단계'], async () => {
@@ -2852,7 +2831,7 @@ async function runScenes(browser, port, scheme) {
     await snap('analyze')
     await wrapProbe('analyze')
     if (ss5Seed && !light) {
-      await screenWrapFlow('SS5 analyze 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-analyze')
+      await screenWrapFlow('SS5 analyze 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-screen')
       // 종목 칩: 처음 하나가 눌려 있고(aria-pressed) 둘째를 누르면 그것만 눌리며 최근 값 줄이 그 종목 이름으로 바뀐다. 다시 눌러도 꺼지지 않는다(한 종목은 늘 골라진다)
       await guardedFlow(['SS5 종목 바꾸기'], async () => {
         const chips = page.locator('.ax-chips button')
@@ -2938,7 +2917,7 @@ async function runScenes(browser, port, scheme) {
         if (bi < 0 || ai < 0) throw new Error(`A·B 칩이 다 있어야 한다: ${labels.join(' / ')}`)
         await chips.nth(bi).click()
         await settle(page, 400)
-        const onB = await warnColorBothSchemes('.ax-analyze .ax-text-warning', 'B그룹 기준은 감각입니다')
+        const onB = await warnColorBothSchemes('.ax-screen .ax-text-warning', 'B그룹 기준은 감각입니다')
         await chips.nth(ai).click()
         await settle(page, 400)
         const onA = await page.getByText('B그룹 기준은 감각입니다', { exact: false }).count()
@@ -2965,7 +2944,7 @@ async function runScenes(browser, port, scheme) {
         const token = () => page.evaluate(() => {
           const probe = document.createElement('span')
           probe.style.color = 'var(--color-accent)'
-          document.querySelector('.ax-analyze').appendChild(probe)
+          document.querySelector('.ax-screen').appendChild(probe)
           const c = getComputedStyle(probe).color
           probe.remove()
           return c
@@ -2990,7 +2969,7 @@ async function runScenes(browser, port, scheme) {
         await guardedFlow(['SS5 analyze 맨 아래 카드가 탭 바 위'], async () => {
           const r = await page.evaluate(() => {
             const bar = document.querySelector('.ax-bar-bottom')
-            const cards = [...document.querySelectorAll('.ax-analyze .ax-group > *')]
+            const cards = [...document.querySelectorAll('.ax-screen .ax-group > *')]
             const last = cards[cards.length - 1]
             return { barTop: bar ? Math.round(bar.getBoundingClientRect().top) : null, bottom: last ? Math.round(last.getBoundingClientRect().bottom) : null, n: cards.length }
           })
@@ -3015,18 +2994,18 @@ async function runScenes(browser, port, scheme) {
     await settle(page, 800)
     await snap('diet')
     await wrapProbe('diet')
-    if (!light) await screenWrapFlow('SS2 diet 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-diet')
+    if (!light) await screenWrapFlow('SS2 diet 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-screen')
     await requiredScene('diet-end', async () => {
       await toEnd()
       await snap('diet-end')
       await toTop()
-      if (!light) await screenWrapFlow('SS2 diet-end 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-diet')
+      if (!light) await screenWrapFlow('SS2 diet-end 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-screen')
     })
     await requiredScene('diet-375', () => at375(() => snap('diet-375')))
     // 플랜 전환 시트와 "내일부터" 1~3일 고르는 상태
     await requiredScene(['sheet-diet-plan', 'sheet-diet-plan-ahead'], async () => {
       // 요약 카드의 플랜 버튼 — 식단 틀 안 첫 버튼(이름이 플랜 이름이라 글자로 못 고른다)
-      await page.locator('.ax-diet button').first().click({ timeout: 3000 })
+      await page.locator('.ax-screen button').first().click({ timeout: 3000 })
       const dlg = page.getByRole('dialog', { name: '식단 플랜 전환' })
       await dlg.waitFor({ timeout: 3000 })
       await settle(page)
@@ -3111,7 +3090,7 @@ async function runScenes(browser, port, scheme) {
       for (const row of await rowsOf(dlg).all()) if (pred(await firstLine(row))) return row
       return null
     }
-    const dietEntryCount = () => page.locator('.ax-diet button[aria-expanded]').filter({ hasNotText: '식사 알림' }).count()
+    const dietEntryCount = () => page.locator('.ax-screen button[aria-expanded]').filter({ hasNotText: '식사 알림' }).count()
     const slotSheetOpen = async () => {
       await toTop()
       await page.getByRole('button', { name: /^대체·안 먹음 — 아침$/ }).click({ timeout: 3000 })
@@ -3120,7 +3099,7 @@ async function runScenes(browser, port, scheme) {
       await settle(page, 450)
       return dlg
     }
-    const planBtn = () => page.locator('.ax-diet button').first()
+    const planBtn = () => page.locator('.ax-screen button').first()
     const planSheetOpen = async () => {
       await toTop()
       await planBtn().click({ timeout: 3000 })
@@ -3180,14 +3159,14 @@ async function runScenes(browser, port, scheme) {
       const gone = await dlg.waitFor({ state: 'detached', timeout: 1500 }).then(() => true, () => false)
       const ms = await goneIn
       await settle(page, 400)
-      const note = await page.locator('.ax-diet').getByText(`대체: “${text}” · 치팅`).count()
+      const note = await page.locator('.ax-screen').getByText(`대체: “${text}” · 치팅`).count()
       // 지운다: 시트를 다시 열면 메뉴가 먼저 나오고(AA3) 대체 지우기가 있다
       dlg = await slotSheetOpen()
       const hasClear = await dlg.getByRole('button', { name: '대체 지우기', exact: true }).count()
       await dlg.getByRole('button', { name: '대체 지우기', exact: true }).click()
       await dlg.waitFor({ state: 'detached', timeout: 1500 }).catch(() => undefined)
       await settle(page, 400)
-      const noteAfter = await page.locator('.ax-diet').getByText(`대체: “${text}”`).count()
+      const noteAfter = await page.locator('.ax-screen').getByText(`대체: “${text}”`).count()
       // 대체 지우기는 슬롯 기록을 비워 두기만 한다(슬롯 기록이 남아 "기록 n/5슬롯"이 늘어난다) — 뒤 흐름이 같은 데이터를 쓰므로 기록 지우기로 슬롯째 돌린다
       dlg = await slotSheetOpen()
       const clearAll = await dlg.getByRole('button', { name: '기록 지우기', exact: true }).count()
@@ -3276,7 +3255,7 @@ async function runScenes(browser, port, scheme) {
       await settle(page, 450)
       const n1 = await dietEntryCount()
       // 지운다: 방금 줄(마지막)을 펼쳐 삭제
-      await page.locator('.ax-diet button[aria-expanded]').filter({ hasNotText: '식사 알림' }).last().click()
+      await page.locator('.ax-screen button[aria-expanded]').filter({ hasNotText: '식사 알림' }).last().click()
       await btn(page, '삭제').first().click()
       await settle(page, 400)
       const n2 = await dietEntryCount()
@@ -3309,7 +3288,7 @@ async function runScenes(browser, port, scheme) {
       await closeSheet('먹은 것 추가')
       await settle(page, 450)
       const n1 = await dietEntryCount()
-      await page.locator('.ax-diet button[aria-expanded]').filter({ hasNotText: '식사 알림' }).last().click()
+      await page.locator('.ax-screen button[aria-expanded]').filter({ hasNotText: '식사 알림' }).last().click()
       await btn(page, '삭제').first().click()
       await settle(page, 400)
       const n2 = await dietEntryCount()
@@ -3318,11 +3297,11 @@ async function runScenes(browser, port, scheme) {
     // 먹은 기록 한 줄을 펼친 상태 — 시각 입력칸·"먹은 개수" 스테퍼·삭제 버튼이 한 줄에 보인다
     await requiredScene('diet-log-open', async () => {
       // 먹은 것 줄의 펼침 버튼 — 식사 알림 펼침 버튼은 빼고 마지막 것
-      await page.locator('.ax-diet button[aria-expanded]').filter({ hasNotText: '식사 알림' }).last().click({ timeout: 3000 })
+      await page.locator('.ax-screen button[aria-expanded]').filter({ hasNotText: '식사 알림' }).last().click({ timeout: 3000 })
       await page.getByRole('button', { name: '삭제', exact: true }).first().waitFor({ timeout: 3000 })
       await settle(page, 400)
       await snap('diet-log-open')
-      if (!light) await screenWrapFlow('SS2 diet-log-open 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-diet')
+      if (!light) await screenWrapFlow('SS2 diet-log-open 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-screen')
     })
     // RR7 — 식단 편집의 "먹은 개수" 스테퍼. 스테퍼가 스스로 섬이라 줄 안에서도 깨지지 않는가(390·375). SS2: 줄은 HStack이고 시각 칸은 TimeField다
     const logRowProbe = ({ width }) => {
@@ -3396,7 +3375,7 @@ async function runScenes(browser, port, scheme) {
     // SS2 ③ 먹은 것 줄: 줄을 1탭으로 펼치면 시각 칸·스테퍼·삭제가 한 줄에(세로 가운데 차이 ≤ 2px, 390·375), + 1탭에 0.5 오른다
     await guardedFlow(['SS2 먹은 것 줄: 펼침 1탭 · 시각 칸·스테퍼 한 줄(가운데 차이 ≤ 2px, 삭제는 둘째 줄 전체 폭, 390·375) · + 1탭에 0.5'], async () => {
       const name = 'SS2 먹은 것 줄: 펼침 1탭 · 시각 칸·스테퍼 한 줄(가운데 차이 ≤ 2px, 삭제는 둘째 줄 전체 폭, 390·375) · + 1탭에 0.5'
-      const trigger = page.locator('.ax-diet button[aria-expanded]').filter({ hasNotText: '식사 알림' }).last()
+      const trigger = page.locator('.ax-screen button[aria-expanded]').filter({ hasNotText: '식사 알림' }).last()
       // diet-log-open에서 이미 펼쳐 있다: 1탭에 접히고 1탭에 다시 펼쳐지는지 본다
       await trigger.click()
       await settle(page, 300)
@@ -3429,7 +3408,7 @@ async function runScenes(browser, port, scheme) {
       const on = await mark.getAttribute('aria-pressed')
       const k1 = await kcalText()
       // 부분 등급(전부는 아니고 품목 하나만 뺐다)에서는 눌림이 아니다 — aria-pressed는 "전부 먹음"의 뜻이다
-      const firstItem = page.locator('.ax-diet button[aria-pressed]').filter({ hasNot: page.locator('.ax-slot-mark') }).first()
+      const firstItem = page.locator('.ax-screen button[aria-pressed]').filter({ hasNot: page.locator('.ax-slot-mark') }).first()
       await firstItem.click()
       await settle(page, 400)
       const partial = await mark.getAttribute('aria-pressed')
@@ -3444,7 +3423,7 @@ async function runScenes(browser, port, scheme) {
     })
     await guardedFlow(['SS2 품목 체크 1탭: 눌림 true, 한 번 더 → false'], async () => {
       const name = 'SS2 품목 체크 1탭: 눌림 true, 한 번 더 → false'
-      const item = page.locator('.ax-diet button[aria-pressed]').filter({ hasNot: page.locator('.ax-slot-mark') }).first()
+      const item = page.locator('.ax-screen button[aria-pressed]').filter({ hasNot: page.locator('.ax-slot-mark') }).first()
       const label = (await item.textContent())?.trim()
       const was = await item.getAttribute('aria-pressed')
       await item.click()
@@ -3460,7 +3439,7 @@ async function runScenes(browser, port, scheme) {
       const name = 'SS2 식사 알림 접힘: 처음 닫힘 → 1탭에 펼침(끼니 체크 다섯)'
       const visible = async () => {
         let n = 0
-        for (const c of await page.locator('.ax-diet').getByRole('checkbox').all()) if (await c.isVisible()) n++
+        for (const c of await page.locator('.ax-screen').getByRole('checkbox').all()) if (await c.isVisible()) n++
         return n
       }
       const trigger = page.getByRole('button', { name: '식사 알림', exact: true })
@@ -3479,7 +3458,7 @@ async function runScenes(browser, port, scheme) {
       const name = 'SS2 위험 구역 2단 확인: 확인 문구 색 = 오류 토큰(다크·라이트) · 취소로 돌아온다'
       await btn(page, '이 날 식단 기록 지우기').click({ timeout: 3000 })
       await settle(page, 300)
-      const tone = await warnColorBothSchemes('.ax-diet .ax-text-error', '삭제됩니다', 'error')
+      const tone = await warnColorBothSchemes('.ax-screen .ax-text-error', '삭제됩니다', 'error')
       const confirmBtn = await btn(page, '정말 삭제').count()
       await btn(page, '취소').click()
       await settle(page, 300)
@@ -3610,9 +3589,9 @@ async function runScenes(browser, port, scheme) {
         await settle(page, 800)
         const cardOf = (slot) => page.locator('[class*="astryx-card"]').filter({ has: page.getByRole('button', { name: `${slot} 전부 먹음`, exact: true }) }).first()
         const itemsOf = (slot) => cardOf(slot).locator('button[aria-pressed]').filter({ hasNot: page.locator('.ax-slot-mark') })
-        const readMarks = () => page.evaluate(() => [...document.querySelectorAll('.ax-diet .ax-slot-mark')].map((m) => ({ g: m.dataset.grade, glyph: m.textContent.trim(), color: getComputedStyle(m).color })))
+        const readMarks = () => page.evaluate(() => [...document.querySelectorAll('.ax-screen .ax-slot-mark')].map((m) => ({ g: m.dataset.grade, glyph: m.textContent.trim(), color: getComputedStyle(m).color })))
         // 맨 글자 버튼: 눌리지 않은 버튼·토글 가운데 면(배경)도 테두리도 없는 것
-        const bare = await page.evaluate(() => [...document.querySelectorAll('.ax-diet button, .ax-diet [role=button]')].filter((b) => b.offsetWidth).map((b) => {
+        const bare = await page.evaluate(() => [...document.querySelectorAll('.ax-screen button, .ax-screen [role=button]')].filter((b) => b.offsetWidth).map((b) => {
           const s = getComputedStyle(b)
           const transparent = s.backgroundColor === 'rgba(0, 0, 0, 0)' || s.backgroundColor === 'transparent'
           const noBorder = ['Top', 'Right', 'Bottom', 'Left'].every((d) => parseFloat(s[`border${d}Width`]) === 0 || s[`border${d}Style`] === 'none')
@@ -3623,7 +3602,7 @@ async function runScenes(browser, port, scheme) {
         // 누르는 영역: 44 미만 컨트롤의 44 상자 안쪽(상하좌우)을 elementFromPoint로
         const small = await page.evaluate(() => {
           const out = []
-          for (const el of document.querySelectorAll('.ax-diet button, .ax-diet input, .ax-diet [role=button], .ax-diet [role=checkbox]')) {
+          for (const el of document.querySelectorAll('.ax-screen button, .ax-screen input, .ax-screen [role=button], .ax-screen [role=checkbox]')) {
             if (!el.offsetWidth) continue
             const r = el.getBoundingClientRect()
             if (r.width >= 44 && r.height >= 44) continue
@@ -3682,7 +3661,7 @@ async function runScenes(browser, port, scheme) {
         // 눌린 품목 면: 눌린 것·안 눌린 것의 배경·테두리·글자 굵기
         const faces = await page.evaluate(() => {
           const pick = (p) => {
-            const b = [...document.querySelectorAll('.ax-diet button[aria-pressed]')].find((x) => x.offsetWidth && !x.querySelector('.ax-slot-mark') && x.getAttribute('aria-pressed') === p)
+            const b = [...document.querySelectorAll('.ax-screen button[aria-pressed]')].find((x) => x.offsetWidth && !x.querySelector('.ax-slot-mark') && x.getAttribute('aria-pressed') === p)
             if (!b) return null
             const s = getComputedStyle(b)
             return `${s.backgroundColor} · 테두리 ${s.borderTopColor} · 굵기 ${s.fontWeight} · 아이콘 ${b.querySelector('svg') ? '있음' : '없음'}`
@@ -3697,7 +3676,7 @@ async function runScenes(browser, port, scheme) {
         const bottom = await page.evaluate(() => {
           const bar = document.querySelector('nav, [role=tablist], .ax-bar') ?? [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === '홈')?.parentElement
           const barTop = bar ? bar.getBoundingClientRect().top : innerHeight
-          const last = [...document.querySelectorAll('.ax-diet button')].filter((b) => b.offsetWidth).pop()
+          const last = [...document.querySelectorAll('.ax-screen button')].filter((b) => b.offsetWidth).pop()
           const r = last.getBoundingClientRect()
           const hit = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2)
           return { barTop: Math.round(barTop), lastBottom: Math.round(r.bottom), h: Math.round(r.height), reachable: hit === last || last.contains(hit), n: (last.textContent ?? '').trim().slice(0, 10) }
@@ -3741,7 +3720,7 @@ async function runScenes(browser, port, scheme) {
         await settle(page, 600)
         await snap('diet-streak')
         await wrapProbe('diet-streak')
-        if (!light) await screenWrapFlow('SS2 diet-streak 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-diet')
+        if (!light) await screenWrapFlow('SS2 diet-streak 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안', '.ax-screen')
       } finally {
         await page.evaluate(inPageDietRestore, seeded)
         await page.reload()
@@ -3760,7 +3739,7 @@ async function runScenes(browser, port, scheme) {
     await toTop()
 
     // ── SS6 설정 탭 흐름 (PLAN v1.21 SS6). 흐름은 guardedFlow 안에서 돌아 예외가 흐름 실패로 센다(0개 통과·건너뜀 없음). 끝에는 설정을 원래대로 돌려놓는다 ──
-    const ss6Wrap = (scene) => (light ? Promise.resolve() : screenWrapFlow(`SS6 ${scene} 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안`, '.ax-settings'))
+    const ss6Wrap = (scene) => (light ? Promise.resolve() : screenWrapFlow(`SS6 ${scene} 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안`, '.ax-screen'))
     const ss6Rows = (scene) =>
       light
         ? Promise.resolve()
@@ -3782,7 +3761,7 @@ async function runScenes(browser, port, scheme) {
       await ss6Wrap('settings')
       await ss6Rows('settings')
       await guardedFlow(['SS6 Gist 토큰 칸·외부 링크'], async () => {
-        const link = page.locator('.ax-settings a[href*="github.com/settings/tokens/new"]')
+        const link = page.locator('.ax-screen a[href*="github.com/settings/tokens/new"]')
         const field = page.getByLabel('GitHub 개인 액세스 토큰')
         const save = btn(page, '토큰 저장')
         const attrs = (await link.count()) === 1 ? await link.evaluate((e) => ({ target: e.getAttribute('target'), rel: e.getAttribute('rel') ?? '', text: e.textContent.trim() })) : null
@@ -3853,8 +3832,8 @@ async function runScenes(browser, port, scheme) {
           await page.getByRole('button', { name: '설정', exact: true }).click()
           await page.getByRole('radiogroup', { name: 'Phase' }).waitFor({ timeout: 5000 })
           await settle(page, 600)
-          n = await page.locator('.ax-settings .ax-text-success').count()
-          col = await warnColorBothSchemes('.ax-settings .ax-text-success', '✓', 'success')
+          n = await page.locator('.ax-screen .ax-text-success').count()
+          col = await warnColorBothSchemes('.ax-screen .ax-text-success', '✓', 'success')
         } finally {
           await page.evaluate(inPageSetSetting, { key: 'currentPhase', value: prev.value, remove: !prev.had })
           await page.reload()
@@ -3865,7 +3844,7 @@ async function runScenes(browser, port, scheme) {
       })
       // Day 펼치기: 1탭에 펼치고(aria-expanded) 다른 Day를 펼치면 앞의 것이 접히며 다시 누르면 접힌다
       await guardedFlow(['SS6 Day 펼치기'], async () => {
-        const heads = page.locator('.ax-settings button[aria-expanded]').filter({ hasText: /^Day \d/ })
+        const heads = page.locator('.ax-screen button[aria-expanded]').filter({ hasText: /^Day \d/ })
         const n = await heads.count()
         const open = () => heads.evaluateAll((els) => els.map((e) => e.getAttribute('aria-expanded')))
         const o0 = await open()
@@ -3903,7 +3882,7 @@ async function runScenes(browser, port, scheme) {
         const sw = page.getByRole('switch', { name: '템포 가이드 사용' })
         if ((await sw.count()) !== 1) throw new Error(`스위치 ${await sw.count()}개`)
         const state = () => sw.evaluate((e) => e.checked ?? e.getAttribute('aria-checked') === 'true')
-        const box = page.locator('.ax-settings').filter({ has: sw }).locator('label').filter({ has: sw }).first()
+        const box = page.locator('.ax-screen').filter({ has: sw }).locator('label').filter({ has: sw }).first()
         const shot = async () => (await box.count()) ? box.screenshot() : sw.screenshot()
         await sw.scrollIntoViewIfNeeded()
         const s0 = await state()
@@ -3952,7 +3931,7 @@ async function runScenes(browser, port, scheme) {
       await snap('settings-export-preview')
       if (!light) {
         await guardedFlow(['SS6 내보내기 미리보기'], async () => {
-          const pre = page.locator('.ax-settings pre')
+          const pre = page.locator('.ax-screen pre')
           const n = await pre.count()
           const text = n ? await pre.first().innerText() : ''
           flows.push(['SS6 내보내기 미리보기', { ok: n === 1 && /^## /m.test(text), detail: `미리보기 칸 ${n}개 · "## " 줄 ${/^## /m.test(text)} · 글자 ${text.length}자` }])
@@ -3973,7 +3952,7 @@ async function runScenes(browser, port, scheme) {
       let ss6During = null
       await guardedFlow(['SS6 초기화 2단 확인', `SS6 오류 글자색(초기화 확인 문구)${light ? ' (라이트)' : ''}`], async () => {
         ss6During = { sure: await btn(page, '정말 삭제').count(), entry: await btn(page, '모든 데이터 초기화').count(), cancel: await btn(page, '취소').count() }
-        const col = await warnColorBothSchemes('.ax-settings .ax-text-error', '세션 기록', 'error')
+        const col = await warnColorBothSchemes('.ax-screen .ax-text-error', '세션 기록', 'error')
         flows.push([`SS6 오류 글자색(초기화 확인 문구)${light ? ' (라이트)' : ''}`, { ok: col.same, detail: `계산된 색 ${col.actual} (토큰 ${col.token})` }])
       })
       if (!light) await ss6Wrap('settings-reset-confirm')
@@ -4426,7 +4405,7 @@ function readAllCss() {
 
 function runStatic() {
   const allCss = readAllCss()
-  return [...barStaticChecks(allCss), ...motionStaticChecks(allCss), ...spaceStaticChecks(allCss)]
+  return barStaticChecks(allCss)
 }
 
 function printResults() {
@@ -4438,8 +4417,7 @@ function printResults() {
       if (!c.ok) failed++
     }
   } else console.log('\n정적 검사: before에서는 건너뜀')
-  // 알려진 실패(PLAN v1.21 개정 1): after에서만. before는 기준선이라 걸지 않는다
-  const known = phase === 'after' ? applyKnownFailures(rows, KNOWN_FAILURES) : { rows, known: 0, stale: [] }
+  const known = { rows }
   const mark = (c) => (c === null ? '·' : c.status)
   console.log(`\n| 장면 | ${COLUMNS.join(' | ')} |\n|---|${COLUMNS.map(() => '---').join('|')}|`)
   for (const r of known.rows) console.log(`| ${r.scene} | ${COLUMNS.map((c) => mark(r.cells[c])).join(' | ')} |`)
@@ -4452,15 +4430,9 @@ function printResults() {
       if (cell.status === '실패') {
         failed++
         lines.push(`- 실패 ${r.scene} · ${c}: ${cell.detail}`)
-      } else if (cell.status === '알려진 실패') {
-        lines.push(`- 알려진 실패 ${r.scene} · ${c}: ${cell.detail} (${KNOWN_FAILURES.find((k) => k.scene === r.scene && k.column === c)?.until}이 고친다)`)
       } else if (cell.status === '건너뜀') lines.push(`- 건너뜀 ${r.scene} · ${c}: ${cell.detail}`)
       else if (cell.status === '기록') lines.push(`- 기록 ${r.scene} · ${c}: ${cell.detail}`)
     }
-  }
-  for (const s of known.stale) {
-    failed++
-    lines.push(`- 실패 ${s.scene} · ${s.column}: 알려진 실패가 고쳐졌다 — KNOWN_FAILURES에서 지운다`)
   }
   if (lines.length) console.log(`\n상세:\n${lines.join('\n')}`)
   // 테마 토큰: 라이트 장면의 문서 배경이 다크 장면과 달라야 한다 (RR1부터 전 장면, 그 전 before는 테마가 있는 editor 장면만)
@@ -4536,7 +4508,6 @@ function printResults() {
   if (sceneFailures.length) console.log(`\n장면 실패 ${sceneFailures.length}건 (requiredScene):\n${sceneFailures.map(([n, d]) => `- ${n}: ${d}`).join('\n')}`)
   else console.log('\n장면 실패 0건 (requiredScene)')
   failed += sceneFailures.length
-  if (phase === 'after') console.log(`알려진 실패 ${known.known}건`)
   console.log('\n접근성(axe) 결과 — color-contrast는 찍기만 한다 (위반 노드 / incomplete 노드):')
   for (const a of axeInfo) console.log(`- ${a.scene}: serious·critical ${a.hard}건, color-contrast 위반 ${a.contrast} · incomplete ${a.incomplete}`)
   return failed

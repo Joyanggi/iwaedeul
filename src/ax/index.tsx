@@ -2,6 +2,7 @@
  * 앱이 Astryx를 쓰는 한 곳. 화면은 `@astryxdesign/…`를 직접 import하지 않고 여기서만 가져다 쓴다.
  * 버전을 올릴 때 고칠 자리가 이 폴더뿐이다. `App`이 정적으로 읽고, 테마는 `AppRoot`가 앱 뿌리에 한 번 건다.
  */
+import './layers.css'
 import '@astryxdesign/core/astryx.css'
 import './ax.css'
 import './parts.css'
@@ -57,16 +58,15 @@ export function AxRoot({ children }: { children: ReactNode }) {
 /**
  * 여백 역할 (v1.20 RR12). 묶음 사이·카드 사이·카드 안쪽의 단계 숫자는 이 파일에만 적는다.
  * 화면은 `Groups`·`Group`·`Card`를 쓰고 숫자를 적지 않는다 — 같은 역할에 다른 값이 생길 길이가 없다.
- * (안 옮긴 화면의 짝은 `styles/space.css`의 `--space-section`·`--space-card`·`--inset-card`이고 같은 길이다.)
  */
 const GROUP_GAP = 5
 const CARD_GAP = 3
 const CARD_PADDING = 4
 
 /** 화면 안의 묶음들을 세로로 쌓는다. 화면은 `AxRoot` 안에 `Groups` 하나를 둔다. */
-export function Groups({ children, className }: { children: ReactNode; className?: string }) {
+export function Groups({ children }: { children: ReactNode }) {
   return (
-    <VStack gap={GROUP_GAP} className={className ? `ax-groups ${className}` : 'ax-groups'}>
+    <VStack gap={GROUP_GAP} className="ax-groups">
       {children}
     </VStack>
   )
@@ -94,7 +94,7 @@ export function ClickableCard(props: Omit<ClickableCardProps, 'padding'>) {
 /**
  * 화면 위나 아래에 붙어 있는 띠(Astryx에 없는 부품 — Layout은 iOS의 문서 스크롤을 잃게 해서 안 쓴다).
  * 재질은 `parts.css`의 `.ax-bar` 한 곳. 자기 높이를 `--ax-bar-top`·`--ax-bar-bottom`으로 문서에 알려
- * 화면 틀(`.ax-screen`)과 안 옮긴 화면(`.screen`)이 그만큼 비운다. 안전 영역은 띠가 스스로 띄운다.
+ * 화면 틀(`.ax-screen`)이 그만큼 비운다. 안전 영역은 띠가 스스로 띄운다.
  */
 export function Bar({
   position,

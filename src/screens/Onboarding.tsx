@@ -14,7 +14,7 @@ export default function Onboarding() {
 
   return (
     <AxRoot>
-      <Groups className="ax-onboarding">
+      <Groups>
         <Group>
           <Heading level={1}>운동 기록</Heading>
           <Text type="large" color="secondary">
@@ -83,7 +83,7 @@ export default function Onboarding() {
                   {window.location.href.split('/').map((part, i, all) => (
                     // 주소는 '/' 뒤에서만 줄을 바꾼다(글자 중간·하이픈 뒤 꺾임 없음)
                     <Fragment key={i}>
-                      <span className="ax-nowrap">{part}</span>
+                      <span className="ax-address-part">{part}</span>
                       {i < all.length - 1 && <>/<wbr /></>}
                     </Fragment>
                   ))}

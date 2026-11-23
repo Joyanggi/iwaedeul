@@ -8,7 +8,6 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { collectFirstLoad } from './lib/first-load-lib.mjs'
-import { applyKnownFailures, KNOWN_FAILURES } from './lib/ui-check-lib.mjs'
 
 const uiCheck = readFileSync(new URL('./ui-check.mjs', import.meta.url), 'utf8')
 const inventory = readFileSync(new URL('./astryx-inventory.mjs', import.meta.url), 'utf8')
@@ -153,97 +152,5 @@ describe('v121 SS0 — first-load.mjs 종료 코드', () => {
     })
     expect(r.status).toBe(0)
     expect(r.stdout).toContain('assets/a.js')
-  })
-})
-
-describe('v121 SS0 — 알려진 실패 (개정 1)', () => {
-  // 처음 목록(셋). SS5가 analyze-empty 항목을, SS6이 settings-export-preview 둘을 고쳐 KNOWN_FAILURES에서 지웠다 — 판정 함수의 동작은 처음 목록으로 계속 잰다
-  const FIXTURE = [
-    { scene: 'analyze-empty', column: '여백 격자', detail: 'p.center-note marginTop 13px · p.center-note marginBottom 13px', until: 'SS5' },
-    { scene: 'settings-export-preview', column: '접근성', detail: 'scrollable-region-focusable 1건 [pre]', until: 'SS6' },
-    { scene: 'settings-export-preview', column: '눌림 반응', detail: '1/5건: "GitHub에서 토큰 발급" .ext-link 변화 없음', until: 'SS6' },
-  ]
-  const fail = (detail) => ({ status: '실패', detail })
-  const rowsFor = () => [
-    { scene: 'analyze-empty', cells: { '여백 격자': fail(FIXTURE[0].detail), '접근성': { status: '통과' } } },
-    { scene: 'settings-export-preview', cells: { '접근성': fail(FIXTURE[1].detail), '눌림 반응': fail(FIXTURE[2].detail) } },
-  ]
-  const count = (rows, status) => rows.flatMap((r) => Object.values(r.cells)).filter((c) => c && c.status === status).length
-
-  it('v121 SS0 알려진 실패: 세 칸이 항목과 글자까지 같으면 알려진 실패 셋, 실패 0', () => {
-    const r = applyKnownFailures(rowsFor(), FIXTURE)
-    expect(r.known).toBe(3)
-    expect(count(r.rows, '알려진 실패')).toBe(3)
-    expect(count(r.rows, '실패')).toBe(0)
-    expect(r.stale).toEqual([])
-  })
-  it('v121 SS0 알려진 실패: 상세가 한 글자 다르면 실패 그대로', () => {
-    const rows = rowsFor()
-    rows[0].cells['여백 격자'] = fail(FIXTURE[0].detail.replace('13px', '14px'))
-    const r = applyKnownFailures(rows, FIXTURE)
-    expect(r.rows[0].cells['여백 격자'].status).toBe('실패')
-    expect(r.known).toBe(2)
-  })
-  it('v121 SS0 알려진 실패: 같은 상세가 다른 칸·다른 장면(-light 행 포함)에 있으면 실패 그대로', () => {
-    const rows = [
-      { scene: 'analyze-empty-light', cells: { '여백 격자': fail(FIXTURE[0].detail) } },
-      { scene: 'analyze', cells: { '여백 격자': fail(FIXTURE[0].detail) } },
-      { scene: 'analyze-empty', cells: { '가로 넘침': fail(FIXTURE[0].detail) } },
-    ]
-    const r = applyKnownFailures(rows, FIXTURE)
-    expect(r.known).toBe(0)
-    expect(count(r.rows, '실패')).toBe(3)
-  })
-  it('v121 SS0 알려진 실패: 칸이 통과인 항목은 stale', () => {
-    const rows = rowsFor()
-    rows[0].cells['여백 격자'] = { status: '통과' }
-    const r = applyKnownFailures(rows, FIXTURE)
-    expect(r.stale).toEqual([{ scene: 'analyze-empty', column: '여백 격자', until: 'SS5' }])
-    expect(r.known).toBe(2)
-  })
-  it('v121 SS0 알려진 실패: 행이 없는 항목은 stale도 아니고 바뀐 칸도 없다', () => {
-    const r = applyKnownFailures([], FIXTURE)
-    expect(r).toEqual({ rows: [], known: 0, stale: [] })
-  })
-  it('v121 SS0 알려진 실패: 장면 실패 행(칸 전부 실패, 상세는 예외 줄)은 하나도 안 바뀐다', () => {
-    const cells = Object.fromEntries(['여백 격자', '접근성', '눌림 반응'].map((c) => [c, fail('Error: 선택자를 못 찾았다')]))
-    const rows = [{ scene: 'analyze-empty', cells }, { scene: 'settings-export-preview', cells: { ...cells } }]
-    const r = applyKnownFailures(rows, FIXTURE)
-    expect(r.rows).toEqual(rows)
-    expect(r.known).toBe(0)
-  })
-  it('v121 SS0 알려진 실패 속성: 숨기기만 하고 만들지 않으며 두 번 걸어도 같다', () => {
-    const cell = fc.oneof(
-      fc.constant(null),
-      fc.constantFrom('통과', '건너뜀', '기록').map((status) => ({ status })),
-      fc.constantFrom('x', ...FIXTURE.map((k) => k.detail)).map((detail) => ({ status: '실패', detail })),
-    )
-    const row = fc
-      .record({
-        scene: fc.constantFrom('analyze-empty', 'analyze-empty-light', 'settings-export-preview', 'home'),
-        cells: fc.dictionary(fc.constantFrom('여백 격자', '접근성', '눌림 반응', '가로 넘침'), cell),
-      })
-    fc.assert(
-      fc.property(fc.array(row, { maxLength: 6 }), fc.subarray(FIXTURE), (rows, known) => {
-        const r = applyKnownFailures(rows, known)
-        expect(count(r.rows, '실패') + count(r.rows, '알려진 실패')).toBe(count(rows, '실패'))
-        expect(count(r.rows, '알려진 실패')).toBe(r.known)
-        rows.forEach((row0, i) => {
-          for (const [c, v] of Object.entries(row0.cells)) if (!v || v.status !== '실패') expect(r.rows[i].cells[c]).toEqual(v)
-        })
-        expect(applyKnownFailures(r.rows, known).rows).toEqual(r.rows)
-      }),
-    )
-  })
-  it('v121 SS6: KNOWN_FAILURES는 빈 배열이다(SS5가 analyze-empty를, SS6이 settings-export-preview의 접근성·눌림 반응을 고쳐 지웠다 — 남기면 stale 실패)', () => {
-    expect(KNOWN_FAILURES).toEqual([])
-  })
-  it('v121 SS5: 고친 analyze-empty 항목은 KNOWN_FAILURES에 없다(남기면 stale 실패 — 같은 커밋에서 지운다)', () => {
-    expect(KNOWN_FAILURES.map((k) => k.scene)).not.toContain('analyze-empty')
-  })
-  it('v121 SS0 알려진 실패: printResults는 after에서만 걸고 stale을 실패로 센다', () => {
-    expect(uiCheck).toMatch(/phase === 'after' \? applyKnownFailures\(rows, KNOWN_FAILURES\)/)
-    expect(uiCheck).toContain('알려진 실패가 고쳐졌다 — KNOWN_FAILURES에서 지운다')
-    expect(uiCheck).toMatch(/for \(const s of known\.stale\) \{\s*failed\+\+/)
   })
 })

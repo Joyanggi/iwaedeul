@@ -118,7 +118,7 @@ describe('v121 SS2 — 식단 세 파일은 Astryx 부품뿐이다', () => {
   it('v121 SS2: className=은 ax- 이름뿐이고 style=·<button·<input·var(--·padding=이 0건이다', () => {
     for (const [name, src] of Object.entries(DIET_FILES)) {
       const classes = [...src.matchAll(/className=("[^"]*"|\{[^}]*\})/g)].map((m) => m[1])
-      for (const c of classes) expect(c, name).toMatch(/^"ax-(scope ax-diet|scope|slot-mark|diet|text-error|toggle)"$/)
+      for (const c of classes) expect(c, name).toMatch(/^"ax-(slot-mark|text-error|toggle)"$/)
       for (const bad of ['style=', '<button', '<input', 'var(--', 'padding=']) expect(src, `${name} ${bad}`).not.toContain(bad)
     }
   })
@@ -154,9 +154,10 @@ describe('v121 SS2 — 식단 세 파일은 Astryx 부품뿐이다', () => {
     expect(mealPanel).toContain('휴식일에도 울립니다 (훈련일 전용 끼니인데 매일 반복입니다)')
   })
 
-  it('v121 SS2: 편집기는 맨 바깥이 ax-scope div(기록 화면이 legacy인 동안 맨 요소 규칙을 막는다)이고 화면은 Groups className="ax-diet"다', () => {
-    expect(dietEditor).toMatch(/return \(\s+<div className="ax-scope ax-diet">\s+<Group>/)
-    expect(dietScreen).toContain('<Groups className="ax-diet">')
+  it('v121 SS2 → SS8: 편집기는 맨 바깥 감싸기 div 없이 Fragment(<>)로 시작하고(ax-scope 섬이 없어졌다) 화면은 Groups(className 없음)다', () => {
+    expect(dietEditor).toMatch(/return \(\s+<>\s+<Group>/)
+    expect(dietEditor).not.toContain('ax-scope')
+    expect(dietScreen).toContain('<Groups>')
   })
 
   it('v121 SS2: 로직 줄은 그대로다 — mutateDietDay·seedVariantChoices 한 경로, variantChoicesFor(…todayVariantChoices(day)), decimals={2}', () => {
@@ -474,8 +475,8 @@ describe('v121 SS6 — 설정 화면과 패널 여섯은 Astryx 부품뿐이다'
     }
   })
 
-  it('v121 SS6: 설정 화면은 묶음 제목 넷(원문)과 Groups className="ax-settings"를 쓴다 — 진단·위험 구역은 제목 없이 카드 제목만', () => {
-    expect(settingsCode).toContain('<Groups className="ax-settings">')
+  it('v121 SS6: 설정 화면은 묶음 제목 넷(원문)과 Groups(className 없음)를 쓴다 — 진단·위험 구역은 제목 없이 카드 제목만', () => {
+    expect(settingsCode).toContain('<Groups>')
     for (const t of ['훈련', '소리·템포', '기록 내보내기·백업', '루틴·식단 파일']) expect(settingsCode, t).toContain(`<Heading level={2}>${t}</Heading>`)
     expect(settingsCode.match(/<Heading level=\{2\}>/g)).toHaveLength(4)
     expect(settingsCode).toContain('<Heading level={1}>설정</Heading>')

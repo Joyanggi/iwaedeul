@@ -109,7 +109,7 @@ export default function MonthCalendar({
               >
                 {/* 보이는 글자가 "17일"인 이유: 이름이 "17일 …"이라 숫자만 보이면 axe(label-content-name-mismatch)가 낱말 "17일"과 "17"을 다르다고 센다 */}
                 <span className="ax-cal-num">{dayNum}일</span>
-{/* 🔥과 세션 수는 글자가 아니라 CSS 내용(::before·::after)이다 — 보이는 글자가 "17일"뿐이어야 이름("17일 운동 2회 …")과 맞는다(axe label-content-name-mismatch) */}
+                {/* 🔥과 세션 수는 글자가 아니라 CSS 내용(::before·::after)이다 — 보이는 글자가 "17일"뿐이어야 이름("17일 운동 2회 …")과 맞는다(axe label-content-name-mismatch) */}
                 {hasSession && <span className="ax-cal-flame" data-sessions={cell.sessions.length} aria-hidden="true" />}
                 <span className="ax-cal-dot" data-diet={dietDot ?? undefined} aria-hidden="true" />
               </Button>

@@ -221,7 +221,7 @@
 | `assets/index-Deurkv2C.css` | 49.98 |
 | **합** | **353.50** (한계 360KB, 통과. SS0 기준선 473.89KB) |
 
-`node scripts/first-screen.mjs`(판정 안 함): 캐시 없는 첫 방문 **786ms**, 다시 열기 **601ms** (RR10 값 740ms·300ms과 나란히).
+`node scripts/first-screen.mjs`(판정 안 함): 캐시 없는 첫 방문 **786ms**, 다시 열기 **601ms** (RR10 값 740ms·300ms과 나란히). **[SS8 정정]** 이 601ms는 홈이 아니라 지연된 온보딩을 잰 값이다(`first-screen.mjs`가 연 새 문맥은 온보딩이 먼저 뜬다). 홈 다시 열기는 352→345ms로 불변이다.
 서비스워커 precache: **45개, 2668.75 KiB** (청크가 늘었다 — 오프라인에서 여는 데 새로 필요한 것은 없다).
 인벤토리 `--check`: 화면 아닌 파일 21→21, 인라인 스타일 51→51, legacy 클래스 쓰임 270→270, 안 쓰는 선택자 0→0(표 안 바뀜 — 화면 파일을 안 고쳤다).
 
@@ -537,6 +537,10 @@
 | `SS4 Day 변경 2단계`·`SS4 위험 구역 2단 확인` | 취소로 끝냄, 기록 그대로, 확인 글자 계산된 색 = 오류 토큰 |
 | `SS4 상세 유산소 토글 맨 글자 아님` | 토글 5개 모두 면·테두리가 있음, 높이 36px 하나 |
 | `SS4 <장면> 390·375 폭 글자 중간 꺾임 없음·안쪽 폭 안` | history·history-day·history-exercise·history-exercise-detail·history-detail·history-detail-change 모두 꺾임 0건, 안쪽 폭 안 |
+
+### `--same-layout=summary` (SS4 리뷰 경미한 점 1 — SS8에서 더한 줄)
+
+PLAN SS4의 `--same-layout=summary,…`(직전 커밋과 같다)는 실행 줄이 없었다. 리뷰어가 `after/layout.json`의 summary 17장면 사각형을 `32c8031`과 글자까지 같다고 직접 비교해 확인했다. SS8의 `--same-layout=all`(아래 `v1.21 전체 정리`)이 SS7 기록 대비 전 장면에서 다시 확인한다.
 
 ### 결함 복원
 
@@ -867,3 +871,130 @@ PLAN과 다르게 한 것:
 | 테스트 | `ss7.test.mjs`(시작하기 둘)·`ss6.test.mjs`(글자색 둘) 단언을 꼬리표 포함 이름으로 |
 
 결함 복원: Safari 탭 흐름의 클릭 뒤에 `if (light) throw new Error('결함 복원')` → `ui-check after --check --only=analyze-empty-light` → `흐름 실패 SS7 시작하기(Safari 탭) (라이트): 예외: 결함 복원`, 종료 코드 1 → `cp` 백업으로 복구, `cmp` 같음. (클릭 앞에서 던지면 뒤의 가드 없는 `waitFor`가 스크립트를 죽여 흐름 행이 안 나온다 — 그래서 클릭 뒤에 넣었다.)
+
+---
+
+## SS8. legacy CSS 삭제와 마무리
+
+### 범위
+
+| 무엇 | 내용 |
+|---|---|
+| 지운 것 | `src/styles/`(`global.css`·`motion.css`·`space.css`·`index.css`) 폴더째, `legacy` 레이어, `@scope … to (…)`(리셋·legacy 규칙), `ax-scope` 섬(`DietDayEditor` 감싸기 div·`ExerciseCard` 클래스 삭제, `NumberStepper`는 `ax-stepper`로 이름만 바뀜 — 세트 행 열 배치의 걸이), 화면 틀 `className`(`ax-diet`·`ax-history`·`ax-analyze`·`ax-settings`·`ax-onboarding`·`ax-summary`)과 `Groups`의 `className` 속성, 시트 이름·틀로 흩어진 한글 줄바꿈 규칙 |
+| 더한 것 | `src/ax/layers.css`(`@layer reset, astryx-base, astryx-theme;` 한 줄, `src/ax/index.tsx` 첫 import), `ax.css`의 문서 바탕(`-webkit-tap-highlight-color`·`body { margin: 0; overscroll-behavior-y: none }`·`#root { min-height: 100dvh }`), `parts.css`의 한글 줄바꿈 규칙 하나 `:is(.ax-screen, dialog) :is(p, span, div, h1, h2, h3, li)`, 주소 조각 `.ax-screen .ax-address-part`(옛 `.ax-onboarding .ax-nowrap` — 명시도가 한글 규칙보다 높아야 조각 안에서 꺾인다) |
+| 바꾼 것 | `.ax-screen` 좌우·위·아래가 `--spacing-4`·`-3`·`-6`, `max-width: 40rem`(640px와 같다), 루틴 편집의 인라인 `style` 5곳 → `StackItem size="fill"`, `astryx-inventory`의 정의(아래), `package.json`·lock **1.21.0**, README(PLAN "README 반영" 문구 그대로) |
+| 커밋 | 이 커밋 하나(SS8) — `git rev-list --count main..HEAD`: 커밋 전 25 → 이 커밋 후 26 |
+
+**PLAN과 다르게 한 것:**
+- **`body { margin: 0 }`을 문서 바탕에 더했다.** PLAN은 리셋·테마가 `html, body`의 `margin: 0`을 이미 정한다고 했으나 아니었다 — 첫 `--same-layout=all`이 전 장면에서 화면이 오른쪽·아래로 8px 밀린 것으로 잡았다(`h1` `[16,12,…]`→`[24,20,…]`). 브라우저 기본 바깥 여백이다.
+- **`눌림 반응` 외에 `움직임 줄이기` 칸도 지웠다.** 그 칸은 `measurePress`로 legacy 버튼의 크기 변화만 쟀다 — legacy 버튼이 없으면 늘 "크기 변화 0개"로 0개 통과(앞 Run의 교훈)가 된다. 둘이 같은 `measurePress`·`inPagePressTargets`·`inPagePressStyle`을 쓰므로 함께 지웠다.
+- **인벤토리**: `ax-groups`·`ax-group`은 `HOOK_CLASSES`(이유 적음 — CSS는 없고 `ui-space.mjs`가 간격을 재는 걸이)에, `recharts-`는 외부 접두사 `EXTERNAL_PREFIXES`에, `ax-tempo-ring-`는 템플릿 접두사 허용 목록에 둔다.
+- `ExerciseCard`의 `ax-scope`는 세트 행 걸이가 아니라 섬 표시뿐이라 이름을 바꾸지 않고 지웠다(`ax-stepper`를 단 곳은 `NumberStepper` 하나).
+
+### 지운 검사 칸·함수와 테스트 (PLAN "검사 도구" · 개정 1)
+
+| 지운 것 | 이유 |
+|---|---|
+| 칸 `눌림 반응`·`움직임 줄이기`·`섬 버튼`, `measurePress`·`pressVerdict`·`inPagePressTargets`·`inPagePressStyle`·`PRESS_SELECTOR`·`inPageIslandButtons`·`motionStaticChecks` | legacy 버튼·`motion.css`·섬이 없다. 옮긴 화면의 눌림은 Astryx 부품의 것이고 `--press-shot`이 사진으로 본다 |
+| `ui-space.mjs`의 `spaceStaticChecks`·`STEPS`, `inPageLayout`의 legacy `.card`·`.screen` 갈래 | `global.css`·`space.css`가 없다. 재는 쪽은 `.ax-screen`·`.ax-group`·`.astryx-card`만 |
+| `inPageLastVisible`·`inPageInnerOverflow`의 `.screen` 대안 | 같은 이유 |
+| `KNOWN_FAILURES`·`applyKnownFailures`와 `printResults`의 `알려진 실패 N건` 줄 | 목록이 비어 있다(SS5·SS6이 지웠다) |
+| 테스트 `ss0.test.mjs`의 `v121 SS0 알려진 실패: …` 일곱, `v121 SS0 알려진 실패 속성: …`, `v121 SS6: KNOWN_FAILURES는 빈 배열이다 …`, `v121 SS5: 고친 analyze-empty 항목은 KNOWN_FAILURES에 없다 …`, `v121 SS0 알려진 실패: printResults는 …`(합 10) | 위 목록·함수가 없다. 뜻은 `ss8.test.mjs`의 `ui-check·검사 도구에 알려진 실패 … 가 없다`가 잇는다 |
+| 테스트 `ss6.test.mjs`의 `v121 SS6: KNOWN_FAILURES는 빈 배열이고 …`(1) | 같은 이유 |
+| 파일 `scripts/legacy-scope.test.mjs`(18) | 뜻이 남은 줄은 `ss8.test.mjs`로 옮겼다(아래 표), 나머지는 `@scope`·legacy 뿌리 목록·`global.css` 색 다리라 대상이 없다 |
+
+### 옮긴 스캔 (이름·전→후·같은 뜻인 이유)
+
+| 테스트 | 전 | 후 |
+|---|---|---|
+| `ss2`~`ss7.test.mjs`의 "global.css·space.css·motion.css에 X가 없다" 전부 | `src/styles/*.css`를 읽는다 → 파일이 없어 던진다 | **앱 CSS(`ax.css`+`parts.css`) 전체에 X가 없다**로 읽는다 — 옛 legacy 규칙이 어디로도 돌아오지 않았다는 같은 뜻(되살아나면 실패). `ss8.test.mjs`가 `src/styles`가 없음을 따로 잠근다 |
+| `ss2` `.ax-diet`·`ss4` `.ax-history`·`ss5` `.ax-analyze`·`ss6` `.ax-settings`·`ss7` `.ax-onboarding`·`rr9` `.ax-summary`·`rr5-wrap` Day 선택 시트·`rr8` 시트 여덟 이름 목록·`ss3` 식단 시트 넷 이름 | 틀·시트 이름별 한글 줄바꿈 규칙 | "`parts.css`의 한 규칙이 `.ax-screen`과 `dialog`를 덮는다"(`keep-all` + `anywhere`)와 틀·시트 이름 선택자가 없다 |
+| `ss5` 인벤토리의 `'recharts-surface'` 예외 없음 | 이름 예외가 없다 | 예외는 이름이 아니라 라이브러리 접두사 `'recharts-'` 하나 |
+| `ss6`·`ss7`·`ss3`·`rr3` legacy 뿌리 목록 | 두 파일의 `@scope` 목록이 같다 | 앱 CSS에 `@scope`가 없다 |
+| `rr7` `.set-row > .ax-scope` | 세트 행 스테퍼 min-width 0 | `.set-row > .ax-stepper` |
+| `rr7`의 "global.css에 .stepper·.set-*… 없다" | `global.css` | `ax.css`만 읽는다(`parts.css`는 이 앱만의 `.set-*`를 갖는 곳이라 뺀다) |
+| `rr10` ×6 | `motion.css` 눌림 제외 둘·`space.css` 유틸·`global.css .diet-*`·인벤토리 `legacy 선택자 0개`·ui-check-lib `.stepper` | 앱 CSS에 `--press-`·`--motion-`·`--ease-` 없음 / 눌림 사본 규칙 없고 `.ax-screen`·`.ax-bar`는 남음 / 유틸 없음 / `.diet-head` 없음 / `안 쓰는 parts.css 선택자 0개.` / ui-check-lib에 `measurePress`·`motionStaticChecks` 없음 |
+| `v117` main.tsx / `v120` RR1 main.tsx | `./styles/index.css`를 읽는다 | `main.tsx`는 CSS를 안 읽고, `src/ax/index.tsx`의 첫 import가 `./layers.css` |
+| `v119` ui-space 정적 검사 셋 | `space.css`·`STEPS`·`spaceStaticChecks`가 있다 | 없다(`spaceRoleVerdicts`만) |
+| `v120` RR0 다섯·RR7 다섯·RR9 둘·RR12 둘·`v121` SS2·SS6·`v121ss7` 둘 | `ax-scope`·`섬 버튼`·`Groups className="ax-…"`·인벤토리 문구 | `ax-stepper`·`섬 버튼` 없음·`<Groups>`·`정의 없는 클래스`·`안 쓰는 parts.css 선택자` |
+| `uiConsistency` | `/src/styles/global.css`가 string | `/src/ax/parts.css`(뜻: vitest에서 CSS는 빈 문자열이라 색은 브라우저로 잰다) |
+| `legacy-scope.test.mjs` → `ss8.test.mjs` | RRM 유리 글자 0건·시트 덧칠 없음, RR2 `body::before`·`color-scheme: dark` 없음, RR1 리셋이 `@layer reset`·`[data-astryx-theme] button` 없음, RR6 옛 세션 CSS 없음 | 같은 단언(색 다리·`:scope` 되돌림 줄은 대상이 없어 뺐다) |
+
+### PLAN 검증 항목 ↔ 확인
+
+| PLAN 검증 | 확인 |
+|---|---|
+| `scripts/ss8.test.mjs` | 첫 describe 여덟(`src/styles` 없음·`main.tsx` CSS 안 읽음·`layers.css` 첫 import·한 줄·`ax.css` `@scope`·`--inset-`·`px` 리터럴 없음·`parts.css` `ax-scope`·`aria-label` 없음·한글 규칙 정확히 하나·`src` `ax-scope` 0건·유틸 클래스 없음·지운 검사 도구 이름 없음), 옛 legacy-scope 여섯, 검사 도구 둘 — 합 16 |
+| `v121` SS8: `.tsx` 전부 `style=` 0·`Groups`가 `className` 안 받음 | `src/lib/v121ss8.test.ts` 셋 |
+| `astryx-inventory --check` 0·0·0·0, `zz-none`으로 실패 | `합계: … 인라인 스타일 0곳(여백 0), 정의 없는 클래스 0곳, 안 쓰는 parts.css 선택자 0개`. 결함 복원 ㉑ 아래 |
+| 옮긴 스캔 | 위 표 |
+| `ui-check` 둘, 첫 화면 크기, `npm run check` | 아래 |
+
+### `ui-check after --check --ver=v1.21 --same-layout=all` (기준: 직전 커밋 SS7의 `after/layout.json`)
+
+- 종료 코드 **1** — `--same-layout`의 아래 다른 요소 때문이다. 그 밖에 **`장면 실패 0건`**, 칸 실패 0건, 흐름 실패 0, **흐름 통과 227**(SS7 때 240에서 `SS4 검증 <장면>` 14개가 기록 목록으로 옮겨져 줄었다), 접근성 serious·critical 0, `같은 역할` 아홉 화면 한 값(묶음 사이 20·카드 사이 12·카드 안쪽 15 — 화면 좌우는 `.ax-screen` 한 곳).
+- 첫 실행은 전 장면이 실패했다(`h1` `[16,12,…]`→`[24,20,…]`) — `body`의 기본 바깥 여백 8px(위). 고친 뒤 **전 장면 가운데 아래만 다르다**(한글 줄바꿈 규칙을 넓힌 곳 — 글자 중간 꺾임은 모든 장면에서 0건, 위 흐름이 통과):
+
+| 장면 | 처음 다른 요소 | 이유 |
+|---|---|---|
+| `home-banner-375` | 6번째 `div` y 572 → 592 (높이 56 그대로) | 홈은 한글 줄바꿈 규칙이 없었다. 새 규칙(`keep-all`)이 홈 배너 글을 단어 사이에서만 꺾어 앞 요소가 한 줄(20px) 늘었다 — 두 번 모두 같은 값 |
+| `settings`·`settings-end`·`settings-open`·`settings-375`·`settings-routines*`·`settings-gist`·`settings-export-preview`·`settings-reset-confirm` | 57~59번째 `div` 높이 453 → 448 (폭 그대로) | 설정 틀 규칙이 `h3`·`li`까지 넓어져 그 카드의 줄이 단어 사이로 옮겨 5px 줄었다(설정 맨 아래 카드로 추정 — 요소 이름은 못 확인) — 재현 |
+| `sheet-comp`·`sheet-add`·`sheet-scale-error` | `h2` 폭 38.5 ↔ 42 ↔ 42.5 ↔ 43 | **흔들림**: 재실행하면 `sheet-add`·`sheet-scale-error`는 통과하고 `sheet-comp`만 남는다. 이 변경이 만든 것이 아니라고 보지만 원인은 못 찾았다(추정) |
+| `onboarding-long-url` | 처음 `div` 높이 136 → 156 | 고쳤다 — 한글 규칙(`span`, 명시도 0,1,1)이 주소 조각의 `word-break: break-all`(0,1,0)을 이겼다. `.ax-screen .ax-address-part`(0,2,0)로 올려 통과 |
+
+- 스크린샷: `docs/screenshots/v1.21/after/` 91장이 다시 찍혀 바뀌었으나(같은 모양이어야 하는 작업) `git show HEAD:<경로>`로 되돌렸다(`git status`에 스크린샷 변경 0). 화면 검증자가 SS8 전·후 사진을 새로 찍어 본다.
+- 건너뜀: `home-banners-open`(앞 라운드부터의 `optional` — 2초 클릭 시간 초과, 이번 작업 밖).
+
+### 첫 화면 크기
+
+`npm run build && node scripts/first-load.mjs --check`: JS `assets/index-BrMavIIw.js` 306.33 · CSS `assets/index-DojPp5MA.css` 46.30 · 합 **352.63**kB gzip(한계 360KB, 통과 — SS7 353.78. PLAN 예상 약 345KB보다 높다: legacy CSS는 빠졌으나 SS2~SS7의 `parts.css`·`src/ax` 몫이 그만큼 더했다). `first-screen.mjs`(판정 안 함): 첫 방문 811ms, 다시 열기 616ms — **홈이 아니라 지연된 온보딩을 잰 값이다**(SS1 절 정정 참고).
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 것 | 원상복구 |
+|---|---|---|
+| ㉑ `.tsx`에 `className="zz-none"` | `astryx-inventory --check`: `정의 없는 클래스 0 → 1`(`안 쓰는 parts.css 선택자 0 → 1`도), 종료 코드 1 | `cmp` 같음 |
+| ㉑ 빈 `src/styles/global.css` 되살림 | `legacy CSS가 되살아났다: src/styles/가 있다`, 종료 코드 1 | 폴더 지움 |
+| ㉒ `parts.css`의 한글 줄바꿈 규칙을 지움 | `ss8.test.mjs`·`ss2`~`ss7`·`rr5-wrap`·`rr8`·`rr9` 10건 실패(390·375 꺾임 흐름은 `ui-check`가 보는데 이 복원 때 `ui-check`는 안 돌렸다) | `cmp` 같음 |
+| ㉓ `layers.css` import를 지움(첫 import 아님) | `ss8.test.mjs`·`v120` RR1 실패. **`--same-layout`이 이 결함을 잡는지는 확인하지 못했다**(정적 스캔만 남긴다 — PLAN이 허용) | `cmp` 같음 |
+| `guardedFlow`가 이름 중복으로만 판단(옛 `flows.some`) | `ss8.test.mjs` `guardedFlow는 이름이 이미 있다고 건너뛰지 않고 …` | `cmp` 같음 |
+
+### 앞 Run이 넘긴 것
+
+| 넘긴 것 | 처리 |
+|---|---|
+| (1) `guardedFlow`가 이름 중복으로만 판단해 고정 이름으로 다크·라이트 두 번 도는 흐름의 라이트 예외를 삼킨다 | **고쳤다.** 이 실행이 던지기 전에 스스로 남긴 이름만 중복으로 본다(`flows.slice(from)`). 같은 패턴이던 요약 장면 도우미(`flowsFrom`)도 |
+| (2) first-screen 601ms는 홈이 아니라 온보딩 | SS1 절의 그 줄을 바로잡았다(홈 다시 열기 352→345ms 불변) |
+| (3) SS4 리뷰 경미한 점 1 | SS4 절에 `--same-layout=summary` 줄을 더했다 |
+| (3) 경미한 점 7(들여쓰기) | `HistoryScreen`·`SessionDetailScreen`의 `<Rows>` 안을 한 단 들여쓰고 `MonthCalendar.tsx`의 주석 줄을 맞췄다(동작 불변) |
+| (3) 판정 2(`SS4 검증 <장면>`이 늘 ok) | 흐름이 아니라 `wrapNotes`(기록 목록)로 보냈다 — 통과 개수를 부풀리지 않는다 |
+| (3) 판정 5(`SS4 다른 달`이 판정 안 함)·6(`가까움 순서` history의 `줄 사이 -48`) | **못 했다 → 남은 일** |
+
+### v1.21 전체 정리
+
+| 작업 | 한 일 | 커밋 | 테스트 (파일/개) |
+|---|---|---|---|
+| SS0 | 도구·기준선(필수 장면·`first-load`·인벤토리 `제외`) | `858816d` | 79/1818 |
+| SS1 | 첫 화면 코드 분할(홈 밖 화면·시트 지연 읽기) | `15a1f09` | 80/1825 |
+| SS2 | 식단 탭 | `6338c7d` (+반려 반영 `4be8944`·`80b53f1`) | 81/1839 |
+| SS3 | 식단 시트 넷, `SheetFrame` 삭제 | `e307de4` | 82/1850 |
+| SS4 | 기록 탭 | `2223ae5` | 83/1871 |
+| SS5 | 분석 탭, 차트 색을 토큰에서 직접 | `e5f312a` | 84/1893 |
+| SS6 | 설정 탭, 묶음으로 다시 짬 | `e8bae6f` (+`db43382`) | 85/1918 |
+| SS7 | 온보딩 | `2322b1a` (+`6beb556`·`900df8e`) | 87/1932 |
+| SS8 | legacy CSS 삭제와 마무리 | 이 커밋 | **88/1922** (SS7 대비 −10: 지운 29(`ss0` 10·`ss6` 1·`legacy-scope` 18) + 더한 19(`ss8` 16·`v121ss8` 3)) |
+
+- **인벤토리 시작 → 끝**(SS0 `before` → SS8): Astryx를 안 읽는 화면 파일 23 → **0**(`icons.tsx`·`main.tsx`는 제외 2), 인라인 스타일 51 → **0**, legacy 클래스 쓰임 270 → 정의 없는 클래스 **0**(정의가 바뀌었다), 안 쓰는 선택자 0 → **0**.
+- **첫 화면 크기** 473.89KB(SS0) → **352.63KB**(SS8, 한계 360KB). SS1 분할이 대부분을 덜었다(→353.50KB).
+- **알려진 실패 0**(SS5·SS6이 지운 뒤 SS8이 목록·함수까지 지웠다). `장면 실패 0건`.
+- **실기기 확인 목록**(SS2~SS7에서 모은 것): 식단 시각 칸(iOS 휠·확대 없음)·끼니 원형 버튼 엄지 한 번에·시트 열고 내려가는 움직임·음식 목록 스크롤 끝 / 기록 달력 칸(🔥·점 크기, 375 폭 누르는 느낌)·종목별 카드·유산소 토글 / 분석 차트 손가락 툴팁·종목 칩 가로 스크롤·다크↔라이트 전환 뒤 차트 색 / 설정 템포 스위치·내보내기 공유·복사·미리 듣기 소리·Gist 토큰 붙여넣기(키보드가 카드를 안 가리는지) / 온보딩 홈 화면 앱 첫 실행 `시작하기` 1탭·긴 주소 줄바꿈 / **SS8**: 홈 화면 앱에서 화면 가장자리(`body` 여백 0·상태바 받침)가 SS7 때와 같은지, 폰 라이트 설정의 앱 바탕색, 홈 배너·설정 맨 아래 카드의 줄바꿈이 단어 사이인지.
+- **남은 일**:
+  1. 검사 도구 판정 5(`SS4 다른 달`이 "눌리지 않는 칸" 개수를 찍기만 한다)·6(history `가까움 순서`가 달력 격자 `줄 사이 -48`을 잡아 사실상 안 잰다) — 설계 판단이 필요해 안 했다.
+  2. `sheet-comp` 등 `h2` 폭 흔들림의 원인 — `--same-layout=all`이 간헐 실패할 수 있다.
+  3. `--same-layout`이 `layers.css` import 순서를 못 잡는지(㉓) 확인하지 못했다.
+  4. README 전체 개편(PLAN 문구만 반영했다 — 지시).
+  5. `parts.css`의 `.ax-cal-cell span:has(> .ax-cal-num)`가 Astryx `Button` 내부 구조에 기댄다(SS4 리뷰 4).
+
+### 실행 결과 요약
+
+- `npm run check` 통과(흔적·Astryx 뒷걸음·린트·knip·테스트·빌드·첫 화면 크기). `Test Files  88 passed (88)`, `Tests  1922 passed (1922)`. 빌드 성공. `git rev-list --count main..HEAD`: 커밋 전 25 → 이 커밋 후 26. 변이 테스트·속성 테스트 대상 없음(`src/lib` 판정·계산 코드 불변).

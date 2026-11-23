@@ -63,7 +63,7 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
 
   return (
     <AxRoot>
-      <Groups className="ax-history">
+      <Groups>
         <Group>
           <Heading level={1}>기록</Heading>
           <SegmentedControl label="보기" value={mode} onChange={(v) => setMode(v as Mode)}>
@@ -131,33 +131,33 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
                     onClick={() => setDetailId(session.id)}
                   >
                     <Rows>
-                    <Row
-                      label={
-                        <HStack gap={2} align="center">
-                          <Text weight="semibold">{s.dayName}</Text>
-                          {session.mode !== 'normal' && (
-                            <Badge variant="warning" label={session.mode === 'return' ? '복귀' : '디로드'} />
-                          )}
-                        </HStack>
-                      }
-                      description={
-                        <Text type="supporting" color="secondary">
-                          {session.date} ({weekdayKo(session.date)}) · {s.setCount}세트
-                          {s.durationMin !== null && ` · ${s.durationMin}분`}
-                          {session.cardio && ` · ${cardioText(session.cardio)}`}
-                        </Text>
-                      }
-                      end={
-                        <VStack gap={0} align="end">
-                          <Text weight="semibold" hasTabularNumbers>
-                            {Math.round(s.volume).toLocaleString()}
-                          </Text>
+                      <Row
+                        label={
+                          <HStack gap={2} align="center">
+                            <Text weight="semibold">{s.dayName}</Text>
+                            {session.mode !== 'normal' && (
+                              <Badge variant="warning" label={session.mode === 'return' ? '복귀' : '디로드'} />
+                            )}
+                          </HStack>
+                        }
+                        description={
                           <Text type="supporting" color="secondary">
-                            kg·회
+                            {session.date} ({weekdayKo(session.date)}) · {s.setCount}세트
+                            {s.durationMin !== null && ` · ${s.durationMin}분`}
+                            {session.cardio && ` · ${cardioText(session.cardio)}`}
                           </Text>
-                        </VStack>
-                      }
-                    />
+                        }
+                        end={
+                          <VStack gap={0} align="end">
+                            <Text weight="semibold" hasTabularNumbers>
+                              {Math.round(s.volume).toLocaleString()}
+                            </Text>
+                            <Text type="supporting" color="secondary">
+                              kg·회
+                            </Text>
+                          </VStack>
+                        }
+                      />
                     </Rows>
                   </ClickableCard>
                 )

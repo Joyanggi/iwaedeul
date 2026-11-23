@@ -1,54 +1,9 @@
 /**
- * QQ4 여백 한 벌 — ui-check.mjs가 쓰는 정적 검사와 장면 사이 비교.
+ * QQ4 여백 한 벌 — ui-check.mjs가 쓰는 장면 사이 비교(정적 검사는 v1.21 SS8에서 legacy CSS와 함께 지웠다).
  * 장면 하나의 계산된 여백 격자(`inPageSpacing`)는 ui-check-lib.mjs에 있다.
  */
 
-const STEPS = new Set([0, 2, 4, 6, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48])
-const strip = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '')
-
-/** 정적 검사: global.css 여백 값이 Astryx 단계에 든다 · 틀의 좌우가 --inset-을 쓴다(SS6 뒤 legacy 틀 `.screen`은 없다 — 온보딩 `.card`만 남는다) · space.css 토큰 순서 */
-export function spaceStaticChecks(allCss) {
-  const out = []
-  const add = (name, ok, detail) => out.push({ name, ok, detail })
-  const g = allCss['styles/global.css']
-  const ax = allCss['ax/ax.css']
-  const sp = allCss['styles/space.css']
-  const idx = allCss['styles/index.css']
-  add('space.css가 index.css에 layer(legacy)로 import', !!idx && /@import\s+['"]\.\/space\.css['"]\s+layer\(legacy\)/.test(idx), idx ? 'layer(legacy)' : 'index.css 없음')
-  if (g === undefined) return [...out, { name: 'global.css 있음', ok: false, detail: '없음' }]
-  // 1. 여백 선언의 px 숫자가 단계 안 (1px는 그 줄에 이유 주석이 있을 때만)
-  const bad = []
-  for (const [i, line] of g.split('\n').entries()) {
-    const m = line.match(/^\s*(?:margin|padding|gap|row-gap|column-gap)[a-z-]*:\s*([^;]*);(.*)$/)
-    if (!m) continue
-    for (const n of m[1].matchAll(/(?<![\w.#-])(\d+(?:\.\d+)?)px/g)) {
-      const v = Number(n[1])
-      if (STEPS.has(v)) continue
-      if (v === 1 && /\/\*.+\*\//.test(m[2])) continue
-      bad.push(`${i + 1}행 ${v}px`)
-    }
-  }
-  add('global.css 여백 값이 전부 Astryx 단계(0·2·4·6·8·12·16·20·24·28·32·36·40·44·48)', bad.length === 0, bad.length ? bad.slice(0, 6).join(' · ') + (bad.length > 6 ? ` 외 ${bad.length - 6}` : '') : '단계 밖 0건')
-  // 2. 틀의 좌우 여백이 var(--inset-
-  // SS7: legacy `.card`가 온보딩과 함께 없어졌다 — 틀 `.ax-screen`만 본다(카드 안쪽은 Astryx `Card`의 `안쪽 대칭`·`같은 역할 · 카드 안쪽`이 잰다)
-  const miss = []
-  const axBody = ax === undefined ? null : (strip(ax).match(/\.ax-screen\s*\{([^{}]*)\}/)?.[1] ?? null)
-  if (!/var\(--inset-/.test(axBody ?? '')) miss.push('.ax-screen')
-  add('.ax-screen의 좌우 여백이 var(--inset-)', miss.length === 0, miss.length ? `안 씀: ${miss.join(', ')}` : '씀')
-  add('.ax-screen 좌우가 --inset-screen (두 체계가 같은 값)', /var\(--inset-screen\)/.test(axBody ?? ''), /var\(--inset-screen\)/.test(axBody ?? '') ? 'var(--inset-screen)' : '안 씀')
-  // 3. space.css 토큰 값 순서
-  if (sp === undefined) return [...out, { name: 'space.css 있음', ok: false, detail: '없음' }]
-  const t = {}
-  for (const m of strip(sp).matchAll(/--([\w-]+)\s*:\s*(\d+)px/g)) t[m[1]] = Number(m[2])
-  const need = ['space-tight', 'space-inline', 'space-row', 'space-group', 'space-card', 'space-section', 'inset-screen', 'inset-card']
-  const lack = need.filter((k) => t[k] === undefined)
-  const orderOk = lack.length === 0 && t['space-tight'] < t['space-row'] && t['space-row'] < t['space-group'] && t['space-group'] <= t['space-card'] && t['space-card'] < t['space-section']
-  const stepOk = lack.length === 0 && need.every((k) => STEPS.has(t[k]))
-  add('space.css 토큰 여덟 개가 단계 안이고 tight < row < group ≤ card < section', orderOk && stepOk, lack.length ? `없음: ${lack.join(', ')}` : `${t['space-tight']}<${t['space-row']}<${t['space-group']}≤${t['space-card']}<${t['space-section']}`)
-  return out
-}
-
-/** 장면 하나의 여백 재기 (page.evaluate용): 화면 첫 줄 왼쪽 x · 이웃한 .card 사이 세로 간격 · 시트 안 첫 글자의 시트 왼쪽에서 떨어진 거리 */
+/** 장면 하나의 여백 재기 (page.evaluate용): 화면 첫 줄 왼쪽 x · 이웃한 카드 사이 세로 간격 · 시트 안 첫 글자의 시트 왼쪽에서 떨어진 거리 */
 export const inPageLayout = () => {
   const vis = (el) => window.__vis(el)
   const half = (v) => Math.round(v * 2) / 2
@@ -68,16 +23,11 @@ export const inPageLayout = () => {
     }
     return res
   }
-  const frame = [...document.querySelectorAll('.screen, .ax-screen')].find(vis)
+  const frame = [...document.querySelectorAll('.ax-screen')].find(vis)
   if (!frame) return res
-  const first = frame.querySelector('.card') ?? [...frame.children].find(vis)
+  const first = [...frame.children].find(vis)
   if (first) res.screenX = half(first.getBoundingClientRect().left)
-  const cards = [...frame.querySelectorAll('.card')].filter(vis)
-  for (let i = 1; i < cards.length; i++) {
-    if (cards[i].previousElementSibling !== cards[i - 1]) continue
-    res.cardGaps.push(half(cards[i].getBoundingClientRect().top - cards[i - 1].getBoundingClientRect().bottom))
-  }
-  // RR12: 이웃한 두 자식 사이의 세로 간격. 카드 사이는 .ax-group(와 legacy .card), 묶음 사이는 .ax-groups
+  // RR12: 이웃한 두 자식 사이의 세로 간격. 카드 사이는 .ax-group, 묶음 사이는 .ax-groups
   const gapsOf = (parent) => {
     const kids = [...parent.children].filter(vis)
     const g = []
@@ -95,7 +45,7 @@ export const inPageLayout = () => {
   }
   // 카드 안쪽: 첫 카드의 왼쪽 가장자리에서 첫 글자까지(테두리는 안쪽 여백의 일부가 아니라 뺀다)
   // 달력 카드는 첫 글자(월 이름)가 이전·다음 버튼 사이 가운데에 놓여 안쪽 여백을 못 잰다 — 다음 카드를 잰다(SS4)
-  const card = [...frame.querySelectorAll('.card, [class*="astryx-card"]')].find((c) => vis(c) && !c.querySelector('.ax-cal-grid'))
+  const card = [...frame.querySelectorAll('[class*="astryx-card"]')].find((c) => vis(c) && !c.querySelector('.ax-cal-grid'))
   if (card) {
     const cr = card.getBoundingClientRect()
     const w = document.createTreeWalker(card, NodeFilter.SHOW_TEXT)
@@ -133,7 +83,7 @@ export function spaceRoleVerdicts(layouts, judged = new Set()) {
   const sh = SHEETS.filter((s) => layouts[s]?.sheetInset != null).map((s) => [s, layouts[s].sheetInset])
   const sections = SCREENS.flatMap((s) => (layouts[s]?.sectionGaps ?? []).map((g) => [s, g]))
   const sectionSet = [...new Set(sections.map((p) => p[1]))]
-  // 카드 안쪽은 Astryx `Card`를 쓰는 장면끼리만 견준다(홈 RR4 · 루틴 편집). 안 옮긴 화면은 legacy `.card`라 값이 다르고, 옮기는 작업(RR5~RR9)이 이 목록에 더한다
+  // 카드 안쪽은 Astryx `Card`를 쓰는 장면끼리만 견준다(홈 RR4 · 루틴 편집). 
   const INSET_SCENES = new Set(['home', 'home-375', 'home-banner', 'summary', 'editor', 'diet', 'history', 'analyze', 'settings', 'onboarding'])
   const inset = SCREENS.filter((s) => INSET_SCENES.has(s) && layouts[s]?.cardInset != null).map((s) => [s, layouts[s].cardInset])
   const insetScenes = new Set(inset.map((p) => p[0]))
@@ -283,7 +233,7 @@ export const EXPECTED_PAIRS = {
   'onboarding-375': ['button', 'card'],
   'onboarding-standalone': ['button'],
   editor: ['button'],
-  // SS2: 식단 탭 — 아래 띠·탭, 끼니 카드, 버튼(플랜·삭제·추가). 편집기가 든 기록 장면(legacy 화면 안의 섬)은 카드·버튼만
+  // SS2: 식단 탭 — 아래 띠·탭, 끼니 카드, 버튼(플랜·삭제·추가). 편집기가 든 기록 장면은 카드·버튼만
   diet: ['bar', 'tab-indicator', 'tab-content', 'button', 'card'],
   'diet-end': ['bar', 'card'],
   'diet-375': ['bar', 'tab-indicator', 'tab-content', 'button', 'card'],

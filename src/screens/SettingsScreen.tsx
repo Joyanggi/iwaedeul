@@ -111,7 +111,7 @@ export default function SettingsScreen({
 
   return (
     <AxRoot>
-      <Groups className="ax-settings">
+      <Groups>
         <Group>
           <Heading level={1}>설정</Heading>
           {/* 버전은 package.json에서 파생된다 (BB5) — 화면이 손으로 적으면 라운드마다 낡는다 */}

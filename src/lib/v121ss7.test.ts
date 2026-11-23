@@ -6,16 +6,16 @@ import onboardingScreen from '../screens/Onboarding.tsx?raw'
 const code = onboardingScreen.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 
 describe('v121 SS7 — 온보딩은 Astryx 부품뿐이다', () => {
-  it('v121 SS7: className=은 ax-onboarding뿐이고 style=·<button·var(--·<ol·<li·<div 0건이다', () => {
+  it('v121 SS7 → SS8: className=은 주소 조각 ax-address-part뿐이고(틀 이름 ax-onboarding은 없어졌다) style=·<button·var(--·<ol·<li·<div 0건이다', () => {
     const classes = [...code.matchAll(/className=("[^"]*"|\{[^}]*\})/g)].map((m) => m[1])
-    // ax-nowrap은 주소 조각이 하이픈 뒤에서 꺾이지 않게 하는 이름이다('/' 뒤에서만 꺾는다)
-    expect(classes).toEqual(['"ax-onboarding"', '"ax-nowrap"'])
+    // ax-address-part는 주소 조각이 조각 안에서만 꺾이게 하는 이름이다('/' 뒤에서만 줄이 바뀐다)
+    expect(classes).toEqual(['"ax-address-part"'])
     for (const bad of ['style=', '<button', 'var(--', '<ol', '<li', '<div', '<p ', '<p>', '<h1']) expect(code, bad).not.toContain(bad)
   })
 
-  it('v121 SS7: 틀은 AxRoot + Groups className="ax-onboarding"이고 화면은 @astryxdesign를 직접 import하지 않는다', () => {
+  it('v121 SS7 → SS8: 틀은 AxRoot + Groups(className 없음)이고 화면은 @astryxdesign를 직접 import하지 않는다', () => {
     expect(code).toContain('<AxRoot>')
-    expect(code).toContain('<Groups className="ax-onboarding">')
+    expect(code).toContain('<Groups>')
     expect(code).not.toContain('@astryxdesign')
   })
 

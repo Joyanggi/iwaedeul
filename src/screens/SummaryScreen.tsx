@@ -128,7 +128,7 @@ export default function SummaryScreen({ bundle, onDone }: { bundle: RoutineBundl
   // 카드 묶음 셋: 이번 세션 → 다음에 할 것 → 되돌아보기 (PLAN v1.20 RR9). 카드의 내용과 보이는 조건은 그대로다.
   return (
     <AxRoot>
-      <Groups className="ax-summary">
+      <Groups>
         <Group>
           <Heading level={1}>수고했어요 🔥</Heading>
           <Text color="secondary">

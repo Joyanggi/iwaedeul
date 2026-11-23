@@ -34,6 +34,7 @@ import {
   Item,
   SegmentedControl,
   SegmentedControlItem,
+  StackItem,
   Stepper,
   Text,
   TextField,
@@ -59,9 +60,6 @@ function startDraft(
   }
   return { draft: toDraft(active), savedId: active.id, forked: false }
 }
-
-/** 나란한 버튼이 남는 폭을 나눠 갖는다(글자 폭이 먼저라 이름이 잘리지 않는다) */
-const GROW = { flex: '1 1 auto' } as const
 
 function move<T>(list: T[], i: number, dir: -1 | 1): T[] {
   const j = i + dir
@@ -215,15 +213,21 @@ function Editor({
       <HStack gap={2} align="center">
         {confirmLeave ? (
           <>
-            <Button variant="destructive" label="저장하지 않고 나가기" style={GROW} onClick={onDone} />
-            <Button variant="secondary" label="계속 편집" style={GROW} onClick={() => setConfirmLeave(false)} />
+            <StackItem size="fill">
+              <Button variant="destructive" label="저장하지 않고 나가기" onClick={onDone} />
+            </StackItem>
+            <StackItem size="fill">
+              <Button variant="secondary" label="계속 편집" onClick={() => setConfirmLeave(false)} />
+            </StackItem>
           </>
         ) : (
           <>
             <Button variant="ghost" label="‹ 취소" onClick={() => (dirty ? setConfirmLeave(true) : onDone())} />
-            <Heading level={1} justify="center" maxLines={1} style={{ flex: 1, minWidth: 0 }}>
-              루틴 편집
-            </Heading>
+            <StackItem size="fill">
+              <Heading level={1} justify="center" maxLines={1}>
+                루틴 편집
+              </Heading>
+            </StackItem>
             <Button variant="primary" label="저장" isDisabled={!dirty || saving} onClick={() => void save()} />
           </>
         )}
@@ -251,14 +255,14 @@ function Editor({
         <Card key={day.id}>
           <VStack gap={3}>
             <HStack gap={2} align="center">
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <StackItem size="fill">
                 <TextField
                   label="Day 이름"
                   isLabelHidden
                   value={day.name}
                   onChange={(v) => editDay(day.id, (x) => ({ ...x, name: v }))}
                 />
-              </div>
+              </StackItem>
               <Button
                 variant="ghost"
                 isIconOnly
@@ -286,7 +290,7 @@ function Editor({
 
             {day.exercises.map((ex, i) => (
               <HStack key={ex.exerciseId} gap={2} align="center">
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <StackItem size="fill">
                   <Item
                     label={
                       <>
@@ -296,7 +300,7 @@ function Editor({
                     description={<>{`${ex.muscle || '부위 없음'} · ${ex.sets}×${ex.repMin}~${ex.repMax} · ${ex.restSec}초`}</>}
                     onClick={() => setLineAt({ dayId: day.id, index: i })}
                   />
-                </div>
+                </StackItem>
                 <Button
                   variant="ghost"
                   isIconOnly

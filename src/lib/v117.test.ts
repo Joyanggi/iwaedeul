@@ -92,12 +92,12 @@ describe("OO2 — Astryx 바탕", () => {
     expect(offenders).toEqual([])
   })
 
-  it("main.tsx는 Astryx를 직접 읽지 않고 styles/index.css를 읽는다, App.tsx는 ./ax만 읽는다 (v1.20 RR1이 뒤집음: 앱 뿌리에 테마를 거는 것이 README 결정 2의 새 뜻)", () => {
+  it("main.tsx는 Astryx를 직접 읽지 않고 CSS도 읽지 않는다(앱 CSS는 src/ax가 읽는다 — v1.21 SS8), App.tsx는 ./ax만 읽는다 (v1.20 RR1이 뒤집음: 앱 뿌리에 테마를 거는 것이 README 결정 2의 새 뜻)", () => {
     const main = src("src/main.tsx")
     expect(main).not.toContain("@astryxdesign")
     expect(main).not.toMatch(/from\s+['"]\.{1,2}\/ax/)
-    expect(raw("src/main.tsx")).toContain("./styles/index.css")
-    expect(raw("src/main.tsx")).not.toContain("global.css")
+    expect(raw("src/main.tsx")).not.toMatch(/\.css['"]/)
+    expect(raw("src/main.tsx")).not.toContain("styles/")
     const app = src("src/App.tsx")
     expect(app).not.toContain("@astryxdesign")
     expect(app).toMatch(/import \{ AppRoot[^}]*\} from ['"]\.\/ax['"]/)

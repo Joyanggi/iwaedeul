@@ -4,9 +4,9 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8')
-const globalCss = read('../src/styles/global.css')
-const spaceCss = read('../src/styles/space.css')
 const parts = read('../src/ax/parts.css')
+// v1.21 SS8: `src/styles/`가 없다. 옛 "legacy CSS에 X가 없다"는 앱 CSS(ax.css·parts.css) 전체에 X가 없다로 읽는다(되살아나면 실패)
+const appCss = read('../src/ax/ax.css') + '\n' + parts
 const uiCheck = read('./ui-check.mjs')
 const uiLib = read('./lib/ui-check-lib.mjs')
 const uiSpace = read('./lib/ui-space.mjs')
@@ -22,28 +22,28 @@ const body = (css, sel) => {
 
 describe('v121 SS6 — 지운 legacy CSS', () => {
   it('v121 SS6: global.css에서 설정·패널만 쓰던 규칙이 없다 — .screen*·.btn-danger·.btn-row·.chip*·.row*·.segment*·.banner*·.field*·.pill*·.preview·.ext-link·details.card·button.row', () => {
-    const bad = selectors(globalCss).filter((s) => /(^|[\s,>])(\.screen(-title|-sub)?|\.btn-danger|\.btn-row|\.btn-sm|\.chip(-warn)?|\.row(-main|-title|-meta)?|\.segment|\.banner(-info|-danger)?|\.field|\.pill(-row|-on)?|\.preview|\.ext-link|details\.card|button\.row|textarea\.field)(?![\w-])/.test(s) && !/^@scope/.test(s))
+    const bad = selectors(appCss).filter((s) => /(^|[\s,>])(\.screen(-title|-sub)?|\.btn-danger|\.btn-row|\.btn-sm|\.chip(-warn)?|\.row(-main|-title|-meta)?|\.segment|\.banner(-info|-danger)?|\.field|\.pill(-row|-on)?|\.preview|\.ext-link|details\.card|button\.row|textarea\.field)(?![\w-])/.test(s) && !/^@scope/.test(s))
     expect(bad).toEqual([])
   })
 
   // SS7: 온보딩이 Astryx로 옮겨 SS6이 남기던 온보딩 규칙이 모두 지워졌다 — 남기던 검사를 "전부 없다"로(PLAN SS7)
   it('v121 SS6: 온보딩이 쓰던 .card·.card-label·.btn·.btn-primary·.row-sub·.warn-box·.mono·.onboarding·.steps는 SS7 뒤 없다', () => {
-    for (const gone of ['.card', '.card-label', '.btn', '.btn-primary', '.row-sub', '.warn-box', '.mono', '.onboarding', '.steps', '.lede', '.spacer']) expect(selectors(globalCss).filter((x) => x.split(/[\s,>:]+/).includes(gone)), gone).toEqual([])
+    for (const gone of ['.card', '.card-label', '.btn', '.btn-primary', '.row-sub', '.warn-box', '.mono', '.onboarding', '.steps', '.lede', '.spacer']) expect(selectors(appCss).filter((x) => x.split(/[\s,>:]+/).includes(gone)), gone).toEqual([])
   })
 
   it('v121 SS6: space.css의 유틸은 하나도 없다(SS7 뒤 .mt-group·.mb-group도 없다. .mt-row·.mb-row·.ml-inline·.mr-inline·.ml-auto·.stack-tight·.label-flush·.row-confirm·.day-exercises·.row-plain 없음)', () => {
-    const sel = selectors(spaceCss).join('\n')
+    const sel = selectors(appCss).join('\n')
     for (const gone of ['.mt-group', '.mb-group', '.mt-row', '.mb-row', '.ml-inline', '.mr-inline', '.ml-auto', '.stack-tight', '.label-flush', '.row-confirm', '.day-exercises', '.row-plain']) expect(sel, gone).not.toContain(gone)
   })
 
-  it('v121 SS6: legacy 뿌리 목록(@scope)에서 SS7이 .onboarding을 뺐다(.screen·.banner는 SS8이 걷는다)', () => {
-    expect(globalCss).toMatch(/@scope \(\.screen, \.banner\) to \(\.ax-scope\)/)
+  it('v121 SS6: 앱 CSS에 legacy 뿌리 목록(@scope)이 없다(SS7이 .onboarding을, SS8이 .screen·.banner를 걷어 목록 자체가 없어졌다)', () => {
+    expect(appCss).not.toContain('@scope')
   })
 })
 
 describe('v121 SS6 — 설정 부품의 CSS', () => {
-  it('v121 SS6: 설정 틀은 한글 줄바꿈 규칙을 갖는다(분석과 같다)', () => {
-    const b = body(parts, '.ax-settings :is(p, span, div, h1, h2),\n  .ax-onboarding :is(p, span, div, h1, h2)')
+  it('v121 SS6: 설정도 앱 전체 한글 줄바꿈 규칙(.ax-screen)이 덮는다(SS8: .ax-settings 틀 규칙을 모았다 — 분석과 같다)', () => {
+    const b = body(parts, ':is(.ax-screen, dialog) :is(p, span, div, h1, h2, h3, li)')
     expect(b).toMatch(/word-break:\s*keep-all/)
     expect(b).toMatch(/overflow-wrap:\s*anywhere/)
   })
@@ -60,10 +60,6 @@ describe('v121 SS6 — ui-check의 설정 검사', () => {
     for (const s of ['settings-375', 'settings-open', 'settings-end', 'settings-routines', 'settings-routines-375', 'settings-routines-confirm-375', 'settings-gist', 'settings-export-preview', 'settings-reset-confirm']) expect(uiSpace, s).toContain(`'${s}': ['button', 'card']`)
     expect(uiSpace).toContain("settings: ['bar', 'tab-indicator', 'tab-content', 'button', 'card']")
     expect(uiSpace).toMatch(/INSET_SCENES = new Set\(\[[^\]]*'settings'[^\]]*\]/)
-  })
-
-  it('v121 SS6: KNOWN_FAILURES는 빈 배열이고 설정 장면의 접근성·눌림 반응이 통과해야 한다(stale 실패)', () => {
-    expect(uiLib).toMatch(/export const KNOWN_FAILURES = \[\]\n/)
   })
 
   it('v121 SS6: 새 흐름은 전부 guardedFlow 안이고 이름이 PLAN 흐름 ①~⑨와 경계를 덮는다(예외가 삼켜지지 않는다)', () => {

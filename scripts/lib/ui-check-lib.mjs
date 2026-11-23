@@ -199,50 +199,6 @@ export const inPageCurrentTab = () => {
   return { ok: bad.length === 0, detail: parts.map((p) => `${p.name} ${p.ok ? '✓' : '✗'}(${p.detail})`).join(' · ') }
 }
 
-/** 눌림 반응을 재는 요소 선택자 */
-export const PRESS_SELECTOR = 'button, [role="button"], a[href]'
-
-/** 화면에서 눌러 볼 요소의 가운데 점. 가려졌거나 disabled면 null. 요소마다 0부터 번호를 붙여 돌려준다 */
-export const inPagePressTargets = () => {
-  const out = []
-  // 앞 호출이 남긴 번호를 지운다 — 같은 페이지에서 장면을 이어 재면 옛 번호가 남아 엉뚱한 요소를 집는다 (QQ2에서 발견)
-  document.querySelectorAll('[data-uic]').forEach((el) => el.removeAttribute('data-uic'))
-  document.querySelectorAll('button, [role="button"], a[href]').forEach((el) => {
-    if (el.disabled || el.getAttribute('aria-disabled') === 'true') return
-    // v1.20 RR0: Astryx가 그리는 요소는 뺀다(요소 단위). 이 Chromium은 mouse.down으로 Astryx의 눌림을 못 칠한다(DEV-RECORD 제약).
-    // 조건은 motion.css:26-30 기본 규칙이 빼는 것과 같다. 옮긴 화면의 눌림은 --press-shot과 실기기 확인이 본다
-    if (el.closest("[class*='astryx-'], .ax-screen, .ax-bar, .ax-scope")) return
-    if (!window.__vis(el)) return
-    const r = el.getBoundingClientRect()
-    const x = r.left + r.width / 2
-    const y = r.top + r.height / 2
-    if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) return
-    const hit = document.elementFromPoint(x, y)
-    if (!hit || !(el === hit || el.contains(hit))) return
-    el.setAttribute('data-uic', String(out.length))
-    const label = (el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 14)
-    out.push({ i: out.length, x, y, label, cls: el.className.toString().split(' ').slice(0, 2).join('.') })
-  })
-  return out
-}
-
-/** 눌림 판정에 쓰는 계산 스타일 여섯 */
-export const inPagePressStyle = (i) => {
-  const el = document.querySelector(`[data-uic="${i}"]`)
-  if (!el) return null
-  const cs = getComputedStyle(el)
-  return {
-    transform: cs.transform,
-    opacity: cs.opacity,
-    backgroundColor: cs.backgroundColor,
-    backgroundImage: cs.backgroundImage,
-    boxShadow: cs.boxShadow,
-    filter: cs.filter,
-    // 띠 안 버튼(탭바·재개 스트립)은 면이 아니라 안의 아이콘·글자만 옅어진다 (QQ2)
-    childOpacity: [...el.children].map((c) => getComputedStyle(c).opacity).join(','),
-  }
-}
-
 /**
  * 줄 안 버튼 (QQ6, SS6에서 새 정의): 카드 안 줄(`Row` — `[role="listitem"]`)의 오른쪽 칸 안 Astryx 버튼마다 폭이 줄 폭의 절반 미만, 줄 안에 들고, 글자 한 줄.
  * 오른쪽 칸 = 줄의 마지막 자식. 줄의 첫 자식(이름 칸) 안의 버튼은 재지 않는다. 0개면 실패(아무것도 안 쟀다).
@@ -310,90 +266,6 @@ export const inPageSpacing = () => {
   return { ok: list.length === 0, detail: list.length ? list.slice(0, 4).join(' · ') + (list.length > 4 ? ` 외 ${list.length - 4}` : '') : `${n}개 요소 격자 안` }
 }
 
-/**
- * 눌림 반응 (Node에서 page로 돈다).
- * 가운데 점에 mouse.move → down → holdMs(기본: --duration-fast + 한 프레임) 뒤 스타일 비교 → 요소 밖으로 끌고 나가 up → 원래대로 돌아왔는지.
- * `opts.skipClass`가 있으면 그 클래스를 가진 요소는 센다(건너뛰지 않는다). 돌려주는 것: { changed: [...], same: [...], stuck: [...], transformed: [...] }
- */
-export async function measurePress(page, holdMs) {
-  // 전이가 끝나도록 Astryx --duration-fast(175ms) + 한 프레임(약 16ms) 이상 기다린다. 계산된 값을 읽고, 못 읽으면 175ms
-  if (holdMs === undefined) {
-    const fastMs = await page.evaluate(() => {
-      const v = getComputedStyle(document.documentElement).getPropertyValue('--duration-fast').trim()
-      const n = parseFloat(v)
-      return Number.isFinite(n) ? (v.endsWith('ms') ? n : n * 1000) : 175
-    })
-    // RR1: 테마가 앱 뿌리에 걸려 토큰이 읽히기 시작했다(125ms). 전엔 못 읽어 175ms로 기다렸으므로 그 아래로 줄이지 않는다 — 20ms 여유로는 뗄 때의 전이가 안 끝나 "안 돌아옴"이 무작위로 났다
-    holdMs = Math.max(Math.ceil(fastMs) + 20, 195)
-  }
-  const targets = await page.evaluate(inPagePressTargets)
-  const same = []
-  const stuck = []
-  const transformed = []
-  let changedN = 0
-  for (const t of targets) {
-    const before = await page.evaluate(inPagePressStyle, t.i)
-    if (!before) continue
-    await page.mouse.move(t.x, t.y)
-    await page.mouse.down()
-    await page.waitForTimeout(holdMs)
-    const during = await page.evaluate(inPagePressStyle, t.i)
-    // mouse.up은 요소 밖에서 한다(클릭이 되지 않게)
-    await page.mouse.move(-1, -1)
-    await page.mouse.up()
-    await page.waitForTimeout(holdMs)
-    const after = await page.evaluate(inPagePressStyle, t.i)
-    if (!during) continue
-    const diff = Object.keys(before).filter((k) => before[k] !== during[k])
-    const name = `"${t.label}" .${t.cls}`
-    if (diff.length === 0) same.push(name)
-    else {
-      changedN++
-      if (diff.includes('transform')) transformed.push(name)
-    }
-    if (after && Object.keys(before).some((k) => before[k] !== after[k]) && diff.length > 0) stuck.push(name)
-  }
-  return { total: targets.length, changedN, same, stuck, transformed }
-}
-
-export const pressVerdict = (r) => {
-  if (r.total === 0) return { skip: true, detail: '누를 요소가 없다' }
-  const bad = [...r.same.map((n) => `${n} 변화 없음`), ...r.stuck.map((n) => `${n} 안 돌아옴`)]
-  return {
-    ok: bad.length === 0,
-    detail: bad.length ? `${bad.length}/${r.total}건: ` + bad.slice(0, 4).join(' · ') + (bad.length > 4 ? ` 외 ${bad.length - 4}` : '') : `${r.total}개 모두 반응`,
-  }
-}
-
-/**
- * 움직임 정적 검사 (QQ2). Node에서 CSS 소스 글자를 읽는다.
- * @param {Record<string, string>} allCss `src/**\/*.css` 경로 → 글자
- * @returns {{ name: string, ok: boolean, detail: string }[]}
- */
-export function motionStaticChecks(allCss) {
-  const strip = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '')
-  const out = []
-  const add = (name, ok, detail) => out.push({ name, ok, detail })
-  const motion = allCss['styles/motion.css'] === undefined ? null : strip(allCss['styles/motion.css'])
-  if (motion === null) {
-    add('motion.css 있음', false, 'src/styles/motion.css가 없다')
-    return out
-  }
-  // 1. 눌림 기본 규칙: :where( 로 시작, button·[role="button"], :active, 제외 셋
-  const base = [...motion.matchAll(/(:where\(\s*button[^{]*?)\{/g)].map((m) => m[1]).find((s) => s.includes(':active')) ?? null
-  const q = (s) => s.replace(/"/g, "'")
-  const baseOk = base !== null && q(base).includes("[role='button']")
-  add('눌림 기본 규칙: :where(button, [role=button]):active 하나', baseOk, baseOk ? ':where( … ):active' : '없음')
-  const miss = ['.ax-screen', 'astryx-'].filter((k) => base === null || !base.includes(k))
-  add('기본 규칙에 Astryx(.ax-screen·astryx-) 제외', miss.length === 0, miss.length ? `없음: ${miss.join(', ')}` : '.ax-screen · astryx-')
-  // 2. 움직임 줄이기
-  add('motion.css에 prefers-reduced-motion', motion.includes('prefers-reduced-motion'), motion.includes('prefers-reduced-motion') ? '있음' : '없음')
-  // 4. will-change 0건 (Astryx 패키지는 src 밖이라 애초에 없다)
-  const wc = Object.entries(allCss).filter(([, css]) => /will-change\s*:/.test(strip(css))).map(([f]) => f)
-  add('src/**/*.css에 will-change 0건', wc.length === 0, wc.length ? wc.join(' · ') : `${Object.keys(allCss).length}개 파일 0건`)
-  return out
-}
-
 // ───────────────────────── v1.20 RR0: 새 검사 ─────────────────────────
 // 아래 `inPage*`도 page.evaluate로 도는 함수다(바깥 변수 못 봄). 판정 모양은 { ok, detail } 또는 { skip, detail }.
 
@@ -439,10 +311,10 @@ export const inPageSetNumber = () => {
   return { ok: bad.length === 0, detail: bad.length ? `${bad.length}/${inputs.length}개가 ${floor}px 미만(${bad.slice(0, 3).join(',')}px)` : `${inputs.length}개 ≥ ${floor}px` }
 }
 
-/** `마지막 요소` (RR3부터 판정): 끝까지 스크롤했을 때 본문(`.ax-screen`·`.screen`)의 마지막 보이는 자식의 아래 끝이 화면 아래에 붙은 띠의 위 끝보다 위인가. 끝나면 스크롤을 원래 자리로 돌려놓는다(뒤 검사 — 탭바 자리의 가림 — 가 그 자리에서 잰다) */
+/** `마지막 요소` (RR3부터 판정): 끝까지 스크롤했을 때 본문(`.ax-screen`)의 마지막 보이는 자식의 아래 끝이 화면 아래에 붙은 띠의 위 끝보다 위인가. 끝나면 스크롤을 원래 자리로 돌려놓는다(뒤 검사 — 탭바 자리의 가림 — 가 그 자리에서 잰다) */
 export const inPageLastVisible = () => {
-  const root = document.querySelector('.ax-screen, .screen')
-  if (!root) return { skip: true, detail: '본문(.ax-screen·.screen)이 없다' }
+  const root = document.querySelector('.ax-screen')
+  if (!root) return { skip: true, detail: '본문(.ax-screen)이 없다' }
   const y0 = window.scrollY
   window.scrollTo(0, document.documentElement.scrollHeight)
   const kids = [...root.children].filter((el) => window.__vis(el) && !el.matches('.ax-bar'))
@@ -467,23 +339,6 @@ export const inPageLastVisible = () => {
   }
   window.scrollTo(0, y0)
   return out
-}
-
-/**
- * `섬 버튼` (RR7부터 판정): legacy 화면(.screen 등) 안의 Astryx 버튼의 min-height가 legacy 값(44px)이 아닌가.
- * 섬(`.ax-scope`) 안의 버튼은 당연히 재고, **섬 밖인데 legacy 범위 안에 있는 Astryx 버튼**도 잰다 — 섬을 빠뜨리면 그 버튼이 legacy `button { min-height: 44px }`를 맞는다
- * (카드가 섬을 잃어도 스테퍼가 스스로 섬이라 섬 안 버튼만 재면 못 잡는다 — RR7 결함 복원 ⑭에서 확인).
- * 섬도 legacy 안 Astryx 버튼도 없는 장면은 건너뛴다. 있는데 버튼이 0개면 실패.
- */
-export const inPageIslandButtons = () => {
-  const LEGACY = '.screen, .banner'
-  const islands = [...document.querySelectorAll('.ax-scope')].filter((el) => window.__vis(el))
-  const inLegacy = [...document.querySelectorAll("button[class*='astryx-']")].filter((b) => window.__vis(b) && b.closest(LEGACY))
-  if (islands.length === 0 && inLegacy.length === 0) return { skip: true, detail: '.ax-scope 섬도 legacy 안 Astryx 버튼도 없다' }
-  const btns = [...new Set([...islands.flatMap((i) => [...i.querySelectorAll("button[class*='astryx-']")]).filter((b) => window.__vis(b)), ...inLegacy])]
-  if (btns.length === 0) return { ok: false, detail: '섬 안·legacy 안 Astryx 버튼이 0개 — 아무것도 안 쟀다' }
-  const bad = btns.filter((b) => Number.parseFloat(getComputedStyle(b).minHeight) === 44)
-  return { ok: bad.length === 0, detail: bad.length ? `${bad.length}/${btns.length}개가 min-height 44px(legacy 값이 샜다: ${[...new Set(bad.map((x) => (x.getAttribute('aria-label') || x.textContent || '').trim().slice(0, 10)))].slice(0, 4).join(', ')})` : `${btns.length}개 legacy 값 아님` }
 }
 
 /** `테마 토큰` 목록 — PLAN v1.20 RR2 표의 Astryx 토큰 전부 */
@@ -644,8 +499,8 @@ export const inPageSetTable = () => {
   const cols = [...head.children]
   const lh = parseFloat(getComputedStyle(cols[0]).lineHeight) || parseFloat(getComputedStyle(cols[0]).fontSize) * 1.5
   const tall = cols.filter((c) => c.getBoundingClientRect().height >= lh * 1.5)
-  // 행의 열: 세트 번호(.ax-set-no), 무게·횟수 스테퍼(행의 직계 .ax-scope 둘)
-  const rowCols = [row.querySelector('.ax-set-no'), ...row.querySelectorAll(':scope > .ax-scope')]
+  // 행의 열: 세트 번호(.ax-set-no), 무게·횟수 스테퍼(행의 직계 .ax-stepper 둘)
+  const rowCols = [row.querySelector('.ax-set-no'), ...row.querySelectorAll(':scope > .ax-stepper')]
   const off = cols.map((c, i) => Math.abs(c.getBoundingClientRect().left - (rowCols[i] ? rowCols[i].getBoundingClientRect().left : 1e6))).map((v) => Math.round(v * 10) / 10)
   const ok = tall.length === 0 && cols.length === 3 && rowCols.length === 3 && off.every((v) => v <= 0.5)
   return { ok, detail: `머리 글귀 ${cols.length}개 · 두 줄 이상 ${tall.length}개 · 열 왼쪽 끝 차이 ${off.join('/')}px` }
@@ -689,7 +544,7 @@ export const inPageToneColor = ({ sel, text, tone = 'warning' }) => {
  * 가로 스크롤 칸·자르는 칸(overflow-x auto·scroll·hidden·clip) 안의 것은 뺀다. root가 없으면 dialog[open], 아니면 화면 틀.
  */
 export const inPageInnerOverflow = (rootSelector) => {
-  const root = (rootSelector && document.querySelector(rootSelector)) ?? document.querySelector('dialog[open], [role=dialog]') ?? document.querySelector('.ax-screen, .screen') ?? document.body
+  const root = (rootSelector && document.querySelector(rootSelector)) ?? document.querySelector('dialog[open], [role=dialog]') ?? document.querySelector('.ax-screen') ?? document.body
   const vis = (el) => window.__vis(el)
   const solid = (el) => {
     const cs = getComputedStyle(el)
@@ -779,32 +634,4 @@ export const inPageNotClipped = (needle) => {
     }
   }
   return { found: true, ok: bad.length === 0 && boxOk, lines, detail: `${lines}줄 · ${bad.join(', ') || '자르는 조상 없음'} · 마지막 글자가 상자 안 ${boxOk}` }
-}
-
-/**
- * 알려진 실패 (PLAN v1.21 개정 1). SS0 before --check가 처음 드러낸 legacy 화면의 칸 실패 셋 — SS5가 분석의 하나를, SS6이 설정의 둘을 고쳐 지웠다. 지금은 빈 배열이다(SS8이 빈 목록과 함수를 지운다).
- * 그 화면을 옮기는 작업(until)이 고치고 **같은 커밋에서 항목을 지운다**. 늘리지 않는다 — 다른 실패는 멈추고 보고한다.
- * detail은 `- 실패 <장면> · <칸>: ` 뒤 글자 그대로.
- */
-export const KNOWN_FAILURES = []
-
-/**
- * 알려진 실패를 `알려진 실패` 상태로 바꾼다(숨기기만 하고 만들지 않는다). rows는 건드리지 않고 새 배열을 돌려준다.
- * (행 이름, 칸, 상세)가 항목과 글자까지 같은 `실패` 칸만 바뀐다. 장면 실패 행(상세가 예외 줄)이나 다른 상세는 그대로 `실패`.
- * 행은 있는데 그 칸이 `실패`가 아닌 항목은 stale(고쳐졌으니 목록에서 지운다). 행이 없는 항목(--only로 거른 장면)은 둘 다 아니다.
- */
-export const applyKnownFailures = (rows, known) => {
-  let count = 0
-  const stale = []
-  const out = rows.map((r) => ({ ...r, cells: { ...r.cells } }))
-  for (const k of known) {
-    const row = out.find((r) => r.scene === k.scene)
-    if (!row) continue
-    const cell = row.cells[k.column]
-    if (cell && cell.status === '실패' && cell.detail === k.detail) {
-      row.cells[k.column] = { ...cell, status: '알려진 실패' }
-      count++
-    } else if (!cell || (cell.status !== '실패' && cell.status !== '알려진 실패')) stale.push({ scene: k.scene, column: k.column, until: k.until })
-  }
-  return { rows: out, known: count, stale }
 }

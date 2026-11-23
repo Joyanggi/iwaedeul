@@ -159,7 +159,7 @@ export default function DietDayEditor({
     : null
 
   return (
-    <div className="ax-scope ax-diet">
+    <>
       <Group>
         <Card>
           <VStack gap={2}>
@@ -525,6 +525,6 @@ export default function DietDayEditor({
           onClose={() => setPlanSheet(false)}
         />
       )}
-    </div>
+    </>
   )
 }

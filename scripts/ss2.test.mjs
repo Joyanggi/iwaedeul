@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest'
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8')
 const parts = read('../src/ax/parts.css')
-const globalCss = read('../src/styles/global.css')
-const spaceCss = read('../src/styles/space.css')
+// v1.21 SS8: `src/styles/`가 없다. 옛 "legacy CSS에 X가 없다"는 앱 CSS(ax.css·parts.css) 전체에 X가 없다로 읽는다(되살아나면 실패)
+const appCss = read('../src/ax/ax.css') + '\n' + parts
 
 const strip = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '')
 const selectors = (css) => [...strip(css).matchAll(/([^{}]+)\{/g)].map((m) => m[1].trim())
@@ -46,8 +46,9 @@ describe('v121 SS2 — parts.css에 더한 것', () => {
     expect(text).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/)
   })
 
-  it('v121 SS2: .ax-diet는 한글을 단어 사이에서만 꺾는다(keep-all + anywhere)', () => {
-    const rule = body(parts, '.ax-diet :is(p, span, div, h1, h2)')
+  it('v121 SS2: 식단도 앱 전체 한 규칙(.ax-screen)이 한글을 단어 사이에서만 꺾는다(keep-all + anywhere) — .ax-diet 선택자는 없다(SS8)', () => {
+    const rule = body(parts, ':is(.ax-screen, dialog) :is(p, span, div, h1, h2, h3, li)')
+    expect(parts).not.toContain('.ax-diet')
     expect(rule).not.toBeNull()
     expect(rule).toMatch(/word-break:\s*keep-all/)
     expect(rule).toMatch(/overflow-wrap:\s*anywhere/)
@@ -60,14 +61,14 @@ describe('v121 SS2 — parts.css에 더한 것', () => {
 
 describe('v121 SS2 — global.css에서 지운 것과 남긴 것', () => {
   it('v121 SS2: 식단 탭 세 파일만 쓰던 규칙이 없다 — .diet-plan-btn·.diet-protein*·.diet-bar*·.diet-slot*·.diet-mark*·.diet-items·.diet-note·.diet-item-on·.meal-note', () => {
-    const bad = [...selectors(globalCss), ...selectors(spaceCss)].filter((s) =>
+    const bad = [...selectors(appCss), ...selectors(appCss)].filter((s) =>
       /\.(diet-plan-btn|diet-protein|diet-bar|diet-slot|diet-mark|diet-items|diet-note|diet-item-on|diet-item-btn|meal-note)/.test(s),
     )
     expect(bad).toEqual([])
   })
 
   it('v121 SS3: SS2 때 시트가 쓰느라 남겼던 .diet-item·.diet-item-group·.diet-variant-btn·.diet-sheet-state·.diet-plan-diff를 시트가 Astryx가 되어 지웠다', () => {
-    const all = selectors(globalCss).join('\n')
+    const all = selectors(appCss).join('\n')
     for (const c of ['.diet-item', '.diet-item-group', '.diet-variant-btn', '.diet-sheet-state', '.diet-plan-diff']) {
       expect(all, c).not.toContain(c)
     }

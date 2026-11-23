@@ -44,10 +44,9 @@ describe("v120 RR0 — 검사 도구가 화면 클래스에 안 묶인다", () =
     expect(text(SCRIPTS, "/scripts/ui-check.mjs")).not.toContain("ASTRYX_SCENES")
   })
 
-  it("v120 RR0: 눌림 대상에서 Astryx 요소를 요소 단위로 뺀다 (astryx-·.ax-screen·.ax-bar·.ax-scope)", () => {
+  it("v120 RR0 → v121 SS8: 눌림 반응 검사(inPagePressTargets·inPagePressStyle·measurePress)가 없다 — 옮긴 화면의 눌림은 Astryx 부품의 것이고 --press-shot이 사진으로 본다", () => {
     const t = text(LIB, "/scripts/lib/ui-check-lib.mjs")
-    const fn = t.slice(t.indexOf("export const inPagePressTargets"), t.indexOf("export const inPagePressStyle"))
-    expect(fn).toContain("el.closest(\"[class*='astryx-'], .ax-screen, .ax-bar, .ax-scope\")")
+    for (const gone of ["inPagePressTargets", "inPagePressStyle", "measurePress", "inPageIslandButtons"]) expect(t, gone).not.toContain(gone)
   })
 
   it("v120 RR0·RR6: ui-check-lib.mjs의 BAR_SELECTOR 줄이 '.ax-bar'뿐이다 (RR6이 .session-header·.rest-bar를 뺐다 — 옛 클래스 글자는 어디에도 없다)", () => {
@@ -85,7 +84,7 @@ describe("v120 RR0 — 검사 도구가 화면 클래스에 안 묶인다", () =
 
   it("v120 RR0: 새 검사 다섯과 배치 기록·--press-shot·--same-layout·--layout-base가 있다", () => {
     const lib = text(LIB, "/scripts/lib/ui-check-lib.mjs")
-    for (const fn of ["inPageTabHit", "inPageSetNumber", "inPageLastVisible", "inPageIslandButtons", "inPageThemeTokens", "inPageRects"]) {
+    for (const fn of ["inPageTabHit", "inPageSetNumber", "inPageLastVisible", "inPageThemeTokens", "inPageRects"]) {
       expect(lib, fn).toContain(`export const ${fn} =`)
     }
     const t = text(SCRIPTS, "/scripts/ui-check.mjs")
@@ -105,7 +104,7 @@ describe("v120 RR0 — 검사 도구가 화면 클래스에 안 묶인다", () =
 
   it("v120 RR0: 새 칸은 before(와 판정을 안 켠 칸)에서는 기록만 하고 실패로 세지 않는다", () => {
     const t = text(SCRIPTS, "/scripts/ui-check.mjs")
-    expect(t).toMatch(/const JUDGED = \{ '탭 누름': true, '지금 탭': true, '마지막 요소': true, '세트 숫자': true, '섬 버튼': true, '테마 토큰': true \}/) // RR7이 '세트 숫자'·'섬 버튼'을 켰다(작업이 끝날 때 true). RR1이 '테마 토큰'을, RR3이 '탭 누름'·'마지막 요소'와 새 칸 '지금 탭'을 켰다(PLAN: 작업이 끝날 때 해당 값을 true로)
+    expect(t).toMatch(/const JUDGED = \{ '탭 누름': true, '지금 탭': true, '마지막 요소': true, '세트 숫자': true, '테마 토큰': true \}/) // RR7이 '세트 숫자'를 켰다(SS8: 섬 버튼 칸은 섬이 없어져 지웠다)(작업이 끝날 때 true). RR1이 '테마 토큰'을, RR3이 '탭 누름'·'마지막 요소'와 새 칸 '지금 탭'을 켰다(PLAN: 작업이 끝날 때 해당 값을 true로)
     expect(t).toContain("status: '기록'")
   })
 
@@ -126,22 +125,23 @@ describe("v120 RR0 — 첫 화면 시간 재기", () => {
 })
 
 describe("v120 RR0 — 안 쓰는 legacy 선택자 세기", () => {
-  it("v120 RR0: ASTRYX-INVENTORY.md의 합계 줄에 '안 쓰는 legacy 선택자'가 있다", () => {
+  it("v120 RR0 → v121 SS8: ASTRYX-INVENTORY.md의 합계 줄에 '정의 없는 클래스'·'안 쓰는 parts.css 선택자'가 있다", () => {
     const doc = text(DOCS, "/docs/ASTRYX-INVENTORY.md")
-    expect(doc).toMatch(/합계: .*legacy 클래스 쓰임 \d+곳, 안 쓰는 legacy 선택자 \d+개\./)
+    expect(doc).toMatch(/합계: .*정의 없는 클래스 \d+곳, 안 쓰는 parts\.css 선택자 \d+개\./)
   })
 
   it("v120 RR0: astryx-inventory.mjs의 --check가 그 수를 견주고(늘면 실패), --unused가 목록을 찍는다", () => {
     const t = text(SCRIPTS, "/scripts/astryx-inventory.mjs")
-    expect(t).toContain("['안 쓰는 legacy 선택자', unusedWas, unused.length]")
+    expect(t).toContain("['안 쓰는 parts.css 선택자', unusedWas, unused.length]")
     expect(t).toContain("now > was")
     expect(t).toContain("--unused")
   })
 
-  it("v120 RR0: ax-scope는 legacy 클래스 집합에서 빠진다 (RR1이 global.css에 적는 경계 표시)", () => {
+  it("v120 RR0 → v121 SS8: ax-scope 경계 표시는 없고(BOUNDARY 삭제), src/styles가 되살아나면 인벤토리가 실패한다", () => {
     const t = text(SCRIPTS, "/scripts/astryx-inventory.mjs")
-    expect(t).toContain("const BOUNDARY = new Set(['ax-scope'])")
-    expect(t).toContain(".filter((n) => !BOUNDARY.has(n))")
+    expect(t).not.toContain("BOUNDARY")
+    expect(t).not.toContain("ax-scope")
+    expect(t).toContain("existsSync(join(ROOT, 'src/styles'))")
   })
 
   it("v120 RR0: 템플릿으로 조립되는 접두사 허용 목록의 항목마다 이유가 적혀 있다", () => {
@@ -188,11 +188,14 @@ describe("v120 RR1 — 테마를 앱 뿌리에", () => {
     expect(hits).toEqual(["/src/ax/theme.ts"])
   })
 
-  it("v120 RR1: main.tsx는 Astryx를 직접 읽지 않고 styles/index.css를 App보다 먼저 읽는다 (레이어 순서가 먼저 굳는다)", () => {
+  it("v120 RR1 → v121 SS8: main.tsx는 Astryx도 CSS도 직접 읽지 않고, 레이어 순서(layers.css)는 src/ax/index.tsx의 첫 import다", () => {
     const main = SRC["/src/main.tsx"]
     expect(main).not.toContain("@astryxdesign")
-    expect(main.indexOf("./styles/index.css")).toBeGreaterThan(-1)
-    expect(main.indexOf("./styles/index.css")).toBeLessThan(main.indexOf("./App"))
+    expect(main).not.toMatch(/\.css['"]/)
+    const ax = SRC["/src/ax/index.tsx"]
+    const firstImport = ax.slice(ax.indexOf("import '"))
+    expect(firstImport.startsWith("import './layers.css'")).toBe(true)
+    expect(ax.indexOf("./layers.css")).toBeLessThan(ax.indexOf("@astryxdesign/core/astryx.css"))
   })
 
   it("v120 RR1: index.html의 color-scheme 메타가 light dark다", () => {
@@ -309,7 +312,7 @@ describe("v120 RR12 — 여백: 맞물림 기준과 검사", () => {
 
   it("v120 RR12: ui-check.mjs에 안쪽 대칭 칸이 있고 EXPECTED_PAIRS로 판정하며, 같은 역할은 spaceRoleVerdicts가 낸다", () => {
     const t = text(SCRIPTS, "/scripts/ui-check.mjs")
-    expect(t).toMatch(/'섬 버튼', '테마 토큰', '안쪽 대칭'\]/)
+    expect(t).toMatch(/'세트 숫자', '테마 토큰', '안쪽 대칭'\]/)
     expect(t).toMatch(/insetSymmetryVerdict\(.*EXPECTED_PAIRS\[scene\]/)
     expect(t).not.toMatch(/spaceSetVerdicts/)
   })
@@ -320,8 +323,9 @@ describe("v120 RR12 — 여백: 맞물림 기준과 검사", () => {
     expect(s).toMatch(/const GROUP_GAP = 5/)
     expect(s).toMatch(/const CARD_GAP = 3/)
     expect(s).toMatch(/const CARD_PADDING = 4/)
-    // RR9: 화면이 className을 더할 수 있게 됐다(요약의 한글 줄바꿈 범위) — ax-groups는 늘 붙는다
-    expect(s).toContain("<VStack gap={GROUP_GAP} className={className ? `ax-groups ${className}` : 'ax-groups'}>")
+    // SS8: Groups는 className을 받지 않는다(한글 줄바꿈 범위를 앱 전체 한 규칙으로 모았다) — ax-groups는 늘 붙는다
+    expect(s).toContain('<VStack gap={GROUP_GAP} className="ax-groups">')
+    expect(s).not.toMatch(/export function Groups\(\{[^)]*className/)
     expect(s).toMatch(/<VStack gap=\{CARD_GAP\} className="ax-group">/)
     // 화면은 클래스 이름을 직접 쓰거나 카드에 padding을 주지 않는다(숫자는 이 파일에만)
     const screens = Object.entries(SRC).filter(([p]) => !p.endsWith(".test.ts") && !p.startsWith("/src/ax/"))
@@ -753,19 +757,19 @@ describe("v120 RR7 — 운동 카드와 스테퍼", () => {
   const STEP = "/src/components/NumberStepper.tsx"
   const classNames = (s: string) => [...s.matchAll(/className=("[^"]*"|\{[^}]*\})/g)].map((m) => m[1])
 
-  it("v120 RR7: ExerciseCard의 className=은 ax-scope·{setRowClass(set)}·ax- 이름뿐이고 style=·<button·<input 0건이다", () => {
+  it("v120 RR7: ExerciseCard의 className=은 {setRowClass(set)}·ax- 이름뿐이고(SS8: ax-scope 섬은 없다) style=·<button·<input 0건이다", () => {
     const s = code(CARD)
     for (const c of classNames(s)) {
       expect(c, c).toMatch(/^"ax-[\w-]+"$|^\{setRowClass\(set\)\}$/)
     }
-    expect(classNames(s)).toContain('"ax-scope"')
+    expect(classNames(s)).not.toContain('"ax-scope"')
     expect(classNames(s)).toContain("{setRowClass(set)}")
     expect(s).not.toMatch(/style=|<button|<input|<textarea/)
   })
 
-  it("v120 RR7: NumberStepper의 className=은 ax-scope 하나뿐이고 <button·<input·onClick이 없다 (처리기는 뗄 때 한 번만 센다)", () => {
+  it("v120 RR7: NumberStepper의 className=은 ax-stepper(세트 행 열 배치의 걸이 — SS8이 ax-scope에서 바꿨다) 하나뿐이고 <button·<input·onClick이 없다 (처리기는 뗄 때 한 번만 센다)", () => {
     const s = code(STEP)
-    expect(classNames(s)).toEqual(['"ax-scope"'])
+    expect(classNames(s)).toEqual(['"ax-stepper"'])
     expect(s).not.toMatch(/<button|<input|onClick/)
     expect(s).toMatch(/<TextField\b/)
   })
@@ -825,7 +829,7 @@ describe("v120 RR7 — 운동 카드와 스테퍼", () => {
     const s = code(CARD)
     expect(s).toMatch(/<Collapsible\s+isOpen=\{open\}\s+onOpenChange=\{\(\) => onToggleOpen\(\)\}\s+trigger=\{/)
     expect(s).toMatch(/\{open && \(\s*<VStack/)
-    expect(s).toMatch(/<Card variant=\{entry\.skipped \? 'muted' : undefined\} className="ax-scope">/)
+    expect(s).toMatch(/<Card variant=\{entry\.skipped \? 'muted' : undefined\}>/)
   })
 
   it("v120 RR7: 세트 행 — 완료는 ToggleButton(이름 `n세트 완료`)이고 템포·워밍업 커밋 순서가 그대로다. 스킵하면 개수 자리가 스킵 뱃지다", () => {
@@ -845,9 +849,10 @@ describe("v120 RR7 — 운동 카드와 스테퍼", () => {
     }
   })
 
-  it("v120 RR7: ui-check — 세트 숫자·섬 버튼을 판정하고, 세트 행 흐름(탭 수·끌기·입력 패턴·워밍업·누르는 영역)과 식단 스테퍼 흐름이 guardedFlow 안에 있다", () => {
+  it("v120 RR7: ui-check — 세트 숫자를 판정하고(SS8: 섬 버튼 칸은 지웠다), 세트 행 흐름(탭 수·끌기·입력 패턴·워밍업·누르는 영역)과 식단 스테퍼 흐름이 guardedFlow 안에 있다", () => {
     const t = text(SCRIPTS, "/scripts/ui-check.mjs")
-    expect(t).toMatch(/'세트 숫자': true, '섬 버튼': true/)
+    expect(t).toMatch(/'세트 숫자': true/)
+    expect(t).not.toContain("'섬 버튼'")
     for (const name of [
       "RR7 무게 증가 1탭에 한 단계",
       "RR7 숫자 칸 입력 패턴 (무게 소수 둘째까지, 횟수 소수점 없음)",
@@ -866,9 +871,9 @@ describe("v120 RR7 — 운동 카드와 스테퍼", () => {
     expect(lib).toContain("export const inPageNumberFit")
     // 누르는 영역은 중심에서 21px 네 방향이다
     expect(lib).toMatch(/const REACH = 21/)
-    // `섬 버튼`은 섬 안만이 아니라 legacy 범위 안의 Astryx 버튼도 잰다 — 카드가 섬을 잃어도 스테퍼가 스스로 섬이라 섬 안만 재면 못 잡는다(결함 복원 ⑭)
-    expect(lib).toContain("const LEGACY = '.screen, .banner'")
-    expect(lib).toMatch(/b\.closest\(LEGACY\)/)
+    // SS8: `섬 버튼`(legacy 범위 안의 Astryx 버튼 min-height)은 legacy·섬이 없어져 지웠다
+    expect(lib).not.toContain("const LEGACY")
+    expect(lib).not.toContain("closest(LEGACY)")
   })
 })
 
@@ -1053,14 +1058,14 @@ describe("v120 RR9 — 요약", () => {
   const SUMMARY = "/src/screens/SummaryScreen.tsx"
   const ui = () => text(SCRIPTS, "/scripts/ui-check.mjs")
 
-  it("v120 RR9: SummaryScreen.tsx에 style=·<button·var(--·@astryxdesign이 0건이고 className=은 ax-text-warning(경고 글자색)·ax-summary(한글 줄바꿈) 둘뿐이다", () => {
+  it("v120 RR9: SummaryScreen.tsx에 style=·<button·var(--·@astryxdesign이 0건이고 className=은 ax-text-warning(경고 글자색)뿐이다(SS8: ax-summary는 앱 전체 한 규칙으로 모였다)", () => {
     const s = code(SUMMARY)
     expect(s).toMatch(/from '\.\.\/ax'/)
     expect(s).not.toMatch(/style=|<button|var\(--|@astryxdesign/)
     // PLAN은 className= 0건이었으나 Text의 색 이름에 경고가 없어(RR8과 같은 이유) ax-text-warning·ax-summary 둘은 남는다
     const classes = [...s.matchAll(/className=("[^"]*"|\{[^}]*\})/g)].map((m) => m[1])
     expect(classes.length).toBeGreaterThan(0)
-    for (const c of classes) expect(['"ax-text-warning"', '"ax-summary"']).toContain(c)
+    for (const c of classes) expect(['"ax-text-warning"']).toContain(c)
   })
 
   it("v120 RR9 반려: 줄 오른쪽 값은 StackItem size=\"static\"(flex-shrink 0)에 담기고 손으로 지은 ax-row-end는 없다 · inPageMidWordBreaks는 이웃 글자 노드(\"0\"+\"점\")를 한 덩어리로 잰다", () => {
@@ -1080,7 +1085,7 @@ describe("v120 RR9 — 요약", () => {
   it("v120 RR9: 카드는 묶음(Group) 셋 + 맨 아래 홈으로 버튼이고, 숫자 셋은 Grid columns={3}이다", () => {
     const s = code(SUMMARY)
     expect(s.match(/<Group>/g)).toHaveLength(3)
-    expect(s).toContain("<Groups className=\"ax-summary\">")
+    expect(s).toContain("<Groups>")
     expect(s).toMatch(/<Grid columns=\{3\}/)
     // 묶음 순서: 이번 세션(제목·숫자·PR) → 다음에 할 것 → 되돌아보기, 홈으로는 마지막 묶음 밖
     const groups = [...s.matchAll(/<Group>/g)].map((m) => m.index!)

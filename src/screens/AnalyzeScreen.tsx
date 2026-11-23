@@ -124,7 +124,7 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
   if (sessions.length === 0) {
     return (
       <AxRoot>
-        <Groups className="ax-analyze">
+        <Groups>
           <Group>
             <Heading level={1}>분석</Heading>
             <Center>
@@ -144,7 +144,7 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
 
   return (
     <AxRoot>
-      <Groups className="ax-analyze">
+      <Groups>
         <Group>
           <Heading level={1}>분석</Heading>
           <Text color="secondary">

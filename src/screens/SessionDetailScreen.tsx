@@ -92,7 +92,7 @@ export default function SessionDetailScreen({
 
   return (
     <AxRoot>
-      <Groups className="ax-history">
+      <Groups>
         <Group>
           <HStack>
             <Button variant="ghost" icon={<Icon icon="chevronLeft" />} label="기록" onClick={onBack} />
@@ -145,16 +145,16 @@ export default function SessionDetailScreen({
               return (
                 <Card key={entry.recordKey}>
                   <Rows>
-                  <Row
-                    label={<Text weight="semibold">{nameOf(entry.recordKey)}</Text>}
-                    description={
-                      <Text type="supporting" color="secondary">
-                        이 Day 구성에 없는 종목 · {doneSets(entry).map((s) => s.reps).join('/')} ·{' '}
-                        {doneSets(entry)[0]?.weight ?? 0}kg
-                      </Text>
-                    }
-                    end={<Text color="secondary">{doneSets(entry).length}세트</Text>}
-                  />
+                    <Row
+                      label={<Text weight="semibold">{nameOf(entry.recordKey)}</Text>}
+                      description={
+                        <Text type="supporting" color="secondary">
+                          이 Day 구성에 없는 종목 · {doneSets(entry).map((s) => s.reps).join('/')} ·{' '}
+                          {doneSets(entry)[0]?.weight ?? 0}kg
+                        </Text>
+                      }
+                      end={<Text color="secondary">{doneSets(entry).length}세트</Text>}
+                    />
                   </Rows>
                 </Card>
               )

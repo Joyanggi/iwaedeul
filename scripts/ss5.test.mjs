@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8')
-const globalCss = read('../src/styles/global.css')
 const parts = read('../src/ax/parts.css')
+// v1.21 SS8: `src/styles/`가 없다. 옛 "legacy CSS에 X가 없다"는 앱 CSS(ax.css·parts.css) 전체에 X가 없다로 읽는다(되살아나면 실패)
+const appCss = read('../src/ax/ax.css') + '\n' + parts
 const inventory = read('./astryx-inventory.mjs')
 
 const strip = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '')
@@ -20,19 +21,21 @@ const body = (css, sel) => {
 
 describe('v121 SS5 — 지운 것', () => {
   it('v121 SS5: global.css에 분석만 쓰던 .chart·.chip-scroll·.srow*·.sdot*·.mbar-name·.center-note가 없다', () => {
-    const bad = selectors(globalCss).filter((s) => /(^|[\s,>])\.(chart|chip-scroll|srow|srow-head|sdots|sdot|mbar-name|center-note)\b/.test(s))
+    const bad = selectors(appCss).filter((s) => /(^|[\s,>])\.(chart|chip-scroll|srow|srow-head|sdots|sdot|mbar-name|center-note)\b/.test(s))
     expect(bad).toEqual([])
   })
 
   it('v121 SS5: SS6 뒤 .segment·.pill*는 없고 SS7 뒤 .warn-box도 없다(온보딩이 Banner가 됐다)', () => {
-    const all = selectors(globalCss).join('\n')
+    const all = selectors(appCss).join('\n')
     for (const gone of ['.segment', '.pill']) expect(all, gone).not.toContain(gone)
     expect(all).not.toContain('.warn-box')
   })
 
-  it('v121 SS5: legacy 뿌리 목록에 .center-note가 없고 인벤토리에 recharts-surface 예외가 없다(맞춤이 parts.css의 .ax-chart로 갔다)', () => {
-    expect(globalCss).not.toMatch(/@scope \([^)]*center-note/)
+  it('v121 SS5: 앱 CSS에 @scope가 없고 .center-note가 없으며 인벤토리의 외부 클래스 예외는 이름이 아니라 라이브러리 접두사(recharts-) 하나다(맞춤이 parts.css의 .ax-chart로 갔다)', () => {
+    expect(appCss).not.toContain('@scope')
+    expect(appCss).not.toContain('.center-note')
     expect(inventory).not.toContain("'recharts-surface'")
+    expect(inventory).toContain("'recharts-'")
   })
 })
 
@@ -56,11 +59,11 @@ describe('v121 SS5 — 분석 부품의 CSS', () => {
     expect(opacity).toEqual([0.4, 0.6, 0.8, 1])
   })
 
-  it('v121 SS5: 종목 줄 버튼은 줄어들거나 글자가 꺾이지 않고, 분석 틀은 한글 줄바꿈 규칙을 갖는다', () => {
+  it('v121 SS5: 종목 줄 버튼은 줄어들거나 글자가 꺾이지 않고, 분석 틀은 앱 전체 한글 줄바꿈 규칙(.ax-screen)이 덮는다', () => {
     const chips = body(parts, '.ax-chips > *')
     expect(chips).toMatch(/flex-shrink:\s*0/)
     expect(chips).toMatch(/white-space:\s*nowrap/)
-    expect(body(parts, '.ax-analyze :is(p, span, div, h1, h2)')).toMatch(/word-break:\s*keep-all/)
+    expect(body(parts, ':is(.ax-screen, dialog) :is(p, span, div, h1, h2, h3, li)')).toMatch(/word-break:\s*keep-all/)
   })
 
   it('v121 SS5: 점은 폭을 똑같이 나누고(flex:1) 길이는 토큰이다', () => {

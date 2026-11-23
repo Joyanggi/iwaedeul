@@ -174,35 +174,11 @@
     outline-offset: 0;
   }
   /*
-   * Day 선택 시트의 글은 단어(공백) 사이에서만 줄을 바꾼다 (RR5 재검증).
-   * 한글은 기본이 음절 단위 줄바꿈이라 375 폭에서 부제가 "기록 없/음"처럼 글자 중간에서 꺾였다.
-   * Astryx `Text`의 `wordBreak`는 `break-word`·`break-all`만 받아 `keep-all`을 못 넘기고, `Sheet`는 className을 안 받는다.
-   * 그래서 시트 이름(aria-label)으로 좁혀 여기서 건다. 한 단어가 줄보다 길 때만 `anywhere`로 끊어 넘치지 않게 한다.
+   * 한글은 단어(공백) 사이에서만 줄을 바꾼다 — 앱 전체 한 규칙(화면 틀 `.ax-screen`과 시트 `dialog`).
+   * 한글은 기본이 음절 단위 줄바꿈이라 375 폭에서 "기/록"·"0/점"처럼 글자 중간에서 꺾인다.
+   * Astryx `Text`의 `wordBreak`는 `break-word`·`break-all`만 받아 `keep-all`을 못 넘긴다. 한 단어가 줄보다 길 때만 `anywhere`로 끊어 넘치지 않게 한다.
    */
-  dialog[aria-label='Day 선택'] :is(p, span, div) {
-    word-break: keep-all;
-    overflow-wrap: anywhere;
-  }
-
-  /*
-   * 세션이 여는 시트 여덟과 식단 시트 넷(SS3 — 이름이 끼니마다 다른 둘은 끝 일치)의 글도 같은 규칙이다(RR8) — 시트 이름(aria-label)으로 좁힌다.
-   * 제목(h1·h2)까지 건다: 긴 종목 이름이 든 제목이 "대/체"처럼 글자 중간에서 꺾이지 않게.
-   */
-  dialog:is(
-      [aria-label='세션 종료'],
-      [aria-label='종목 추가'],
-      [aria-label='휴식 타이머'],
-      [aria-label='대체운동 선택'],
-      [aria-label='보상작용 입력'],
-      [aria-label='보상작용 반복 — 무게 하향'],
-      [aria-label='무게 단위 설정'],
-      [aria-label='템포 가이드'],
-      [aria-label='식단 플랜 전환'],
-      [aria-label='먹은 것 추가'],
-      [aria-label$=' 기록'],
-      [aria-label$=' 단백질원 고르기']
-    )
-    :is(p, span, div, h1, h2) {
+  :is(.ax-screen, dialog) :is(p, span, div, h1, h2, h3, li) {
     word-break: keep-all;
     overflow-wrap: anywhere;
   }
@@ -404,18 +380,6 @@
     background: var(--color-text-secondary);
   }
 
-  /* 기록 탭 틀의 한글 줄바꿈(.ax-diet와 같다). SS8이 앱 전체 규칙으로 모은다 */
-  .ax-history :is(p, span, div, h1, h2) {
-    word-break: keep-all;
-    overflow-wrap: anywhere;
-  }
-
-  /* 분석 탭 틀의 한글 줄바꿈(.ax-history와 같다). SS8이 앱 전체 규칙으로 모은다 */
-  .ax-analyze :is(p, span, div, h1, h2) {
-    word-break: keep-all;
-    overflow-wrap: anywhere;
-  }
-
   /* 줄 끝에서 하이픈·가운뎃점 뒤로 갈라지면 안 되는 표기(템포 3-1-1-1, 스위치·볼륨·출력) — 설정의 안내 글 안에서 쓴다 */
   .ax-nowrap {
     white-space: nowrap;
@@ -423,21 +387,14 @@
 
   /*
    * 온보딩 주소 조각: 조각은 안 쪼개지고('/' 뒤에서만 줄이 바뀐다) 카드보다 긴 조각만 조각 안에서 꺾인다.
-   * nowrap은 overflow-wrap을 막아 긴 조각이 카드 밖으로 잘리니, 이 틀 안에서는 inline-block + anywhere로 바꾼다.
+   * nowrap은 overflow-wrap을 막아 긴 조각이 카드 밖으로 잘리니, 주소 조각은 inline-block + anywhere로 바꾼다.
    */
-  .ax-onboarding .ax-nowrap {
+  .ax-screen .ax-address-part {
     display: inline-block;
     max-width: 100%;
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-all;
-  }
-
-  /* 설정 탭 틀의 한글 줄바꿈(.ax-analyze와 같다). SS8이 앱 전체 규칙으로 모은다 */
-  .ax-settings :is(p, span, div, h1, h2),
-  .ax-onboarding :is(p, span, div, h1, h2) {
-    word-break: keep-all;
-    overflow-wrap: anywhere;
   }
 
   /*
@@ -504,22 +461,16 @@
     opacity: 1;
   }
 
-  /* 식단 화면 틀의 한글 줄바꿈(요약의 .ax-summary와 같다). SS8이 앱 전체 규칙으로 모은다 */
-  .ax-diet :is(p, span, div, h1, h2) {
-    word-break: keep-all;
-    overflow-wrap: anywhere;
-  }
-
   /*
-   * 스테퍼(NumberStepper)는 스스로 섬이다(`ax-scope`). 줄 안에서 남는 폭을 나눠 쓰되 입력칸의 고유 폭이 줄을 밀어내지 않게
+   * 스테퍼(NumberStepper, `ax-stepper`)는 줄 안에서 남는 폭을 나눠 쓰되 입력칸의 고유 폭이 줄을 밀어내지 않게
    * 줄어들 수 있어야(min-width 0) 한다. 세트 행에서는 열이 폭을 준다(식단 편집 줄은 HStack이다).
    */
-  .set-row > .ax-scope {
+  .set-row > .ax-stepper {
     min-width: 0;
   }
 
-  .set-row > .ax-scope > :nth-child(2),
-  .set-row > .ax-scope input {
+  .set-row > .ax-stepper > :nth-child(2),
+  .set-row > .ax-stepper input {
     min-width: 0;
   }
 
@@ -545,17 +496,6 @@
    */
   .ax-tip {
     border: 1px solid var(--color-border-emphasized);
-  }
-
-  /* 요약(RR9): 한글이 "0세/트"처럼 글자 중간에서 꺾이던 것(375 폭)을 단어 사이에서만 꺾는다. 한 단어가 줄보다 길 때만 anywhere */
-  .ax-summary :is(p, span, div, h1, h2) {
-    word-break: keep-all;
-    overflow-wrap: anywhere;
-  }
-
-  .ax-tip :is(p, span, div) {
-    word-break: keep-all;
-    overflow-wrap: anywhere;
   }
 
   /*
