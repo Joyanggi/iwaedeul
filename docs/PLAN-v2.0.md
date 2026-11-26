@@ -272,9 +272,12 @@ for mobile."* 우리는 그 자리를 시뮬레이터 대신 **진짜 기기**�
 (`@mobilenext/mobile-mcp`). 사람이 맥북에서 한 번 해 둘 것:
 
 1. 아이폰 USB 연결 → 맥 **신뢰** → 아이폰 **개발자 모드** 켜기
-2. `go-ios` 설치 후 `ios list`로 기기가 보이는지 확인 — **여기서 안 보이면 MCP 문제가 아니다**
-3. WebDriverAgent를 기기에 설치(무료 Apple 계정 가능, 번들 ID는 고유값으로)
-4. 터널·포트 포워딩을 열어 둔 채로: `ios tunnel start --userspace` · `ios forward 8100 8100`
+2. `xcrun devicectl list devices`로 기기가 `connected`인지 확인 — **여기서 안 보이면 MCP 문제가 아니다**
+3. mobile MCP의 DeviceKit 에이전트를 Personal Team으로 서명해 설치(번들 ID는 고유값으로, 7일마다 재서명)
+4. 터널·포트 포워딩은 mobile MCP(mobilecli)가 직접 연다. go-ios·WebDriverAgent는 쓰지 않는다
+
+> 2026-11-26 정정: 처음엔 go-ios 터널 + WebDriverAgent로 적었으나, 실제로 붙여 보니 mobilecli가 터널·포워딩·에이전트를
+> 모두 스스로 관리했고 go-ios 터널은 같은 포트를 두고 충돌했다. 정본 절차는 스킬 0절.
 
 ### 11.2-A 빌드는 로컬 Xcode다 (무료 Apple 계정이라 클라우드 빌드를 못 쓴다)
 
@@ -283,8 +286,8 @@ Xcode에 개인 Apple Development 인증서가 등록돼 있다(무료 Personal 
 
 | 무료 계정에서 | 값 | 설계에 미치는 영향 |
 |---|---|---|
-| 프로비저닝 프로파일 만료 | **7일** | 주 1회 `npx expo run:ios --device`로 다시 설치해야 한다. 달력에 고정 작업으로 둔다 |
-| 기기당 설치 앱 | 3개 | 개발 빌드 하나만 유지한다(프리뷰 빌드를 따로 깔지 않는다) |
+| 프로비저닝 프로파일 만료 | **7일** | 주 1회 `npx expo run:ios --device`로 다시 설치해야 한다. mobile MCP의 DeviceKit 에이전트도 같은 날 재서명한다. 달력에 고정 작업으로 둔다 |
+| 기기당 설치 앱 | 3개 | 개발 빌드 + DeviceKit 에이전트 = 2개. 프리뷰 빌드를 따로 깔지 않는다 |
 | 등록 기기 | 3대 | 아이폰 하나면 충분 |
 | **EAS 클라우드 빌드(기기용)** | **못 쓴다** — Apple이 개발용 프로비저닝을 API로 내주지 않는다 | **빌드는 맥북의 Xcode에서** 돈다. 앞서 적었던 "클라우드에서 굽는다"는 틀렸다 |
 | 원격 푸시·IAP·Sign in with Apple·iCloud·App Groups·연관 도메인 | 쓸 수 없다 | 이번 범위에 없다. **로컬 알림은 푸시 엔타이틀먼트가 아니므로 쓸 수 있다** — v2.2의 첫 실기기 확인 항목으로 못 박는다(된다고 가정하지 않는다) |

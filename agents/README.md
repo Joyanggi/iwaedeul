@@ -196,7 +196,7 @@ PC마다:
   **동시 일꾼은 하나.** 이 맥북에서 여럿을 돌리면 Metro·Xcode와 겹쳐 둘 다 느려진다
 - `gh auth login` (지휘자가 PR을 만들고 머지를 기다린다)
 - 네이티브 작업(v2.1~)을 위해 맥북에 한 번 해 둘 것: Xcode + Command Line Tools, Node 20+,
-  아이폰 USB 신뢰 + 개발자 모드, `go-ios`, WebDriverAgent — 절차는 `.claude/skills/verify-device/SKILL.md`
+  아이폰 USB 신뢰 + 개발자 모드, mobile MCP의 DeviceKit 에이전트(7일마다 재서명) — 절차는 `.claude/skills/verify-device/SKILL.md` 0절
 - 하지 않는 것: bypass 권한을 기본값으로 두기(`--permission-mode auto`까지만), `powershell.exe`를 백신 예외에 넣기
 
 ## 8. 자주 걸리는 것
