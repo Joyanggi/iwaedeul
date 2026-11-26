@@ -1,6 +1,6 @@
 # 에이전트 하네스 지도 (사람용)
 
-이 레포를 AI 여러 모델로 설계·구현·리뷰하는 방식 전체를 한 장에 모은 것이다.
+이 레포를 Claude 여러 모델로 설계·구현·리뷰하는 방식 전체를 한 장에 모은 것이다.
 에이전트는 이 파일을 읽지 않는다. 에이전트용 규칙은 `CLAUDE.md`와 이 폴더의 역할 파일이다.
 
 ## 1. 흐름
@@ -11,7 +11,7 @@
   │
   ├─ 작은 수정 ── 구현자(Sonnet) → 리뷰어(Opus) ──────────────────────┐
   │                                                                    │
-  └─ 설계 ── 설계자(Opus) → 검토자 Codex ∥ Antigravity(동시, 무료 한도)  │
+  └─ 설계 ── 설계자(Opus) → 검토자 Opus(코드 대조) ∥ Fable(빠진 경우)    │
               → 설계자가 검토 반영                                      │
               → 자동 승인 조건 맞음 ─┐   안 맞음 → PLAN PR ─[사람 머지]─┐  │
                                     ▼                                ▼  │
@@ -34,12 +34,25 @@ PLAN 구현 PR이 머지되면 (같은 지휘자 세션에서 이어서)
 |---|---|---|---|
 | 지휘자 | `COORDINATOR.md` (+ `coordinator/`) | Claude Sonnet · low | 코드를 안 읽고 보고 첫 줄만 보고 판단한다. 싸게 오래 돈다 |
 | 설계자 | `DESIGNER.md` | Claude Opus · high (첫 메시지에 `설계자 모델: fable`처럼 지정하면 그 Run만 바뀜) | 품질 차이가 가장 큰 단계. 호출은 적다 |
-| 설계 검토자 | `PLAN-REVIEWER.md` | Codex, Antigravity (한도 시 Claude Sonnet·high 하나) | 다른 회사 모델이 놓치는 곳이 다르다. 무료 한도로 돈다 |
+| 설계 검토자 ① | `PLAN-REVIEWER.md` | Claude Opus · high | **코드 대조** 담당(진단이 코드와 맞는가·원칙). PLAN이 가리키는 파일을 직접 열어 맞추는 일이라 읽기 정확도가 값이다 |
+| 설계 검토자 ② | `PLAN-REVIEWER.md` | Claude Fable · high | **빠진 경우** 담당(놓치는 경우·검증 항목·범위). 설계자(Opus)와 다른 모델이어야 겹치는 사각이 줄어든다. 동시에 돌리고 서로의 보고는 안 본다 |
 | 구현자 | `IMPLEMENTER.md` | Claude Sonnet · medium | 토큰을 가장 많이 쓰는 단계 |
 | 화면 검증자 | `SCREEN-CHECKER.md` | Claude Sonnet · medium | 화면 파일이 바뀐 작업만. 폰 크기 브라우저(Chromium·WebKit)로 찍어 **직접 보고** 넘침·잘림·겹침·가림을 거른다. 실기기는 아니다 — 못 보는 것은 "실기기에서 볼 것"으로 PR에 넘긴다 |
 | 리뷰어 | `REVIEWER.md` | Claude Opus · high (작은 수정은 medium) | 구현자와 다른 모델이어야 한다. 읽는 양은 적다 |
-| 규칙 정비자 | `RULES-KEEPER.md` | Claude (사람이 직접 띄움) | 규칙 메모를 키로 묶어 세고(`scripts/incidents.mjs`), 문제 대장(`docs/INCIDENTS.md`)을 따라 같은 문제가 다시 안 나오게 규칙·안전장치를 고친다 |
+| 규칙 정비자 | `RULES-KEEPER.md` | Claude Sonnet · high (사람이 직접 띄움) | 규칙 메모를 키로 묶어 세고(`scripts/incidents.mjs`), 문제 대장(`docs/INCIDENTS.md`)을 따라 같은 문제가 다시 안 나오게 규칙·안전장치를 고친다 |
 | 품질 관리자 | `QUALITY-KEEPER.md` (+ `coordinator/QUALITY.md`) | Claude Sonnet · high, 리뷰는 Opus | PLAN 구현 PR이 머지되면 지휘자가 이어서 띄운다. 복사본·안 쓰는 코드·테스트만 살린 코드를 동작 변경 없이 치운다 |
+
+**일꾼은 전부 Claude다.** 예전에는 설계 검토를 다른 회사 모델(Codex·Antigravity)에게 맡겨 "회사가 다르니
+놓치는 곳이 다르다"를 샀는데, 그 자리를 Claude 둘로 바꿨다. 바뀐 것과 그 몫을 메우는 방법:
+
+| 잃은 것 | 메우는 방법 | 어디 |
+|---|---|---|
+| 회사가 다른 모델의 다른 사각 | 검토자 둘의 **모델을 다르게**(Opus·Fable) 하고 **보는 각도를 나눈다**(코드 대조 / 빠진 경우) | `coordinator/DESIGN.md` "일꾼 배치" |
+| 두 회사가 모두 통과시켰다는 신뢰 | **`구조 변경` 라벨 이슈는 자동 승인하지 않는다.** 데이터 모델·저장 위치·플랫폼·README 결정을 뒤집는 설계는 사람이 PLAN을 읽고 머지한다 | `coordinator/DESIGN.md` "자동 승인" |
+| 무료 한도(Claude 한도를 안 쓰던 몫) | 검토자 ②를 Fable로 두고, 한도에 걸리면 동시가 아니라 **순차**로 다시 띄운다 | `coordinator/DESIGN.md` "검토자 선택" |
+
+모델·effort를 역할마다 다르게 두는 기준은 하나다 — **틀렸을 때 비용이 큰 단계에 좋은 모델을 쓰고,
+토큰을 많이 쓰는 단계는 싸게 돌린다.** 설계·리뷰·검토는 틀리면 구현 전체가 헛돌고, 구현은 양이 많다.
 
 ## 3. 사람이 하는 말
 
@@ -53,7 +66,7 @@ PLAN 구현 PR이 머지되면 (같은 지휘자 세션에서 이어서)
 | 이미 있는 이슈 | `이슈 #24 진행해` (흐름은 지휘자가 고른다) |
 | 작은 수정으로 정해서 | `이슈 #23을 작은 수정으로 진행해` |
 | 설계로 정해서 | `설계 작업. 주제: 이슈 #24` (PLAN 파일·작업 ID는 적으면 그대로 쓴다) |
-| 설계 검토자 지정 | 위 문장 끝에 `검토자: codex` (Antigravity 한도가 없을 때 등) |
+| 설계 검토자 지정 | 위 문장 끝에 `검토자: opus` (하나만 쓰고 싶을 때. 안 적으면 opus·fable 둘) |
 | 모델 지정 (그 Run만) | 위 문장 끝에 `설계자 모델: fable`. 구현자와 리뷰어를 같은 모델로 만드는 지정은 거절된다 |
 | PLAN 작업 하나 | `docs/PLAN-v1.14.md의 LL1을 진행해` |
 | PLAN 남은 작업 전부 | `docs/PLAN-v1.14.md의 미구현 작업을 전부 진행해` |
@@ -89,7 +102,6 @@ PLAN 구현 PR이 머지되면 (같은 지휘자 세션에서 이어서)
 | 흔적 검사 (`quality-scan --ci`, CI에서) | 새로 생긴 같은 이름 함수·상수 복사본, `.skip`·`.only`·`.todo` 테스트, `@ts-ignore`·`@ts-nocheck`, 무력화(`if (false)` 같은 늘 같은 조건, `any`, 이유 없이 빈 `catch`) | `scripts/quality-scan.mjs` (알고 있는 중복: `scripts/quality-allow.json`) |
 | 배포 전 테스트 | 깨진 코드 배포 | `.github/workflows/deploy.yml` |
 | 에이전트 안전장치 훅 | Claude 일꾼의 `gh pr merge`, main push, 강제 push, `reset --hard`, `clean -f`, `checkout --`, `branch -D`, 그리고 위 ruleset을 끄는 명령(`gh repo edit/delete`, API로 ruleset·브랜치 보호·main 삭제) | `.claude/settings.json` → `scripts/agent-guard.mjs` (테스트: `scripts/agent-guard.test.mjs`) |
-| Codex 규칙 | Codex가 orca를 샌드박스 밖에서 실행(허용), 머지 금지(선택, 7절) | `~/.codex/rules/default.rules` (PC마다) |
 | `.gitattributes` | CRLF 섞임 | 레포 |
 | `.gitignore`의 `.reports/` | 검토 보고·진행 파일이 커밋되는 것 | 레포 |
 
@@ -129,39 +141,22 @@ ruleset은 승인 리뷰 0개로 되어 있다(혼자 쓰는 레포라 자기 PR
 
 PC마다:
 
-- Orca 에이전트 설정: Claude 인자 `--permission-mode auto`, Codex 인자 비움(자체 설정 사용), Antigravity 인자 없음
+- Orca 에이전트 설정: Claude 인자 `--permission-mode auto`. **다른 회사 에이전트는 쓰지 않는다**(2절)
 - Orca 설정: 하위 에이전트 깊이 1, 끝난 일꾼 자동 닫기, 캐시 타이머 1시간, 잠자기 방지
 - `gh auth login` (지휘자가 PR을 만들고 머지를 기다린다)
-- `~/.codex/config.toml`:
-  ```toml
-  approval_policy = "on-request"
-  approvals_reviewer = "auto_review"
-  default_permissions = ":workspace"
-  ```
-- `~/.codex/rules/default.rules`:
-  ```python
-  prefix_rule(
-      pattern = ["orca", ["status", "orchestration"]],
-      decision = "allow",
-      justification = "Orca 작업 보고는 샌드박스 밖에서만 Orca 앱과 통신할 수 있다",
-  )
-  # 선택: Codex도 머지·강제 되돌리기를 못 하게
-  prefix_rule(pattern = ["gh", "pr", "merge"], decision = "forbidden", justification = "PR 머지는 사람이 한다")
-  prefix_rule(pattern = ["git", "reset", "--hard"], decision = "forbidden", justification = "되돌리기는 cp 백업으로 한다")
-  ```
-- 하지 않는 것: `--dangerously-bypass-approvals-and-sandbox`나 bypass 권한을 기본값으로 두기, `powershell.exe`를 백신 예외에 넣기
+- 하지 않는 것: bypass 권한을 기본값으로 두기(`--permission-mode auto`까지만), `powershell.exe`를 백신 예외에 넣기
 
 ## 8. 자주 걸리는 것
 
 | 증상 | 원인 | 해결 |
 |---|---|---|
-| 검토자가 worker_done 없이 끝남 | Codex 샌드박스가 orca 실행을 막음 | 7절 Codex 규칙. 보고 파일 SHA가 맞으면 지휘자가 정상으로 본다 |
+| 검토자가 worker_done 없이 끝남 | 일꾼이 완료 신호를 못 보냄 | 보고 파일의 둘째 줄 SHA가 맞고 첫 줄에 판정이 있으면 지휘자가 정상으로 본다 (`coordinator/DESIGN.md`) |
 | 일꾼이 엉뚱한(main) 작업 트리에 뜸 | `--worktree current` | 경로로 지정(`COORDINATOR.md` "작업 트리 지정") |
 | 설계자가 "main에 없다"고 함 | 지휘자 main 작업 트리가 옛것 | 지휘자 시작 때 `git pull --ff-only` (`COORDINATOR.md` 1-4) |
-| 한글 깨짐 | PowerShell 5.1 CP949 | `CLAUDE.md` "환경" |
+| 한글 깨짐 | PowerShell로 파일을 씀(CP949) | 파일은 편집 도구로 쓴다. `CLAUDE.md` "환경" |
 | 지휘자가 작업 트리 파일을 못 읽음 | `--add-dir` 없이 띄움 | 3절 명령으로 다시 띄우기 |
 | `[agent-guard] 막음` | 안전장치 | 정상이다. 정말 필요한 명령이면 사람이 직접 터미널에서 한다 |
-| Antigravity·Claude 한도 초과 | 주간·5시간 한도 | 지휘자가 시각을 알려주고 멈춘다. 풀리면 "이어서" |
+| Claude 한도 초과 | 주간·5시간 한도. 검토자 둘이 모두 Claude라 설계 단계에서 특히 빨리 닿는다 | 검토자는 순차로 다시(`coordinator/DESIGN.md`), 그래도 걸리면 지휘자가 시각을 알려주고 멈춘다. 풀리면 "이어서" |
 | 지휘자가 "이슈 #N"이 뭐냐고 물음 | 예시 문장의 `#N`을 그대로 보냄 | 이슈가 없으면 번호 대신 요청 본문을 보낸다(기획 던지기) |
 | PR 검사(CI)가 `npm ci`에서 실패 | 잠금 파일은 npm 11로 만들었는데 CI의 Node가 옛 버전 | CI·배포는 Node 24(npm 11). PC의 npm을 크게 올렸으면 CI도 맞춘다 |
 | 같은 요청 이슈가 두 개 | 이슈 만들기를 두 번 시킴 | 지휘자는 만들기 전에 같은 제목의 열린 이슈를 찾는다(INTAKE.md 1절). 남은 하나는 사람이 닫는다 |
@@ -176,8 +171,8 @@ PC마다:
 
 ## 10. 토큰 기록
 
-- **재는 것:** 지휘자가 PR을 만들기 직전에 `scripts/token-usage.mjs`를 돌려, 그 Run 동안 이 레포 폴더에서 돈 Claude·Codex 세션을 역할·모델별로 합쳐 PR 본문에 붙인다. 역할은 세션의 첫 지시문(`agents/DESIGNER.md를 읽고…`)으로 가린다. 프롬프트 내용은 남기지 않는다.
-- **못 재는 것:** Antigravity(로컬 기록 형식을 모른다), Orca 밖에서 한 일(이 대화 같은 claude.ai 채팅)
-- **입력 환산:** 새 입력 1을 기준으로 캐시 읽기 0.1, 캐시 쓰기 2(1시간), 출력 5로 센 근삿값이다. 같은 모델 안에서 역할끼리 비교하는 용도다. Opus·Sonnet·Fable 사이 차이는 모델 칸을 같이 본다.
+- **재는 것:** 지휘자가 PR을 만들기 직전에 `scripts/token-usage.mjs`를 돌려, 그 Run 동안 이 레포 폴더에서 돈 Claude 세션을 역할·모델별로 합쳐 PR 본문에 붙인다. 역할은 세션의 첫 지시문(`agents/DESIGNER.md를 읽고…`)으로 가린다. 프롬프트 내용은 남기지 않는다.
+- **못 재는 것:** Orca 밖에서 한 일(claude.ai 채팅 같은 것)
+- **입력 환산:** 새 입력 1을 기준으로 캐시 읽기 0.1, 캐시 쓰기 2(1시간), 출력 5로 센 근삿값이다. 같은 모델 안에서 역할끼리 비교하는 용도다. Opus·Sonnet·Fable 사이 차이는 모델 칸을 같이 본다. 모델이 한 회사가 됐으니 이 표가 한도를 보는 유일한 눈이다.
 - **보는 법:** `node scripts/token-usage.mjs --collect` (gh 필요) — 머지된 PR들을 모아 역할별 몫·캐시 적중·출력 몫을 보여준다. 주간 규칙 정비가 이 표로 아낄 구간을 고르고(`RULES-KEEPER.md` 5절), 모델 바꾸기는 사람에게 제안만 한다.
 - **지금 Run만 보기:** `node scripts/token-usage.mjs --since 2026-11-10T13:00:00+09:00`

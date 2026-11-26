@@ -16,6 +16,9 @@
 1인용 운동·식단 기록 PWA. 서버·로그인이 없고, 데이터는 IndexedDB(Dexie)에 있으며 Gist로 백업한다.
 `README.md`의 "핵심 설계 결정"을 뒤집는 변경은 하지 않는다.
 
+**v2.0부터 Expo 네이티브 앱(iOS 먼저, 안드로이드 같은 코드베이스)으로 옮긴다** — `docs/PLAN-v2.0.md`.
+전환이 끝날 때까지 위 설명이 현행이고, 뒤집는 것은 PLAN v2.0이 "뒤집는 README 결정"에 적은 항목뿐이다.
+
 ## 명령
 
 - **검사 전부 한 번에: `npm run check`** (CI와 같은 목록 — 흔적 검사, Astryx 뒷걸음, 린트, 안 쓰는 파일·의존성, 테스트, 빌드). 작업 중간에는 `npm run check -- --fast`(빌드 제외)
@@ -52,11 +55,8 @@
 
 ## 환경
 
-- Windows, Orca 작업 트리(작업마다 별도 폴더). Claude Code의 셸은 Git Bash다.
-- **PowerShell로 명령을 실행하는 에이전트(Codex 등)는 한글 인코딩에 주의한다.**
-  Windows PowerShell 5.1은 기본이 CP949라 UTF-8 파일의 한글이 깨진다.
-  - 읽을 때: 처음에 `[Console]::OutputEncoding=[Text.UTF8Encoding]::new()`를 실행하고, `Get-Content`에는 항상 `-Encoding UTF8`을 붙인다.
-  - 쓸 때: PowerShell(`Set-Content`, `Out-File`, `>`)로 파일을 쓰지 않는다. 한글이 깨지거나 BOM이 붙는다. 에이전트의 파일 편집 도구를 쓴다.
+- Windows, Orca 작업 트리(작업마다 별도 폴더). 일꾼은 전부 Claude이고 셸은 Git Bash다.
+  PowerShell로 파일을 쓰지 않는다(CP949로 한글이 깨지거나 BOM이 붙는다). 파일은 편집 도구로 쓴다.
 - 커밋 메시지는 `git commit -F - <<'MSG'`로 쓴다.
 - 줄바꿈은 LF로 고정돼 있다(`.gitattributes`).
 - 되돌리기는 `git checkout <파일>`이 아니라 `cp` 백업으로 한다. 커밋 안 된 작업을 날리지 않기 위해서다.
