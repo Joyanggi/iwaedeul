@@ -33,11 +33,11 @@ PLAN 구현 PR이 머지되면 (같은 지휘자 세션에서 이어서)
 | 역할 | 파일 | 에이전트·모델 | 왜 |
 |---|---|---|---|
 | 지휘자 | `COORDINATOR.md` (+ `coordinator/`) | Claude Sonnet · low | 코드를 안 읽고 보고 첫 줄만 보고 판단한다. 싸게 오래 돈다 |
-| 설계자 | `DESIGNER.md` | Claude Opus · high (첫 메시지에 `설계자 모델: sonnet`처럼 지정하면 그 Run만 바뀜) | 품질 차이가 가장 큰 단계. 호출은 적다 |
-| 설계 검토자 | `PLAN-REVIEWER.md` | Claude Opus · high (한도면 Sonnet · high) | **한 명이다.** 검토자를 쌓는 대신 `REVIEW.md`와 `docs/RELIABILITY.md`로 튜닝한다. 새 세션이라 설계자의 생각 과정을 못 보는 것이 독립성의 실체다 |
-| 구현자 | `IMPLEMENTER.md` | Claude Sonnet · medium | 토큰을 가장 많이 쓰는 단계 |
+| 설계자 | `DESIGNER.md` | Claude Opus · **medium** (구조 변경이면 high. 첫 메시지에 `설계자 모델: sonnet`처럼 지정하면 그 Run만 바뀜) | 품질 차이가 가장 큰 단계. 호출은 적다. **medium이 기본**이고, 모자라면 effort를 한 칸 올리는 것이 모델을 바꾸는 것보다 먼저다 |
+| 설계 검토자 | `PLAN-REVIEWER.md` | Claude **Sonnet · high** (구조 변경이면 Opus · medium) | **한 명이다.** 검토자를 쌓는 대신 `REVIEW.md`와 `docs/RELIABILITY.md`로 튜닝한다. 반복해서 도는 검토 작업은 Sonnet이 제자리다 |
+| 구현자 | `IMPLEMENTER.md` | Claude Sonnet · medium | 토큰을 가장 많이 쓰는 단계. 범위가 정해진 구현은 Sonnet·medium이 제자리다 |
 | 화면 검증자 | `SCREEN-CHECKER.md` | Claude Sonnet · medium | 화면 파일이 바뀐 작업만. 폰 크기 브라우저(Chromium·WebKit)로 찍어 **직접 보고** 넘침·잘림·겹침·가림을 거른다. 실기기는 아니다 — 못 보는 것은 "실기기에서 볼 것"으로 PR에 넘긴다 |
-| 리뷰어 | `REVIEWER.md` | Claude Opus · high (작은 수정은 medium) | 구현자와 다른 모델이어야 한다. 읽는 양은 적다 |
+| 리뷰어 | `REVIEWER.md` | Claude Opus · **medium** (반려 뒤 재리뷰·위험 경로는 high) | 구현자와 다른 모델이어야 한다. 읽는 양은 적다 |
 | 규칙 정비자 | `RULES-KEEPER.md` | Claude Sonnet · high (사람이 직접 띄움) | 규칙 메모를 키로 묶어 세고(`scripts/incidents.mjs`), 문제 대장(`docs/INCIDENTS.md`)을 따라 같은 문제가 다시 안 나오게 규칙·안전장치를 고친다 |
 | 품질 관리자 | `QUALITY-KEEPER.md` (+ `coordinator/QUALITY.md`) | Claude Sonnet · high, 리뷰는 Opus | PLAN 구현 PR이 머지되면 지휘자가 이어서 띄운다. 복사본·안 쓰는 코드·테스트만 살린 코드를 동작 변경 없이 치운다 |
 
@@ -53,8 +53,19 @@ PLAN 구현 PR이 머지되면 (같은 지휘자 세션에서 이어서)
 
 **Fable은 Pro에서 못 쓴다.** 모델 지정에 Fable을 적지 않는다.
 
-모델·effort의 기준은 하나다 — **틀렸을 때 비용이 큰 단계에 좋은 모델을 쓰고, 토큰을 많이 쓰는 단계는 싸게
-돌린다.** 설계·리뷰는 틀리면 구현 전체가 헛돌고, 구현은 양이 많다.
+### 모델과 effort를 정하는 규칙
+
+Claude 팀이 공개한 모델 선택 지침을 이 레포 크기에 맞춰 옮긴 것이다. 네 줄이면 끝난다.
+
+1. **medium에서 시작한다.** 모자라면 **모델을 바꾸기 전에 effort를 한 칸** 올린다. effort가 더 싼 손잡이다.
+2. **모델을 올리기 전에 "스스로 검증할 수단이 있는가"를 먼저 본다.** 테스트·빌드·스크립트를 쥐여 주는 것이
+   effort를 올리는 것보다 싸고 효과가 크다(`verify` 스킬이 그 자리다).
+3. **싸게 돌리고 실패만 올려 다시 돌린다.** 결과를 기계가 판정할 수 있으면(검사·테스트) 전부 낮은 설정으로
+   돌리고 **실패한 것만** 한 칸 올려 재실행한다. 전부를 높은 설정으로 돌리는 것보다 싸고 결과가 같거나 낫다.
+4. **작은 모델은 틀려도 싼 일에만.** 파일 찾기·로그 읽기·요약은 Haiku 서브에이전트(`.claude/agents/`)에 맡기고,
+   **코드 수정과 판단은 주 모델이** 한다. 비싼 모델의 맥락은 결정에만 쓴다.
+
+큰 기준은 그대로다 — **틀렸을 때 비용이 큰 단계에 좋은 모델, 토큰을 많이 쓰는 단계는 싸게.**
 
 ### 이 하네스가 따르는 바깥 사례
 
@@ -72,8 +83,24 @@ Claude Code 팀이 공개한 두 글에서 **이 레포 크기에 맞는 것만*
 | 검증은 "돌려 보는 것"이고, 모바일은 **기기 MCP**로 | 실기기 검증 설계(`docs/PLAN-v2.0.md` 11절) | 검증 글 |
 | 새 관문은 **observe 모드**로 켠다 | 커밋 검증 도장(`agent-guard` 확장) | 검증 글 |
 
-출처: [How the Claude Code team does code review](https://claude.dev/blog/solving-code-review-at-anthropic/) (2026-10-15),
-[How the Claude Code team thinks about verification](https://claude.dev/blog/how-the-claude-code-team-thinks-about-verification/) (2026-11-16).
+| 모델은 medium에서 시작하고, 모델보다 effort를 먼저 올린다 · 실패만 올려 재실행 | 위 "모델과 effort를 정하는 규칙" | 모델 선택 글 |
+| 서브에이전트는 작은 모델에, 판단은 주 모델에 | `.claude/agents/log-reader.md`·`Explore.md` (`model: haiku`) | 모델 선택 글 |
+| push 전에 `/code-review` | `IMPLEMENTER.md`, `CLAUDE.md` "검증" | PR 이후 작업 글 |
+| 되돌리기 어려운 결정은 **미리 목록으로** 정해 두고 그때 멈춰 묻는다 | `REVIEW.md` 3절, `coordinator/DESIGN.md` 자동 승인 | 카오스 루프 글 |
+| 언제나 성립해야 하는 **불변**을 적어 두고 테스트로 잠근다 | `REVIEW.md` 1.5절 | 카오스 루프 글 |
+| 무거운 검사는 **클라우드 세션**으로 돌리고 기기 검증만 로컬 | `docs/PLAN-v2.0.md` 11절 | 클라우드 세션 글 |
+
+출처: [코드 리뷰](https://claude.dev/blog/solving-code-review-at-anthropic/) (2026-10-15) ·
+[검증](https://claude.dev/blog/how-the-claude-code-team-thinks-about-verification/) (2026-11-16) ·
+[모델 선택](https://claude.dev/blog/which-claude-model-should-you-build-with/) (2026-11-09) ·
+[PR 이후 작업](https://claude.dev/blog/the-work-after-you-open-a-pr/) ·
+[클라우드 세션](https://claude.dev/blog/claude-code-in-the-cloud/) ·
+[카오스 루프](https://claude.dev/blog/chaos-loop-claude-docs-launch/).
+
+**가져오지 않은 것**: `/ship`의 PR 감시(Windows에서는 시작되지 않고, 이 레포처럼 `.claude/settings.json`에
+Bash PreToolUse 훅이 있으면 돌지 않는다 — 후속은 지휘자가 한다) · 머지 큐·피처 플래그·단계 출시(혼자 쓰는
+앱이라 되돌리기가 이미 싸다) · 1,000 에이전트 규모의 샌드박스·게이트웨이(규모가 다르다) ·
+사고 기반 일일 eval(표본이 몇 건뿐이라 `docs/RELIABILITY.md`로 대신한다).
 
 ## 3. 사람이 하는 말
 

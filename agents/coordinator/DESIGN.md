@@ -21,14 +21,15 @@ PR은 `agents/coordinator/PR.md`를 따른다.
 
 | 순서 | 역할 | 에이전트 | 모델 | effort | 작업 트리 |
 |---|---|---|---|---|---|
-| 1 | 설계자 | claude | opus (사람이 지정하면 그 모델, COORDINATOR.md "모델 지정") | high | **새 작업 트리** `plan-<PLAN 버전>`, 최신 `main`에서 |
-| 2 | 설계 검토자 | claude | opus | high | 설계자와 같은 작업 트리 (**경로로 지정**, `current` 금지) |
+| 1 | 설계자 | claude | opus (사람이 지정하면 그 모델, COORDINATOR.md "모델 지정") | medium (구조 변경이면 high) | **새 작업 트리** `plan-<PLAN 버전>`, 최신 `main`에서 |
+| 2 | 설계 검토자 | claude | sonnet (구조 변경이면 opus) | high (opus면 medium) | 설계자와 같은 작업 트리 (**경로로 지정**, `current` 금지) |
 
 보고 파일은 `.reports/<PLAN 버전>-review.md` 하나다.
 
-**설계자와 검토자는 모델이 같다(opus).** 다른 모델로 바꾸는 것보다 **다른 맥락**이 중요하다 —
-검토자는 새 세션에서 PLAN과 코드만 보고 시작하고, 설계자의 생각 과정을 받지 않는다.
-한도가 빡빡한 날에는 검토자를 sonnet·high로 내린다(아래 "한도").
+검토자가 설계자보다 작은 모델인 것이 이상해 보이지만, 검토는 **PLAN이 가리킨 파일을 열어 맞추는
+반복 작업**이고 그 자리는 Sonnet·high가 제자리다. 모자라면 모델을 올리기 전에 **effort를 한 칸** 올린다.
+독립성은 모델 크기가 아니라 **맥락**에서 온다 — 검토자는 새 세션에서 PLAN과 코드만 보고 시작하고,
+설계자의 생각 과정을 받지 않는다.
 
 > `구조 변경` 라벨이면 **검토를 두 라운드** 돌린다. 사람을 더 부르는 대신 같은 검토자를 다시 쓰되,
 > 2라운드 spec에 1라운드 보고를 넣어 **앞 라운드 위에 쌓게** 한다
@@ -37,10 +38,10 @@ PR은 `agents/coordinator/PR.md`를 따른다.
 
 ### 검토자 선택과 한도
 
-- 사람의 첫 메시지에 모델 지정(예: "검토자: sonnet")이 있으면 그대로 따른다.
-- 없으면 opus·high 하나를 띄운다. **검토자를 둘 이상 띄우지 않는다** (위 근거).
+- 사람의 첫 메시지에 모델 지정(예: "검토자: opus")이 있으면 그대로 따른다.
+- 없으면 위 표대로 하나를 띄운다. **검토자를 둘 이상 띄우지 않는다** (위 근거).
 - 검토자가 보고 없이 끝나면 `orca orchestration worker-read`로 마지막 출력을 읽는다.
-  - 사용량 한도(limit, quota, usage, rate limit 등)로 끝났으면 **sonnet·high로 한 번 다시 띄운다**
+  - 사용량 한도(limit, quota, usage, rate limit 등)로 끝났으면 **한 칸 내려 한 번 다시 띄운다**(opus→sonnet, sonnet·high→sonnet·medium)
     (같은 spec, 같은 PLAN 커밋 SHA). 그것도 한도면 사람에게 풀리는 시각과 함께 알리고 gate를 건다.
     한도로 끝난 일꾼은 release가 거부되면 `worker-stop`으로 닫는다(COORDINATOR.md "release 확인").
   - 한도가 아닌 이유로 끝났으면 사람에게 알리고 멈춘다.
