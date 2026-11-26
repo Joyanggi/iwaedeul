@@ -104,8 +104,15 @@ Claude Code 팀이 공개한 두 글에서 **이 레포 크기에 맞는 것만*
 
 ## 3. 사람이 하는 말
 
-지휘자는 main 작업 트리에서 띄운다: `claude --model sonnet --effort low --add-dir ~/orca/workspaces`
-(경로는 Orca가 작업 트리를 만드는 폴더다. 다르면 그 경로로 바꾼다.)
+지휘자는 main 작업 트리에서 **pull한 뒤** 띄운다 (Orca 빠른 명령어로 등록해 두면 편하다):
+
+```bash
+cd ~/orca/workout-tracker-Joyanggi && git pull --ff-only && claude --model sonnet --effort low --add-dir ~/orca/workspaces
+```
+
+(앞 경로는 Orca가 등록한 main 클론, `--add-dir` 경로는 Orca가 작업 트리를 만드는 폴더다. 다르면 그 경로로 바꾼다.)
+**pull은 띄우기 전에 한다.** `CLAUDE.md`는 세션이 시작될 때 읽히고, 지휘자는 규칙 파일을 읽은 뒤에야 1-4의 pull을 한다.
+옛 main에서 띄우면 지휘자가 **옛 규칙대로** 움직인다(v2.1 설계에서 옛 판 DESIGN.md를 읽고 Codex·Antigravity 검토자를 띄웠다).
 첫 메시지는 `/coord ` 다음에 아래 중 하나를 붙인다. `/coord`는 `.claude/commands/coord.md`이고, `agents/COORDINATOR.md를 읽고 진행해.` 아래에 붙인 말을 넣어 보낸다(그 문장을 직접 쳐도 같다).
 일꾼은 이 명령을 스스로 부르지 못한다(`disable-model-invocation`).
 
@@ -206,6 +213,7 @@ PC마다:
 | 검토자가 worker_done 없이 끝남 | 일꾼이 완료 신호를 못 보냄 | 보고 파일의 둘째 줄 SHA가 맞고 첫 줄에 판정이 있으면 지휘자가 정상으로 본다 (`coordinator/DESIGN.md`) |
 | 일꾼이 엉뚱한(main) 작업 트리에 뜸 | `--worktree current` | 경로로 지정(`COORDINATOR.md` "작업 트리 지정") |
 | 설계자가 "main에 없다"고 함 | 지휘자 main 작업 트리가 옛것 | 지휘자 시작 때 `git pull --ff-only` (`COORDINATOR.md` 1-4) |
+| 지휘자가 지금 규칙에 없는 일꾼·절차를 씀 (예: Codex 검토자) | pull 전에 띄워 옛 `CLAUDE.md`·규칙 파일을 읽음 | 3절 명령(pull 먼저)으로 띄운다. 이미 돌고 있으면 일꾼을 멈추고 지휘자에게 "규칙을 디스크에서 다시 읽어"라고 보낸다 |
 | 지휘자가 작업 트리 파일을 못 읽음 | `--add-dir` 없이 띄움 | 3절 명령으로 다시 띄우기 |
 | `[agent-guard] 막음` | 안전장치 | 정상이다. 정말 필요한 명령이면 사람이 직접 터미널에서 한다 |
 | Claude 한도 초과 | Pro 한도(주간·5시간). 일꾼이 전부 Claude라 설계 단계에서 특히 빨리 닿는다 | 검토자를 sonnet으로 한 번 내려 다시(`coordinator/DESIGN.md`), 그래도 걸리면 지휘자가 시각을 알려주고 멈춘다. 풀리면 "이어서" |
