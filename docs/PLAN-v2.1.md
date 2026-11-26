@@ -1,7 +1,7 @@
 # PLAN v2.1 — 네이티브 앱의 골격: 코어 분리 · SQLite · Gist 가져오기 · 테마 두 벌 · 홈 (VV)
 
 > 작성: Claude Opus 5.5 (설계자), 2026-11-26. 대상 코드: v1.21.0 (`main` `8404be8`).
-> 검토 반영: 1라운드(`.reports/v2.1-review.md`, 검토 커밋 `67cb468`) — 끝의 "검토 반영 기록".
+> 검토 반영: 1라운드(`.reports/v2.1-review.md`, 검토 커밋 `67cb468`) · 2라운드(같은 파일 "2라운드", 검토 커밋 `a410845`) — 끝의 "검토 반영 기록".
 > 근거: `docs/PLAN-v2.0.md` 10절 v2.1 행(골격), 3·4.1·7·11·15·17절. 지휘자 지시(2026-11-26):
 > ① Expo 앱 생성 ② `src/core` 분리와 경계 검사(Astryx 뒷걸음 검사 자리에) ③ SQLite(expo-sqlite + Drizzle) 스키마
 > ④ **파일 가져오기 대신 Gist에서 가져오기**(PAT, `expo-secure-store`) ⑤ 테마 토큰 라이트·다크 한 벌 ⑥ 홈 화면 하나.
@@ -124,9 +124,12 @@ PR 1을 따로 내는 이유: `main`에 머지되면 **지금 쓰는 웹앱이 �
 - **금지 전역**(테스트 아닌 코어 파일): `window` `document` `navigator` `localStorage` `sessionStorage` `indexedDB` `AudioContext` `webkitAudioContext` `URL.createObjectURL` `import.meta`(Vite 전용 `glob`·`env` 포함) `__APP_VERSION__`. `fetch`·`crypto`·`Intl`·`structuredClone`은 막지 않는다(아래 "Hermes에서 확인할 전역").
 - `scripts/check.mjs` `STEPS`의 `{ name: 'Astryx 뒷걸음', cmd: 'node scripts/astryx-inventory.mjs --check' }`를 **`{ name: '코어 경계', cmd: 'node scripts/core-boundary.mjs --check' }`로 바꾼다**(같은 자리, 같은 순서). `.github/workflows/ci.yml`도 같은 줄을 바꾼다. `astryx-inventory.mjs`·`docs/ASTRYX-INVENTORY.md`는 지우지 않는다(`ss0`·`ss4`·`ss5` 테스트가 스크립트 글을 읽는다, 손으로 돌릴 수는 있다) — 웹과 함께 v2.5에 지운다.
 - **헛도는 경로 막이** — `scripts/vv1-paths.test.mjs`에 메타 테스트 둘(`node:fs`를 쓰므로 `scripts/`에 둔다 — `src` 아래 테스트는 `tsconfig.app.json`이 node 타입 없이 빌드에서 타입 검사한다):
-  - glob: `src`·`scripts` 아래 테스트 파일의 `import.meta.glob(…)` 첫 인자 리터럴(문자열 또는 문자열 배열)을 전부 모아, 각 패턴이 **실제 파일 하나 이상과 맞는지** `node:fs`로 확인한다.
-  - 경로 리터럴: 같은 테스트 파일들에서 `src/` 또는 `/src/`로 시작하고 `.ts`·`.tsx`·`.mjs`·`.css`·`.json`으로 끝나는 문자열 리터럴(작은·큰따옴표, 그리고 `${`가 없는 백틱)을 전부 모아, 각 경로가 **실제 파일인지** `node:fs`로 확인한다. 일부러 없는 파일을 가리키는 리터럴(지워진 파일이 다시 생기지 않았는지 보는 테스트 등)은 메타 테스트 안의 허용 목록에 `경로 — 이유`로 적는다.
-  - 둘 다 템플릿 문자열(`${…}`)이 든 것은 건너뛰고 **건너뛴 수와 허용 목록의 길이를 단언한다**(구현자가 지금 수를 세어 고정 — 새로 생기면 테스트가 알린다).
+  - glob: `src`·`scripts` 아래 테스트 파일의 `import.meta.glob(…)` 첫 인자 리터럴(문자열 또는 문자열 배열)을 전부 모아, 각 패턴이 **실제 파일 하나 이상과 맞는지** `node:fs`로 확인한다. `!`로 시작하는 제외 패턴(`v113.test.ts:369`의 `'!/src/lib/**/*.test.ts'`)은 `!`를 뗀 패턴으로 본다.
+  - 경로 리터럴: **`src` 아래 테스트 파일만**(`src/**/*.test.ts(x)`) 본다. `src/` 또는 `/src/`로 시작하고 `.ts`·`.tsx`·`.mjs`·`.css`·`.json`으로 끝나는 문자열 리터럴(작은·큰따옴표, 그리고 `${`가 없는 백틱)을 전부 모아, 각 경로가 **실제 파일인지** `node:fs`로 확인한다. 일부러 없는 파일을 가리키는 리터럴(지워진 파일이 다시 생기지 않았는지 보는 테스트 등)은 메타 테스트 안의 허용 목록에 `경로 — 이유`로 적는다.
+    - **`*`·`{`·`?`가 든 문자열은 건너뛴다** — glob 패턴(`'/src/**/*.tsx'`, 여러 줄 배열로 넘기는 `'/src/lib/**/*.ts'` 등)이고, glob 쪽 검사가 맡는다.
+    - **`scripts/*.test.mjs`는 대상이 아니다** — 거기 경로는 순수 함수(`quality-scan`·`mutation`의 판정)에 넣는 가짜 입력이라 파일이 있을 필요가 없다(`src/lib/a.ts`, VV1이 더하는 `src/core/x.ts` 등). 헛돌 위험이 있는 자리는 소스를 `?raw`·glob 맵으로 읽는 `src` 테스트뿐이다.
+    - 설계자 실측(`main` `a410845`, 위 규칙의 정규식): 원래 규칙대로면 없는 경로 46건(glob 문자 든 것 25 + `scripts` 21), 고친 규칙으로는 **0건**. 구현자가 VV1 뒤 다시 세어 DEV-RECORD에 적는다.
+  - 둘 다 템플릿 문자열(`${…}`)이 든 것은 건너뛰고 **건너뛴 수(템플릿·glob 문자 각각)와 허용 목록의 길이를 단언한다**(구현자가 지금 수를 세어 고정 — 새로 생기면 테스트가 알린다).
 
 **7) 문서 사실 맞추기** — **VV1에서 하지 않는다.** `CLAUDE.md`·`agents/**`는 규칙 정비자 몫이고(`agents/RULES-KEEPER.md` 첫 줄) REVIEW.md 3절의 사람 필요 경로다. VV7로 뗐다.
 
@@ -153,7 +156,13 @@ PR 1을 따로 내는 이유: `main`에 머지되면 **지금 쓰는 웹앱이 �
 - 헛도는 경로 막이: 지금 모든 glob 리터럴과 경로 리터럴이 파일과 맞는다(허용 목록 제외). **결함 복원**: `v1111.test.ts`의 glob 경로를 옛 `/src/lib/exportMarkdown.ts`로 되돌리면 glob 쪽이, `v116.test.ts`의 `nn1Src("src/core/derive.ts")`를 옛 `"src/lib/derive.ts"`로 되돌리면 경로 리터럴 쪽이 실패한다.
 - `readModel` 동등: `pickActiveRoutine` — 활성 id가 있고 존재 / 활성 id가 없음 / 활성 id가 지워진 루틴 / 루틴 0개 → `undefined`. `pickOpenSession` — 끝나지 않은 세션 둘 중 `startedAt`이 늦은 것 / 전부 끝남 → `undefined`. `buildDietData` — 옛 플랜을 쓰는 날의 `isTrainingDay`가 근력 세션 날짜로 고쳐진다(`resolveTrainingDays`가 하던 것), 유산소만 한 날은 휴식일로 남는다.
 - **속성** (`src/lib/properties.test.ts`에 더한다): `pickOpenSession`은 세션 배열의 순서를 바꿔도 같은 세션을 고른다 · `pickActiveRoutine`은 루틴 배열의 순서를 바꿔도 같은 루틴을 고른다(기본키 순 첫 루틴 규칙이 순서가 아니라 id로 정해진다). **생성기는 세션 `startedAt`·루틴 `id`를 서로 다르게 만든다**(동점은 위 "정렬 동점" 표 — 지금 웹 동작이고 이 속성의 대상이 아니다).
-- **이름 그대로**: 옮긴 테스트와 남은 테스트의 diff는 import 줄·glob 경로 줄·경로 리터럴 줄뿐이다 — `git diff -M main..HEAD -- '*.test.ts' | grep -E '^[-+][^-+]' | grep -vE "^[-+]\s*(import |\} from )|import\.meta\.glob|['\"\`]/?src/"`의 출력이 비어 있다(복사). 남는 줄이 있으면 줄마다 무엇인지(여러 줄 import 묶음 안의 이름 줄 등) DEV-RECORD에 적는다.
+- **이름 그대로**: 옮긴 테스트와 남은 테스트의 diff는 import 줄·glob 경로 줄·경로 리터럴뿐이다. 경로 리터럴 줄을 통째로 빼지 않는다 — 그 줄 대부분이 단언과 같은 줄이라(`expect(nn1Src("src/core/derive.ts")).not.toMatch(…)`) 단언이 같이 바뀌어도 안 보인다. 대신 **경로를 맞춘 뒤 `-`줄과 `+`줄이 짝으로 같은지** 본다:
+  ```sh
+  d() { git diff -M main..HEAD -- '*.test.ts' | grep -E '^[-+][^-+]' | grep -vE '^[-+]\s*(import |\} from )|import\.meta\.glob' \
+        | sed -E 's#/?src/(lib|db|core)/#src/~/#g; s#/?src/types\.ts#src/~/types.ts#g' | grep "^$1" | cut -c2- | sort; }
+  diff <(d -) <(d +)
+  ```
+  출력이 비어 있다(복사). 남는 줄이 있으면 줄마다 무엇인지(여러 줄 import 묶음 안의 이름 줄, 여러 줄 glob 배열에 `/src/core/…`를 더한 줄 등) DEV-RECORD에 적는다. 경로가 맞는지는 헛도는 경로 막이가 따로 본다.
 - 테스트 개수: VV1 전후 `npm test 2>&1 | tail -5`의 파일 수·테스트 수가 같다(+ VV1이 더한 새 테스트 수만큼). 두 출력을 DEV-RECORD에 복사.
 - 웹 번들: `node scripts/first-load.mjs --check` 전후 숫자를 복사한다. 늘어나지 않는다(옮김만이라 같아야 한다 — 다르면 이유를 적는다).
 
@@ -371,7 +380,7 @@ function findBackupGist(token: string): Promise<BackupGist>
 2. `findBackupGist(token)` → `readGist(token, id)` → `parseBackup(content)`. 문제가 있으면 문제 목록을 보이고 멈춘다(기기 그대로).
 3. **성공적으로 받은 뒤에만** 토큰을 Keychain에 저장한다(틀린 토큰이 저장되지 않게).
 4. 기기에 세션이 1건 이상이면 확인(`Alert.alert`, 두 버튼 — 아래 문구 C). 취소면 멈춘다.
-5. 단계 글을 `넣고 확인하는 중…`으로 바꾸고 **한 프레임 양보한 뒤**(`await new Promise(r => requestAnimationFrame(r))`) `importBackup(db, file, new Date())` → 결과. 동기 트랜잭션이 도는 동안 JS 스레드가 막혀 글이 바뀌지 못하므로 넣기·확인을 한 단계로 둔다.
+5. 단계 글을 `넣고 확인하는 중…`으로 바꾸고 **한 프레임 양보한 뒤**(`await deps.yieldFrame()` — 화면 파일이 `() => new Promise(r => requestAnimationFrame(r))`를 넘긴다. 테스트는 `() => Promise.resolve()`를 넘긴다: 가짜 타이머에서 rAF가 풀리지 않고, jest 환경마다 rAF 유무가 다르다) `importBackup(db, file, new Date())` → 결과. 동기 트랜잭션이 도는 동안 JS 스레드가 막혀 글이 바뀌지 못하므로 넣기·확인을 한 단계로 둔다.
    - `ok: true` → 결과 표 · `reason: 'mismatch'` → 문구 D + 결과 표 · `reason: 'error'` → 문구 G(실패 배너, 결과 표 없음).
 6. 어느 갈래로 끝나든(던진 예외 포함 — `runImport` 전체를 `try/finally`) 도는 중 상태를 끈다. `가져오는 중…`에서 멈추지 않는다.
 
@@ -389,7 +398,7 @@ function findBackupGist(token: string): Promise<BackupGist>
 
 ### 검증
 - `src/core/v21.test.ts` describe `VV4` (fetch 모킹 — `gist.test.ts`의 방식): `/gists` 응답에 백업 파일을 가진 gist 둘(`updated_at` 다름)과 없는 것 하나 → 늦은 것의 id / 백업 파일 가진 것이 없음 → `kind: 'notFound'` / 401 → `auth` / 403 + `x-ratelimit-remaining: 0` → `rateLimit` / fetch 예외 → `network`. 요청 URL에 `per_page=100`, 헤더에 토큰.
-- `native/src/db/runImport.test.ts`(처리 함수는 화면 파일 밖 `native/src/db/runImport.ts`로 두고 의존성 — `findBackupGist`·`readGist`·토큰 저장·확인 묻기·DB — 을 인자로 받는다): 받기 실패(`auth`) → 토큰을 **저장하지 않는다** / `parseBackup` 문제 → DB 그대로·토큰 저장 안 함 / 받기 성공 → 토큰 저장 / 기기에 세션이 있고 확인에서 취소 → DB 그대로 / 엔진이 `reason: 'error'`를 돌려줌 → 실패 표시(문구 G), DB 그대로(토큰은 이미 저장됐어도 됨 — 받기에 성공한 토큰이다), 도는 중 상태가 꺼진다 / 엔진 자리의 가짜가 **던짐** → 같은 실패 표시, 도는 중 상태가 꺼진다 / 잘린 응답(`truncated: true`)이면 `raw_url`의 전체 내용이 들어간다(`readGist`를 그대로 쓰는지 — R4).
+- `native/src/db/runImport.test.ts`(처리 함수는 화면 파일 밖 `native/src/db/runImport.ts`로 두고 의존성 — `findBackupGist`·`readGist`·토큰 저장·확인 묻기·DB·`yieldFrame` — 을 인자로 받는다. `runImport.ts`에 `requestAnimationFrame`이라는 글자가 없다): 받기 실패(`auth`) → 토큰을 **저장하지 않는다** / `parseBackup` 문제 → DB 그대로·토큰 저장 안 함 / 받기 성공 → 토큰 저장 / 기기에 세션이 있고 확인에서 취소 → DB 그대로 / 엔진이 `reason: 'error'`를 돌려줌 → 실패 표시(문구 G), DB 그대로(토큰은 이미 저장됐어도 됨 — 받기에 성공한 토큰이다), 도는 중 상태가 꺼진다 / 엔진 자리의 가짜가 **던짐** → 같은 실패 표시, 도는 중 상태가 꺼진다 / 잘린 응답(`truncated: true`)이면 `raw_url`의 전체 내용이 들어간다(`readGist`를 그대로 쓰는지 — R4).
 - 스캔(`native/src/boundary.test.ts`에 더함): `native/src` 어디에도 `api.github.com` 문자열은 없다(코어 `gist.ts`만 부른다) · `secureToken.ts` 말고는 `expo-secure-store`를 import하지 않는다 · 토큰 값을 `console.`·화면 글로 보내는 곳이 없다(`getGistToken` 결과가 `Text` 자식으로 가지 않는다 — `import.tsx`에서 `token`이 JSX 안에 없음).
 - **실기기**: 사람이 토큰을 붙여 넣은 뒤(아래 "사람이 할 일"), Claude가 `가져오기` → 결과 표의 네 줄 `✓`와 `내용 지문 일치 ✓` 스크린샷 `import-done-<light|dark>.png`. **표의 세션 수가 웹 설정 → 기록 내보내기의 세션 수와 같다**(사람이 웹에서 보고 PR에 적는다).
 
@@ -643,7 +652,7 @@ function homeModel(input: HomeInput): HomeModel | { empty: true }
 VV5를 VV4보다 먼저 하는 이유: 가져오기 화면이 `ui` 부품을 쓴다. VV3를 VV4보다 먼저 하는 이유: 화면이 엔진을 부른다.
 커밋 수: **PR 1 = 2**(VV1 · 기록·버전), **PR R = 1**(VV7), **PR 2 = 7**(VV2 · VV3 · VV5 · VV4 · VV6 · 화면 검증 · 기록·버전). 작업끼리 한 커밋에 섞지 않는다. 개수는 `git log --oneline main..HEAD` 출력을 복사한다.
 
-**사람 필요 경로**(`REVIEW.md` 3절) — 리뷰어는 아래 PR을 통과시키지 않고 **사람 필요**로 올린다. 이 설계가 미리 알리는 것이고, 구현자는 이 때문에 멈추지 않는다(사람이 머지 때 본다):
+**사람 필요 경로**(`REVIEW.md` 3절) — 리뷰어는 아래 PR을 통과시키지 않고 **사람 필요**로 올린다. 이 경로의 결정은 이 PLAN이 미리 정했다 — 구현자는 PLAN에 없는 결정(스키마·백업 형식·토큰 저장 방식을 PLAN과 다르게)이 필요할 때만 멈춘다(사람은 머지 때 본다):
 
 | PR | 걸리는 경로 | 무엇을 하나 |
 |---|---|---|
@@ -755,3 +764,16 @@ VV5를 VV4보다 먼저 하는 이유: 가져오기 화면이 `ui` 부품을 쓴
 | 사람이 정할 것 1(글꼴) | **확정 A** | 검토자 동의 |
 | 사람이 정할 것 2(문구) | **확정** | 검토자 동의. 조건(선택) "C를 웹과 같은 `교체`로"를 반영했다 — `GistPanel.tsx:232·240`. E는 `이왜들`. 검토 반영으로 생긴 G와 단계 글은 설계자가 정했다 |
 | 사람이 정할 것 3(스크린샷) | **확정 A** | 검토자 동의. 메모(개인 수치 적은 장면 먼저)를 반영했다 |
+
+### 2라운드 (`.reports/v2.1-review.md` "2라운드", Claude Opus 5.5, 검토 커밋 `a410845`) — 검토는 이 라운드로 끝난다
+
+| 지적 | 판단 | 근거·반영 자리 |
+|---|---|---|
+| 고칠 것 1 — 경로 리터럴 막이가 지금 46건 실패한다 | **반영** | 설계자가 같은 정규식으로 `src/**/*.test.ts(x)`·`scripts/*.test.mjs`를 세어 확인: glob 문자(`*`·`{`·`?`) 든 것 25건 + `scripts` 21건 = 46건, `src`만 보고 glob 문자를 건너뛰면 0건. 25건은 전부 `import.meta.glob` 첫 인자(여러 줄 배열 포함, 예 `v113.test.ts:370`)라 glob 쪽이 본다. VV1 6) 경로 리터럴 규칙을 `src` 테스트로 좁히고 glob 문자를 건너뛰게, 건너뛴 수 단언을 템플릿·glob 문자 각각으로. 결함 복원 ③(`v116.test.ts`)은 `src` 안이라 그대로 잡힌다 |
+| 경미 1 — "구현자는 이 때문에 멈추지 않는다"가 REVIEW.md 3절과 부딪혀 보인다 | **반영** | 검토자 문장 그대로("이 경로의 결정은 이 PLAN이 미리 정했다 — 구현자는 PLAN에 없는 결정이 필요할 때만 멈춘다"). 구현 순서의 사람 필요 경로 표 위 |
+| 경미 2 — `requestAnimationFrame`을 `yieldFrame`으로 주입 | **반영** | `runImport`가 다른 의존성처럼 인자로 받는다. VV4 3) 5단계와 `runImport.test.ts` 의존성 목록 |
+| 경미 3 — "이름 그대로" diff가 경로 리터럴 줄 전체를 빼서 같은 줄의 단언 변경이 안 보인다 | **반영** | 검토자는 고칠 것으로 올리지 않았지만 비용이 명령 한 줄이라 넣었다. 경로를 `src/~/`로 맞춘 뒤 `-`줄·`+`줄을 정렬해 짝으로 비교(VV1 검증). 가짜 diff로 확인: 경로만 바뀐 줄은 빈 출력, 같은 줄의 `toMatch(/b/)`→`/c/`는 남는다 |
+| (설계자가 더함) glob 쪽의 `!` 제외 패턴 | **반영** | 고칠 것 1을 확인하다 `v113.test.ts:369`의 `'!/src/lib/**/*.test.ts'`를 봤다 — 그대로 맞춰 보면 파일과 안 맞는다고 나올 수 있어 `!`를 뗀 패턴으로 본다고 적었다(VV1 6) glob) |
+| 사람이 정할 것 | — | 2라운드 검토자도 "없음". 1라운드 확정 그대로 |
+
+기각한 지적: 없음.
