@@ -11,7 +11,7 @@
   │
   ├─ 작은 수정 ── 구현자(Sonnet) → 리뷰어(Opus) ──────────────────────┐
   │                                                                    │
-  └─ 설계 ── 설계자(Opus) → 검토자 Opus(코드 대조) ∥ Fable(빠진 경우)    │
+  └─ 설계 ── 설계자(Opus) → 설계 검토자(Opus, 한 명 · REVIEW.md로 튜닝)   │
               → 설계자가 검토 반영                                      │
               → 자동 승인 조건 맞음 ─┐   안 맞음 → PLAN PR ─[사람 머지]─┐  │
                                     ▼                                ▼  │
@@ -33,26 +33,47 @@ PLAN 구현 PR이 머지되면 (같은 지휘자 세션에서 이어서)
 | 역할 | 파일 | 에이전트·모델 | 왜 |
 |---|---|---|---|
 | 지휘자 | `COORDINATOR.md` (+ `coordinator/`) | Claude Sonnet · low | 코드를 안 읽고 보고 첫 줄만 보고 판단한다. 싸게 오래 돈다 |
-| 설계자 | `DESIGNER.md` | Claude Opus · high (첫 메시지에 `설계자 모델: fable`처럼 지정하면 그 Run만 바뀜) | 품질 차이가 가장 큰 단계. 호출은 적다 |
-| 설계 검토자 ① | `PLAN-REVIEWER.md` | Claude Opus · high | **코드 대조** 담당(진단이 코드와 맞는가·원칙). PLAN이 가리키는 파일을 직접 열어 맞추는 일이라 읽기 정확도가 값이다 |
-| 설계 검토자 ② | `PLAN-REVIEWER.md` | Claude Fable · high | **빠진 경우** 담당(놓치는 경우·검증 항목·범위). 설계자(Opus)와 다른 모델이어야 겹치는 사각이 줄어든다. 동시에 돌리고 서로의 보고는 안 본다 |
+| 설계자 | `DESIGNER.md` | Claude Opus · high (첫 메시지에 `설계자 모델: sonnet`처럼 지정하면 그 Run만 바뀜) | 품질 차이가 가장 큰 단계. 호출은 적다 |
+| 설계 검토자 | `PLAN-REVIEWER.md` | Claude Opus · high (한도면 Sonnet · high) | **한 명이다.** 검토자를 쌓는 대신 `REVIEW.md`와 `docs/RELIABILITY.md`로 튜닝한다. 새 세션이라 설계자의 생각 과정을 못 보는 것이 독립성의 실체다 |
 | 구현자 | `IMPLEMENTER.md` | Claude Sonnet · medium | 토큰을 가장 많이 쓰는 단계 |
 | 화면 검증자 | `SCREEN-CHECKER.md` | Claude Sonnet · medium | 화면 파일이 바뀐 작업만. 폰 크기 브라우저(Chromium·WebKit)로 찍어 **직접 보고** 넘침·잘림·겹침·가림을 거른다. 실기기는 아니다 — 못 보는 것은 "실기기에서 볼 것"으로 PR에 넘긴다 |
 | 리뷰어 | `REVIEWER.md` | Claude Opus · high (작은 수정은 medium) | 구현자와 다른 모델이어야 한다. 읽는 양은 적다 |
 | 규칙 정비자 | `RULES-KEEPER.md` | Claude Sonnet · high (사람이 직접 띄움) | 규칙 메모를 키로 묶어 세고(`scripts/incidents.mjs`), 문제 대장(`docs/INCIDENTS.md`)을 따라 같은 문제가 다시 안 나오게 규칙·안전장치를 고친다 |
 | 품질 관리자 | `QUALITY-KEEPER.md` (+ `coordinator/QUALITY.md`) | Claude Sonnet · high, 리뷰는 Opus | PLAN 구현 PR이 머지되면 지휘자가 이어서 띄운다. 복사본·안 쓰는 코드·테스트만 살린 코드를 동작 변경 없이 치운다 |
 
-**일꾼은 전부 Claude다.** 예전에는 설계 검토를 다른 회사 모델(Codex·Antigravity)에게 맡겨 "회사가 다르니
-놓치는 곳이 다르다"를 샀는데, 그 자리를 Claude 둘로 바꿨다. 바뀐 것과 그 몫을 메우는 방법:
+**일꾼은 전부 Claude이고 요금제는 Pro다.** 예전에는 설계 검토를 다른 회사 모델(Codex·Antigravity)에게
+맡겨 "회사가 다르니 놓치는 곳이 다르다"를 샀다. 그 자리를 **검토자 한 명 + 장치**로 바꿨다.
 
 | 잃은 것 | 메우는 방법 | 어디 |
 |---|---|---|
-| 회사가 다른 모델의 다른 사각 | 검토자 둘의 **모델을 다르게**(Opus·Fable) 하고 **보는 각도를 나눈다**(코드 대조 / 빠진 경우) | `coordinator/DESIGN.md` "일꾼 배치" |
-| 두 회사가 모두 통과시켰다는 신뢰 | **`구조 변경` 라벨 이슈는 자동 승인하지 않는다.** 데이터 모델·저장 위치·플랫폼·README 결정을 뒤집는 설계는 사람이 PLAN을 읽고 머지한다 | `coordinator/DESIGN.md` "자동 승인" |
-| 무료 한도(Claude 한도를 안 쓰던 몫) | 검토자 ②를 Fable로 두고, 한도에 걸리면 동시가 아니라 **순차**로 다시 띄운다 | `coordinator/DESIGN.md` "검토자 선택" |
+| 회사가 다른 모델의 다른 사각 | **`REVIEW.md`로 일차 검토자를 튜닝한다.** 검토자를 쌓는 것보다 낫다는 것이 Claude Code 팀의 결론이기도 하다 | 레포 루트 `REVIEW.md` |
+| 두 눈이 모두 통과시켰다는 신뢰 | ① `구조 변경`은 **자동 승인 금지** ② 같은 검토자를 **2라운드**(앞 라운드 위에 쌓기) | `coordinator/DESIGN.md` |
+| 사람이 기억하던 과거 사고 | **`docs/RELIABILITY.md`** — 항목마다 diff에서 읽히는 **방아쇠**가 있어, 바뀐 파일에 걸리는 3~10개만 본다 | `docs/RELIABILITY.md` |
+| 무료 한도(Claude 한도를 안 쓰던 몫) | 일꾼은 언제나 하나씩 · 싼 검사 먼저 · 검토자는 테스트·빌드를 안 돌린다 | `coordinator/DESIGN.md` "검토자 선택과 한도" |
 
-모델·effort를 역할마다 다르게 두는 기준은 하나다 — **틀렸을 때 비용이 큰 단계에 좋은 모델을 쓰고,
-토큰을 많이 쓰는 단계는 싸게 돌린다.** 설계·리뷰·검토는 틀리면 구현 전체가 헛돌고, 구현은 양이 많다.
+**Fable은 Pro에서 못 쓴다.** 모델 지정에 Fable을 적지 않는다.
+
+모델·effort의 기준은 하나다 — **틀렸을 때 비용이 큰 단계에 좋은 모델을 쓰고, 토큰을 많이 쓰는 단계는 싸게
+돌린다.** 설계·리뷰는 틀리면 구현 전체가 헛돌고, 구현은 양이 많다.
+
+### 이 하네스가 따르는 바깥 사례
+
+Claude Code 팀이 공개한 두 글에서 **이 레포 크기에 맞는 것만** 골라 넣었다. 글의 수치나 조직 구조가 아니라
+**규칙과 장치**를 가져왔다.
+
+| 가져온 것 | 어디에 들어갔나 | 출처 |
+|---|---|---|
+| PR 전에 이미 검증·리뷰가 끝나 있다 ("review runs continuously, more like spellcheck") | 구현자가 PR 전에 `/verify` 스킬 + 셀프 리뷰 | `IMPLEMENTER.md`, `.claude/skills/verify/` |
+| `REVIEW.md` — 코드 소유자가 쓰는 "여기서 무엇이 실패인가" | 레포 루트에 신설. 검토자·리뷰어가 읽는다 | 코드 리뷰 글 |
+| 검토 규칙은 **그 변경이 못 고치는 곳**에서 읽는다 | 리뷰어는 `REVIEW.md`·`RELIABILITY.md`를 **base 브랜치 판본**으로 읽는다 | 검증 글 |
+| 라운드를 쌓되 앞 라운드 위에 쌓고, 3라운드면 멈추고 사람 | 검토 2라운드 규칙, 검사 루프 상한 | `coordinator/DESIGN.md`, `IMPLEMENTER.md` |
+| 지적은 **Important / Nit / Pre-existing**로 나누고, 스타일만인 것은 버린다 | 리뷰어 출력 형식 | `REVIEWER.md`, `REVIEW.md` |
+| 과거 사고를 **방아쇠 달린 체크리스트**로 | `docs/RELIABILITY.md` | 검증 글 |
+| 검증은 "돌려 보는 것"이고, 모바일은 **기기 MCP**로 | 실기기 검증 설계(`docs/PLAN-v2.0.md` 11절) | 검증 글 |
+| 새 관문은 **observe 모드**로 켠다 | 커밋 검증 도장(`agent-guard` 확장) | 검증 글 |
+
+출처: [How the Claude Code team does code review](https://claude.dev/blog/solving-code-review-at-anthropic/) (2026-10-15),
+[How the Claude Code team thinks about verification](https://claude.dev/blog/how-the-claude-code-team-thinks-about-verification/) (2026-11-16).
 
 ## 3. 사람이 하는 말
 
@@ -66,8 +87,8 @@ PLAN 구현 PR이 머지되면 (같은 지휘자 세션에서 이어서)
 | 이미 있는 이슈 | `이슈 #24 진행해` (흐름은 지휘자가 고른다) |
 | 작은 수정으로 정해서 | `이슈 #23을 작은 수정으로 진행해` |
 | 설계로 정해서 | `설계 작업. 주제: 이슈 #24` (PLAN 파일·작업 ID는 적으면 그대로 쓴다) |
-| 설계 검토자 지정 | 위 문장 끝에 `검토자: opus` (하나만 쓰고 싶을 때. 안 적으면 opus·fable 둘) |
-| 모델 지정 (그 Run만) | 위 문장 끝에 `설계자 모델: fable`. 구현자와 리뷰어를 같은 모델로 만드는 지정은 거절된다 |
+| 설계 검토자 모델 지정 | 위 문장 끝에 `검토자: sonnet` (한도가 빠듯할 때. 안 적으면 opus 하나) |
+| 모델 지정 (그 Run만) | 위 문장 끝에 `설계자 모델: sonnet`. 구현자와 리뷰어를 같은 모델로 만드는 지정은 거절된다. **Pro에서 못 쓰는 모델(Fable)은 지정할 수 없다** |
 | PLAN 작업 하나 | `docs/PLAN-v1.14.md의 LL1을 진행해` |
 | PLAN 남은 작업 전부 | `docs/PLAN-v1.14.md의 미구현 작업을 전부 진행해` |
 | 멈춘 일 이어서 | 새 세션에서 `/coord 이어서 진행해` (진행 파일 `.reports/run-*.md`를 읽고 이어간다) |
@@ -121,6 +142,7 @@ ruleset은 승인 리뷰 0개로 되어 있다(혼자 쓰는 레포라 자기 PR
 | 무엇 | 어디 |
 |---|---|
 | 해야 할 일 | GitHub 이슈 |
+| 리뷰 기준 (이 코드에서 무엇이 실패인가) | `REVIEW.md` · `docs/RELIABILITY.md` (방아쇠 달린 과거 사고) |
 | 지금 하는 일의 진행 | `.reports/run-<대상>.md` (지휘자가 단계마다 고친다. 대화가 끊겨도 이어갈 수 있다) |
 | 설계 검토 결과 | `.reports/<PLAN 버전>-<검토자>.md` |
 | 설계 | `docs/PLAN-*.md` (바뀐 부분의 기록) |
@@ -156,7 +178,7 @@ PC마다:
 | 한글 깨짐 | PowerShell로 파일을 씀(CP949) | 파일은 편집 도구로 쓴다. `CLAUDE.md` "환경" |
 | 지휘자가 작업 트리 파일을 못 읽음 | `--add-dir` 없이 띄움 | 3절 명령으로 다시 띄우기 |
 | `[agent-guard] 막음` | 안전장치 | 정상이다. 정말 필요한 명령이면 사람이 직접 터미널에서 한다 |
-| Claude 한도 초과 | 주간·5시간 한도. 검토자 둘이 모두 Claude라 설계 단계에서 특히 빨리 닿는다 | 검토자는 순차로 다시(`coordinator/DESIGN.md`), 그래도 걸리면 지휘자가 시각을 알려주고 멈춘다. 풀리면 "이어서" |
+| Claude 한도 초과 | Pro 한도(주간·5시간). 일꾼이 전부 Claude라 설계 단계에서 특히 빨리 닿는다 | 검토자를 sonnet으로 한 번 내려 다시(`coordinator/DESIGN.md`), 그래도 걸리면 지휘자가 시각을 알려주고 멈춘다. 풀리면 "이어서" |
 | 지휘자가 "이슈 #N"이 뭐냐고 물음 | 예시 문장의 `#N`을 그대로 보냄 | 이슈가 없으면 번호 대신 요청 본문을 보낸다(기획 던지기) |
 | PR 검사(CI)가 `npm ci`에서 실패 | 잠금 파일은 npm 11로 만들었는데 CI의 Node가 옛 버전 | CI·배포는 Node 24(npm 11). PC의 npm을 크게 올렸으면 CI도 맞춘다 |
 | 같은 요청 이슈가 두 개 | 이슈 만들기를 두 번 시킴 | 지휘자는 만들기 전에 같은 제목의 열린 이슈를 찾는다(INTAKE.md 1절). 남은 하나는 사람이 닫는다 |
@@ -173,6 +195,6 @@ PC마다:
 
 - **재는 것:** 지휘자가 PR을 만들기 직전에 `scripts/token-usage.mjs`를 돌려, 그 Run 동안 이 레포 폴더에서 돈 Claude 세션을 역할·모델별로 합쳐 PR 본문에 붙인다. 역할은 세션의 첫 지시문(`agents/DESIGNER.md를 읽고…`)으로 가린다. 프롬프트 내용은 남기지 않는다.
 - **못 재는 것:** Orca 밖에서 한 일(claude.ai 채팅 같은 것)
-- **입력 환산:** 새 입력 1을 기준으로 캐시 읽기 0.1, 캐시 쓰기 2(1시간), 출력 5로 센 근삿값이다. 같은 모델 안에서 역할끼리 비교하는 용도다. Opus·Sonnet·Fable 사이 차이는 모델 칸을 같이 본다. 모델이 한 회사가 됐으니 이 표가 한도를 보는 유일한 눈이다.
+- **입력 환산:** 새 입력 1을 기준으로 캐시 읽기 0.1, 캐시 쓰기 2(1시간), 출력 5로 센 근삿값이다. 같은 모델 안에서 역할끼리 비교하는 용도다. Opus·Sonnet 사이 차이는 모델 칸을 같이 본다. 일꾼이 전부 Claude이고 요금제가 Pro라, 이 표가 한도를 보는 유일한 눈이다.
 - **보는 법:** `node scripts/token-usage.mjs --collect` (gh 필요) — 머지된 PR들을 모아 역할별 몫·캐시 적중·출력 몫을 보여준다. 주간 규칙 정비가 이 표로 아낄 구간을 고르고(`RULES-KEEPER.md` 5절), 모델 바꾸기는 사람에게 제안만 한다.
 - **지금 Run만 보기:** `node scripts/token-usage.mjs --since 2026-11-10T13:00:00+09:00`

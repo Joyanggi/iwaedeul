@@ -11,6 +11,9 @@
 >
 > **되돌릴 수 없는 결정이 들어 있다**(플랫폼·저장소·배포 경로). `구조 변경`이므로 자동 승인하지 않는다
 > (`agents/coordinator/DESIGN.md` "자동 승인").
+>
+> **이 프로젝트의 두 가지 환경 제약이 설계를 바꿨다**: ① 요금제가 Claude Pro다(일꾼 하나씩, 검토자 한 명,
+> Fable 없음) ② 작업용 맥북이 iOS 시뮬레이터를 못 돌린다(**유선 아이폰 + mobile MCP**가 검증 기준, 빌드는 클라우드).
 
 ---
 
@@ -234,19 +237,76 @@ PLAN v1.22(머지됨, 미구현)가 정한 것 — Supabase, 행 단위, 내용 
 순서의 근거: **헬스장 경로(홈 → 세션)가 먼저다.** 그게 매일 쓰는 길이고, 나머지는 쓰지 않아도 하루가 간다.
 동기화를 뒤로 미루는 것은 전환 기간에 **웹이 원천**이기 때문이다(4.2).
 
-## 11. 하네스·검사 장치가 바뀌는 곳
+## 11. 검증 — 실기기가 기준이다 (시뮬레이터 없음)
 
-지금 장치 목록(`agents/README.md` 5절)은 웹 기준이다. 전환하며 함께 옮긴다.
+**전제가 하나 바뀌었다**: 작업용 맥북이 iOS 시뮬레이터를 제대로 못 돌린다. 그래서 "시뮬레이터에서 돌려 본다"가
+이 프로젝트에는 없다. 대신 **USB로 연결한 실제 아이폰**이 유일한 실행 환경이고, Claude는 **mobile MCP**로
+그 기기를 본다(화면 읽기·탭·입력·스크린샷).
 
-| 장치 | 지금 | 전환 후 |
+Claude Code 팀이 쓰는 기준과 같은 자리다 — *"Running the app end to end matters more than tests.
+You wouldn't ship an iOS change without trying it in a simulator... Ask it to use ... an iOS or Android MCP
+for mobile."* 우리는 그 자리를 시뮬레이터 대신 **진짜 기기**로 채운다(오히려 더 믿을 만하다).
+
+### 11.1 층 (싼 것부터)
+
+| 층 | 무엇 | 어디서 | 누가 |
+|---|---|---|---|
+| ① 코어 | 단위 + **속성 테스트**(fast-check, 이미 쓰고 있다) | 어디서나(노트북 부담 없음) · CI | 구현자 |
+| ② 차이 | **차등 테스트** — 같은 입력을 **웹 코어와 네이티브 코어**에 넣고 결과를 비교 | CI | 구현자 |
+| ③ 조립 | 타입·린트·빌드(EAS) | 클라우드 빌드 | CI |
+| ④ **실기기** | 유선 아이폰에서 **스모크 시나리오** + 스크린샷 | 맥북 + 폰 | 화면 검증자(mobile MCP) |
+| ⑤ 사람 | 소리·햅틱·역광 가독성·"쓸 만한가" | 헬스장 | 사람 |
+
+②가 이 전환의 핵심 안전장치다. 판정 로직을 그대로 옮기는 전환이므로 **옛 시스템이 정답지**가 된다 —
+세션 기록 샘플을 넣고 `suggestNextDay`·`progressionSuggestions`·볼륨·e1RM의 출력이 웹과 **한 글자도 다르지 않은지**
+비교한다. 다르면 전환이 뭔가를 바꾼 것이다. (차등 테스트는 마이그레이션에 가장 잘 듣는 도구다.)
+
+### 11.2 실기기 연결 (한 번 해 두는 것)
+
+`.claude/skills/verify-device/SKILL.md`에 절차가 있고, MCP 서버는 레포의 `.mcp.json`에 등록해 뒀다
+(`@mobilenext/mobile-mcp`). 사람이 맥북에서 한 번 해 둘 것:
+
+1. 아이폰 USB 연결 → 맥 **신뢰** → 아이폰 **개발자 모드** 켜기
+2. `go-ios` 설치 후 `ios list`로 기기가 보이는지 확인 — **여기서 안 보이면 MCP 문제가 아니다**
+3. WebDriverAgent를 기기에 설치(무료 Apple 계정 가능, 번들 ID는 고유값으로)
+4. 터널·포트 포워딩을 열어 둔 채로: `ios tunnel start --userspace` · `ios forward 8100 8100`
+
+**빌드는 맥북에서 굽지 않는다.** 사양 때문에 `eas build`(클라우드)로 개발 빌드를 만들어 기기에 설치하고,
+맥북은 **설치와 구동만** 한다. 이것이 사양 제약에 대한 설계상의 답이다.
+
+### 11.3 스모크 시나리오와 채점표
+
+`docs/FEATURE-MAP.md`(v2.1에서 만든다)가 **사용자 관점의 흐름 목록**이고, 그것이 곧 채점표다.
+최소 스모크 넷: 헬스장 경로(세션 시작→세트 체크→휴식→**화면 끄고 알림**→마감) · 재시작 후 기록 보존 ·
+테마 3지(라이트·다크·시스템 스크린샷) · 키보드와 입력.
+
+기계가 못 보는 것(알림 소리, 햅틱 세기, 역광 가독성)은 **"사람이 볼 것"으로 PR에 넘긴다.**
+Claude가 그것을 "확인했다"고 적는 것을 금지한다.
+
+### 11.4 검사 장치 이관
+
+| 장치 | 지금(웹) | 전환 후 |
 |---|---|---|
-| CI `npm run check` | 흔적 검사·Astryx 뒷걸음·린트·knip·테스트·빌드 | **Astryx 뒷걸음 검사는 역할이 끝난다**(웹 CSS가 없어진다) → 대신 **코어 경계 검사**(`src/core`가 RN·DB를 import하지 않는가)로 바꾼다 |
-| 화면 검증자 | Playwright(Chromium·WebKit) 스크린샷 | **iOS 시뮬레이터 스크린샷**(`xcrun simctl`) + Maestro 흐름. 라이트·다크 두 벌을 찍는다 |
-| 첫 로드 크기 `first-load.mjs` | gzip 360KB 상한 | 의미가 사라진다(앱 번들). 대신 **앱 시작 시간**과 `.ipa` 크기를 잰다 |
-| 배포 | main push → GitHub Pages | main merge → **EAS Build → TestFlight**. 사람이 TestFlight에서 받아 확인하고 스토어 제출 |
+| `npm run check` | 흔적·Astryx 뒷걸음·린트·knip·테스트·빌드 | **Astryx 뒷걸음 검사는 역할이 끝난다**(웹 CSS가 없어진다) → **코어 경계 검사**(`src/core`가 RN·DB·expo를 import하지 않는가)로 바꾼다 |
+| 화면 검증 | Playwright(Chromium·WebKit) | **mobile MCP + 실기기**. 라이트·다크 두 벌 |
+| 첫 로드 크기 | gzip 360KB 상한 | 앱 **시작 시간**과 빌드 크기 |
+| 배포 | main push → GitHub Pages | main 머지 → **EAS Build → TestFlight**(사람이 받아 확인하고 제출) |
 | 변이 테스트 | `src/lib` 변경분 | 그대로(`src/core`) |
+| 속성 테스트 | `src/lib/properties.test.ts` | 그대로 + **차등 테스트** 추가(11.1 ②) |
 
-**사람 관문은 그대로다** — PR은 사람이 머지하고, 머지가 곧 배포다. 배포처가 Pages에서 TestFlight로 바뀔 뿐이다.
+### 11.5 커밋에 검증 도장 (observe → enforce)
+
+새 관문은 **observe 모드로 먼저 켠다**(막지 않고 기록만). Claude Code 팀이 쓰는 방식이다.
+
+1. 커밋 메시지에 `검증: check | device | none` 한 줄을 남긴다. **`none`도 적는다** — 안 적으면 셀 수 없다.
+2. `scripts/agent-guard.mjs`(이미 있는 PreToolUse 훅)에 모드를 더한다: `off` → `observe`(로그만) → `enforce`(차단).
+3. 한 세션에서 **두 번 막혔으면 세 번째는 통과**시킨다. 완벽하지 않은 장치에 작업이 갇히지 않게.
+
+### 11.6 하네스가 돌려받는 것
+
+전환이 끝나면 역할 배치는 그대로고 **검증 수단만** 바뀐다. 지금 설계(검토자 한 명 + `REVIEW.md` + 방아쇠
+체크리스트)는 웹에서 먼저 돌려 보고 네이티브로 넘긴다 — **하네스를 전환과 동시에 바꾸지 않는다.**
+둘을 같이 바꾸면 실패했을 때 어느 쪽 때문인지 모른다.
 
 ## 12. 범위 제외 (재론 방지)
 
@@ -284,3 +344,61 @@ PLAN v1.22(머지됨, 미구현)가 정한 것 — Supabase, 행 단위, 내용 
 | "Gist 토큰은 localStorage" | Keychain | v2.4 |
 | "1인용 · 서버 없음"(v1.22가 이미 뒤집기로 한 것) | 계정 · Supabase | v2.4 |
 | 식사 알림(Z4) 기능 | 없앤다 | v1.23 |
+
+## 15. 디렉토리 구성 (전환 후)
+
+경계가 곧 규칙이다. 지금 흩어져 있는 것을 **코어 / UI / 플랫폼 / 하네스** 넷으로 가른다.
+
+```
+.
+├ CLAUDE.md                  # 모든 세션이 읽는 공통 규칙 (짧게 유지, 나머지는 가리키기만)
+├ REVIEW.md                  # 이 레포에서 무엇이 "실패"인가 — 리뷰어가 읽는다 (main 판본)
+├ AGENTS.md                  # CLAUDE.md를 자동으로 안 읽는 도구용 포인터
+├ .mcp.json                  # 프로젝트 MCP 서버 — mobile(실기기)
+├ .claude/
+│   ├ settings.json          # PreToolUse 훅(agent-guard) · 검증 도장 모드
+│   ├ commands/coord.md      # 지휘자 호출
+│   └ skills/
+│       ├ verify/            # 커밋 전에 돌리는 것 (검사 묶음·화면 촬영·데이터 왕복)
+│       ├ verify-device/     # 유선 아이폰 + mobile MCP 스모크
+│       └ release/           # (v2.5) EAS 빌드 → TestFlight 절차
+├ agents/                    # 역할 규칙 (지휘자·설계자·검토자·구현자·리뷰어·화면 검증자…)
+│   └ coordinator/           # 흐름별 지휘 규칙 (설계·배치·PR·품질·접수)
+├ docs/
+│   ├ RELIABILITY.md         # 방아쇠 달린 과거 사고 (main 판본)
+│   ├ FEATURE-MAP.md         # (v2.1) 사용자 흐름 목록 = E2E 채점표
+│   ├ PLAN-*.md              # 설계 (설계자만 쓴다)
+│   ├ DEV-RECORD-*.md        # 구현 기록
+│   └ screenshots/<버전>/    # web/ · device/ (light·dark)
+└ src/
+    ├ core/                  # 순수 TS — 판정·계산·타입·시드. react·expo·DB를 import하지 않는다 (CI가 막는다)
+    ├ data/                  # 루틴·종목·식단 시드 JSON
+    ├ db/                    # SQLite(Drizzle) 스키마·마이그레이션·쿼리. core를 쓰고, core는 이걸 모른다
+    ├ sync/                  # (v2.4) Supabase 동기화 엔진·장부
+    ├ platform/              # 소리·햅틱·알림·파일·공유·보안 저장 — expo API를 쓰는 유일한 곳
+    ├ ui/                    # 테마 토큰 + 부품. 플랫폼 분기(iOS/Android)는 여기서만
+    └ app/                   # Expo Router 화면 트리 (탭·스택). 화면은 플랫폼을 모른다
+```
+
+규칙 셋만 지키면 이 구성이 유지된다.
+1. **`core`는 아무것도 모른다** — 화면·DB·expo를 import하지 않는다. 그래서 테스트가 그대로 돌고 차등 테스트가 가능하다.
+2. **`platform`만 expo를 부른다** — 소리가 안 나는 문제, 알림이 안 오는 문제를 한 폴더에서 찾는다.
+3. **플랫폼 분기는 `ui` 안에서만** — 화면 코드에 `Platform.select`를 흩지 않는다.
+
+## 16. 이 설계가 참고한 바깥 사례
+
+Claude Code 팀이 공개한 두 글에서 **이 레포 크기에 맞는 규칙만** 가져왔다(수치나 조직 구조가 아니라).
+하네스 쪽 반영은 `agents/README.md` 2절 표에, 검증 쪽은 11절에 있다.
+
+- [How the Claude Code team does code review](https://claude.dev/blog/solving-code-review-at-anthropic/) (2026-10-15)
+  — PR 전에 리뷰가 끝나 있을 것, `REVIEW.md`, 지적을 Important/Nit/Pre-existing으로, 스타일 지적은 버릴 것,
+  라운드 상한과 수렴, 위험 등급으로 사람을 부를 것, 봇 승인은 사람 승인을 대신하지 못함.
+- [How the Claude Code team thinks about verification](https://claude.dev/blog/how-the-claude-code-team-thinks-about-verification/) (2026-11-16)
+  — 검증은 **돌려 보는 것**, `verify` 스킬을 `.claude/skills/`에, 모바일은 **기기 MCP**, 세 번 실패하면 사람,
+  방아쇠 달린 신뢰성 체크리스트, 검토자를 쌓지 말고 하나를 튜닝할 것, 라운드는 앞 라운드 위에 쌓을 것,
+  **변경이 자기를 심사하는 규칙을 고치지 못하게** 할 것, 새 관문은 observe 모드로, 흔들리는 테스트를
+  건너뛰지 말 것, 규칙도 주기적으로 쳐낼 것.
+
+가져오지 **않은** 것과 이유: 머지 큐·피처 플래그·단계 출시(혼자 쓰는 앱이라 되돌리기가 이미 싸다),
+리뷰 결과 투표용 다중 에이전트(Pro 한도), 사고 기반 일일 eval(사고 표본이 몇 건뿐이다 — 대신
+`docs/RELIABILITY.md`에 방아쇠로 남긴다).
