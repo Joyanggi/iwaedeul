@@ -72,13 +72,30 @@ for f in ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovi
 
 ## 1. 앱을 기기에 올리기
 
-빌드는 맥북에서 돌리지 않는다(사양). **EAS에서 구워서 받아 설치한다.**
+**빌드는 맥북의 Xcode에서 한다.** 무료 Apple 계정(Personal Team)이라 EAS 클라우드 빌드는 기기용으로 못 쓴다 —
+Apple이 개발용 프로비저닝을 API로 내주지 않는다(`docs/PLAN-v2.0.md` 11.2-A).
 
 ```bash
-eas build --platform ios --profile development   # 클라우드 빌드
-# 끝나면 받은 빌드를 연결된 기기에 설치
+npx expo run:ios --device <UDID>     # 개발 클라이언트를 로컬 빌드 → 연결된 아이폰에 설치
+npx expo start --dev-client          # 이후 JS 변경은 다시 굽지 않고 Metro가 넘긴다
 ```
-급할 때만 `npx expo run:ios --device`로 로컬 빌드한다(맥북이 오래 걸린다).
+
+서명 팀은 Personal Team이다. 번들 ID는 `com.joyanggi.iwaedeul`(PLAN 17절) — **바꾸지 않는다**
+(바꾸면 다른 앱이 되어 기기 데이터와 끊기고, 무료 계정 App ID 한도를 먹는다).
+
+**네이티브 빌드는 셋일 때만** 다시 한다(약한 맥북이라 자주 굽지 않는다):
+① expo 모듈 추가·제거 ② 권한·아이콘·스플래시 같은 네이티브 설정 변경 ③ 7일 만료로 재서명.
+그 외에는 이미 설치된 개발 클라이언트 위에서 Metro로 돌린다.
+
+무료 계정 제약 (앱과 에이전트가 같이 받는다):
+
+| 제약 | 값 | 여기서 |
+|---|---|---|
+| 프로필 만료 | 7일 | 우리 앱과 DeviceKit 에이전트(0절)를 **같은 날** 다시 서명한다 |
+| 기기당 설치 앱 | 3개 | 개발 클라이언트 + DeviceKit 러너 = 2개. **프리뷰 빌드를 따로 깔지 않는다** |
+| App ID | 7일에 10개 | 번들 ID를 이것저것 바꿔 보지 않는다 |
+
+빌드가 만료되면 앱이 실행 즉시 닫힌다. 그때 "앱이 깨졌다"고 보고하지 말고 먼저 만료일(0절의 확인 명령)을 본다.
 
 ## 2. 돌릴 시나리오 (feature map이 채점표다)
 
@@ -101,7 +118,7 @@ MCP로 하는 일: `앱 실행 → 화면 요소 목록 → 탭/입력 → 스�
 - 보고는 `verify` 스킬 6절 형식에 아래 두 줄을 더한다.
 
 ```
-기기: iPhone <모델> / iOS <버전> / 빌드 <development|preview> <커밋 8자리>
+기기: iPhone <모델> / iOS <버전> / 개발 클라이언트(로컬 Xcode, 서명 만료 <YYYY-MM-DD>) / JS <커밋 8자리>
 사람이 볼 것: <알림 소리, 햅틱 세기, 역광 가독성처럼 기계가 못 보는 것>
 ```
 
