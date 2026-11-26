@@ -163,7 +163,7 @@ agents/REVIEWER.md 4절대로 재리뷰해. 지난 "고칠 것":
 ```
 # run-v1.13
 종류: 여러 작업 | 접수: <이슈 #번호 또는 없음> | 모델 지정: <없음 또는 "설계자 sonnet">
-브랜치: Joyanggi/v1.13 | 작업 트리: C:\Users\...\workspaces\workout-tracker\v1.13
+브랜치: Joyanggi/v1.13 | 작업 트리: ~/orca/workspaces/workout-tracker/v1.13
 시작 커밋(main): <해시> | PR: <번호 또는 없음>
 측정 시작: <date -Iseconds> (토큰 측정 창의 시작. PR을 만들 때마다 그 시각으로 바꾼다. PR.md 2절)
 

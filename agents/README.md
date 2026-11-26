@@ -97,14 +97,15 @@ Claude Code 팀이 공개한 두 글에서 **이 레포 크기에 맞는 것만*
 [클라우드 세션](https://claude.dev/blog/claude-code-in-the-cloud/) ·
 [카오스 루프](https://claude.dev/blog/chaos-loop-claude-docs-launch/).
 
-**가져오지 않은 것**: `/ship`의 PR 감시(Windows에서는 시작되지 않고, 이 레포처럼 `.claude/settings.json`에
-Bash PreToolUse 훅이 있으면 돌지 않는다 — 후속은 지휘자가 한다) · 머지 큐·피처 플래그·단계 출시(혼자 쓰는
+**가져오지 않은 것**: `/ship`의 PR 감시(이 레포처럼 `.claude/settings.json`에 Bash PreToolUse 훅이 있으면
+돌지 않는다 — 후속은 지휘자가 한다) · 머지 큐·피처 플래그·단계 출시(혼자 쓰는
 앱이라 되돌리기가 이미 싸다) · 1,000 에이전트 규모의 샌드박스·게이트웨이(규모가 다르다) ·
 사고 기반 일일 eval(표본이 몇 건뿐이라 `docs/RELIABILITY.md`로 대신한다).
 
 ## 3. 사람이 하는 말
 
-지휘자는 main 작업 트리에서 띄운다: `claude --model sonnet --effort low --add-dir C:\Users\jyg66\orca\workspaces`
+지휘자는 main 작업 트리에서 띄운다: `claude --model sonnet --effort low --add-dir ~/orca/workspaces`
+(경로는 Orca가 작업 트리를 만드는 폴더다. 다르면 그 경로로 바꾼다.)
 첫 메시지는 `/coord ` 다음에 아래 중 하나를 붙인다. `/coord`는 `.claude/commands/coord.md`이고, `agents/COORDINATOR.md를 읽고 진행해.` 아래에 붙인 말을 넣어 보낸다(그 문장을 직접 쳐도 같다).
 일꾼은 이 명령을 스스로 부르지 못한다(`disable-model-invocation`).
 
@@ -182,7 +183,7 @@ ruleset은 승인 리뷰 0개로 되어 있다(혼자 쓰는 레포라 자기 PR
 | 화면 검증 | `.reports/screen-check-<작업 ID>.md`, 스크린샷 `docs/screenshots/<버전>/` |
 | 역할·모델별 토큰 | PR 본문 `## 토큰 사용` (지휘자가 PR 직전에 잰다. 표 아래 주석이 기계용 원본) |
 
-## 7. 새 PC 설정 (Windows)
+## 7. 새 PC 설정 (macOS)
 
 레포 설정 (한 번만, GitHub 웹):
 - Settings → General → Pull Requests → **Automatically delete head branches** 켜기 (지휘자는 로컬 브랜치만 지운다. 원격 브랜치는 이 설정이 지운다)
@@ -191,8 +192,11 @@ ruleset은 승인 리뷰 0개로 되어 있다(혼자 쓰는 레포라 자기 PR
 PC마다:
 
 - Orca 에이전트 설정: Claude 인자 `--permission-mode auto`. **다른 회사 에이전트는 쓰지 않는다**(2절)
-- Orca 설정: 하위 에이전트 깊이 1, 끝난 일꾼 자동 닫기, 캐시 타이머 1시간, 잠자기 방지
+- Orca 설정: 하위 에이전트 깊이 1, 끝난 일꾼 자동 닫기, 캐시 타이머 1시간, 잠자기 방지.
+  **동시 일꾼은 하나.** 이 맥북에서 여럿을 돌리면 Metro·Xcode와 겹쳐 둘 다 느려진다
 - `gh auth login` (지휘자가 PR을 만들고 머지를 기다린다)
+- 네이티브 작업(v2.1~)을 위해 맥북에 한 번 해 둘 것: Xcode + Command Line Tools, Node 20+,
+  아이폰 USB 신뢰 + 개발자 모드, `go-ios`, WebDriverAgent — 절차는 `.claude/skills/verify-device/SKILL.md`
 - 하지 않는 것: bypass 권한을 기본값으로 두기(`--permission-mode auto`까지만), `powershell.exe`를 백신 예외에 넣기
 
 ## 8. 자주 걸리는 것
@@ -202,7 +206,6 @@ PC마다:
 | 검토자가 worker_done 없이 끝남 | 일꾼이 완료 신호를 못 보냄 | 보고 파일의 둘째 줄 SHA가 맞고 첫 줄에 판정이 있으면 지휘자가 정상으로 본다 (`coordinator/DESIGN.md`) |
 | 일꾼이 엉뚱한(main) 작업 트리에 뜸 | `--worktree current` | 경로로 지정(`COORDINATOR.md` "작업 트리 지정") |
 | 설계자가 "main에 없다"고 함 | 지휘자 main 작업 트리가 옛것 | 지휘자 시작 때 `git pull --ff-only` (`COORDINATOR.md` 1-4) |
-| 한글 깨짐 | PowerShell로 파일을 씀(CP949) | 파일은 편집 도구로 쓴다. `CLAUDE.md` "환경" |
 | 지휘자가 작업 트리 파일을 못 읽음 | `--add-dir` 없이 띄움 | 3절 명령으로 다시 띄우기 |
 | `[agent-guard] 막음` | 안전장치 | 정상이다. 정말 필요한 명령이면 사람이 직접 터미널에서 한다 |
 | Claude 한도 초과 | Pro 한도(주간·5시간). 일꾼이 전부 Claude라 설계 단계에서 특히 빨리 닿는다 | 검토자를 sonnet으로 한 번 내려 다시(`coordinator/DESIGN.md`), 그래도 걸리면 지휘자가 시각을 알려주고 멈춘다. 풀리면 "이어서" |

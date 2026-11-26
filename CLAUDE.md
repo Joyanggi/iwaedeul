@@ -43,7 +43,6 @@
 ## 토큰 절약 (모든 역할 공통)
 
 - **긴 출력은 끝부분만 본다.** `npm test 2>&1 | tail -15`, `npm run build 2>&1 | tail -8`
-  (PowerShell에서는 `| Select-Object -Last 15`)
 - **작업 중에는 관련 테스트 파일만 돌린다** (`npx vitest run <파일>`). 전체 테스트는 마무리에 한 번.
 - **큰 문서는 통째로 읽지 않는다.** README, PLAN, DEV-RECORD는 `grep -n`으로 필요한 절을 찾아 그 부분만 읽는다.
 - **한 번 읽은 파일은** 바뀌지 않았으면 다시 읽지 않는다.
@@ -75,8 +74,10 @@
 
 ## 환경
 
-- Windows, Orca 작업 트리(작업마다 별도 폴더). 일꾼은 전부 Claude이고 셸은 Git Bash다.
-  PowerShell로 파일을 쓰지 않는다(CP949로 한글이 깨지거나 BOM이 붙는다). 파일은 편집 도구로 쓴다.
+- **macOS**, Orca 작업 트리(작업마다 별도 폴더). 일꾼은 전부 Claude이고 셸은 zsh/bash다.
+  (2026-11-26에 Windows에서 옮겼다. 옛 기록에 나오는 PowerShell·CP949 주의는 이제 해당하지 않는다.)
+- **이 맥북은 사양이 넉넉하지 않다.** 일꾼은 한 번에 하나만 띄우고, 전체 테스트·빌드처럼 무거운 것은
+  한 번에 하나만 돌린다. iOS 시뮬레이터는 쓰지 않는다(`docs/PLAN-v2.0.md` 11절 — 실기기 + mobile MCP).
 - 커밋 메시지는 `git commit -F - <<'MSG'`로 쓴다.
 - 줄바꿈은 LF로 고정돼 있다(`.gitattributes`).
 - 되돌리기는 `git checkout <파일>`이 아니라 `cp` 백업으로 한다. 커밋 안 된 작업을 날리지 않기 위해서다.
