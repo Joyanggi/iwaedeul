@@ -1,6 +1,6 @@
 // scripts/token-usage.mjs — 역할별 토큰 집계가 세션 기록을 바르게 읽고, PR 본문에 남긴 표를 다시 모을 수 있는지 잠근다.
 import { describe, expect, it } from 'vitest';
-import { aggregate, cacheHit, parseClaude, parseCodex, parseSection, renderCollect, renderSection, roleOf, summarize, weighted } from './token-usage.mjs';
+import { aggregate, cacheHit, parseClaude, parseSection, renderCollect, renderSection, roleOf, summarize, weighted } from './token-usage.mjs';
 
 const T0 = Date.parse('2026-11-10T04:00:00Z');
 const T1 = Date.parse('2026-11-10T06:00:00Z');
@@ -66,24 +66,6 @@ describe('token-usage: Claude 세션 기록', () => {
   });
 });
 
-describe('token-usage: Codex 세션 기록', () => {
-  const tc = (ts, input, cached, output) => ({ timestamp: ts, type: 'event_msg', payload: { type: 'token_count', info: { total_token_usage: { input_tokens: input, cached_input_tokens: cached, output_tokens: output } } } });
-  const text = jl(
-    { timestamp: '2026-11-10T03:00:00Z', type: 'session_meta', payload: { cwd: 'C:\\Users\\me\\orca\\workspaces\\workout-tracker\\plan-v1.14' } },
-    { timestamp: '2026-11-10T03:00:01Z', type: 'turn_context', payload: { model: 'gpt-5-codex' } },
-    { timestamp: '2026-11-10T03:00:02Z', type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'CLAUDE.md와 agents/PLAN-REVIEWER.md를 읽고' }] } },
-    tc('2026-11-10T03:30:00Z', 1000, 400, 100), // 창 앞
-    tc('2026-11-10T04:10:00Z', 5000, 3000, 600),
-    tc('2026-11-10T04:20:00Z', 9000, 6000, 900),
-  );
-
-  it('누적값에서 창 앞 값을 빼고, 캐시 입력을 새 입력과 나눈다', () => {
-    const s = parseCodex(text, T0, T1);
-    expect(roleOf(s.prompt)).toBe('설계 검토자');
-    expect(s.models['gpt-5-codex']).toEqual({ input: 2400, cacheRead: 5600, cacheWrite5m: 0, cacheWrite1h: 0, output: 800 });
-  });
-});
-
 describe('token-usage: 합치기와 PR 본문', () => {
   const sessions = [
     { provider: 'claude', prompt: 'agents/COORDINATOR.md를 읽고', models: { 'claude-sonnet-5-5': { input: 10, cacheRead: 9000, cacheWrite5m: 0, cacheWrite1h: 500, output: 100 } }, first: T0, last: T0 + 60 * 60000 },
@@ -105,7 +87,7 @@ describe('token-usage: 합치기와 PR 본문', () => {
   });
 
   it('PR 본문 절을 다시 읽으면 같은 숫자가 나온다', () => {
-    const body = `머리\n\n${renderSection(rows, { since: 'a', until: 'b', claude: 3, codex: 0 })}\n\n## 규칙 메모\n없음`;
+    const body = `머리\n\n${renderSection(rows, { since: 'a', until: 'b', claude: 3 })}\n\n## 규칙 메모\n없음`;
     expect(body).toContain('| 구현자 | claude-sonnet-5-5 | 1 |');
     const data = parseSection(body);
     expect(data.rows).toHaveLength(3);
@@ -113,7 +95,7 @@ describe('token-usage: 합치기와 PR 본문', () => {
   });
 
   it('여러 PR을 모아 몫이 큰 순서로 보이고, 토큰 절이 없거나 깨진 PR은 뺀다', () => {
-    const section = renderSection(rows, { since: 'a', until: 'b', claude: 3, codex: 0 });
+    const section = renderSection(rows, { since: 'a', until: 'b', claude: 3 });
     const prs = [
       { number: 30, body: section },
       { number: 31, body: section },

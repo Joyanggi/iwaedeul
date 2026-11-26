@@ -3,26 +3,51 @@
 `agents/COORDINATOR.md`의 0·1·3·5·7절과 "기다리는 법"·"작업 트리 지정"은 그대로 따른다. 이 파일은 2·4·6절을 대신한다.
 PR은 `agents/coordinator/PR.md`를 따른다.
 
-서로 다른 회사의 모델 셋이 같은 설계서를 다룬다. 같은 회사 모델끼리는 놓치는 곳이 겹치기 때문이다.
-검토자 둘은 무료 한도로 돌아서 Claude 한도를 쓰지 않는다.
+일꾼은 전부 Claude이고, **설계 검토자는 한 명이다.**
+
+검토자를 둘 두던 자리였다(Codex·Antigravity). 한 명으로 줄인 근거는 두 가지다.
+- Claude Code 팀이 같은 길을 먼저 갔다: *"We don't try to improve reviews by stacking on more
+  reviewers. Adding a second, more expensive, reviewer on top of the primary one is often a worse
+  approach than tuning the primary."* 대신 `REVIEW.md`로 **일차 검토자를 튜닝한다**
+  (claude.dev, "How the Claude Code team thinks about verification", 2026-11-16).
+- 요금제가 Claude Pro다. 검토자 둘을 동시에 돌리면 5시간 한도를 설계 단계에서 다 쓴다.
+  (Fable은 Pro에서 못 쓴다 — 예전 배치의 검토자 ②였다.)
+
+검토자 하나가 놓칠 몫은 **사람을 쌓는 대신 장치로** 메운다:
+① `REVIEW.md`(이 레포에서 무엇이 실패인가)로 검토자를 튜닝 ② `docs/RELIABILITY.md`의 **diff 방아쇠 점검**
+③ 되돌리기 비싼 변경(`구조 변경`)은 자동 승인 금지 ④ 검토는 **라운드를 쌓되 앞 라운드 위에 쌓는다**.
 
 ## 일꾼 배치
 
 | 순서 | 역할 | 에이전트 | 모델 | effort | 작업 트리 |
 |---|---|---|---|---|---|
-| 1 | 설계자 | claude | opus (사람이 지정하면 그 모델, COORDINATOR.md "모델 지정") | high | **새 작업 트리** `plan-<PLAN 버전>`, 최신 `main`에서 |
-| 2 | 검토자 ① | codex | 기본값 | 기본값 | 설계자와 같은 작업 트리 (**경로로 지정**, `current` 금지) |
-| 3 | 검토자 ② | antigravity | 기본값 | 기본값 | 설계자와 같은 작업 트리 (**경로로 지정**, `current` 금지) |
+| 1 | 설계자 | claude | opus (사람이 지정하면 그 모델, COORDINATOR.md "모델 지정") | medium (구조 변경이면 high) | **새 작업 트리** `plan-<PLAN 버전>`, 최신 `main`에서 |
+| 2 | 설계 검토자 | claude | sonnet (구조 변경이면 opus) | high (opus면 medium) | 설계자와 같은 작업 트리 (**경로로 지정**, `current` 금지) |
 
-### 검토자 선택
+보고 파일은 `.reports/<PLAN 버전>-review.md` 하나다.
 
-- 사람의 첫 메시지에 검토자 지정(예: "검토자: codex", "검토자: claude")이 있으면 그대로 따른다.
-- 없으면 위 표대로 Codex와 Antigravity를 동시에 띄운다.
+검토자가 설계자보다 작은 모델인 것이 이상해 보이지만, 검토는 **PLAN이 가리킨 파일을 열어 맞추는
+반복 작업**이고 그 자리는 Sonnet·high가 제자리다. 모자라면 모델을 올리기 전에 **effort를 한 칸** 올린다.
+독립성은 모델 크기가 아니라 **맥락**에서 온다 — 검토자는 새 세션에서 PLAN과 코드만 보고 시작하고,
+설계자의 생각 과정을 받지 않는다.
+
+> `구조 변경` 라벨이면 **검토를 두 라운드** 돌린다. 사람을 더 부르는 대신 같은 검토자를 다시 쓰되,
+> 2라운드 spec에 1라운드 보고를 넣어 **앞 라운드 위에 쌓게** 한다
+> (*"We point each pass at context from earlier rounds and past failures rather than re-checking
+> everything from scratch. It's cheaper and finds more."*). 처음부터 다시 읽게 하지 않는다.
+
+### 검토자 선택과 한도
+
+- 사람의 첫 메시지에 모델 지정(예: "검토자: opus")이 있으면 그대로 따른다.
+- 없으면 위 표대로 하나를 띄운다. **검토자를 둘 이상 띄우지 않는다** (위 근거).
 - 검토자가 보고 없이 끝나면 `orca orchestration worker-read`로 마지막 출력을 읽는다.
-  - 사용량 한도(limit, quota, usage, rate limit 등)로 끝난 것이면, 그 자리를 **Claude 검토자**(sonnet·high, 새 세션)로 바꿔 같은 spec과 같은 PLAN 커밋 SHA로 띄운다. 보고 파일은 `.reports/<PLAN 버전>-claude.md`다. Claude 검토자는 최대 하나만 둔다.
-    한도로 끝난 검토자는 release가 거부되면 `worker-stop`으로 닫는다(COORDINATOR.md "release 확인").
+  - 사용량 한도(limit, quota, usage, rate limit 등)로 끝났으면 **한 칸 내려 한 번 다시 띄운다**(opus→sonnet, sonnet·high→sonnet·medium)
+    (같은 spec, 같은 PLAN 커밋 SHA). 그것도 한도면 사람에게 풀리는 시각과 함께 알리고 gate를 건다.
+    한도로 끝난 일꾼은 release가 거부되면 `worker-stop`으로 닫는다(COORDINATOR.md "release 확인").
   - 한도가 아닌 이유로 끝났으면 사람에게 알리고 멈춘다.
-- 실제로 검토한 검토자와, 바꿨다면 그 사유를 적어둔다. PR 본문에 쓴다(아래 "자동 승인"·"사람에게 넘기기").
+- Pro 한도를 아끼는 순서: **싼 검사를 먼저 돌린다.** 설계자가 PLAN을 커밋하기 전에 `npm run check -- --fast`가
+  통과해 있어야 하고(문서만 바꾼 PLAN이면 생략), 검토자는 테스트·빌드를 돌리지 않고 읽기만 한다.
+- 실제로 검토한 모델과, 바꿨다면 사유를 적어둔다. PR 본문에 쓴다(아래 "자동 승인"·"사람에게 넘기기").
 
 ### PLAN 버전과 작업 ID
 
@@ -33,9 +58,11 @@ PR은 `agents/coordinator/PR.md`를 따른다.
 
 ## 일꾼 운용
 
-- 설계는 품질 차이가 가장 큰 단계라 opus·high를 쓴다. 대신 호출 횟수가 적다. 사람이 설계자 모델을 지정했으면(예: fable) 검토 반영 때 다시 띄우는 설계자도 같은 모델이다.
-- 설계자가 끝나고 release한 뒤, 검토자 ①②를 **차례로가 아니라 동시에** 띄운다. 그 밖의 일꾼은 하나씩이다. **검토자끼리 서로의 결과를 전하지 않는다.**
-- 설계자가 PLAN을 커밋하면 지휘자는 그 커밋 SHA(`git rev-parse HEAD`)를 적어두고, 두 검토자 spec에 똑같이 적는다.
+- 설계는 품질 차이가 가장 큰 단계라 opus·high를 쓴다. 대신 호출 횟수가 적다. 사람이 설계자 모델을 지정했으면 검토 반영 때 다시 띄우는 설계자도 같은 모델이다.
+- 설계자가 끝나고 release한 뒤 검토자를 띄운다. 일꾼은 언제나 하나씩이다.
+- 설계자가 PLAN을 커밋하면 지휘자는 그 커밋 SHA(`git rev-parse HEAD`)를 적어두고 검토자 spec에 적는다.
+  **검토는 커밋에 대고 한다** — 검토 중에 설계자가 push하면 그 검토 결과는 버린다
+  (*"A passing review on an out-of-date commit means nothing."*).
 - 검토자는 `npm test`와 `npm run build`를 돌리지 않고 읽기만 한다. 같은 작업 트리에서 동시에 돌아 빌드 결과물이 섞이지 않게 하려는 것이다.
 
 ## spec
@@ -49,18 +76,25 @@ agents/DESIGNER.md를 읽고 설계해.
 
 주제가 이슈(`이슈 #24`)면 그대로 넘긴다. 설계자가 `gh issue view`로 읽는다. 검토자 spec의 "원래 문제"에도 `이슈 #24`라고 쓴다.
 
-검토자 (①②같은 문장, 동시에 띄운다. `<이름>`만 codex / antigravity / claude로 바꾼다):
+검토자:
 ```
-CLAUDE.md와 agents/PLAN-REVIEWER.md를 읽고 <PLAN 파일>을 설계 검토해.
+CLAUDE.md · REVIEW.md · agents/PLAN-REVIEWER.md를 읽고 <PLAN 파일>을 설계 검토해.
 원래 문제는 <주제 원문>이야. 검토 커밋은 <SHA>야. 레포 파일은 고치지 마.
-보고는 PLAN-REVIEWER.md 3절대로 .reports/<PLAN 버전>-<이름>.md에 쓰고 --report-path로 알려줘.
+docs/RELIABILITY.md에서 이 PLAN이 건드리는 방아쇠에 걸리는 항목만 골라 함께 본다.
+보고는 PLAN-REVIEWER.md 3절대로 .reports/<PLAN 버전>-review.md에 쓰고 --report-path로 알려줘.
+```
+
+2라운드(구조 변경일 때만):
+```
+.reports/<PLAN 버전>-review.md가 네 1라운드 보고다. 설계자가 반영한 뒤의 커밋은 <SHA>야.
+이번에는 **바뀐 곳과 1라운드에서 네가 짚은 곳만** 본다. 통과한 곳을 처음부터 다시 읽지 마.
+같은 지적을 다시 적지 않는다. 보고는 같은 파일에 "2라운드"로 덧붙인다.
 ```
 
 검토자의 판정과 "고칠 것"은 그 보고 파일에서 읽는다. 보고 파일은 문서라 읽어도 된다.
 
 **검토자가 worker_done 없이 종료돼도, 보고 파일의 둘째 줄 SHA가 이번 PLAN 커밋과 같고 첫 줄에 판정이 있을 때만 정상 완료로 본다.**
-Codex는 샌드박스 안에서 `orca` 명령을 실행하지 못해 완료 신호를 못 보낼 때가 있다.
-이때 Orca가 "보고 없이 종료" 알림을 보내니, 그 알림을 받으면 보고 파일부터 확인한다.
+Orca가 "보고 없이 종료" 알림을 보내면 보고 파일부터 확인한다.
 조건을 만족하면 gate를 걸지 말고 일꾼을 release한 뒤 다음 단계로 간다. 파일이 없거나 SHA·판정이 맞지 않으면 사람에게 알리고 멈춘다(COORDINATOR.md 3절).
 
 지휘자는 Orca 작업 트리 폴더를 읽을 수 있게 `--add-dir`로 띄워져 있어야 한다.
@@ -68,23 +102,25 @@ Codex는 샌드박스 안에서 `orca` 명령을 실행하지 못해 완료 신�
 
 ## 검토 반영 (자동)
 
-검토가 둘 다 끝나면 **설계자에게 반영 판단을 맡긴다.** 지휘자는 어느 지적이 맞는지 판단하지 않는다.
-검토자가 한도 초과로 실패하면 "검토자 선택"대로 Claude 검토자로 바꾼다. 바꿀 수 없으면 그 검토자는 건너뛰고 남은 보고만 넘긴다.
+검토가 끝나면 **설계자에게 반영 판단을 맡긴다.** 지휘자는 어느 지적이 맞는지 판단하지 않는다.
+검토자가 한도로 실패하면 "검토자 선택과 한도"대로 sonnet으로 한 번 바꾼다. 그래도 안 되면 사람에게 넘긴다.
 
 같은 작업 트리에서 설계자를 다시 띄운다.
 ```
-agents/DESIGNER.md 6절대로 두 검토를 반영해 <PLAN 파일>을 고쳐.
-검토 보고: .reports/<PLAN 버전>-<이름>.md (실제로 검토한 검토자 것만, 예: codex·antigravity)
+agents/DESIGNER.md 6절대로 검토를 반영해 <PLAN 파일>을 고쳐.
+검토 보고: .reports/<PLAN 버전>-review.md
 끝나면 5절 형식으로 보고해.
 ```
 
 ## 자동 승인
 
 설계자의 보고를 받으면 아래 네 조건을 확인한다. **모두 맞으면** PLAN PR을 만들지 않고 바로 구현 흐름(`agents/coordinator/BATCH.md`)으로 넘어간다.
-- **Codex와 Antigravity가 모두 검토했음.** 그 밖의 조합(Claude 검토자가 끼었거나 한쪽이 빠진 경우)이면 자동 승인하지 않고 PLAN PR을 올린다.
+- **검토자가 검토를 마쳤음**(보고 파일의 SHA가 이번 PLAN 커밋과 같다).
 - 두 검토자의 판정이 모두 "그대로 진행 가능"
 - 설계자가 기각한 지적이 없음
 - 설계자 보고의 "사람에게 남은 것"이 없음
+- **이슈 라벨이 `구조 변경`이 아님.** 검토자가 설계자와 같은 회사 모델이라 서로 놓치는 곳이 겹칠 수 있다.
+  되돌리기 비용이 큰 변경(데이터 모델, 저장 위치, 플랫폼, README 결정 뒤집기)은 사람이 PLAN을 읽고 머지한다.
 
 구현은 plan 브랜치를 기준으로 한다. 같은 작업 트리에서 이어서 할지, plan 브랜치에서 새 작업 트리를 만들지는 orchestration 스킬을 읽고 가능한 방법을 고른다.
 최종 구현 PR은 PLAN 커밋과 구현 커밋을 함께 담는다. 그 PR의 머리 항목은 BATCH.md "마무리"가 정한다.

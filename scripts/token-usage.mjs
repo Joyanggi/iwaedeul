@@ -3,8 +3,7 @@
 //
 // 재는 법: 일꾼은 모두 따로 뜬 에이전트 세션이고, 세션 기록 파일에 메시지마다 모델·작업 폴더(cwd)·시각·토큰이 남는다.
 //   Claude Code: ~/.claude/projects/**/*.jsonl  (CLAUDE_CONFIG_DIR가 있으면 그 아래 projects)
-//   Codex:       ~/.codex/sessions/**/*.jsonl   (CODEX_HOME이 있으면 그 아래 sessions)
-//   Antigravity: 로컬 기록 형식을 모른다. "측정 안 됨"으로 적는다.
+//   일꾼은 전부 Claude다(agents/README.md 2절). 다른 회사 에이전트를 다시 쓰게 되면 그 기록 형식을 여기에 더한다.
 // 역할은 세션의 첫 지시문에 나오는 역할 파일(agents/DESIGNER.md 등)로 가린다. 프롬프트 내용은 출력하지 않는다.
 //
 // 사용:
@@ -14,7 +13,7 @@
 //       → 머지된 PR 본문의 토큰 절을 모아 역할별로 합친 보고서 (gh 필요)
 //
 // "입력 환산"은 한도를 얼마나 쓰는지 비교하려고 만든 근삿값이다. 새 입력 1을 기준으로
-//   Claude: 캐시 읽기 0.1, 캐시 쓰기 1.25(5분)·2(1시간), 출력 5 / OpenAI(Codex): 캐시 읽기 0.1, 출력 8
+//   캐시 읽기 0.1, 캐시 쓰기 1.25(5분)·2(1시간), 출력 5.
 // API 가격 비율에서 가져왔다. 모델 사이(Opus·Sonnet·Fable)의 차이는 넣지 않았다. 표의 모델 칸을 같이 본다.
 
 import { execFileSync } from 'node:child_process';
@@ -36,6 +35,7 @@ export const ROLES = [
 const ROLE_RE = new RegExp(`agents/(${ROLES.map(([f]) => f).join('|')})\\.md`, 'g');
 const WEIGHTS = {
   claude: { input: 1, cacheRead: 0.1, cacheWrite5m: 1.25, cacheWrite1h: 2, output: 5 },
+  // 지금 일꾼은 전부 Claude다. 이 줄은 Codex를 쓰던 때의 옛 PR 본문(provider: "openai")을 --collect가 같은 환산으로 읽으려고 남긴다
   openai: { input: 1, cacheRead: 0.1, cacheWrite5m: 0, cacheWrite1h: 0, output: 8 },
 };
 const START = '<!-- token-usage ';
@@ -123,41 +123,6 @@ export function parseClaude(text, since, until, match = () => true) {
   return { provider: 'claude', cwd, prompt, models, first, last };
 }
 
-/**
- * Codex 세션 기록 하나. token_count 이벤트의 total_token_usage는 누적값이라, 창 안 마지막 값에서 창 앞 마지막 값을 뺀다.
- * input_tokens에는 cached_input_tokens가 들어 있다.
- */
-export function parseCodex(text, since, until) {
-  const lines = parseLines(text);
-  let cwd = '';
-  let model = 'codex';
-  let prompt = '';
-  let before = null;
-  let lastIn = null;
-  let first = Infinity;
-  let last = -Infinity;
-  for (const l of lines) {
-    const p = l.payload ?? {};
-    if (p.cwd) cwd = p.cwd;
-    if (p.model) model = p.model;
-    if (!prompt && l.type === 'response_item' && p.type === 'message' && p.role === 'user') prompt = textOf(p.content);
-    const total = l.type === 'event_msg' && p.type === 'token_count' ? p.info?.total_token_usage : null;
-    if (!total) continue;
-    const t = Date.parse(l.timestamp);
-    if (t < since) before = total;
-    else if (t <= until) {
-      lastIn = total;
-      first = Math.min(first, t);
-      last = Math.max(last, t);
-    }
-  }
-  if (!lastIn) return null;
-  const d = (k) => (lastIn[k] ?? 0) - (before?.[k] ?? 0);
-  const cached = d('cached_input_tokens');
-  const s = { ...empty(), input: d('input_tokens') - cached, cacheRead: cached, output: d('output_tokens') };
-  return { provider: 'openai', cwd, prompt, models: { [model]: s }, first, last };
-}
-
 export function weighted(s, provider) {
   const w = WEIGHTS[provider] ?? WEIGHTS.claude;
   return Math.round(
@@ -201,7 +166,7 @@ export function renderSection(rows, meta) {
   const lines = [
     '## 토큰 사용',
     '',
-    `측정: ${meta.since} ~ ${meta.until} · Claude 세션 ${meta.claude} · Codex 세션 ${meta.codex} · Antigravity 측정 안 됨`,
+    `측정: ${meta.since} ~ ${meta.until} · Claude 세션 ${meta.claude}`,
     '',
     '| 역할 | 모델 | 세션 | 새 입력 | 캐시 쓰기 | 캐시 읽기 | 출력 | 입력 환산 | 몫 | 캐시 적중 | 분 |',
     '|---|---|---|---|---|---|---|---|---|---|---|',
@@ -302,9 +267,7 @@ function measure() {
   const until = Date.parse(untilText);
   const match = arg('--match', 'workout-tracker').toLowerCase();
   const claudeDir = join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), 'projects');
-  const codexDir = join(process.env.CODEX_HOME ?? join(homedir(), '.codex'), 'sessions');
   const inRepo = (cwd) => String(cwd ?? '').replace(/\\/g, '/').toLowerCase().includes(match);
-  const ours = (s) => s && inRepo(s.cwd);
 
   const sessions = [];
   const parentRole = new Map();
@@ -316,17 +279,12 @@ function measure() {
     else parentRole.set(file.replace(/\\/g, '/').split('/').pop().replace(/\.jsonl$/, ''), roleOf(s.prompt));
     sessions.push(s);
   }
-  for (const file of listJsonl(codexDir, since)) {
-    const s = parseCodex(readFileSync(file, 'utf8'), since, until);
-    if (ours(s)) sessions.push(s);
-  }
   const rows = summarize(sessions, parentRole);
   console.log(
     renderSection(rows, {
       since: new Date(since).toISOString(),
       until: new Date(until).toISOString(),
-      claude: sessions.filter((s) => s.provider === 'claude').length,
-      codex: sessions.filter((s) => s.provider === 'openai').length,
+      claude: sessions.length,
     }),
   );
 }
