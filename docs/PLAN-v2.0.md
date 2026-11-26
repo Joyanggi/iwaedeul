@@ -272,9 +272,12 @@ for mobile."* 우리는 그 자리를 시뮬레이터 대신 **진짜 기기**�
 (`@mobilenext/mobile-mcp`). 사람이 맥북에서 한 번 해 둘 것:
 
 1. 아이폰 USB 연결 → 맥 **신뢰** → 아이폰 **개발자 모드** 켜기
-2. `go-ios` 설치 후 `ios list`로 기기가 보이는지 확인 — **여기서 안 보이면 MCP 문제가 아니다**
-3. WebDriverAgent를 기기에 설치(무료 Apple 계정 가능, 번들 ID는 고유값으로)
-4. 터널·포트 포워딩을 열어 둔 채로: `ios tunnel start --userspace` · `ios forward 8100 8100`
+2. `xcrun devicectl list devices`로 기기가 `connected`인지 확인 — **여기서 안 보이면 MCP 문제가 아니다**
+3. mobile MCP의 DeviceKit 에이전트를 Personal Team으로 서명해 설치(번들 ID는 고유값으로, 7일마다 재서명)
+4. 터널·포트 포워딩은 mobile MCP(mobilecli)가 직접 연다. go-ios·WebDriverAgent는 쓰지 않는다
+
+> 2026-11-26 정정: 처음엔 go-ios 터널 + WebDriverAgent로 적었으나, 실제로 붙여 보니 mobilecli가 터널·포워딩·에이전트를
+> 모두 스스로 관리했고 go-ios 터널은 같은 포트를 두고 충돌했다. 정본 절차는 스킬 0절.
 
 ### 11.2-A 빌드는 로컬 Xcode다 (무료 Apple 계정이라 클라우드 빌드를 못 쓴다)
 
