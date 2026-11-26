@@ -98,7 +98,7 @@ Orca가 "보고 없이 종료" 알림을 보내면 보고 파일부터 확인한
 조건을 만족하면 gate를 걸지 말고 일꾼을 release한 뒤 다음 단계로 간다. 파일이 없거나 SHA·판정이 맞지 않으면 사람에게 알리고 멈춘다(COORDINATOR.md 3절).
 
 지휘자는 Orca 작업 트리 폴더를 읽을 수 있게 `--add-dir`로 띄워져 있어야 한다.
-읽기가 거부되면 사람에게 "`--add-dir C:\Users\jyg66\orca\workspaces`로 다시 띄워달라"고 알린다.
+읽기가 거부되면 사람에게 "`--add-dir ~/orca/workspaces`로 다시 띄워달라"고 알린다.
 
 ## 검토 반영 (자동)
 
