@@ -1,6 +1,7 @@
 # PLAN v2.1 — 네이티브 앱의 골격: 코어 분리 · SQLite · Gist 가져오기 · 테마 두 벌 · 홈 (VV)
 
 > 작성: Claude Opus 5.5 (설계자), 2026-11-26. 대상 코드: v1.21.0 (`main` `8404be8`).
+> 검토 반영: 1라운드(`.reports/v2.1-review.md`, 검토 커밋 `67cb468`) — 끝의 "검토 반영 기록".
 > 근거: `docs/PLAN-v2.0.md` 10절 v2.1 행(골격), 3·4.1·7·11·15·17절. 지휘자 지시(2026-11-26):
 > ① Expo 앱 생성 ② `src/core` 분리와 경계 검사(Astryx 뒷걸음 검사 자리에) ③ SQLite(expo-sqlite + Drizzle) 스키마
 > ④ **파일 가져오기 대신 Gist에서 가져오기**(PAT, `expo-secure-store`) ⑤ 테마 토큰 라이트·다크 한 벌 ⑥ 홈 화면 하나.
@@ -48,6 +49,7 @@
 | VV4 | Gist 찾기(`findBackupGist`) · 가져오기 화면 · 토큰은 Keychain | PR 2 | 아니오 |
 | VV5 | 테마 토큰 라이트·다크 한 벌 + `ui` 부품 | PR 2 | 아니오 |
 | VV6 | 네이티브 홈 화면 · `docs/FEATURE-MAP.md` | PR 2 | 아니오 |
+| VV7 | 규칙 문서 사실 맞추기(`CLAUDE.md`·`agents/*`) — **규칙 정비자 몫** | PR R | 아니오(문서만) |
 
 PR 1을 따로 내는 이유: `main`에 머지되면 **지금 쓰는 웹앱이 다시 배포된다.** 웹을 건드리는 유일한 작업이라 혼자 리뷰받고 혼자 되돌릴 수 있어야 한다.
 
@@ -69,8 +71,9 @@ PR 1을 따로 내는 이유: `main`에 머지되면 **지금 쓰는 웹앱이 �
 
 - 코어 파일들이 `../types`(`src/types.ts`)·`../db/seed`(번들 상수)·`../db/validateRoutine`·`../db/validateDietPlan`을 읽는다. `seed.ts`는 Dexie를 import하고(`src/db/seed.ts:7`), 두 검증 파일은 순수하다(`validateRoutine.ts:1`, `validateDietPlan.ts:1-2`).
 - 네이티브가 가져오기에 쓸 **순수한 절반**이 플랫폼 파일 안에 섞여 있다: `backup.ts`의 `parseBackup`·`fingerprintPayload`·`summarizeBackup`(Dexie를 쓰는 것은 `createBackup`·`restoreBackup`뿐, `backup.ts:118,259`), `secrets.ts`의 `isSecretSettingKey`(localStorage를 쓰는 것은 토큰 읽기·쓰기뿐), `gist.ts`는 전역 `fetch`만 쓴다.
-- 읽기 정규화가 Dexie 훅 안에 있다: `useDiet`가 `resolveTrainingDays`로 훈련일을 고치고(`useDiet.ts:58-63`), `getActiveRoutine`이 활성 루틴을 고르고(`db/index.ts:115`), `getOpenSession`이 진행 중 세션을 고른다(`db/index.ts:125`). 네이티브가 이걸 **따로 쓰면** 같은 기록에서 홈이 다른 답을 낸다.
+- 읽기 정규화가 Dexie 훅 안에 있다: `useDiet`가 `resolveTrainingDays`로 훈련일을 고치고(`useDiet.ts:58-63`), `getActiveRoutine`이 활성 루틴을 고르고(`db/index.ts:115`), `getOpenSession`이 진행 중 세션을 고른다(`db/index.ts:125` — 웹 홈은 이것을 직접 부르지 않고 `useSessionStore`(`HomeScreen.tsx:75`)를 읽는데, 그 store가 부팅 때 `getOpenSession`으로 채운다(`store/session.ts:87`). 규칙은 같다). 네이티브가 이걸 **따로 쓰면** 같은 기록에서 홈이 다른 답을 낸다.
 - 테스트가 `import.meta.glob('/src/lib/exportMarkdown.ts', …)`처럼 **경로 문자열로** 파일을 읽는다(`v1111.test.ts:134`, `v113.test.ts:1055`, `phaseGate.test.ts:118`의 `/src/lib/*.ts` 등). 파일을 옮기면 glob이 빈 객체를 돌려주고, "없어야 한다"를 검사하는 테스트는 **헛돌며 통과한다**.
+- glob 인자만이 아니다. 테스트 **본문**에도 `'/src/lib/…'`·`'src/lib/…'` 경로 문자열이 114줄(23개 파일, glob 호출 줄 제외) 있다 — 소스 맵 키·허용 목록·기대 목록. 그중 `?? ''`로 읽는 도우미(`v116.test.ts:653` `nn1Src`, `v117.test.ts:15-16`, `audioRecovery.test.ts:239`)는 넓은 glob(`/src/**/*.{ts,tsx}`)이 옮긴 뒤에도 맞으므로 glob 막이로는 안 잡히고, 키만 틀려 **빈 글을 검사하며 통과한다**(예: `v116.test.ts:906`·`:912-913`의 `.not.toMatch`·`.not.toContain`).
 
 ### 설계
 
@@ -100,8 +103,9 @@ PR 1을 따로 내는 이유: `main`에 머지되면 **지금 쓰는 웹앱이 �
 **4) 경로 고치기 규칙**
 - 다시-내보내기 파일(`export * from '../core/…'`)을 옛 자리에 **남기지 않는다.** 모든 import를 새 경로로 고친다(`src/screens`·`src/components`·`src/ax`·`src/store`·`src/db`·`src/lib`·`src/App.tsx`). 같은 모듈에 길이 둘이면 경계 검사가 무엇을 막는지 흐려진다.
 - `import.meta.glob`·`?raw`의 경로 문자열: 옮긴 파일을 가리키면 `/src/core/…`로, 디렉터리 glob `/src/lib/*.ts`는 `['/src/lib/*.ts', '/src/core/*.ts']`로 넓힌다.
+- **테스트 본문의 경로 문자열 리터럴**(`'/src/…'`·`'src/…'` — 소스 맵 키, 허용 목록, 기대 목록)도 옮긴 파일을 가리키면 새 경로로 고친다. 기대 목록은 고친 뒤 정렬 순서가 바뀌면 순서만 맞춘다(항목을 더하거나 빼지 않는다).
 - `eslint-suppressions.json`의 `src/lib/backup.ts` 항목(`no-unused-vars` 1 — `fingerprintPayload`의 `exportedAt: _ignored`)은 코드와 함께 `src/core/backupFormat.ts` 키로 옮긴다. 새 억제를 더하지 않는다.
-- 뒤따라 고칠 설정: `stryker.config.json` `mutate`에 `src/core/**/*.ts`(테스트 제외) · `scripts/mutation.mjs`의 대상 판정에 `src/core` · `scripts/quality-allow.json` `testSupport`의 `src/lib/testFixtures.ts` → `src/core/testFixtures.ts`.
+- 뒤따라 고칠 설정: `stryker.config.json` `mutate`에 `src/core/**/*.ts`(테스트 제외) · `scripts/mutation.mjs`의 대상 판정(`isTarget`, `:21`)과 **바뀐 파일을 고르는 `git diff … -- 'src/lib'`(`:63`)** 둘 다 `src/core`를 더하고, 안내 글(`:8-9`·`:68`)도 같이 고친다 · `scripts/quality-allow.json` `testSupport`의 `src/lib/testFixtures.ts` → `src/core/testFixtures.ts`.
 
 **5) 테스트를 옮기는 규칙** (정본은 규칙, 목록은 설계자 실측)
 테스트 파일은 **고친 뒤의 import가 전부 `src/core`·`src/data`·`vitest`·`fast-check`이고 `import.meta.glob`·`?raw`·`vi.mock`을 쓰지 않으면** `src/core`로 옮긴다. 아니면 `src/lib`에 두고 import 경로만 고친다.
@@ -119,10 +123,12 @@ PR 1을 따로 내는 이유: `main`에 머지되면 **지금 쓰는 웹앱이 �
   `import … from`, `export … from`, `import(…)`, `require(…)` 전부 본다(지정자는 원문에서, 아래 전역은 주석·문자열을 지운 글에서 찾는다 — `quality-scan.mjs`의 `stripComments`와 같은 규칙).
 - **금지 전역**(테스트 아닌 코어 파일): `window` `document` `navigator` `localStorage` `sessionStorage` `indexedDB` `AudioContext` `webkitAudioContext` `URL.createObjectURL` `import.meta`(Vite 전용 `glob`·`env` 포함) `__APP_VERSION__`. `fetch`·`crypto`·`Intl`·`structuredClone`은 막지 않는다(아래 "Hermes에서 확인할 전역").
 - `scripts/check.mjs` `STEPS`의 `{ name: 'Astryx 뒷걸음', cmd: 'node scripts/astryx-inventory.mjs --check' }`를 **`{ name: '코어 경계', cmd: 'node scripts/core-boundary.mjs --check' }`로 바꾼다**(같은 자리, 같은 순서). `.github/workflows/ci.yml`도 같은 줄을 바꾼다. `astryx-inventory.mjs`·`docs/ASTRYX-INVENTORY.md`는 지우지 않는다(`ss0`·`ss4`·`ss5` 테스트가 스크립트 글을 읽는다, 손으로 돌릴 수는 있다) — 웹과 함께 v2.5에 지운다.
-- **헛도는 glob 막이** — `src/lib/v21.test.ts`(describe `VV1`)에 메타 테스트: `src`·`scripts` 아래 테스트 파일의 `import.meta.glob(…)` 첫 인자 리터럴(문자열 또는 문자열 배열)을 전부 모아, 각 패턴이 **실제 파일 하나 이상과 맞는지** `node:fs`로 확인한다. 템플릿 문자열(`${…}`)이 든 패턴은 건너뛰고 그 수를 단언한다(지금 몇 개인지 구현자가 세어 고정).
+- **헛도는 경로 막이** — `scripts/vv1-paths.test.mjs`에 메타 테스트 둘(`node:fs`를 쓰므로 `scripts/`에 둔다 — `src` 아래 테스트는 `tsconfig.app.json`이 node 타입 없이 빌드에서 타입 검사한다):
+  - glob: `src`·`scripts` 아래 테스트 파일의 `import.meta.glob(…)` 첫 인자 리터럴(문자열 또는 문자열 배열)을 전부 모아, 각 패턴이 **실제 파일 하나 이상과 맞는지** `node:fs`로 확인한다.
+  - 경로 리터럴: 같은 테스트 파일들에서 `src/` 또는 `/src/`로 시작하고 `.ts`·`.tsx`·`.mjs`·`.css`·`.json`으로 끝나는 문자열 리터럴(작은·큰따옴표, 그리고 `${`가 없는 백틱)을 전부 모아, 각 경로가 **실제 파일인지** `node:fs`로 확인한다. 일부러 없는 파일을 가리키는 리터럴(지워진 파일이 다시 생기지 않았는지 보는 테스트 등)은 메타 테스트 안의 허용 목록에 `경로 — 이유`로 적는다.
+  - 둘 다 템플릿 문자열(`${…}`)이 든 것은 건너뛰고 **건너뛴 수와 허용 목록의 길이를 단언한다**(구현자가 지금 수를 세어 고정 — 새로 생기면 테스트가 알린다).
 
-**7) 문서 사실 맞추기** (규칙을 바꾸는 것이 아니라, 없어진 검사를 가리키는 글을 고친다 — 한 줄씩)
-`CLAUDE.md` "명령"의 `Astryx 뒷걸음` → `코어 경계` · `CLAUDE.md` "문서"의 "(CI가 막는다)" → "(v2.1부터 웹 화면은 CI가 막지 않는다 — 웹은 전환과 함께 내린다)" · `agents/README.md:148` 표 줄 · `agents/REVIEWER.md:16` · `agents/IMPLEMENTER.md:36`의 `astryx-inventory --check` 언급 · `agents/RULES-KEEPER.md:40`의 검사 목록.
+**7) 문서 사실 맞추기** — **VV1에서 하지 않는다.** `CLAUDE.md`·`agents/**`는 규칙 정비자 몫이고(`agents/RULES-KEEPER.md` 첫 줄) REVIEW.md 3절의 사람 필요 경로다. VV7로 뗐다.
 
 ### Hermes에서 확인할 전역 (기록만 — 이번에 고치지 않는다)
 
@@ -132,15 +138,22 @@ PR 1을 따로 내는 이유: `main`에 머지되면 **지금 쓰는 웹앱이 �
 | `structuredClone` | `routineEdit.ts:68,95` | 아니오 | v2.3(루틴 편집) 전에 기기에서 확인 |
 | `Number#toLocaleString` | `diet.ts:605`(`formatPlanLabel` — `BUNDLED_DIET_PLANS`가 **모듈을 읽을 때** 부른다) | 예(가져오기가 `seedData`를 읽는다) | VV2 실기기 확인: 앱이 뜨면 통과(없으면 쉼표 없이 나올 뿐 죽지 않는다) |
 
-### 검증 (`src/lib/v21.test.ts` describe `VV1`, `scripts/core-boundary.test.mjs`)
+### 정렬 동점의 순서 의존 (기록만 — 이번에 고치지 않는다)
+
+| 규칙 | 어디서 | 동점이면 | 할 일 |
+|---|---|---|---|
+| 진행 중 세션 = `startedAt` 내림차순 첫 번째 | `db/index.ts:126-129` → `pickOpenSession` | 입력 순서(안정 정렬)를 따른다 | 지금 웹과 같은 동작. 아래 속성의 생성기는 `startedAt`을 세션마다 다르게 만든다 |
+| 끝난 세션 = `date`·`startedAt` 내림차순 | `derive.ts:24-28` `completedSessions` (`compensationWatch.ts:43`·`dashboard.ts:373`이 기댄다) | 입력 순서를 따른다 | 같음. 같은 `startedAt`의 두 세션은 실제 기록에서 생기지 않는다(시작 시각이 ms까지 같아야 한다). 고치면 판정 내용이 바뀌므로 이번 범위가 아니다 |
+
+### 검증 (`src/lib/v21.test.ts` describe `VV1`, `scripts/core-boundary.test.mjs`, `scripts/vv1-paths.test.mjs`)
 
 - `checkCore`: `import { useState } from 'react'` → 위반 / `from '../db'` → 위반 / `from '../store/ui'` → 위반 / `from '../lib/beep'`(상대 경로지만 코어 밖) → 위반 / `from 'expo-sqlite'` → 위반 / `from 'dexie'` → 위반 / `from '@astryxdesign/core'` → 위반 / `from './derive'` → 통과 / `from '../data/exercises.json'` → 통과 / `from '../data/x.ts'` → 위반(JSON만) / 테스트 파일의 `from 'vitest'`·`'fast-check'` → 통과 / 테스트 아닌 파일의 `from 'vitest'` → 위반 / `await import('react-native')` → 위반 / `window.addEventListener` → 위반 / 주석 안의 "window" → 통과 / 문자열 `'document'` → 통과 / `typeof document` → 위반 / `import.meta.glob` → 위반.
 - `checkCore`를 지금 `src/core` 전체에 돌리면 위반 0 (`node scripts/core-boundary.mjs --check; echo $?` → `0`, 출력 복사).
 - `scripts/check.test.mjs`: 기존 두 단언이 그대로 통과한다(STEPS와 ci.yml이 같은 자리에서 같이 바뀌었다).
-- 헛도는 glob 막이: 지금 모든 glob 리터럴이 파일과 맞는다. **결함 복원**: `v1111.test.ts`의 glob 경로를 옛 `/src/lib/exportMarkdown.ts`로 되돌리면 이 테스트가 실패한다.
+- 헛도는 경로 막이: 지금 모든 glob 리터럴과 경로 리터럴이 파일과 맞는다(허용 목록 제외). **결함 복원**: `v1111.test.ts`의 glob 경로를 옛 `/src/lib/exportMarkdown.ts`로 되돌리면 glob 쪽이, `v116.test.ts`의 `nn1Src("src/core/derive.ts")`를 옛 `"src/lib/derive.ts"`로 되돌리면 경로 리터럴 쪽이 실패한다.
 - `readModel` 동등: `pickActiveRoutine` — 활성 id가 있고 존재 / 활성 id가 없음 / 활성 id가 지워진 루틴 / 루틴 0개 → `undefined`. `pickOpenSession` — 끝나지 않은 세션 둘 중 `startedAt`이 늦은 것 / 전부 끝남 → `undefined`. `buildDietData` — 옛 플랜을 쓰는 날의 `isTrainingDay`가 근력 세션 날짜로 고쳐진다(`resolveTrainingDays`가 하던 것), 유산소만 한 날은 휴식일로 남는다.
-- **속성** (`src/lib/properties.test.ts`에 더한다): `pickOpenSession`은 세션 배열의 순서를 바꿔도 같은 세션을 고른다 · `pickActiveRoutine`은 루틴 배열의 순서를 바꿔도 같은 루틴을 고른다(기본키 순 첫 루틴 규칙이 순서가 아니라 id로 정해진다).
-- **이름 그대로**: 옮긴 테스트와 남은 테스트의 diff는 import 줄과 glob 경로 줄뿐이다 — `git diff -M main..HEAD -- '*.test.ts' | grep -E '^[-+][^-+]' | grep -vE "^[-+]\s*(import |\} from |.*import\.meta\.glob|.*\['/src/)"`의 출력이 비어 있다(복사). 남는 줄이 있으면 줄마다 무엇인지(여러 줄 import 묶음 안의 이름 줄 등) DEV-RECORD에 적는다.
+- **속성** (`src/lib/properties.test.ts`에 더한다): `pickOpenSession`은 세션 배열의 순서를 바꿔도 같은 세션을 고른다 · `pickActiveRoutine`은 루틴 배열의 순서를 바꿔도 같은 루틴을 고른다(기본키 순 첫 루틴 규칙이 순서가 아니라 id로 정해진다). **생성기는 세션 `startedAt`·루틴 `id`를 서로 다르게 만든다**(동점은 위 "정렬 동점" 표 — 지금 웹 동작이고 이 속성의 대상이 아니다).
+- **이름 그대로**: 옮긴 테스트와 남은 테스트의 diff는 import 줄·glob 경로 줄·경로 리터럴 줄뿐이다 — `git diff -M main..HEAD -- '*.test.ts' | grep -E '^[-+][^-+]' | grep -vE "^[-+]\s*(import |\} from )|import\.meta\.glob|['\"\`]/?src/"`의 출력이 비어 있다(복사). 남는 줄이 있으면 줄마다 무엇인지(여러 줄 import 묶음 안의 이름 줄 등) DEV-RECORD에 적는다.
 - 테스트 개수: VV1 전후 `npm test 2>&1 | tail -5`의 파일 수·테스트 수가 같다(+ VV1이 더한 새 테스트 수만큼). 두 출력을 DEV-RECORD에 복사.
 - 웹 번들: `node scripts/first-load.mjs --check` 전후 숫자를 복사한다. 늘어나지 않는다(옮김만이라 같아야 한다 — 다르면 이유를 적는다).
 
@@ -149,6 +162,7 @@ PR 1을 따로 내는 이유: `main`에 머지되면 **지금 쓰는 웹앱이 �
 - `mealCalendar`의 `allSlots`·`isTrainingOnlySlot`·`parseTimeHint`를 `diet.ts`로 옮기기(PLAN v2.0 9절) — 쓰는 네이티브 식단 화면이 v2.3이다.
 - `crypto.randomUUID` 채우기 — v2.2.
 - 웹 화면의 Astryx 규칙 문서(`docs/DESIGN.md` 9절) 개정 — 웹을 새로 짓지 않으므로 그대로 둔다.
+- Astryx 뒷걸음 검사를 웹 PR용으로 따로 남기기 — PR 1 뒤로 웹 PR은 이 검사 없이 나간다. v2.2가 웹 Gist 자동 업로드를 끄는 한 줄 배포를 고르면(아래 "데이터 이전" 4) 그 PR도 그렇다. 화면이 아닌 한 줄이라 막을 것이 없다.
 
 ### README 반영
 - "프로젝트 구조"의 `lib/` 줄을 둘로: `core/ 판정·계산·타입·백업 형식 — 웹과 네이티브가 같이 쓴다. react·expo·DB·store를 import하지 않는다(코어 경계 검사)` · `lib/ 웹 전용 — Dexie 훅, 소리, 공유, Gist 동기화`.
@@ -289,17 +303,20 @@ knip은 `native/`를 보지 않는다(뿌리 `project`가 `src/**`·`scripts/**`
 type AppDb = BaseSQLiteDatabase<'sync', unknown, typeof schema>   // expo-sqlite·better-sqlite3 둘 다 'sync'
 type ImportOutcome =
   | { ok: true;  before: RecordTotals; after: RecordTotals }
-  | { ok: false; before: RecordTotals; after: RecordTotals; digestMatch: boolean }
-function importBackup(db: AppDb, file: BackupFile, now: Date): ImportOutcome
+  | { ok: false; reason: 'mismatch'; before: RecordTotals; after: RecordTotals; digestMatch: boolean }
+  | { ok: false; reason: 'error'; message: string }      // 트랜잭션 안의 예외(제약 위반·디스크 오류)
+function importBackup(db: AppDb, file: BackupFile, now: Date): ImportOutcome   // 던지지 않는다
 ```
 순서(한 `db.transaction` 안, 동기):
-1. `want = toTables(file)`에서 `settings`의 비밀 키 행을 뺀 것. `before = recordTotals(want)`, `wantDigest = contentDigest(want)`.
+1. `want = sortTables(toTables(file))`에서 `settings`의 비밀 키 행을 뺀 것. `before = recordTotals(want)`, `wantDigest = contentDigest(want)`. (`want`를 기본키 순으로 정렬해 두는 이유: `after`는 SQLite 기본키 순으로 읽은 값이라, `volumeKg`의 부동소수 합이 더하는 순서에 기대지 않게 한다.)
 2. 일곱 테이블 `delete`.
 3. `want`를 행 변환으로 `insert` — 100행씩 끊어서(SQLite 바인드 변수 한도).
    비밀 키(`isSecretSettingKey`) 행은 1에서 이미 빠졌다(웹 `restoreBackup`과 같은 겹 — RELIABILITY R3).
 4. `back = readAllTables(tx)`, `after = recordTotals(back)`, `digestMatch = contentDigest(back) === wantDigest`.
 5. `before`와 `after`가 **아홉 칸 모두 같고**(`Object.is`) `digestMatch`면 → `settings`에 `{ key: 'nativeImport', value: { exportedAt: file.exportedAt, importedAt: now.toISOString() } }`를 넣고 커밋 → `ok: true`.
-   아니면 `tx.rollback()` → `ok: false`(기기는 가져오기 전 그대로).
+   아니면 `tx.rollback()` → `ok: false, reason: 'mismatch'`(기기는 가져오기 전 그대로).
+- **예외 갈래**: `parseBackup`은 세션의 `id`·`date`·`entries`만 본다(`backup.ts:221-232`). 그래서 파일 안의 기본키 중복이나 승격 열 `not null`(`day_id`·`routine_id`·`mode`·`started_at`)이 빠진 세션은 파싱을 통과하고 `insert`에서 던진다(웹 `restoreBackup`은 `bulkPut`이라 받아들인다). 트랜잭션은 롤백되고 예외가 밖으로 나온다 — 엔진이 잡아 `reason: 'error'`로 돌려준다. 엔진은 **던지지 않는다**.
+- 구현 모양(Drizzle): `tx.rollback()`은 `TransactionRollbackError`를 던지고 그 예외가 `db.transaction(…)` 밖으로 나온다. 그래서 `before`·`after`·`digestMatch`는 클로저 **밖** 변수에 담고, 바깥 `try/catch`에서 `TransactionRollbackError`면 `mismatch`, 그 밖의 예외면 `error`(`message` = `String(e.message ?? e)`)로 나눈다.
 - 입력은 **이미 `parseBackup`을 통과한 파일**이다(VV4가 부른다). 엔진은 파싱하지 않는다.
 
 ### 검증 (`native/src/db/importBackup.test.ts` — better-sqlite3 메모리 DB에 같은 마이그레이션)
@@ -309,7 +326,8 @@ function importBackup(db: AppDb, file: BackupFile, now: Date): ImportOutcome
 - 두 번 가져와도 `readAllTables` 결과가 같다(`nativeImport` 행의 `importedAt`만 다르다 — 그 행을 빼고 비교).
 - 모든 `sessions` 행에서 승격 열 6개가 `body`의 같은 필드와 같다(`ended_at`은 진행 중이면 `NULL`).
 - `settings`에 `gistToken` 행이 든 파일 → 들어가지 않는다, 가져오기는 `ok: true`.
-- **되돌리기**: 먼저 픽스처 A를 넣고, 세트 무게가 `NaN`인 파일 B(JSON 왕복에서 `null`이 된다)를 가져오면 `ok: false`, `before.volumeKg`는 `NaN`·`after.volumeKg`는 수, 그리고 `readAllTables`가 **A 그대로**다.
+- **되돌리기**: 먼저 픽스처 A를 넣고, 세트 무게가 `NaN`인 파일 B(JSON 왕복에서 `null`이 된다)를 가져오면 `ok: false, reason: 'mismatch'`, `before.volumeKg`는 `NaN`·`after.volumeKg`는 수, 그리고 `readAllTables`가 **A 그대로**다.
+- **예외**: 픽스처 A를 넣은 뒤 ① `id`가 같은 세션 두 건을 담은 파일 ② `startedAt`이 없는 세션을 담은 파일을 가져오면 각각 `ok: false, reason: 'error'`이고 예외가 밖으로 나오지 않으며, `readAllTables`가 **A 그대로**다.
 - 인덱스가 있다: `PRAGMA index_list('sessions')`에 `sessions_date`·`sessions_day_date`.
 - **차등**(PLAN v2.0 11.1 ② — 코어가 한 벌이라 "웹 코어 vs 네이티브 코어"는 같은 파일이다. 남는 차이는 **저장소 왕복**이다): 픽스처를 가져와 다시 읽은 표와 원래 표에 대해 `suggestNextDay`·`progressionSuggestions`(마지막 끝난 세션)·`weeklyVolume`·`e1rm` 최댓값·`phaseReadiness`의 결과가 `toEqual`로 같다.
 - **속성**:
@@ -353,7 +371,9 @@ function findBackupGist(token: string): Promise<BackupGist>
 2. `findBackupGist(token)` → `readGist(token, id)` → `parseBackup(content)`. 문제가 있으면 문제 목록을 보이고 멈춘다(기기 그대로).
 3. **성공적으로 받은 뒤에만** 토큰을 Keychain에 저장한다(틀린 토큰이 저장되지 않게).
 4. 기기에 세션이 1건 이상이면 확인(`Alert.alert`, 두 버튼 — 아래 문구 C). 취소면 멈춘다.
-5. `importBackup(db, file, new Date())` → 결과 표.
+5. 단계 글을 `넣고 확인하는 중…`으로 바꾸고 **한 프레임 양보한 뒤**(`await new Promise(r => requestAnimationFrame(r))`) `importBackup(db, file, new Date())` → 결과. 동기 트랜잭션이 도는 동안 JS 스레드가 막혀 글이 바뀌지 못하므로 넣기·확인을 한 단계로 둔다.
+   - `ok: true` → 결과 표 · `reason: 'mismatch'` → 문구 D + 결과 표 · `reason: 'error'` → 문구 G(실패 배너, 결과 표 없음).
+6. 어느 갈래로 끝나든(던진 예외 포함 — `runImport` 전체를 `try/finally`) 도는 중 상태를 끈다. `가져오는 중…`에서 멈추지 않는다.
 
 **4) 화면** — 시트(`presentation: 'modal'` — iOS 페이지 시트, 끌어내려 닫힌다), 머리 제목 `Gist에서 가져오기`, 왼쪽 `닫기`.
 
@@ -361,15 +381,15 @@ function findBackupGist(token: string): Promise<BackupGist>
 |---|---|---|
 | 토큰 구역 | `Section` + `TextField` | 저장된 토큰이 없으면 입력칸(`secureTextEntry`, `textContentType="none"`, `autoComplete="off"`, `autoCorrect={false}`, `autoCapitalize="none"`, `spellCheck={false}`). 있으면 `토큰 저장됨` 한 줄 + `Button`(plain) `바꾸기`(누르면 입력칸이 나온다). **토큰 글자를 한 글자도 보이지 않는다**(스크린샷이 public 레포에 간다) |
 | 설명 | `Text` footnote secondary | 문구 A |
-| 주 동작 | `Button` primary, 너비 전체 | `가져오기` / 도는 중 `가져오는 중…`(+ `ActivityIndicator`, 단계 글 `백업 찾는 중 → 받는 중 → 넣는 중 → 확인 중`). 토큰이 없고 칸이 비면 꺼진 모양 |
-| 실패 | `Banner` error | `GistError.message` 그대로, 또는 `parseBackup` 문제 목록(최대 3줄 + `외 n건`) |
+| 주 동작 | `Button` primary, 너비 전체 | `가져오기` / 도는 중 `가져오는 중…`(+ `ActivityIndicator`, 단계 글 `백업 찾는 중 → 받는 중 → 넣고 확인하는 중`). 토큰이 없고 칸이 비면 꺼진 모양 |
+| 실패 | `Banner` error | `GistError.message` 그대로, 또는 `parseBackup` 문제 목록(최대 3줄 + `외 n건`), 또는 엔진 예외(문구 G — 아래에 `message`를 footnote로) |
 | 결과 | `Section` + `ListRow` 4줄 + 한 줄 | 줄마다 `이름 · 백업 값 · 기기 값 · ✓/✗` — 세션 · 세트 · 총 볼륨(kg, 소수 한 자리) · 식단 일수. 아래에 `내용 지문 일치 ✓`와 `웹 백업 <YYYY-MM-DD HH:mm> 기준`(`exportedAt`을 로컬 시각으로). 행 수 다섯 칸(루틴·종목·설정·종목 메모·식단 플랜)은 접어 둔다(`Collapsible` `테이블별 행 수`) |
 | 결과 아래 | `Button` secondary | `홈으로` (시트를 닫는다 — 홈이 포커스를 받으며 다시 읽는다) |
 | 되돌림 | `Banner` warning + 결과 표 | 문구 D. 다른 칸은 `✗`와 오류 색 |
 
 ### 검증
 - `src/core/v21.test.ts` describe `VV4` (fetch 모킹 — `gist.test.ts`의 방식): `/gists` 응답에 백업 파일을 가진 gist 둘(`updated_at` 다름)과 없는 것 하나 → 늦은 것의 id / 백업 파일 가진 것이 없음 → `kind: 'notFound'` / 401 → `auth` / 403 + `x-ratelimit-remaining: 0` → `rateLimit` / fetch 예외 → `network`. 요청 URL에 `per_page=100`, 헤더에 토큰.
-- `native/src/db/runImport.test.ts`(처리 함수는 화면 파일 밖 `native/src/db/runImport.ts`로 두고 의존성 — `findBackupGist`·`readGist`·토큰 저장·확인 묻기·DB — 을 인자로 받는다): 받기 실패(`auth`) → 토큰을 **저장하지 않는다** / `parseBackup` 문제 → DB 그대로·토큰 저장 안 함 / 받기 성공 → 토큰 저장 / 기기에 세션이 있고 확인에서 취소 → DB 그대로 / 잘린 응답(`truncated: true`)이면 `raw_url`의 전체 내용이 들어간다(`readGist`를 그대로 쓰는지 — R4).
+- `native/src/db/runImport.test.ts`(처리 함수는 화면 파일 밖 `native/src/db/runImport.ts`로 두고 의존성 — `findBackupGist`·`readGist`·토큰 저장·확인 묻기·DB — 을 인자로 받는다): 받기 실패(`auth`) → 토큰을 **저장하지 않는다** / `parseBackup` 문제 → DB 그대로·토큰 저장 안 함 / 받기 성공 → 토큰 저장 / 기기에 세션이 있고 확인에서 취소 → DB 그대로 / 엔진이 `reason: 'error'`를 돌려줌 → 실패 표시(문구 G), DB 그대로(토큰은 이미 저장됐어도 됨 — 받기에 성공한 토큰이다), 도는 중 상태가 꺼진다 / 엔진 자리의 가짜가 **던짐** → 같은 실패 표시, 도는 중 상태가 꺼진다 / 잘린 응답(`truncated: true`)이면 `raw_url`의 전체 내용이 들어간다(`readGist`를 그대로 쓰는지 — R4).
 - 스캔(`native/src/boundary.test.ts`에 더함): `native/src` 어디에도 `api.github.com` 문자열은 없다(코어 `gist.ts`만 부른다) · `secureToken.ts` 말고는 `expo-secure-store`를 import하지 않는다 · 토큰 값을 `console.`·화면 글로 보내는 곳이 없다(`getGistToken` 결과가 `Text` 자식으로 가지 않는다 — `import.tsx`에서 `token`이 JSX 안에 없음).
 - **실기기**: 사람이 토큰을 붙여 넣은 뒤(아래 "사람이 할 일"), Claude가 `가져오기` → 결과 표의 네 줄 `✓`와 `내용 지문 일치 ✓` 스크린샷 `import-done-<light|dark>.png`. **표의 세션 수가 웹 설정 → 기록 내보내기의 세션 수와 같다**(사람이 웹에서 보고 PR에 적는다).
 
@@ -387,7 +407,7 @@ function findBackupGist(token: string): Promise<BackupGist>
 
 ### 진단
 - 웹 다크에서 버튼 면·테두리가 바탕에 녹는다 — 원인은 토큰 값 셋(PLAN v2.0 7절). "라이트를 베껴 오고 다크를 나중에"가 그 결함을 만들었다.
-- 설치된 Astryx에 RN이 쓸 수 있는 값이 다 있다: 팔레트(`@astryxdesign/theme-neutral`의 `neutralPalettes`), 토큰 지도(`theme-neutral/src/neutralTheme.ts:90-236`), 간격·굵기·시간(`@astryxdesign/core/dist/theme/tokens.stylex.js`), iOS 글자 크기표(`core/dist/theme/uikitTypography.js` — 텍스트 스타일별·범주별 pt).
+- 설치된 Astryx에 RN이 쓸 수 있는 값이 다 있다: 팔레트(`@astryxdesign/theme-neutral`의 `neutralPalettes`), 토큰 지도(`neutralTheme` — 사람이 읽는 원문은 `theme-neutral/src/neutralTheme.ts:90-236`), 간격·굵기·시간(`@astryxdesign/core/dist/theme/tokens.stylex.js`), iOS 글자 크기표(`core/dist/theme/uikitTypography.js` — 텍스트 스타일별·범주별 pt).
 - 실측(이 PLAN을 쓰며 팔레트로 계산 — 대비는 WCAG 상대 휘도비, 반투명은 그 아래 면에 합성):
 
   | 쌍 | 라이트 | 다크(처방 적용) |
@@ -404,6 +424,7 @@ function findBackupGist(token: string): Promise<BackupGist>
 ### 설계
 
 **1) 생성 스크립트** — `scripts/native-tokens.mjs` (뿌리 — Astryx 패키지가 뿌리에 있다)
+- 읽는 법: 패키지 진입점을 **import한다** — `import { neutralPalettes, neutralTheme } from '@astryxdesign/theme-neutral'`(`dist/source.mjs`, 빌드된 JS). `src/*.ts`는 읽지 않는다(Node 24는 `node_modules` 안 `.ts`의 타입 제거를 거부한다). `tokens.stylex.js`(`spacingDefaults`·`fontWeightDefaults`·`durationDefaults` 등 `*Defaults` 객체)·`uikitTypography.js`(`typography`)도 `@astryxdesign/core/dist/theme/`의 JS를 import한다(설계자가 Node 24에서 import해 이름을 확인했다). 표의 `neutralTheme.ts:줄`은 사람이 확인할 원문 자리다.
 - 쓰는 파일: `native/src/ui/palette.generated.ts` — 맨 위 `// 생성물: node scripts/native-tokens.mjs — 손으로 고치지 않는다`.
 - 내보내는 것:
 
@@ -451,7 +472,7 @@ Astryx 부품을 쓰지 않는 이유(한 줄): Astryx는 StyleX·DOM 전용이�
 
 ### 범위 제외
 - 테마 선택(시스템·라이트·다크) — v2.3(PLAN v2.0 6절). v2.1은 폰 설정을 따른다.
-- Pretendard — 아래 "사람이 정할 것" 1의 답이 Pretendard면 v2.2 PLAN에서 바꾼다(그때까지 화면은 홈·가져오기 둘뿐이라 다시 재는 값이 작다).
+- Pretendard — **글꼴은 시스템으로 확정**했다(PLAN v2.0 13절 1번, 검토 1라운드). 다시 볼 일이 생기면 화면이 늘기 전인 v2.2 PLAN 첫머리에서.
 - 안드로이드 Material 갈래(PLAN v2.0 5절) — v2.5.
 
 ### README 반영
@@ -512,11 +533,15 @@ function homeModel(input: HomeInput): HomeModel | { empty: true }
 | F5 | 다시 가져오기(기기에 기록 있음) → 확인 → 결과 | 요소 목록 | v2.1 |
 
 ### 검증 (`native/src/home/homeModel.test.ts`)
-- **웹과 같은 답**: 같은 픽스처 표에 대해 `homeModel`의 카드 Day id·이유 줄·공백 줄·오래된 줄, 주간 도트, 근육 바, 디로드·Phase 0 수치, 배너 큐 순서가 **웹 홈이 부르는 코어 함수를 테스트 안에서 같은 인자로 직접 부른 값**과 같다. 픽스처 경우: 정상 주중 · 14일+ 공백(복귀 배너 — `applyReturn` true/false 둘 다, false면 이유 줄이 `returnChoiceReason`의 "안 함" 문구) · 디로드 도달 · Phase 0 달성 · 보상작용 연속 · 진행 중 세션이 있는 날(카드가 그 Day + `진행 중 · n분 · 완료 a/b세트`, `now`로 분 계산) · **대체 종목 세션과 어시스티드 종목**이 든 주(볼륨·증량 제안의 방향) · 식단 옛 플랜을 쓰는 날(훈련일 정규화).
+- **웹과 같은 답**: 같은 픽스처 표에 대해 `homeModel`의 카드 Day id·이유 줄·공백 줄·오래된 줄, 주간 도트, 근육 바, 디로드·Phase 0 수치, 배너 큐 순서가 **웹 홈이 부르는 코어 함수를 테스트 안에서 같은 인자로 직접 부른 값**과 같다. 픽스처 경우: 정상 주중 · 14일+ 공백(복귀 배너 — `applyReturn` true/false 둘 다, false면 이유 줄이 `returnChoiceReason`의 "안 함" 문구) · 디로드 도달 · Phase 0 달성 · 보상작용 연속 · 진행 중 세션이 있는 날(카드가 그 Day + `진행 중 · n분 · 완료 a/b세트`, `now`로 분 계산) · **대체 종목 세션과 어시스티드 종목**이 든 주(볼륨·증량 제안의 방향) · 식단 옛 플랜을 쓰는 날(훈련일 정규화) · **루틴은 있고 세션 0건**(웹을 막 시작한 날의 백업 — `lastSessionOf`가 `undefined`인 갈래: 카드 Day·이유 줄·도트·근육 바·디로드·Phase 0 수치가 코어 값과 같고, `progressions`가 `[]`이며 증량 제안 배너가 큐에 없다).
+- **손으로 적은 기대값**: 위 경우 중 **정상 주중**과 **14일+ 공백**(`applyReturn` true/false) 둘은 기대값을 함수 호출이 아니라 **리터럴**로 적는다 — 카드 Day id, 이유 줄 문자열, 공백 줄 문자열, 도트 배열, 배너 큐 id 순서. 구현자가 픽스처와 `docs/DESIGN.md` 4절 규칙으로 값을 정하고, 정한 근거를 테스트 주석 한 줄로 남긴다. (나머지 경우는 코어 함수를 다시 불러 만든 값과 비교해도 된다 — 인자를 잘못 옮긴 실수는 이 두 경우와 아래 조립식 스캔이 잡는다.)
 - 배너 글: 다섯 종류의 제목·설명이 웹 `BANNER_VIEW`와 같은 문자열이다(웹 파일에서 글 틀을 읽어 비교하지 않는다 — 기대 문자열을 테스트에 적고, 웹 쪽은 `src/lib/v21.test.ts` describe `VV6`에서 `HomeScreen.tsx` 소스에 같은 틀(`일 공백 — `, `디로드 권장 — 세트 50%, 무게 유지`, `조건을 모두 충족했어요`, `보상작용 반복 — 무게 하향 검토`, `증량 제안`)이 남아 있는지 본다 — 한쪽만 바뀌면 실패).
+- **조립식 스캔**(같은 describe `VV6`): 웹 `src/screens/HomeScreen.tsx`와 네이티브 `native/src/home/homeModel.ts`(glob `/native/src/home/homeModel.ts` `?raw`) **양쪽 모두에** 아래 식이 주석을 지운 글에 들어 있다 — 한쪽만 바뀌거나 처음부터 다르게 옮겼으면 실패. 공백은 하나로 줄여 비교한다.
+  `deload.due || deload.earlySignal` · `phase.allMet && phase.to !== null` · `watches.length > 0` · `progressions.length > 0` · `card.resuming` · `bannerWatches(compensationWatches(` · `buildScaleMap(exerciseSettings, routine.rules.weightIncrementKg)` · `hasReturnStep: Boolean(suggestion.returnStep)`.
+  (`backupStale` 식은 넣지 않는다 — 네이티브는 늘 `false`로 일부러 다르다.) 변수 이름이 웹과 다르면 이 스캔이 실패하므로, `homeModel`은 웹과 **같은 지역 변수 이름**(`deload`·`phase`·`watches`·`progressions`·`card`·`suggestion`·`exerciseSettings`·`routine`)을 쓴다.
 - `dismissed`에 든 배너는 큐에 없다 · `backupStale`이 늘 거짓이라 `backup`이 큐에 없다 · 모델의 배너 `actions`에 `'dismiss'`·`'returnChoice'` 말고는 없다.
 - 루틴 없는 표 → `{ empty: true }`.
-- **속성**: 세션 배열 순서를 섞어도 `homeModel` 결과가 같다(Dexie가 uuid 순으로 주던 것과 기본키 순이 같다는 가정에 기대지 않는다).
+- **속성**: 세션 배열 순서를 섞어도 `homeModel` 결과가 같다(Dexie가 uuid 순으로 주던 것과 기본키 순이 같다는 가정에 기대지 않는다). **생성기는 세션마다 `startedAt`을 다르게 만든다** — 동점의 순서 의존은 지금 웹 동작이고 이번 범위 밖이다(VV1 "정렬 동점" 표).
 - 스캔: `native/src/home/**`·`native/src/app/**`가 `@core`의 판정 함수를 부르되 같은 이름의 함수를 정의하지 않는다(VV2의 `quality-scan` 두 번째 묶음이 막는다 — 결함 복원으로 확인).
 
 ### 범위 제외
@@ -526,6 +551,30 @@ function homeModel(input: HomeInput): HomeModel | { empty: true }
 
 ### README 반영
 - `### 네이티브 앱 (v2.1~, 전환 중)`에 한 줄: **전환 전까지 네이티브 앱은 웹 기록의 읽기 전용 사본이다.** 홈은 웹과 같은 코어 함수로 같은 답을 보이되 기록을 만들거나 바꾸지 않는다. 세션 기록은 v2.2부터다.
+
+---
+
+## VV7. 규칙 문서 사실 맞추기 (규칙 정비자 — `agents/RULES-KEEPER.md`)
+
+### 진단
+- VV1이 `Astryx 뒷걸음` 검사를 `코어 경계`로 바꾸면, 그 검사를 가리키는 규칙 글이 사실과 어긋난다: `CLAUDE.md` "명령"(검사 목록) · `CLAUDE.md` "문서"의 "(CI가 막는다)" · `agents/README.md:148` 표 줄 · `agents/REVIEWER.md:16` · `agents/IMPLEMENTER.md:36`의 `astryx-inventory --check` · `agents/RULES-KEEPER.md:40`의 검사 목록.
+- 이 파일들은 규칙 정비자 몫이고(`RULES-KEEPER.md` 첫 줄) REVIEW.md 3절 사람 필요 경로다. 특히 "(CI가 막는다)"를 고치는 것은 글 맞추기가 아니라 **웹 화면의 Astryx 우선 강제를 푸는 규칙 변경**이다 — 구현자 PR에 섞지 않는다.
+
+### 설계
+- 규칙 정비자가 **PR R**(문서만)로 낸다. 바꿀 사실(글은 규칙 정비자가 정한다):
+  - 검사 목록의 `Astryx 뒷걸음` → `코어 경계`(`node scripts/core-boundary.mjs --check` — `src/core`가 react·expo·DB·store·브라우저 전역을 쓰지 않는다).
+  - 웹 화면(`src/screens`·`src/components`·`src/ax`)의 Astryx 우선은 **규칙으로는 남고 CI가 막지 않는다**(v2.1부터, 웹은 전환과 함께 내린다). 네이티브 화면의 값 규칙은 VV5의 스캔이 막는다.
+- 지휘자는 PR 1을 올릴 때 이 작업을 규칙 정비자에게 같이 맡긴다. **머지 순서: PR 1 → PR R**(PR R이 먼저 들어가면 없는 검사를 가리킨다).
+
+### 검증
+- `grep -rn "Astryx 뒷걸음\|astryx-inventory.mjs --check" CLAUDE.md agents/` → PR R 뒤 0줄(출력 복사).
+- `npm run check -- --fast` 통과(문서만 바꿨으므로 같은 결과).
+
+### 범위 제외
+- `docs/DESIGN.md` 9절, `docs/ASTRYX-INVENTORY.md` — 웹과 함께 v2.5에.
+
+### README 반영
+- 없음.
 
 ---
 
@@ -559,7 +608,7 @@ function homeModel(input: HomeInput): HomeModel | { empty: true }
 | 토큰 | 네이티브 Keychain(`gistToken`). 웹 localStorage의 토큰은 그대로 |
 
 **전환 절차** (v2.2가 끝나 네이티브에서 세션을 기록할 수 있게 된 날 — "바로 전환"):
-1. 웹 설정 → Gist 백업 → **지금 올리기**(식단만 고친 뒤 자동 업로드 전에 넘어가지 않게).
+1. 웹 설정 → Gist 백업 → **지금 백업**(식단만 고친 뒤 자동 업로드 전에 넘어가지 않게).
 2. 네이티브 → 가져오기 → 결과 표 네 줄 ✓ + 지문 ✓. 표의 세션 수를 웹 설정 → 기록 내보내기의 세션 수와 맞춰 본다.
 3. 그날부터 **웹에서 기록하지 않는다.** 웹은 원천의 자리를 잃고, 네이티브가 원천이다.
 4. **v2.2 범위**(이 PLAN이 미리 적어 두는 것): 네이티브가 **같은 Gist에 백업을 올린다**(같은 `createBackup` 형식 — 웹 `gistSync`의 지문 비교·디바운스 규칙을 네이티브 저장소 위에서) · 웹은 쓰기를 멈춘다(웹 Gist 자동 업로드를 끄는 한 줄 배포 또는 웹을 내림 — v2.2 PLAN이 정한다. 웹이 전환 뒤에 한 번이라도 올리면 네이티브의 새 기록을 덮는다) · 전환 뒤에는 네이티브의 가져오기를 **덮어쓰기 경고**가 있는 복원으로 바꾼다.
@@ -590,20 +639,31 @@ function homeModel(input: HomeInput): HomeModel | { empty: true }
 
 ## 구현 순서와 검증
 
-**PR 1: VV1 → 기록·버전.** **PR 2: VV2 → VV3 → VV5 → VV4 → VV6 → 화면 검증 → 기록·버전.** (PR 2는 PR 1이 머지된 `main`에서 새 브랜치로.)
+**PR 1: VV1 → 기록·버전.** **PR R: VV7**(규칙 정비자, PR 1 다음에 머지). **PR 2: VV2 → VV3 → VV5 → VV4 → VV6 → 화면 검증 → 기록·버전.** (PR 2는 PR 1이 머지된 `main`에서 새 브랜치로.)
 VV5를 VV4보다 먼저 하는 이유: 가져오기 화면이 `ui` 부품을 쓴다. VV3를 VV4보다 먼저 하는 이유: 화면이 엔진을 부른다.
-커밋 수: **PR 1 = 2**(VV1 · 기록·버전), **PR 2 = 7**(VV2 · VV3 · VV5 · VV4 · VV6 · 화면 검증 · 기록·버전). 작업끼리 한 커밋에 섞지 않는다. 개수는 `git log --oneline main..HEAD` 출력을 복사한다.
+커밋 수: **PR 1 = 2**(VV1 · 기록·버전), **PR R = 1**(VV7), **PR 2 = 7**(VV2 · VV3 · VV5 · VV4 · VV6 · 화면 검증 · 기록·버전). 작업끼리 한 커밋에 섞지 않는다. 개수는 `git log --oneline main..HEAD` 출력을 복사한다.
+
+**사람 필요 경로**(`REVIEW.md` 3절) — 리뷰어는 아래 PR을 통과시키지 않고 **사람 필요**로 올린다. 이 설계가 미리 알리는 것이고, 구현자는 이 때문에 멈추지 않는다(사람이 머지 때 본다):
+
+| PR | 걸리는 경로 | 무엇을 하나 |
+|---|---|---|
+| PR 1 | `src/db/**` | `seed.ts` 쪼개기, `validateRoutine`·`validateDietPlan` 옮기기, `getActiveRoutine`·`getOpenSession` 본문이 `readModel`을 부르게(스키마·`version(` 무변경) |
+| PR 1 | `lib/backup.ts` · `lib/gist.ts` · `lib/secrets.ts` | 순수한 절반을 `src/core`로(동작 무변경) |
+| PR 1 | `scripts/check.mjs` · `.github/workflows/ci.yml` | `Astryx 뒷걸음` → `코어 경계` |
+| PR R | `CLAUDE.md` · `agents/**` | VV7 |
+| PR 2 | `scripts/check.mjs` · `.github/workflows/ci.yml` | 네이티브 설치·타입·테스트 단계 |
+| PR 2 | 가져오기(`native/src/db/importBackup.ts`·`runImport.ts`)·비밀값(`native/src/platform/secureToken.ts`) | 표의 경로 이름은 아니지만 같은 이유("기록이 사라지는 길", "유출")라 같이 올린다 |
 
 관례:
-- `npm run check`(마무리 — PR 2부터 `네이티브 타입`·`네이티브 테스트` 포함), 작업 중에는 `npm run check -- --fast`와 관련 테스트만(`npx vitest run src/lib/v21.test.ts src/lib/properties.test.ts scripts/core-boundary.test.mjs`, `npm --prefix native test -- <파일>`). `tsc`를 직접 부르지 않는다(네이티브는 `npm --prefix native run typecheck`).
+- `npm run check`(마무리 — PR 2부터 `네이티브 타입`·`네이티브 테스트` 포함), 작업 중에는 `npm run check -- --fast`와 관련 테스트만(`npx vitest run src/lib/v21.test.ts src/lib/properties.test.ts scripts/core-boundary.test.mjs scripts/vv1-paths.test.mjs`, `npm --prefix native test -- <파일>`). `tsc`를 직접 부르지 않는다(네이티브는 `npm --prefix native run typecheck`).
 - 맥북 사양: Metro·Xcode 빌드가 떠 있을 때 `npm run check`를 같이 돌리지 않는다(PLAN v2.0 11.6).
 - 커밋 메시지는 `git commit -F - <<'MSG'`, 줄바꿈 LF(`grep -c $'\r' <파일>` 0).
-- **기존 테스트는 import 경로·glob 경로 말고 고치지 않는다.** 예외는 `scripts/check.test.mjs`의 `npm ci` 거르기 한 줄(VV2) 하나다. `scripts/mutation.test.mjs`에는 `src/core/x.ts` → 대상, `src/core/x.test.ts` → 대상 아님 두 경우를 **더하기만** 한다(VV1). 그 밖에서 깨지면 멈추고 보고한다.
+- **기존 테스트는 import 경로·glob 경로·테스트 본문의 경로 문자열 리터럴(VV1 4) 말고 고치지 않는다.** 예외는 `scripts/check.test.mjs`의 `npm ci` 거르기 한 줄(VV2) 하나다. `scripts/mutation.test.mjs`에는 `src/core/x.ts` → 대상, `src/core/x.test.ts` → 대상 아님 두 경우를 **더하기만** 한다(VV1). 그 밖에서 깨지면 멈추고 보고한다.
 - 테스트에 실제 토큰·네트워크가 없다(fetch 모킹). 사람의 실제 Gist는 실기기 확인에서만 쓰고 레포에 내용을 남기지 않는다.
 - **새 스캔 결함 복원 확인**(`cp` 백업 → 결함 되살림 → 실패 확인 → 되돌림 → `cmp`로 같음 확인). 최소:
   ① (VV1) `src/core/derive.ts`에 `import { db } from '../db'` 한 줄 → `core-boundary --check` 종료 코드 1
   ② (VV1) `src/core/dates.ts`에 `localStorage.getItem('x')` → 위반
-  ③ (VV1) `v1111.test.ts` glob을 옛 `/src/lib/exportMarkdown.ts`로 → 헛도는 glob 막이 실패
+  ③ (VV1) `v1111.test.ts` glob을 옛 `/src/lib/exportMarkdown.ts`로 → 헛도는 경로 막이(glob) 실패 · `v116.test.ts`의 `nn1Src("src/core/derive.ts")`를 옛 `"src/lib/derive.ts"`로 → 헛도는 경로 막이(리터럴) 실패
   ④ (VV1) `pickOpenSession`이 첫 번째 끝나지 않은 세션을 돌려주게 → 속성 "순서를 바꿔도 같다" 실패
   ⑤ (VV2) `native/src/app/index.tsx`에 `import … from '../../../src/core/dates'` → `boundary.test.ts` 실패
   ⑥ (VV3) `sessionRow`가 `endedAt`을 `''`로 넣게 → 승격 열 단언 실패
@@ -616,7 +676,10 @@ VV5를 VV4보다 먼저 하는 이유: 가져오기 화면이 `ui` 부품을 쓴
   ⑬ (VV5) `native/src/home/`의 한 파일에 `color: '#ffffff'` → 스캔 실패
   ⑭ (VV6) `homeModel`이 `bannerQueue`에 `backupStale: true`를 넘기게 → 단언 실패
   ⑮ (VV6) `native/src/home/homeModel.ts`에 `export function suggestNextDay() {}` → `quality-scan --ci` 중복 정의로 실패
-- **변이 테스트**: PR 1 — `npm run mutation`을 **새로 생기거나 내용이 바뀐 코어 파일만**: `backupFormat.ts` `seedData.ts` `secretKeys.ts` `readModel.ts` `bannerQueue.ts`(상수만이라 표만). 옮기기만 한 36개는 내용이 같아 돌리지 않는다(`git diff -M --diff-filter=R`로 이름만 바뀐 것). PR 2 — `recordTotals.ts`·`gist.ts`(`findBackupGist`)·`backupFormat.ts`(`sortTables`·`contentDigest`). 표를 DEV-RECORD에. `recordTotals.ts`의 살아남은 변이는 이유를 적는다(이 값이 "같다"의 근거다). `native/`는 stryker 밖이다(별도 패키지) — 결함 복원 ⑥~⑪이 그 자리를 맡는다.
+  ⑯ (VV3) `importBackup`의 바깥 `catch`에서 `error` 갈래를 지워 예외를 다시 던지게 → 예외 단언 ①② 실패
+  ⑰ (VV4) `runImport`의 `finally`를 지운다 → "던짐 → 도는 중 상태가 꺼진다" 단언 실패
+  ⑱ (VV6) `homeModel.ts`의 `deload.due || deload.earlySignal`을 `deload.due`로 → `v21.test.ts` describe `VV6`의 조립식 스캔 실패
+- **변이 테스트**: PR 1 — `npm run mutation`을 **새로 생기거나 내용이 바뀐 코어 파일만**: `backupFormat.ts` `seedData.ts` `secretKeys.ts` `readModel.ts` `bannerQueue.ts`(상수만이라 표만). 옮기기만 한 36개는 내용이 같아 돌리지 않는다(`git diff -M --diff-filter=R`로 이름만 바뀐 것). PR 2 — `recordTotals.ts`·`gist.ts`(`findBackupGist`)·`backupFormat.ts`(`sortTables`·`contentDigest`). 표를 DEV-RECORD에. `recordTotals.ts`의 살아남은 변이는 이유를 적는다(이 값이 "같다"의 근거다). `native/`는 stryker 밖이다(별도 패키지) — 결함 복원 ⑥~⑪·⑯·⑰이 그 자리를 맡는다.
 - **과거 판정 불변 확인 절**(DEV-RECORD): ① 이름 그대로 diff 명령의 출력이 비어 있다(복사) ② 골든 수정 없이 통과 ③ VV1 전후 테스트 수(복사) ④ VV1 전후 `first-load` 숫자(복사) ⑤ VV3 차등 테스트·VV6 "웹과 같은 답" 테스트 이름 ⑥ "과거 판정 불변" 표.
 - **실기기 확인**(verify-device 3절 형식으로 보고에 두 줄: `기기: …`, `사람이 볼 것: …`):
   ① VV2 — `이왜들` 아이콘, 자리표시 화면(F1)
@@ -638,35 +701,57 @@ VV5를 VV4보다 먼저 하는 이유: 가져오기 화면이 `ui` 부품을 쓴
 
 1. 아이폰 USB 연결·신뢰·개발자 모드, DeviceKit 에이전트 서명(verify-device 0절 — 이미 했으면 만료일만 확인).
 2. Xcode → Settings → Accounts의 Personal Team ID를 `native/.env.local`에 `APPLE_TEAM_ID=<값>`으로 적는다(커밋하지 않는다).
-3. 웹에서 Gist 백업이 켜져 있는지, 설정 → Gist 백업 → **지금 올리기**.
+3. 웹에서 Gist 백업이 켜져 있는지, 설정 → Gist 백업 → **지금 백업**.
 4. 폰에서 네이티브 가져오기 화면이 뜨면 **토큰을 사람이 붙여 넣는다**(Claude에게 토큰을 주지 않는다 — MCP로 입력하면 대화에 남는다). 이후 Keychain에 남아 Claude는 `가져오기`만 누른다.
 5. 웹 설정 → 기록 내보내기에 보이는 세션 수를 PR 댓글에 적는다(F2 대조).
 
 ---
 
-## 사람이 정할 것
+## 화면 문구 (확정 — 검토 1라운드. 사람이 마지막에 고칠 수 있다, 고쳐도 설계는 같다)
 
-**1. 글꼴** (PLAN v2.0 13절 1번 — 첫 화면을 짓는 지금 닫는 것이 싸다)
-
-| 안 | 내용 |
-|---|---|
-| A (추천) 시스템 | SF Pro + Apple SD Gothic Neo, Dynamic Type 그대로, 번들 0 — 이 PLAN 본문이 이 안이다 |
-| B Pretendard Variable | 한글 리듬이 요즘 앱 같다. 번들 1.5~2MB, Dynamic Type 배율을 손으로 맞춘다. v2.2 PLAN에서 바꾼다 |
-
-**2. 화면 문구** (원문 — 고쳐도 설계는 같다)
-
-| 키 | 자리 | 설계자 안 |
+| 키 | 자리 | 문구 |
 |---|---|---|
 | A | 가져오기 설명 | `웹 앱이 올려 둔 Gist 백업을 읽어 이 기기에 넣습니다. 토큰은 gist 권한만 있으면 되고, 이 기기의 키체인에만 저장됩니다.` |
 | B | 홈 카드 아래(시작 버튼 자리) | `기록은 아직 웹에서 합니다 — 여기서는 보기만 합니다` |
-| C | 다시 가져오기 확인 | 제목 `이 기기의 기록을 바꿀까요?` · 본문 `Gist 백업(<YYYY-MM-DD HH:mm>)으로 이 기기의 기록을 모두 바꿉니다.` · 버튼 `취소` / `바꾸기`(빨강) |
+| C | 다시 가져오기 확인 | 제목 `이 기기의 기록을 교체할까요?` · 본문 `Gist 백업(<YYYY-MM-DD HH:mm>)으로 이 기기의 기록을 모두 교체합니다.` · 버튼 `취소` / `교체`(빨강 — `destructive`) |
 | D | 검증 불일치 | `가져온 값이 백업과 달라 되돌렸습니다. 이 기기의 기록은 가져오기 전 그대로입니다.` |
-| E | 홈 큰 제목 | `이왜들` (대안: `오늘`) |
+| E | 홈 큰 제목 | `이왜들` |
 | F | 빈 기기 | `웹 앱의 기록을 가져오면 홈이 채워집니다.` |
+| G | 가져오기 중 오류(엔진 예외) | `가져오는 중 오류가 나 되돌렸습니다. 이 기기의 기록은 가져오기 전 그대로입니다.` + 아래 footnote에 오류 `message` |
+| — | 가져오기 단계 글 | `백업 찾는 중` → `받는 중` → `넣고 확인하는 중` |
 
-**3. 실기기 스크린샷에 실제 기록이 보인다** — public 레포에 커밋할까
+**스크린샷**: 실기기 스크린샷은 `docs/screenshots/v2.1/device/`에 **커밋한다**(지금까지의 관례). 보이는 것은 운동 기록 수치뿐이고 토큰은 화면에 없다(VV4 스캔·결함 복원 ⑪). 같은 화면을 여러 번 찍는 장면(`home-largetext` 등)은 개인 수치가 반복될 뿐이니, 장면을 고를 때 개인 수치가 적은 것(빈 기기·가져오기 결과)을 먼저 둔다.
 
-| 안 | 내용 |
-|---|---|
-| A (추천) 커밋한다 | 지금까지의 관례(`docs/screenshots/`)대로 증거가 레포에 남는다. 보이는 것은 루틴 이름·세션 수·부위별 세트 수·식단 단백질 같은 운동 기록뿐이고 토큰은 화면에 없다(VV4) |
-| B 커밋하지 않는다 | `.reports/device/`(이미 `.gitignore`)에만 두고 PR에는 "기기에서 확인함 + 요소 목록 출력"만 붙인다. 증거가 약해진다 |
+**글꼴**: 시스템(SF Pro + Apple SD Gothic Neo) — VV5 3).
+
+## 사람이 정할 것
+
+없음(검토 1라운드에서 세 항목 모두 설계자 추천안으로 확정 — 아래 기록).
+
+---
+
+## 검토 반영 기록
+
+### 1라운드 (`.reports/v2.1-review.md`, Claude Opus 5.5, 검토 커밋 `67cb468`)
+
+| 지적 | 판단 | 근거·반영 자리 |
+|---|---|---|
+| 고칠 것 1 — 테스트 본문의 경로 리터럴이 옮긴 뒤 헛돈다 | **반영** | `v116.test.ts:653`(`?? ""`)·`:906`·`:912-913` 확인, 경로 리터럴 114줄·23개 파일(설계자 grep, glob 줄 제외). VV1 진단·4)·6) 막이·검증·"이름 그대로" diff 패턴·관례의 예외·결함 복원 ③. **추가로 고친 것**: 막이가 `node:fs`를 쓰는데 `src` 아래 테스트는 `tsconfig.app.json`(node 타입 없음)이 빌드에서 타입 검사한다 — 막이를 `scripts/vv1-paths.test.mjs`로 옮겼다(1판의 `src/lib/v21.test.ts` 자리는 빌드를 깨뜨렸을 것이다) |
+| 고칠 것 2 — REVIEW.md 3절 경로 명시, 규칙 문서는 규칙 정비자 몫 | **반영** | `main`의 REVIEW.md 3절 표와 `RULES-KEEPER.md` 첫 줄 확인. "구현 순서"에 사람 필요 경로 표, VV1 7)을 VV7(규칙 정비자, PR R)로 뗐다. `check.mjs`·`ci.yml`은 지휘자 지시 ②가 정한 일이라 구현자 PR에 남기고 사람 필요로 표시했다 |
+| 고칠 것 3 — 가져오기 엔진의 예외 갈래 | **반영** | `backup.ts:221-232`(세션 검사가 `id`·`date`·`entries`뿐) 확인. `ImportOutcome`에 `reason: 'error'`, 엔진은 던지지 않음, `runImport`의 `finally`, 문구 G, 검증 두 줄씩, 결함 복원 ⑯·⑰ |
+| 고칠 것 4 — 순서 무관 속성과 동점 | **반영** | `db/index.ts:126-129`·`derive.ts:24-28`의 안정 정렬 확인. 생성기가 `startedAt`·`id`를 서로 다르게 만든다고 적고, VV1에 "정렬 동점" 기록 표 |
+| 고칠 것 5 — "웹과 같은 답"이 웹 조립에 묶이지 않는다 | **반영** | `HomeScreen.tsx:141-152·238-261·286-297`의 식 확인(`:152` `bannerWatches(compensationWatches(sessions))`). VV6에 조립식 스캔(양쪽 파일)과 손으로 적은 리터럴 두 경우, 결함 복원 ⑱. `backupStale` 식은 일부러 다르므로 뺐다 |
+| 고칠 것 6 — 루틴은 있고 세션 0건 | **반영** | `HomeScreen.tsx:132`·`:141` `last` 갈래 확인. VV6 픽스처에 더함 |
+| 1-1 웹 홈의 진행 중 세션은 store 경유 | **반영** | `HomeScreen.tsx:75`·`store/session.ts:87`. VV1 진단 한 줄 |
+| 1-4 v2.2 웹 한 줄 배포가 Astryx 검사 없이 나간다 | **반영** | VV1 범위 제외 한 줄 |
+| 1-4 PR 2를 둘로 나누기 | **기각** | 검토자도 "고칠 것은 아니다". 작업별 리뷰라 커밋 단위로 볼 수 있고, PR을 나누면 맥북에서 네이티브 빌드·기기 설치를 한 번 더 한다(사양 제약) |
+| 경미 1 — `지금 올리기` → `지금 백업` | **반영** | `GistPanel.tsx:208`. 전환 절차·사람이 할 일 |
+| 경미 2 — `before`도 정렬한 값에서 | **반영** | VV3 5) 1단계 `sortTables(toTables(file))` |
+| 경미 3 — `tx.rollback()`의 예외와 클로저 밖 변수 | **반영** | VV3 5) "구현 모양" |
+| 경미 4 — 동기 트랜잭션 중 단계 글이 안 바뀐다 | **반영** | 단계를 `넣고 확인하는 중` 하나로 합치고 한 프레임 양보(VV4 3) 5) |
+| 경미 5 — `node_modules` 안 `.ts`를 Node가 못 읽는다 | **반영** | 패키지 진입점(`dist/source.mjs`)이 `neutralPalettes`·`neutralTheme`을, `core/dist/theme/*.js`가 `*Defaults`·`typography`를 내보내는 것을 Node 24.22에서 import해 확인. VV5 1) |
+| 경미 6 — `mutation.mjs:63`의 경로 제한 | **반영** | `:8-9·20-21·63·68` 확인. VV1 4) |
+| 경미 7 — 받은 파일의 `gistId`로 찾은 gist 교차 확인 | **기각** | 선택 사항. 결과 표의 `웹 백업 <시각> 기준`과 사람이 맞춰 보는 세션 수(F2)가 같은 것을 이미 본다. 경고 문구·갈래를 하나 더 만들 만큼의 효과가 없다. 100개 제한은 DEV-RECORD 제약에 남긴다 |
+| 사람이 정할 것 1(글꼴) | **확정 A** | 검토자 동의 |
+| 사람이 정할 것 2(문구) | **확정** | 검토자 동의. 조건(선택) "C를 웹과 같은 `교체`로"를 반영했다 — `GistPanel.tsx:232·240`. E는 `이왜들`. 검토 반영으로 생긴 G와 단계 글은 설계자가 정했다 |
+| 사람이 정할 것 3(스크린샷) | **확정 A** | 검토자 동의. 메모(개인 수치 적은 장면 먼저)를 반영했다 |
