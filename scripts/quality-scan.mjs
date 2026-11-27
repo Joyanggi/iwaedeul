@@ -30,7 +30,7 @@ const NEUTRALIZE = [
 ];
 
 /** 줄 주석·블록 주석·문자열을 같은 길이의 공백으로 바꾼다(위치는 그대로). 대충이지만 이 검사에는 충분하다. */
-function stripComments(text) {
+export function stripComments(text) {
   return text.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|[^`\\])*`/g, (m) =>
     m.startsWith('/*') || m.startsWith('//') ? m.replace(/[^\n]/g, ' ') : m[0] + m.slice(1, -1).replace(/[^\n]/g, ' ') + m.slice(-1),
   );

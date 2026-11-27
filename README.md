@@ -2,7 +2,7 @@
 
 > 16개월간 기록이 없었던 것이 문제였다. 그래서 "기록하는 마찰"을 최소화하는 것만을 목표로 만든 1인용 운동 기록 PWA.
 
-`React 19` · `TypeScript` · `Vite` · `Dexie (IndexedDB)` · `zustand` · `recharts` · `vite-plugin-pwa` · `GitHub Pages`
+`TypeScript` · `Vitest (fast-check)` · `ESLint` · `Knip` · `StrykerJS` — 앱: 전환 중 (VV4)
 
 **[https://joyanggi.github.io/workout-tracker/](https://joyanggi.github.io/workout-tracker/)**
 
@@ -286,7 +286,7 @@ suggestNextDay(sessions, routine, today):
 "측면어깨 7/11의 남은 4세트"가 같은 무게로 취급됩니다. 그러면 D1 직후에 D2(광배 10세트)가
 아니라 D4(여러 부위를 조금씩)가 뽑히고, 주 2회 노출을 방어하려던 로직의 목적이 사라집니다.
 배수의 유효 구간은 (1.176, 1.892)로 좁게 결정되며 — 그 밖에서는 다른 케이스가 깨집니다 —
-경계에서 가장 먼 1.5를 씁니다. 이 부등식은 [테스트](src/lib/suggestNextDay.test.ts)로 고정돼 있습니다.
+경계에서 가장 먼 1.5를 씁니다. 이 부등식은 [테스트](src/core/suggestNextDay.test.ts)로 고정돼 있습니다.
 
 **"주요 부위"의 정의.** 회복 감쇠에 쓰이는 주요 부위는 *그 Day 총 세트의 25% 이상*을
 차지하는 부위입니다. 겹침을 느슨하게 잡으면 (예: 세트 수 3 이상) D1과 D2가 `팔`로 겹쳐서
@@ -305,52 +305,34 @@ suggestNextDay(sessions, routine, today):
 
 ## Tech Stack
 
-- 빌드: Vite, TypeScript
-- UI: React 19 (라우터 없음 — 탭 4개라 상태로 충분)
-- 상태: zustand (설정 · 진행 중 세션 · 휘발성 UI 상태만. 나머지는 `dexie-react-hooks` live query로 직접 읽음)
-- 저장: Dexie (IndexedDB, 스키마 v3) + localStorage (비밀값·휴식 타이머·백업 대기 플래그)
-- UI 부품: Astryx 0.7.13 (@astryxdesign/core, 베타 — 버전 고정. 모든 화면)
-- 차트: recharts (분석 탭 청크 — 미리 읽지 않는다)
-- PWA: vite-plugin-pwa (manifest + Workbox SW), iOS 스플래시 8종
-- 테스트: Vitest (알고리즘·파생 계산 단위 테스트, CI에서 배포 전 실행). 개수는 `npm test`가 말해줍니다
-- 검사: `npm run check` 하나가 CI와 같은 목록을 돕니다 — 흔적 검사(자체 스크립트), ESLint(React 훅·접근성), Knip(안 쓰는 파일·의존성), Astryx 뒷걸음 검사, 테스트(fast-check 속성 테스트 포함), 빌드. 변이 테스트(StrykerJS, `npm run mutation`)와 화면 검사(Playwright + axe-core, `scripts/ui-check.mjs`)는 로컬에서 돌리고, CodeQL·OSV-Scanner는 별도 워크플로로 돕니다
-- 배포: GitHub Actions → GitHub Pages
+- 언어: TypeScript
+- 테스트: Vitest + fast-check(속성 테스트). 개수는 `npm test`가 말해줍니다
+- 검사: `npm run check` 하나가 CI와 같은 목록을 돕니다 — 흔적 검사(자체 스크립트), 경계 검사(`src/core`가 순수한지), ESLint, Knip(안 쓰는 파일·의존성), 타입, 테스트. 변이 테스트(StrykerJS, `npm run mutation`)는 로컬에서 돌리고, CodeQL·OSV-Scanner는 별도 워크플로로 돕니다
+- 앱: 전환 중 — VV4
 
 ## 프로젝트 구조
 
 ```
 src/
-  lib/          파생 계산과 순수 로직 — 테스트가 붙는 곳
+  core/         판정·계산·타입·백업 형식·시드 상수 — 순수 TS. react·expo·DB를 import하지 않는다(경계 검사)
                 suggestNextDay · prefill · sessionOps · dashboard · analysis
                 exportMarkdown · backup · gist · dayChange · dates
                 phaseReadiness · pr · weightScale · substitute
                 compensationWatch · bGroupGuide
-  db/           Dexie 스키마 · 시드 주입 · 루틴 정합성 검증
-  store/        zustand (settings · 진행 중 세션 · 배너 dismiss)
-  screens/      탭 화면 + 세션/상세/요약
-  components/   운동 카드 · 스테퍼 · 바텀시트 · 차트 위젯
-  ax/           Astryx를 쓰는 한 곳 — 테마(`theme.ts`), 앱 뿌리, 띠, 시트, 이 앱만의 부품 CSS(`parts.css`), 레이어 순서(`layers.css`)
-  data/         routine-v2.4.json · exercises.json (교체 가능한 시드)
+  data/         시드 JSON (routine-v2.4.json · exercises.json · diet-plans.json)
+scripts/        검사·하네스 도구
 ```
 
-로직을 `lib/`의 순수 함수로 몰아두고 화면은 그것을 호출만 합니다. Day 제안, 증량 판정,
-수행 순서 규칙처럼 **틀리면 조용히 잘못된 기록이 쌓이는 것들**을 IndexedDB 없이 테스트할 수
+로직을 `core/`의 순수 함수로 몰아두고 화면은 그것을 호출만 합니다. Day 제안, 증량 판정,
+수행 순서 규칙처럼 **틀리면 조용히 잘못된 기록이 쌓이는 것들**을 DB 없이 테스트할 수
 있어야 했기 때문입니다.
 
 ## Getting Started
 
 ```bash
 npm install
-npm run dev
-```
-
-`http://localhost:5173/workout-tracker/` 로 접속합니다.
-(Pages 하위 경로와 맞추기 위해 `base`가 `/workout-tracker/`입니다)
-
-```bash
 npm test          # 전체 스위트
-npm run build
-npm run preview   # 서비스워커는 프로덕션 빌드에서만 동작합니다
+npm run check     # CI와 같은 검사 전부
 ```
 
 ## 배포

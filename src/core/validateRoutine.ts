@@ -1,0 +1,141 @@
+import type { Exercise, RoutineDay, RoutineTemplate } from './types'
+
+/**
+ * 시드 정합성 검사.
+ *
+ * muscleSets(Day 단위 집계)와 exercises[].muscle × sets(종목 단위)를 이중으로
+ * 들고 있으므로, 둘이 어긋나면 §4 제안 로직과 홈 대시보드가 서로 다른 숫자를
+ * 말하게 된다. 루틴 JSON을 손으로 고치는 경로(설정 → 루틴 가져오기)가 있으니
+ * 로드 시점에 반드시 검사한다.
+ */
+export function validateRoutine(routine: RoutineTemplate, catalog: Exercise[]): string[] {
+  const problems: string[] = []
+  const catalogIds = new Set(catalog.map((e) => e.id))
+  const targetKeys = new Set(Object.keys(routine.muscleTargets))
+
+  const checkDay = (day: RoutineDay, label: string) => {
+    // 1. 종목이 카탈로그에 있는가
+    for (const ex of day.exercises) {
+      if (!catalogIds.has(ex.exerciseId)) {
+        problems.push(`${label}: 카탈로그에 없는 종목 "${ex.exerciseId}"`)
+      }
+      if (!targetKeys.has(ex.muscle)) {
+        problems.push(`${label}/${ex.exerciseId}: muscleTargets에 없는 부위 "${ex.muscle}"`)
+      }
+      if (ex.repMin > ex.repMax) {
+        problems.push(`${label}/${ex.exerciseId}: repMin(${ex.repMin}) > repMax(${ex.repMax})`)
+      }
+    }
+
+    // 2. plannedOrder 중복
+    const orders = day.exercises.map((e) => e.plannedOrder)
+    if (new Set(orders).size !== orders.length) {
+      problems.push(`${label}: plannedOrder 중복`)
+    }
+
+    // 3. (recordKey 충돌) 같은 Day 안에서 같은 종목이 두 번 나오면
+    //    recordKey가 겹쳐 기록이 섞인다.
+    const exIds = day.exercises.map((e) => e.exerciseId)
+    if (new Set(exIds).size !== exIds.length) {
+      problems.push(`${label}: 같은 Day에 동일 종목 중복 — recordKey 충돌`)
+    }
+
+    // 4. muscleSets == Σ(종목별 sets)
+    const derived: Record<string, number> = {}
+    for (const ex of day.exercises) {
+      derived[ex.muscle] = (derived[ex.muscle] ?? 0) + ex.sets
+    }
+    const keys = new Set([...Object.keys(derived), ...Object.keys(day.muscleSets)])
+    for (const k of keys) {
+      const a = derived[k] ?? 0
+      const b = day.muscleSets[k] ?? 0
+      if (a !== b) {
+        problems.push(`${label}: muscleSets["${k}"]=${b} 이지만 종목 합은 ${a}`)
+      }
+    }
+  }
+
+  // 8. 정규 Day가 하나도 없으면 제안·대시보드가 days[0]에서 터진다 (NN1)
+  if (routine.days.length === 0) problems.push('정규 Day가 없음')
+
+  // 9. Day id는 days·fallbackDays·retiredDays 전체에서 겹치지 않는다 (NN1)
+  const everyDay = [...routine.days, ...routine.fallbackDays, ...(routine.retiredDays ?? [])]
+  const seenDayIds = new Set<string>()
+  for (const d of everyDay) {
+    if (seenDayIds.has(d.id)) problems.push(`Day id 중복 "${d.id}"`)
+    seenDayIds.add(d.id)
+  }
+
+  // 10. 보관 종목은 같은 Day의 현재 종목과 겹치지 않는다 (NN1)
+  for (const d of everyDay) {
+    const current = new Set(d.exercises.map((e) => e.exerciseId))
+    for (const r of d.retiredExercises ?? []) {
+      if (current.has(r.exerciseId)) {
+        problems.push(`${d.name}: 보관 종목 "${r.exerciseId}"가 현재 종목과 겹침`)
+      }
+    }
+  }
+
+  routine.days.forEach((d) => checkDay(d, `days/${d.id}`))
+  routine.fallbackDays.forEach((d) => checkDay(d, `fallbackDays/${d.id}`))
+
+  // fallback은 recordKey를 정규 Day에 얹는다 (§8). 대응 정규 Day에 같은 종목이
+  // 없으면 프리필·증량 판단이 존재하지 않는 기록 라인을 가리키게 된다.
+  for (const fb of routine.fallbackDays) {
+    if (!fb.recordDayId) {
+      problems.push(`fallbackDays/${fb.id}: recordDayId 없음 — 기록을 얹을 정규 Day 미지정`)
+      continue
+    }
+    const target = routine.days.find((d) => d.id === fb.recordDayId)
+    if (!target) {
+      problems.push(`fallbackDays/${fb.id}: recordDayId "${fb.recordDayId}"에 해당하는 정규 Day 없음`)
+      continue
+    }
+    for (const ex of fb.exercises) {
+      const twin = target.exercises.find((e) => e.exerciseId === ex.exerciseId)
+      if (!twin) {
+        problems.push(
+          `fallbackDays/${fb.id}/${ex.exerciseId}: 정규 Day ${target.id}에 같은 종목이 없음`,
+        )
+      } else if (twin.repMax !== ex.repMax || twin.repMin !== ex.repMin) {
+        // 같은 기록 라인을 공유하는데 목표 반복수가 다르면 증량 판단 기준이 흔들린다
+        problems.push(
+          `fallbackDays/${fb.id}/${ex.exerciseId}: 반복수 범위가 정규 Day와 다름 (${ex.repMin}~${ex.repMax} vs ${twin.repMin}~${twin.repMax})`,
+        )
+      }
+    }
+  }
+
+  // 5. 하체 최소 보장 규칙이 가리키는 Day가 실제로 존재하는가 (§4 규칙 2)
+  if (!routine.days.some((d) => d.id === routine.rules.lowerBodyDayId)) {
+    problems.push(`rules.lowerBodyDayId "${routine.rules.lowerBodyDayId}"에 해당하는 Day가 없음`)
+  }
+
+  // 6. 복귀 프로토콜은 gapWeeksMin 오름차순이어야 한다 (가장 큰 구간 우선 매칭 로직 전제)
+  const gaps = routine.rules.returnProtocol.map((r) => r.gapWeeksMin)
+  if (gaps.some((g, i) => i > 0 && g <= gaps[i - 1])) {
+    problems.push('rules.returnProtocol의 gapWeeksMin이 오름차순이 아님')
+  }
+
+  // 7. 복귀 무게 규칙 (KK1). 형식과 서로 모순되는 조합만 막는다 — 14/29/56 같은 값은 루틴 데이터의 몫이다
+  const steps = routine.rules.returnProtocol
+  const withDays = steps.filter((r) => r.gapDaysMin !== undefined).length
+  if (withDays !== 0 && withDays !== steps.length) {
+    problems.push('rules.returnProtocol의 gapDaysMin은 모든 단계에 있거나 모두 없어야 함')
+  } else if (withDays > 0) {
+    const days = steps.map((r) => r.gapDaysMin as number)
+    if (days.some((d, i) => i > 0 && d <= days[i - 1])) {
+      problems.push('rules.returnProtocol의 gapDaysMin이 오름차순이 아님')
+    }
+  }
+  for (const [i, step] of steps.entries()) {
+    if ((step.weightRule === 'keep' || step.weightRule === 'oneStep') && step.weightPct !== 0) {
+      problems.push(`rules.returnProtocol[${i}]: weightRule ${step.weightRule}은 weightPct가 0이어야 함`)
+    }
+    if (step.weightRule === 'pctSnapDown' && !(step.weightPct < 0)) {
+      problems.push(`rules.returnProtocol[${i}]: weightRule pctSnapDown은 weightPct가 음수여야 함`)
+    }
+  }
+
+  return problems
+}

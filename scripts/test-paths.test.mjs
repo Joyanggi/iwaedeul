@@ -156,15 +156,15 @@ describe('헛도는 경로 막이', () => {
   it('검사가 실제로 죽은 glob·리터럴을 잡는다 (헛돌지 않게)', () => {
     // 이 파일 자신을 glob으로 읽는 것으로 오해하지 않게, 호출 글자를 쪼개 만든다
     const G = 'import.meta' + '.glob('
-    expect(globPatterns(`x = ${G}['/src/lib/*.ts', '!/src/lib/*.test.ts'], {})`)).toEqual([
-      '/src/lib/*.ts',
-      '!/src/lib/*.test.ts',
+    expect(globPatterns(`x = ${G}['/src/core/*.ts', '!/src/core/*.test.ts'], {})`)).toEqual([
+      '/src/core/*.ts',
+      '!/src/core/*.test.ts',
     ])
     expect(globPatterns(`${G}"/src/screens/*.tsx", { query: '?raw' })`)).toEqual(['/src/screens/*.tsx'])
-    expect(matches(join(ROOT, 'src/lib/x.test.ts'), '/src/screens/*.tsx')).toBe(false)
-    expect(matches(join(ROOT, 'src/lib/x.test.ts'), '/src/lib/**/*.{ts,tsx}')).toBe(true)
-    expect(matches(join(ROOT, 'src/lib/x.test.ts'), '!/src/lib/**/*.test.ts')).toBe(true)
-    const tpl = '`' + '/src/lib/${f}.ts' + '`'
+    expect(matches(join(ROOT, 'src/core/x.test.ts'), '/src/screens/*.tsx')).toBe(false)
+    expect(matches(join(ROOT, 'src/core/x.test.ts'), '/src/core/**/*.{ts,tsx}')).toBe(true)
+    expect(matches(join(ROOT, 'src/core/x.test.ts'), '!/src/core/**/*.test.ts')).toBe(true)
+    const tpl = '`' + '/src/core/${f}.ts' + '`'
     expect(pathLiterals(`a('src/screens/HomeScreen.tsx'); b(${tpl}); c("/src/**/*.tsx")`)).toEqual({
       real: ['src/screens/HomeScreen.tsx'],
       template: 1,

@@ -17,6 +17,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** CI와 같은 목록. 여기를 고치면 ci.yml도 같이 고친다(scripts/check.test.mjs가 둘이 같은지 본다). */
 export const STEPS = [
   { name: '흔적 검사', cmd: 'node scripts/quality-scan.mjs --ci' },
+  { name: '경계', cmd: 'node scripts/boundary.mjs --check' },
   { name: '린트', cmd: 'npm run lint' },
   { name: '안 쓰는 파일·의존성', cmd: 'npm run knip' },
   { name: '타입', cmd: 'npm run typecheck' },

@@ -5,7 +5,7 @@
   "reporters": ["clear-text", "json"],
   "jsonReporter": { "fileName": "reports/mutation/mutation.json" },
   "clearTextReporter": { "logTests": false, "reportTests": false },
-  "mutate": ["src/lib/**/*.ts", "!src/lib/**/*.test.ts"],
+  "mutate": ["src/core/**/*.ts", "!src/core/**/*.test.ts"],
   "coverageAnalysis": "perTest",
   "tempDirName": ".stryker-tmp"
 }

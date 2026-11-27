@@ -196,3 +196,90 @@ PLAN 표가 정하지 않은 자리를 규칙의 문구대로 처리했다. 규�
 - `README.md` "Tech Stack"·"프로젝트 구조"·"Getting Started"의 웹 서술은 그대로(VV4 "README 반영"이 고친다. PLAN VV2 "README 반영"의 일곱 줄만 했다).
 - `docs/DESIGN.md` 9절(Astryx 우선)·`CLAUDE.md`·`agents/` 문서의 웹 서술 — VV9(규칙 정비).
 - `WEB_FINAL` 태그 — 이 레포에 아직 없다(지휘자의 PR 1 머지 직전 확인 항목).
+
+## VV3. 코어 이사와 경계 검사
+
+배포 영향: **웹(Pages)은 바뀌지 않는다.** 파일 이사와 검사 도구뿐이다.
+
+### 범위
+
+| 항목 | 내용 |
+|---|---|
+| 커밋 | 이 커밋(VV3). `git rev-list --count main..HEAD` → 3 (VV1 · VV2 · VV3) |
+| 이사 (`git mv`) | `src/lib/*` 95개(테스트 포함) · `src/types.ts` · `src/db/{seed,validateRoutine,validateDietPlan}.ts` → `src/core/`. `src/lib`·`src/db`는 없어졌다. 다시-내보내기 없음. 내용 변경은 import 경로·glob·경로 리터럴뿐 |
+| 새 파일 | `scripts/boundary.mjs` · `scripts/boundary.test.mjs`(31개) |
+| 고친 설정·도구 | `scripts/check.mjs` `STEPS`에 `경계`(흔적 검사 다음) · `.github/workflows/ci.yml` 같은 자리 · `scripts/mutation.mjs`(`isTarget`·`git diff` 경로·안내) · `stryker.config.json` · `knip.json`(`src/core/*.ts`만 — `src/db`는 없다) · `scripts/quality-allow.json` · `eslint-suppressions.json` 키 5개 · `scripts/quality-scan.mjs`(`stripComments`에 `export`만) · `README.md` |
+| 테스트 | 이사분 61 파일 / 1318 테스트 — VV3 전후 같다. 새 `boundary.test.mjs` 1 파일 / 31 테스트가 더해져 `npm test` → **62 파일 / 1349 테스트** |
+| 사람 필요 경로 | `.github/workflows/ci.yml`(경계 단계) · `scripts/check.mjs`(같은 단계) · `src/db/**`(남은 셋을 코어로) · `lib/backup.ts`·`gist*`·`secrets.ts`(경로만 옮김, 동작 무변경) — PLAN이 정한 그대로 |
+
+### 1) 경계 검사
+
+`checkCore(files)` — 코어 파일의 import 지정자(`import … from` · `export … from` · `import()` · `require()` · 부수효과 `import 'x'`)는 상대 경로이고 풀면 `src/core/` 안, 또는 `src/data/`의 `.json`만. 테스트는 `vitest`·`fast-check` 추가. 테스트 아닌 파일은 금지 전역(`window` `document` `navigator` `localStorage` `sessionStorage` `indexedDB` `AudioContext` `webkitAudioContext` `URL.createObjectURL` `import.meta` `__APP_VERSION__`)도 막는다. 지정자는 원문, 전역은 `stripComments`한 글에서 찾는다.
+
+표 밖 판단: 정규식 리터럴 안의 글(`v113.test.ts:1043`의 `/… from '\.\/derive'/`)이 import로 읽혀 거짓 위반이 났다. 이스케이프(`\`)가 든 지정자는 실제 import가 아니므로 건너뛴다(`boundary.mjs`에 주석). 코어 파일 내용은 고치지 않았다.
+
+```
+$ node scripts/boundary.mjs --check; echo $?
+경계 검사: src/core 99개 파일, 위반 0
+0
+```
+
+| PLAN 검증 항목 | 테스트 (`scripts/boundary.test.mjs`) |
+|---|---|
+| `react`·`../db/schema`·`../platform/secureToken`·`expo-sqlite`·`dexie`·`@astryxdesign/core` 위반 / `./derive`·`../data/exercises.json` 통과 / `../data/x.ts` 위반 | `boundary: import 허용 목록 › '%s' → 위반 %i건` (9줄) |
+| 테스트의 `vitest`·`fast-check` 통과 / 테스트 아닌 파일의 `vitest` 위반 | `테스트의 'vitest'·'fast-check'는 통과, …` |
+| `await import('react-native')` 위반 | `export … from · await import('…') · require('…') · 부수효과 import 전부 본다` |
+| `window.addEventListener` 위반 | `window.addEventListener는 위반` |
+| 주석 안 "window"·문자열 `'document'` 통과 | `주석 안 "window"와 문자열 'document'는 통과` |
+| `typeof document` 위반 | `typeof document는 위반` |
+| `import.meta.glob` 위반(테스트 아닌 파일) | `import.meta.glob은 테스트 아닌 파일에서 위반, 테스트에서는 통과` |
+| 지금 `src/core` 위반 0 | `boundary: 지금 레포 › src/core 전체에 위반 0 — 종료 코드 0` |
+| `check.test.mjs` ci.yml = STEPS | 기존 `ci.yml의 run 단계가 STEPS와 같은 명령, 같은 순서다` 통과 |
+| `fetch`·`crypto`·`Intl`·`structuredClone` 안 막음 (설계) | `fetch·crypto·Intl·structuredClone은 막지 않는다` |
+
+### 2) 과거 판정 불변 확인 — 이름 그대로
+
+`C` 대신 스테이징한 VV3 변경(`git diff -M --cached HEAD`)으로 PLAN 명령을 돌렸다(새 `boundary.test.mjs`는 옮긴 테스트가 아니라 뺐다).
+
+① `diff <(d - cat) <(d + cat)` 출력 — 정렬 순서만 맞춘 기대 목록 한 줄과 머리 주석 한 줄:
+```
+33a34  > expect(norm(hits)).toEqual(["src/~/derive.ts", "src/~/routineEdit.ts", "src/~/types.ts", "src/~/validateRoutine.ts"])
+35d35  < expect(norm(hits)).toEqual(["src/~/validateRoutine.ts", "src/~/derive.ts", "src/~/routineEdit.ts", "src/~/types.ts"])
+78c78  < // scripts/mutation.mjs — 변이 테스트 대상을 src/lib의 코드로만 …   > … src/core의 코드로만 …
+```
+② `diff <(d - srt) <(d + srt)` 출력 — 정렬만 바뀐 `v116.test.ts:902`는 사라지고 **머리 주석 한 줄(`scripts/mutation.test.mjs:1`)만 남는다.** PLAN은 ②가 비어야 한다고 했으나, 이 줄은 코드가 아니라 경로 글(`src/lib의`)이고 정규화 규칙(`src/lib/`)이 끝의 `/` 없는 글을 못 본다. 판정 코드의 변화는 아니다(리뷰어가 볼 것).
+
+①에 나온 줄: `v116.test.ts:902` (`src/db/validateRoutine.ts`가 맨 앞 → 정렬하면 맨 뒤) · `mutation.test.mjs:1`(머리 주석).
+
+- 전후 테스트 수: 이사분 61/1318 → 61/1318 (새 `boundary.test.mjs` 31개 더해 62/1349).
+- 골든 일곱(VV2 3)): import 줄 말고 한 글자도 안 고쳤고 통과(`npm test` 통과).
+- 헛도는 경로 막이 통과, 건너뛴 수 단언을 다시 센 값: `SKIPPED_TEMPLATE` 0 · `SKIPPED_GLOB_CHARS` 4 · 허용 목록 0 — **VV2 고정값과 같다**(상수를 안 고쳤고 단언이 통과).
+- `test-paths.test.mjs`(수정표 밖, 기계적 결과): 막이가 실제 파일을 보는 단위 테스트 `검사가 실제로 죽은 glob·리터럴을 잡는다`의 `src/lib/x.test.ts`·`/src/lib/**` 예시가 옮긴 뒤엔 `src/core`여야 한다.
+- `git ls-files src | sed 's#/[^/]*$##' | sort -u` → `src` · `src/core` · `src/data`.
+
+### 3) 결함 복원
+
+| # | 되살린 결함 | 실패한 것 | 원상복구 |
+|---|---|---|---|
+| ① | `src/core/derive.ts` 끝에 `import '../db/schema'` | `boundary --check` 종료 코드 **1**, `src/core/derive.ts:265 — 허용되지 않는 import '../db/schema'` | `cmp` 같음 |
+| ② | `src/core/dates.ts` 끝에 `localStorage.getItem('x')` | `src/core/dates.ts:194 — 금지된 전역 localStorage`, 종료 코드 1 | `cmp` 같음 |
+| ③a | `v1111.test.ts:134` glob을 `/src/lib/exportMarkdown.ts`로 | `test-paths` 막이(glob) 실패 — `src/core/v1111.test.ts: /src/lib/exportMarkdown.ts` (리터럴 막이도 같이) | `cmp` 같음 |
+| ③b | `v21.test.ts`에 `"src/screens/HomeScreen.tsx"` 리터럴 | 막이(리터럴) 실패 — `src/core/v21.test.ts: src/screens/HomeScreen.tsx` | `cmp` 같음 |
+| ④ | `mutation.mjs` `isTarget`을 `src/lib`로 되돌림 | `mutation.test.mjs` 1건 실패(`src/core/setPlan.ts → true`) | `cmp` 같음 |
+
+복원 뒤 `git status`에 의도 밖 변경 없음.
+
+### 4) 변이 테스트
+
+대상 없음 — VV3은 `src/core` 파일 내용을 안 바꿨다(경로만). `readModel.ts`는 VV2에서 돌렸고(위 VV2 7절) 옮기기만 했다. `scripts/mutation.mjs`는 `isTarget` 경로만 바뀌었고 `mutation.test.mjs`가 잠근다.
+
+### 5) 실행 결과
+
+- `npm run check` → 흔적 검사·경계·린트·knip·타입·테스트 전부 통과
+- `npm test` → `Test Files  62 passed (62)` · `Tests  1349 passed (1349)`
+- `npm run lint -- --prune-suppressions` → `eslint-suppressions.json` 키 5개만 이름이 바뀜(`src/lib/` → `src/core/`), 개수 그대로, 새 항목 없음
+- 빌드 단계는 PR 1에 없다(STEPS에 타입이 대신). `git rev-list --count main..HEAD` → 3
+
+### 6) 하지 않은 것
+
+코어 파일 내용 수정 · `knip.json` `entry`에서 `src/core/*.ts` 걷기(v2.3 끝) · 버전 상향(1.21.0 그대로) · `scripts/*.test.mjs`의 `src/lib` 가짜 경로 예시 고치기(`quality-scan.test.mjs` 등은 파일 시스템을 안 읽는 입력 문자열이다).
