@@ -46,7 +46,7 @@ PR은 `agents/coordinator/PR.md`를 따른다.
     한도로 끝난 일꾼은 release가 거부되면 `worker-stop`으로 닫는다(COORDINATOR.md "release 확인").
   - 한도가 아닌 이유로 끝났으면 사람에게 알리고 멈춘다.
 - Pro 한도를 아끼는 순서: **싼 검사를 먼저 돌린다.** 설계자가 PLAN을 커밋하기 전에 `npm run check -- --fast`가
-  통과해 있어야 하고(문서만 바꾼 PLAN이면 생략), 검토자는 테스트·빌드를 돌리지 않고 읽기만 한다.
+  통과해 있어야 하고(문서만 바꾼 PLAN이면 생략), 검토자는 테스트·타입 검사를 돌리지 않고 읽기만 한다.
 - 실제로 검토한 모델과, 바꿨다면 사유를 적어둔다. PR 본문에 쓴다(아래 "자동 승인"·"사람에게 넘기기").
 
 ### PLAN 버전과 작업 ID
@@ -63,7 +63,7 @@ PR은 `agents/coordinator/PR.md`를 따른다.
 - 설계자가 PLAN을 커밋하면 지휘자는 그 커밋 SHA(`git rev-parse HEAD`)를 적어두고 검토자 spec에 적는다.
   **검토는 커밋에 대고 한다** — 검토 중에 설계자가 push하면 그 검토 결과는 버린다
   (*"A passing review on an out-of-date commit means nothing."*).
-- 검토자는 `npm test`와 `npm run build`를 돌리지 않고 읽기만 한다. 같은 작업 트리에서 동시에 돌아 빌드 결과물이 섞이지 않게 하려는 것이다.
+- 검토자는 `npm test`와 `npm run typecheck`를 돌리지 않고 읽기만 한다. 같은 작업 트리에서 동시에 돌아 결과물이 섞이지 않게 하려는 것이다.
 
 ## spec
 

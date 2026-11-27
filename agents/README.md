@@ -20,7 +20,7 @@
                                     ▼                                   ▼
               PR (CI: npm run check와 같은 목록, 필수) ──[사람: 화면 확인 → 머지]──▶ main
                                     │                                   │
-                PR 본문 "규칙 메모"·"토큰 사용"                GitHub Pages 배포 → 폰 앱
+                PR 본문 "규칙 메모"·"토큰 사용"                (배포 없음 — 앱은 Xcode로 폰에 올린다)
                                     ▼                                   │
                      규칙 정비(주간) → 규칙 PR ─[사람 머지]        실사용 → 다음 실사용 보고
 
@@ -36,7 +36,7 @@ PLAN 구현 PR이 머지되면 (같은 지휘자 세션에서 이어서)
 | 설계자 | `DESIGNER.md` | Claude Opus · **medium** (구조 변경이면 high. 첫 메시지에 `설계자 모델: sonnet`처럼 지정하면 그 Run만 바뀜) | 품질 차이가 가장 큰 단계. 호출은 적다. **medium이 기본**이고, 모자라면 effort를 한 칸 올리는 것이 모델을 바꾸는 것보다 먼저다 |
 | 설계 검토자 | `PLAN-REVIEWER.md` | Claude **Sonnet · high** (구조 변경이면 Opus · medium) | **한 명이다.** 검토자를 쌓는 대신 `REVIEW.md`와 `docs/RELIABILITY.md`로 튜닝한다. 반복해서 도는 검토 작업은 Sonnet이 제자리다 |
 | 구현자 | `IMPLEMENTER.md` | Claude Sonnet · medium | 토큰을 가장 많이 쓰는 단계. 범위가 정해진 구현은 Sonnet·medium이 제자리다 |
-| 화면 검증자 | `SCREEN-CHECKER.md` | Claude Sonnet · medium | 화면 파일이 바뀐 작업만. 폰 크기 브라우저(Chromium·WebKit)로 찍어 **직접 보고** 넘침·잘림·겹침·가림을 거른다. 실기기는 아니다 — 못 보는 것은 "실기기에서 볼 것"으로 PR에 넘긴다 |
+| 화면 검증자 | `SCREEN-CHECKER.md` | Claude Sonnet · medium | 화면 파일이 바뀐 작업만. 유선 아이폰 + mobile MCP(`verify-device`)로 찍어 **직접 보고** 넘침·잘림·겹침·가림을 거른다. 기기·MCP로 못 보는 것(조명, 손맛)은 "사람만 볼 수 있는 것"으로 PR에 넘긴다 |
 | 리뷰어 | `REVIEWER.md` | Claude Opus · **medium** (반려 뒤 재리뷰·위험 경로는 high) | 구현자와 다른 모델이어야 한다. 읽는 양은 적다 |
 | 규칙 정비자 | `RULES-KEEPER.md` | Claude Sonnet · high (사람이 직접 띄움) | 규칙 메모를 키로 묶어 세고(`scripts/incidents.mjs`), 문제 대장(`docs/INCIDENTS.md`)을 따라 같은 문제가 다시 안 나오게 규칙·안전장치를 고친다 |
 | 품질 관리자 | `QUALITY-KEEPER.md` (+ `coordinator/QUALITY.md`) | Claude Sonnet · high, 리뷰는 Opus | PLAN 구현 PR이 머지되면 지휘자가 이어서 띄운다. 복사본·안 쓰는 코드·테스트만 살린 코드를 동작 변경 없이 치운다 |
@@ -135,7 +135,7 @@ cd ~/orca/workout-tracker-Joyanggi && git pull --ff-only && claude --model sonne
 1. **요청 쓰기.** 지휘자에게 기획을 보내거나 이슈 양식을 채운다. "무엇이 되면 끝인지"(성공 기준)를 한 줄이라도 쓰면 설계·리뷰가 그걸 기준으로 삼는다.
 2. **PLAN PR 판단** (자동 승인 안 됐을 때만). 기각된 지적과 설계자가 정한 문구를 읽고 이견을 말하거나 머지한다.
 3. **구현 PR 머지.** PR 본문의 "배포 영향"과 "사람이 화면에서 확인할 것"을 보고 머지한다. 머지 = 폰 앱 배포다.
-   화면이 바뀐 PR은 `docs/screenshots/<버전>/`의 스크린샷을 먼저 보고, "실기기에서 볼 것"은 폰에서 본다(스크린샷은 브라우저 흉내라 Safari·노치·키보드는 다를 수 있다).
+   화면이 바뀐 PR은 `docs/screenshots/<버전>/`의 스크린샷을 먼저 보고, "사람만 볼 수 있는 것"은 폰에서 본다.
    지휘자가 접수한 일이면 PR 맨 위 `흐름: … — 이유` 줄도 본다. 작은 수정으로 갔는데 판정 규칙이 바뀌었으면 머지하지 말고 말한다.
    **머지 전에 PR의 Commits 탭을 본다.** 마지막 커밋이 PR 화면에 올라온 뒤 머지한다(#16·#18에서 머지 뒤에 올라온 커밋이 main에 빠졌다).
 4. **멈췄을 때.** 지휘자가 gate를 걸면 이유가 온다(한도, 권한 창, 사람 판단 필요). 해결하고 "이어서"라고 한다.
@@ -152,11 +152,10 @@ cd ~/orca/workout-tracker-Joyanggi && git pull --ff-only && claude --model sonne
 | CI (`ci`) | 아래 검사가 하나라도 깨진 PR. 로컬의 `npm run check`와 같은 목록이다(`scripts/check.test.mjs`가 둘이 같은지 본다) | `.github/workflows/ci.yml`, `scripts/check.mjs` |
 | 린트 (ESLint, CI에서) | **새로 생긴** React 훅 규칙 위반(렌더 중 ref 쓰기, effect 안 setState), 접근성 위반(jsx-a11y), 안 쓰는 변수. 도입 전부터 있던 34건은 `eslint-suppressions.json`에 묶여 있고 줄어들기만 한다 | `eslint.config.js` |
 | 안 쓰는 파일·의존성 (Knip, CI에서) | 아무도 import하지 않는 파일, `package.json`에 없는데 쓰는 패키지, 있는데 안 쓰는 패키지 | `knip.json` |
-| Astryx 뒷걸음 (CI에서) | Astryx를 안 읽는 화면 파일, 인라인 스타일, 손으로 짠 클래스 쓰임이 **늘어난** PR | `scripts/astryx-inventory.mjs --check` (기준: `docs/ASTRYX-INVENTORY.md` 합계 줄) |
-| 속성 테스트 (fast-check, `npm test` 안에서) | "어떤 입력에서도 성립해야 하는 것"이 깨진 계산 함수 | `src/lib/properties.test.ts` |
+| 경계 (CI에서) | `src/core`가 react·expo·DB·브라우저 전역을 import한 PR | `scripts/boundary.mjs --check` |
+| 속성 테스트 (fast-check, `npm test` 안에서) | "어떤 입력에서도 성립해야 하는 것"이 깨진 계산 함수 | `src/core/properties.test.ts` |
 | 보안 (`Security`, 필수 아님) | 코드의 취약 패턴(CodeQL), PR이 새로 들인 취약 의존성(OSV). 결과는 레포 Security 탭 | `.github/workflows/security.yml` |
 | 흔적 검사 (`quality-scan --ci`, CI에서) | 새로 생긴 같은 이름 함수·상수 복사본, `.skip`·`.only`·`.todo` 테스트, `@ts-ignore`·`@ts-nocheck`, 무력화(`if (false)` 같은 늘 같은 조건, `any`, 이유 없이 빈 `catch`) | `scripts/quality-scan.mjs` (알고 있는 중복: `scripts/quality-allow.json`) |
-| 배포 전 테스트 | 깨진 코드 배포 | `.github/workflows/deploy.yml` |
 | 에이전트 안전장치 훅 | Claude 일꾼의 `gh pr merge`, main push, 강제 push, `reset --hard`, `clean -f`, `checkout --`, `branch -D`, 그리고 위 ruleset을 끄는 명령(`gh repo edit/delete`, API로 ruleset·브랜치 보호·main 삭제) | `.claude/settings.json` → `scripts/agent-guard.mjs` (테스트: `scripts/agent-guard.test.mjs`) |
 | `.gitattributes` | CRLF 섞임 | 레포 |
 | `.gitignore`의 `.reports/` | 검토 보고·진행 파일이 커밋되는 것 | 레포 |
@@ -167,9 +166,7 @@ ruleset은 승인 리뷰 0개로 되어 있다(혼자 쓰는 레포라 자기 PR
 
 | 도구 | 누가 언제 | 무엇을 |
 |---|---|---|
-| 변이 테스트 (StrykerJS) `npm run mutation` | 구현자가 `src/lib`를 바꿨을 때 | 바뀐 파일의 줄마다 결함을 넣어 보고 테스트가 잡는지. 살아남은 변이 = 테스트의 구멍. 파일당 1분쯤 걸려 CI에 넣지 않았다 |
-| 화면 검사 `node scripts/ui-check.mjs after --check` | 화면 검증자 | 화면마다 접근성(axe-core), 넘침, 눌림 반응, 움직임, 여백. Playwright 브라우저가 필요해 CI에 넣지 않았다 |
-| 화면 비교 (Argos) `node scripts/argos-upload.mjs` | 화면 검증자, `ARGOS_TOKEN`이 있을 때만 | 바꾸기 전·후 스크린샷의 달라진 픽셀 |
+| 변이 테스트 (StrykerJS) `npm run mutation` | 구현자가 `src/core`를 바꿨을 때 | 바뀐 파일의 줄마다 결함을 넣어 보고 테스트가 잡는지. 살아남은 변이 = 테스트의 구멍. 파일당 1분쯤 걸려 CI에 넣지 않았다 |
 | 검사 루프 | 구현자 | `npm run check`가 통과할 때까지 고치고 다시 돌린다. 다섯 번까지, 같은 실패가 두 번이면 멈춘다(`IMPLEMENTER.md` 3절) |
 
 ## 6. 상태가 있는 곳
@@ -181,7 +178,7 @@ ruleset은 승인 리뷰 0개로 되어 있다(혼자 쓰는 레포라 자기 PR
 | 지금 하는 일의 진행 | `.reports/run-<대상>.md` (지휘자가 단계마다 고친다. 대화가 끊겨도 이어갈 수 있다) |
 | 설계 검토 결과 | `.reports/<PLAN 버전>-<검토자>.md` |
 | 설계 | `docs/PLAN-*.md` (바뀐 부분의 기록) |
-| 화면의 기준 | `docs/DESIGN.md` 9절 (Astryx 우선), 옮긴 정도는 `docs/ASTRYX-INVENTORY.md` |
+| 화면의 기준 | 최신 PLAN의 화면 절(`src/ui` 부품·`theme` 값). `docs/DESIGN.md` 9절은 웹 시절 기준(표시해 둠) |
 | 리뷰 판정 전문 | `.reports/review-<작업 ID>.md` |
 | 지금 동작의 명세 | `README.md` "핵심 설계 결정" |
 | 구현 기록 | `docs/DEV-RECORD-*.md`, 작은 수정은 PR 본문 |

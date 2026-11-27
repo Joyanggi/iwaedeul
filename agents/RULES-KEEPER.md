@@ -36,8 +36,8 @@
 처리 기준:
 - **재발이 먼저다.** 대장에서 `막음`인 키가 다시 나왔으면 지난번 막은 방법이 못 막은 것이다. `막음(글)`이었으면 장치로 바꾸고, `막음(장치)`였으면 장치가 왜 못 막았는지 PR에 쓰고 장치를 고친다.
 - **두 번 이상 나왔거나 사람이 끼어든 것은 고친다.** 한 번 나온 일회성은 표에만 남긴다.
-- 반려(`[반려]`)가 같은 키로 반복되면, 리뷰어·화면 검증자가 잡기 전에 구현자 쪽에서 막는다(구현자 규칙, 테스트, `quality-scan`·`screenshots.mjs` 검사).
-- **규칙 무시가 반복되면 글을 늘리지 말고 장치로 바꾼다.** "하지 않는다"류는 `scripts/agent-guard.mjs`(명령 차단)나 테스트·CI로 옮길 수 있는지 먼저 본다. 코드 모양에 관한 것은 `eslint.config.js`의 규칙(있는 규칙을 켜는 것이 먼저다)이나 `scripts/quality-scan.mjs`, 화면에 관한 것은 `scripts/ui-check.mjs`·`scripts/astryx-inventory.mjs --check`가 자리다. 검사를 더하면 `scripts/check.mjs`의 목록과 `ci.yml`에 같이 넣는다. 장치로 옮기면 규칙 글은 한 줄 참조로 줄인다.
+- 반려(`[반려]`)가 같은 키로 반복되면, 리뷰어·화면 검증자가 잡기 전에 구현자 쪽에서 막는다(구현자 규칙, 테스트, `quality-scan`·`boundary` 검사).
+- **규칙 무시가 반복되면 글을 늘리지 말고 장치로 바꾼다.** "하지 않는다"류는 `scripts/agent-guard.mjs`(명령 차단)나 테스트·CI로 옮길 수 있는지 먼저 본다. 코드 모양에 관한 것은 `eslint.config.js`의 규칙(있는 규칙을 켜는 것이 먼저다)이나 `scripts/quality-scan.mjs`, 화면에 관한 것은 `scripts/boundary.mjs`와 앱 검사(`app-scans`, PR 2에서 생김)가 자리다. 검사를 더하면 `scripts/check.mjs`의 목록과 `ci.yml`에 같이 넣는다. 장치로 옮기면 규칙 글은 한 줄 참조로 줄인다.
 - 도구 문법은 규칙에 박지 않는다. "`orca skills get orchestration --full`에서 확인"처럼 원본을 가리키고, 실제로 틀렸던 형태만 "쓰지 않는다"로 적는다.
 
 ## 3. 고치기

@@ -102,7 +102,7 @@ agents/REVIEWER.md를 읽고 <PLAN 파일>의 <작업 ID> 기준으로 이 브�
 
 **화면 변경**은 작업 트리에서 아래 명령이 한 줄이라도 내면이다. 리뷰어를 띄우기 전마다(재리뷰 포함) 본다.
 ```
-git diff --name-only origin/main...HEAD -- src index.html | grep -vE '\.test\.' | grep -E '\.(tsx|css)$|index\.html$'
+git diff --name-only origin/main...HEAD -- src | grep -vE '\.test\.' | grep -E '\.(tsx|css)$'
 ```
 
 | 화면 검증자 첫 줄 | 다음 행동 |
