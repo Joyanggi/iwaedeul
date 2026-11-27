@@ -53,7 +53,19 @@ mobile MCP(`.mcp.json`의 `mobile`)는 안에 든 **`mobilecli`** 로 기기를 
 for f in ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision; do
   security cms -D -i "$f" | plutil -extract ExpirationDate raw - -o -; echo "  $f"; done
 ```
-갱신은 3번의 `xcodebuild … build-for-testing`을 다시 돌리고 `agent install --force …`. 우리 앱 재설치와 같은 날 묶는다.
+갱신 (우리 앱 재설치와 같은 날 묶는다):
+
+1. **옛 프로필을 치운다.** Xcode는 아직 유효한 프로필을 그대로 다시 쓴다 — 치우지 않으면 빌드는 성공해도
+   만료일이 안 늘어난다(2026-11-27 첫 재서명에서 확인). 지우지 말고 옮긴다:
+   ```bash
+   P=~/Library/Developer/Xcode/UserData/Provisioning\ Profiles
+   B=~/Library/Developer/Xcode/UserData/ProvisioningProfiles-backup-$(date +%Y%m%d); mkdir -p "$B"
+   for f in "$P"/*.mobileprovision; do
+     security cms -D -i "$f" 2>/dev/null | plutil -extract Name raw - -o - | grep -q devicekit && mv "$f" "$B"/; done
+   ```
+2. 3번의 `xcodebuild … build-for-testing`을 다시 돌린다 → `$P`에 새 프로필 둘(앱·러너)이 생긴다. 위 만료일 확인으로 날짜가 7일 뒤인지 본다.
+3. 새 **러너** 프로필(이름이 `…devicekit-iosUITests.xctrunner`)로 `"$MCLI" agent install --device <UDID> --force --provisioning-profile <그 파일>`.
+4. `mobile_list_elements_on_screen`이 요소를 돌려주면 끝. 빌드가 실패하면 백업 폴더의 프로필을 `$P`로 되돌린다.
 
 ### 세션 시작 점검 (Claude가 매번)
 
