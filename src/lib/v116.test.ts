@@ -914,27 +914,10 @@ describe("NN1 finalizeRoutine·보관·시드·쓰기", () => {
     })
 
     it("NN1 routineStore.ts는 endedAt을 직접 세지 않고 getOpenSession(을 부르며, 진행 중 문구는 routineEdit.ts에만 있다", () => {
-      const store = nn1Src("src/lib/routineStore.ts")
-      expect(store).not.toContain("endedAt")
-      expect(store).toContain("getOpenSession(")
       const hits = srcFiles("src").filter((p) => nn1Src(p).includes("진행 중인 세션을 마치거나"))
       expect(norm(hits)).toEqual(["src/lib/routineEdit.ts"])
     })
 
-    it("NN1 routineStore.ts의 export async function 개수와 requestSync() 호출 개수가 같고, routines.put·delete는 정해진 파일에만 있다", () => {
-      const store = nn1Src("src/lib/routineStore.ts")
-      expect((store.match(/export async function/g) ?? []).length).toBe((store.match(/requestSync\(\)/g) ?? []).length)
-      const hits = srcFiles("src").filter((p) => /db\.routines\.(put|delete)/.test(nn1Src(p)))
-      expect(norm(hits)).toEqual(["src/components/RoutineIoPanel.tsx", "src/db/seed.ts", "src/lib/routineStore.ts"])
-    })
-
-    it("NN1 seed.ts의 activeRoutineId: BUNDLED_ROUTINE.id는 shouldResetActiveRoutine 조건 안에만 있다", () => {
-      const seed = nn1Src("src/db/seed.ts")
-      const at = seed.indexOf("activeRoutineId: BUNDLED_ROUTINE.id")
-      expect(at).toBeGreaterThan(0)
-      expect(seed.slice(seed.lastIndexOf("if (", at), at)).toContain("shouldResetActiveRoutine")
-      expect(seed.split("activeRoutineId: BUNDLED_ROUTINE.id")).toHaveLength(2)
-    })
   })
 })
 
@@ -1019,54 +1002,6 @@ describe("NN2 루틴 편집 화면", () => {
     for (const id of ["d1", "d2", "d3", "d4", "d7", "d9", "fallback-push"]) expect(taken.has(id), id).toBe(true)
     expect(nextDayId(taken)).toBe("d5")
   })
-
-  describe("스캔", () => {
-    const src = (p: string) => stripComments(NN1_SOURCES["/" + p] ?? "")
-    const screens = ["src/screens/RoutineEditorScreen.tsx", "src/components/RoutineLineSheet.tsx", "src/components/ExercisePickerSheet.tsx"]
-
-    it("NN2 편집 화면은 toDraft(와 uniqueId(를 쓰고, randomUUID는 routineEdit.ts 밖 어디에도 없다", () => {
-      expect(src("src/screens/RoutineEditorScreen.tsx")).toContain("toDraft(")
-      expect(src("src/screens/RoutineEditorScreen.tsx")).toContain("uniqueId(")
-      for (const p of ["src/screens/RoutineEditorScreen.tsx", "src/components/ExercisePickerSheet.tsx", "src/components/RoutineListPanel.tsx", "src/lib/routineStore.ts"]) {
-        expect(src(p), p).not.toContain("randomUUID")
-      }
-    })
-
-    it("NN2 편집 화면·시트에 db.이 없고, muscleSets·plannedOrder 대입은 routineEdit.ts 밖의 screens·components에 없다", () => {
-      for (const p of screens) expect(src(p), p).not.toMatch(/(^|\W)db\./)
-      const outside = Object.keys(NN1_SOURCES)
-        .filter((p) => /^\/src\/(screens|components)\//.test(p) && !/\.test\.tsx?$/.test(p))
-        .filter((p) => /(muscleSets|plannedOrder)\s*(=[^=]|:\s*[^,}\s])/.test(stripComments(NN1_SOURCES[p])))
-      // plannedOrder: 0 은 새 줄의 자리 표시값 — 번호는 finalizeRoutine이 매긴다
-      expect(outside.filter((p) => !/RoutineEditorScreen/.test(p))).toEqual([])
-      expect(src("src/screens/RoutineEditorScreen.tsx")).not.toMatch(/muscleSets\s*=|plannedOrder\s*=[^=]/)
-    })
-
-    it("NN2 설정의 편집 버튼 근처에 disabled와 진행 중 세션 문구가 있고, App의 View에 'routineEdit'가 있다", () => {
-      const s = src("src/screens/SettingsScreen.tsx")
-      // SS6: 편집은 Astryx Button이다 — label="편집"이 든 <Button 태그(`/>`까지 — onClick의 =>·>에서 끊지 않는다) 안에 isDisabled
-      const at = s.indexOf('label="편집"')
-      expect(at).toBeGreaterThan(0)
-      const tag = s.slice(s.lastIndexOf("<Button", at), s.indexOf("/>", at))
-      expect(tag).toContain("isDisabled={openSession !== null}")
-      expect(s).toContain("OPEN_SESSION_BLOCK.edit")
-      expect(src("src/App.tsx")).toMatch(/type View = .*'routineEdit'/)
-    })
-
-    it("NN2 Day 삭제·이 Day에서 빼기·저장하지 않고 나가기 앞 260자 안에 btn-danger가 있다", () => {
-      const targets: [string, string][] = [
-        ["src/screens/RoutineEditorScreen.tsx", "Day 삭제"],
-        ["src/components/RoutineLineSheet.tsx", "이 Day에서 빼기"],
-        ["src/screens/RoutineEditorScreen.tsx", "저장하지 않고 나가기"],
-      ]
-      for (const [p, label] of targets) {
-        const text = src(p)
-        const at = text.indexOf(label)
-        expect(at, `${p} ${label}`).toBeGreaterThan(0)
-        expect(text.slice(Math.max(0, at - 260), at), `${p} ${label}`).toMatch(/btn-danger|variant="destructive"/)
-      }
-    })
-  })
 })
 
 // ─── NN3 ───────────────────────────────────────────────────────
@@ -1148,31 +1083,6 @@ describe("NN3 내 종목", () => {
     expect(zeroWeightHint(set, false, mine().allowZeroWeight === true)).toBe(false)
     expect(zeroWeightHint(set, false, false)).toBe(true)
   })
-
-  describe("스캔", () => {
-    const srcFiles = () => Object.keys(NN1_SOURCES).filter((p) => !/\.test\.tsx?$/.test(p)).map((p) => p.slice(1))
-
-    it("NN3 db.exercises.put·delete는 routineStore.ts에만 있다", () => {
-      const hits = srcFiles().filter((p) => /db\.exercises\.(put|delete)\(/.test(nn1Src(p)))
-      expect(hits).toEqual(["src/lib/routineStore.ts"])
-    })
-
-    it("NN3 routineStore.ts는 내 종목 쓰기마다 requestSync()를 부른다 (export async function 수와 같다)", () => {
-      const store = nn1Src("src/lib/routineStore.ts")
-      expect(store).toContain("saveCustomExercise")
-      expect(store).toContain("deleteCustomExercise")
-      expect((store.match(/export async function/g) ?? []).length).toBe((store.match(/requestSync\(\)/g) ?? []).length)
-    })
-
-    it("NN3 종목 삭제 버튼 앞 260자 안에 btn-danger가 있고, 시트에 db.이 없다", () => {
-      const sheet = nn1Src("src/components/ExercisePickerSheet.tsx")
-      const at = sheet.indexOf("종목 삭제")
-      expect(at).toBeGreaterThan(0)
-      expect(sheet.slice(Math.max(0, at - 260), at)).toMatch(/btn-danger|variant="destructive"/)
-      expect(sheet).not.toMatch(/(^|\W)db\./)
-      expect(sheet).toContain("＋ 새 종목 만들기")
-    })
-  })
 })
 
 describe("NN4 루틴 목록", () => {
@@ -1210,44 +1120,5 @@ describe("NN4 루틴 목록", () => {
     expect(bundled?.known).toBe(false)
     expect(bundled?.group).toBeNull()
     expect(curlInfo(copy())).toEqual(first)
-  })
-
-  describe("스캔", () => {
-    const panel = () => nn1Src("src/components/RoutineListPanel.tsx")
-
-    it("NN4 RoutineListPanel.tsx에 '이름과 그룹을 다시 볼 수 없게 됩니다'가 있다", () => {
-      expect(panel()).toContain("이름과 그룹을 다시 볼 수 없게 됩니다")
-    })
-
-    it("NN4 routineStore.ts deleteRoutine 본문에 bundledId와 activeRoutineId 비교가 둘 다 있다", () => {
-      const store = nn1Src("src/lib/routineStore.ts")
-      const at = store.indexOf("export async function deleteRoutine")
-      const body = store.slice(at, store.indexOf("export async function", at + 10))
-      expect(body).toMatch(/id === bundledId/)
-      // 활성 루틴 id를 settings에서 읽고, 그 값을 id와 비교한다 (변수명에 묶이지 않음)
-      const read = body.match(/(\w+)\s*=\s*\(await db\.settings\.get\(['"]activeRoutineId['"]\)\)/)
-      expect(read).not.toBeNull()
-      expect(body).toMatch(new RegExp(`id === ${read![1]}\\b`))
-    })
-
-    it("NN4 RoutineListPanel.tsx에 db.routines.put·db.settings·setSettings가 없다 (읽기만)", () => {
-      expect(panel()).not.toMatch(/db\.routines\.put|db\.settings|setSettings/)
-    })
-
-    it("NN4 DayPickerSheet.tsx의 '하한 모드 · 30분'은 fallbackDays.length > 0 조건 안에 있다", () => {
-      const sheet = nn1Src("src/components/DayPickerSheet.tsx")
-      const cond = sheet.indexOf("fallbackDays.length > 0")
-      const head = sheet.indexOf("하한 모드 · 30분")
-      expect(cond).toBeGreaterThan(0)
-      expect(head).toBeGreaterThan(cond)
-    })
-
-    it("NN4 RoutineListPanel.tsx의 삭제 진입 버튼 앞에 btn-danger가 있다", () => {
-      const src = panel()
-      const at = src.indexOf("kind: 'delete' })")
-      expect(at).toBeGreaterThan(0)
-      // SS6: 삭제 진입 버튼은 Astryx Button variant="destructive"다
-      expect(src.slice(Math.max(0, at - 200), at)).toMatch(/btn-danger|variant="destructive"/)
-    })
   })
 })

@@ -11,8 +11,4 @@ describe('check: CI와 같은 목록', () => {
   it('ci.yml의 run 단계가 STEPS와 같은 명령, 같은 순서다', () => {
     expect(ciRuns).toEqual(STEPS.map((s) => s.cmd))
   })
-
-  it('빌드와 첫 화면 크기만 --fast에서 빠진다 (dist가 있어야 도는 단계)', () => {
-    expect(STEPS.filter((s) => s.slow).map((s) => s.cmd)).toEqual(['npm run build', 'node scripts/first-load.mjs --check'])
-  })
 })

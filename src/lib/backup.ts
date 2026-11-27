@@ -1,4 +1,3 @@
-import { db } from "../db";
 import type {
   DietDay,
   DietPlan,
@@ -85,7 +84,7 @@ function repairLegacyRoutine(routine: RoutineTemplate): RoutineTemplate {
  * 백업 파일은 공유 시트로 나가고 Gist(§5.5)에 올라가므로, 과거 버전이 남긴 데이터나
  * 수동 조작으로 들어온 값이 있어도 유출되지 않아야 한다.
  */
-function stripSecrets(rows: SettingRow[]): SettingRow[] {
+export function stripSecrets(rows: SettingRow[]): SettingRow[] {
   return rows.filter((r) => !isSecretSettingKey(r.key));
 }
 
@@ -113,33 +112,6 @@ export function fingerprintPayload(file: BackupFile): string {
       .filter((r) => !SYNC_BOOKKEEPING_KEYS.includes(r.key))
       .sort((a, b) => a.key.localeCompare(b.key)),
   });
-}
-
-export async function createBackup(
-  now: Date = new Date(),
-): Promise<BackupFile> {
-  const [routines, exercises, sessions, settings, exerciseNotes, dietPlans, dietDays] =
-    await Promise.all([
-      db.routines.toArray(),
-      db.exercises.toArray(),
-      db.sessions.toArray(),
-      db.settings.toArray(),
-      db.exerciseNotes.toArray(),
-      db.dietPlans.toArray(),
-      db.dietDays.toArray(),
-    ]);
-  return {
-    app: APP_ID,
-    schemaVersion: SCHEMA_VERSION,
-    exportedAt: now.toISOString(),
-    routines,
-    exercises,
-    sessions,
-    settings: stripSecrets(settings),
-    exerciseNotes,
-    dietPlans,
-    dietDays,
-  };
 }
 
 export interface BackupSummary {
@@ -246,56 +218,4 @@ export function parseBackup(
   }
 
   return problems.length > 0 ? { problems } : { file };
-}
-
-/**
- * 전체 교체 복원 (§5.5: "병합 아닌 전체 교체").
- *
- * 병합하지 않는 이유: 같은 id의 세션이 양쪽에 있을 때 어느 쪽이 옳은지 알 수 없고,
- * 부분 병합은 "복원했는데 일부만 돌아왔다"는 최악의 상태를 만든다.
- *
- * 비밀값은 복원 대상이 아니다 — localStorage에 있고 백업에 들어가지 않는다.
- */
-export async function restoreBackup(file: BackupFile): Promise<void> {
-  // 테이블이 5개를 넘으면 가변 인자 오버로드가 없다 — 배열 형태를 쓴다
-  await db.transaction(
-    "rw",
-    [
-      db.routines,
-      db.exercises,
-      db.sessions,
-      db.settings,
-      db.exerciseNotes,
-      db.dietPlans,
-      db.dietDays,
-    ],
-    async () => {
-      await Promise.all([
-        db.routines.clear(),
-        db.exercises.clear(),
-        db.sessions.clear(),
-        db.settings.clear(),
-        db.exerciseNotes.clear(),
-        db.dietPlans.clear(),
-        db.dietDays.clear(),
-      ]);
-      await Promise.all([
-        db.routines.bulkPut(file.routines),
-        db.exercises.bulkPut(file.exercises),
-        db.sessions.bulkPut(file.sessions),
-        db.settings.bulkPut(
-          file.settings.filter((r) => !isSecretSettingKey(r.key)),
-        ),
-        // v1 백업에는 없다 — 없으면 비운 상태로 둔다
-        db.exerciseNotes.bulkPut(file.exerciseNotes ?? []),
-        /*
-         * 식단 (v3+). 플랜을 비운 채로 두면 다음 부팅에 ensureSeed가 다시 넣는다
-         * (seededDietRevision은 settings에 실려 오므로, 구버전 백업이면 그 키가 없어
-         * 리비전 불일치로 자동 재주입된다).
-         */
-        db.dietPlans.bulkPut(file.dietPlans ?? []),
-        db.dietDays.bulkPut(file.dietDays ?? []),
-      ]);
-    },
-  );
 }

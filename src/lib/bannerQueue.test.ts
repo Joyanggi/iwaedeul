@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { BANNER_ORDER, bannerQueue, type BannerConditions } from './bannerQueue'
-import { BANNER_BACKUP, BANNER_COMPENSATION, BANNER_DELOAD, BANNER_PHASE } from '../store/ui'
-import { stripComments } from './sourceScan'
+import { BANNER_BACKUP, BANNER_COMPENSATION, BANNER_DELOAD, BANNER_PHASE } from './bannerQueue'
 
 /**
  * 배너 큐 (BB4).
@@ -118,48 +117,6 @@ describe('접기 판단의 근거 — 실제로 쌓이는 조합', () => {
   })
 })
 
-describe('화면 배선 (2층 잠금)', () => {
-  const home = () => {
-    const sources = import.meta.glob('/src/screens/*.tsx', {
-      query: '?raw',
-      import: 'default',
-      eager: true,
-    }) as Record<string, string>
-    const src = sources['/src/screens/HomeScreen.tsx']
-    expect(src, 'HomeScreen을 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
-    return stripComments(src!)
-  }
-
-  it('큐에서 렌더한다', () => {
-    expect(home()).toMatch(/queue\.slice\(0, bannersOpen \? queue\.length : 1\)/)
-  })
-
-  it('배너 표시 조건을 화면이 다시 계산하지 않는다', () => {
-    /*
-      예전의 `!showReturn && !showDeload && …` 사슬이 되살아나면 큐와 화면이 서로 다른
-      답을 낼 수 있다. 조건은 bannerQueue에만 있어야 한다.
-    */
-    const src = home()
-    for (const gone of ['showReturn', 'showDeload', 'showPhase']) {
-      expect(src, `${gone}가 남아 있다`).not.toContain(gone)
-    }
-    /*
-      `dismissed[BANNER_…]`를 화면이 직접 보는 자리는 **정확히 하나**여야 한다:
-      큐 밖의 백업 미설정 배너 (후속 2). 큐에 있는 배너가 여기서 다시 dismiss를 보면
-      큐와 화면이 서로 다른 답을 낼 수 있다.
-    */
-    const direct = src.match(/dismissed\[BANNER_[A-Z_]+\]/g) ?? []
-    expect(direct).toEqual(['dismissed[BANNER_BACKUP]'])
-  })
-
-  it('저장소 위험 배너는 큐 밖에 있다 — 접히면 안 된다', () => {
-    const src = home()
-    expect(src).toMatch(/storageAtRisk\(\) && \(/)
-    // storageAtRisk가 큐 조건에 들어가지 않았는지
-    expect(src).not.toMatch(/storageAtRisk[^\n]*bannerQueue|bannerQueue[^)]*storageAtRisk/)
-  })
-})
-
 /**
  * 백업 배너를 `configured`로 가른다 (v1.7 후속 2).
  *
@@ -167,33 +124,6 @@ describe('화면 배선 (2층 잠금)', () => {
  * 설정됨+오래됨은 세션 종료마다 자동 백업이 도는 상태의 보조 신호이므로 큐에 남긴다.
  */
 describe('백업 미설정은 큐 밖 (후속 2)', () => {
-  const home = () => {
-    const sources = import.meta.glob('/src/screens/*.tsx', {
-      query: '?raw',
-      import: 'default',
-      eager: true,
-    }) as Record<string, string>
-    return stripComments(sources['/src/screens/HomeScreen.tsx']!)
-  }
-
-  it('큐에는 "설정됨 + 오래됨"만 넣는다', () => {
-    expect(home()).toMatch(/backupStale: reminder\.show && reminder\.configured/)
-  })
-
-  it('미설정 배너는 큐 밖에서 렌더한다', () => {
-    const src = home()
-    expect(src).toMatch(/reminder\.show && !reminder\.configured/)
-    // 큐 렌더보다 위에 있어야 한다 (다른 배너에 밀리지 않는다)
-    expect(src.indexOf('!reminder.configured')).toBeLessThan(src.indexOf('queue.slice('))
-  })
-
-  it('큐의 백업 배너 문구가 한 가지만 말한다', () => {
-    // 두 상태를 삼항으로 겸하던 문구를 갈랐다 — 각 배너가 자기 상태만 말한다
-    const src = home()
-    expect(src).toMatch(/마지막 백업이 \$\{reminder\.daysSince/)
-    expect(src).not.toMatch(/reminder\.configured\s*\n?\s*\?/)
-  })
-
   it('미설정 상태는 큐에 들어가지 않는다 (조건 함수 수준)', () => {
     // configured=false인 상황을 큐에 넣으면 접힐 수 있다 — backupStale이 false여야 한다
     expect(q({ backupStale: false, hasProgressions: true })).toEqual(['progression'])

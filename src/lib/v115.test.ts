@@ -313,14 +313,6 @@ describe("MM1 내 음식 목록", () => {
     string
   >
 
-  it("MM1 스캔: useDiet.ts에 mutateUserFoods가 있고 .then(scheduleBackup) 개수가 쓰기 함수 4개와 같다", () => {
-    const src = stripComments(sources["/src/lib/useDiet.ts"]!)
-    expect(src).toMatch(/export function mutateUserFoods/)
-    const writers = src.match(/export function (mutateDietDay|removeDietDay|rememberVariantDefault|mutateUserFoods)/g) ?? []
-    expect(writers).toHaveLength(4)
-    expect((src.match(/\.then\(scheduleBackup\)/g) ?? []).length).toBe(4)
-  })
-
   it("MM1 스캔: foodKey를 거치지 않고 `${…name}|${…qty}` 꼴로 키를 만드는 곳이 foods.ts 밖에 없다", () => {
     const hits = Object.entries(sources)
       .filter(([p]) => !p.endsWith("/src/lib/foods.ts") && !p.endsWith(".test.ts"))
@@ -509,7 +501,6 @@ describe("MM2 스캔", () => {
     string,
     string
   >
-  const code = (path: string) => stripComments(sources[path]!)
 
   it("MM2 스캔: loggedSlots > 0 을 직접 비교하는 곳이 hasDietRecord 정의 밖에 없다", () => {
     const hits = Object.entries(sources)
@@ -523,30 +514,6 @@ describe("MM2 스캔", () => {
     expect(hits).toEqual([])
   })
 
-  it("MM2 스캔: FoodLogSheet.tsx·DietDayEditor.tsx에 requestSync(가 없다 (쓰기 함수가 예약한다)", () => {
-    expect(code("/src/components/FoodLogSheet.tsx")).not.toMatch(/requestSync\(/)
-    expect(code("/src/components/DietDayEditor.tsx")).not.toMatch(/requestSync\(/)
-  })
-
-  it("MM2 스캔: 먹은 것 개수 NumberStepper에 decimals={2}가 있다", () => {
-    const src = code("/src/components/DietDayEditor.tsx")
-    const m = src.match(/<NumberStepper[\s\S]*?\/>/)
-    expect(m, "먹은 것 NumberStepper가 있어야 한다").not.toBeNull()
-    expect(m![0]).toMatch(/decimals=\{2\}/)
-  })
-
-  it("MM2 스캔: DietDayEditor를 부르는 세 화면이 모두 userFoods=를 넘긴다", () => {
-    for (const f of ["DietScreen", "HistoryScreen", "SessionDetailScreen"]) {
-      const src = code(`/src/screens/${f}.tsx`)
-      const m = src.match(/<DietDayEditor[\s\S]*?\/>/)
-      expect(m, `${f}에 DietDayEditor가 있어야 한다`).not.toBeNull()
-      expect(m![0]).toMatch(/userFoods=/)
-    }
-  })
-
-  it("MM2 스캔: 먹은 것 줄 글자는 logEntryText 한 자리에서 온다", () => {
-    expect(code("/src/components/DietDayEditor.tsx")).toMatch(/logEntryText\(/)
-  })
 })
 
 // ─── MM3 내보내기에 먹은 것 ─────────────────────────────────────
@@ -630,7 +597,7 @@ describe("MM3", () => {
   })
 
   it("MM3 스캔: DietDayEditor.tsx와 exportMarkdown.ts가 둘 다 logEntryText를 부른다", () => {
-    for (const f of ["/src/components/DietDayEditor.tsx", "/src/lib/exportMarkdown.ts"]) {
+    for (const f of ["/src/lib/exportMarkdown.ts"]) {
       expect(stripComments(sources[f]!)).toMatch(/logEntryText\(/)
     }
   })

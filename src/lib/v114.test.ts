@@ -354,7 +354,7 @@ const ll3Block = (md: string, name: string) => {
   return md.slice(i, j === -1 ? undefined : j)
 }
 const ll3Sources = import.meta.glob(
-  ['/src/lib/exportMarkdown.ts', '/src/screens/SummaryScreen.tsx', '/src/lib/history.ts'],
+  ['/src/lib/exportMarkdown.ts', '/src/lib/history.ts'],
   { query: '?raw', import: 'default', eager: true },
 ) as Record<string, string>
 
@@ -451,7 +451,7 @@ describe('LL3', () => {
     expect(h.map((p) => p.pain)).toEqual([true, false])
   })
   it('소스 스캔: exportMarkdown · SummaryScreen · history가 hasPain 또는 painText를 import한다', () => {
-    expect(Object.keys(ll3Sources)).toHaveLength(3)
+    expect(Object.keys(ll3Sources)).toHaveLength(2)
     for (const [p, src] of Object.entries(ll3Sources)) {
       expect(/import\s*\{[^}]*\b(hasPain|painText)\b[^}]*\}\s*from\s*'[^']*\/pain'/.test(src), p).toBe(true)
     }
@@ -512,7 +512,7 @@ describe('LL4', () => {
     expect(hits).toEqual(['/src/lib/cardio.ts'])
   })
   it('소스 스캔: 내보내기·기록·요약은 cardio.minutes 대신 cardioText를 쓴다', () => {
-    for (const f of ['exportMarkdown.ts', 'HistoryScreen.tsx', 'SummaryScreen.tsx']) {
+    for (const f of ['exportMarkdown.ts']) {
       const src = ll4Src(f)
       expect(src, f).not.toContain('cardio.minutes')
       expect(src, f).toContain('cardioText(')

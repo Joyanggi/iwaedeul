@@ -1,4 +1,7 @@
-import { BANNER_BACKUP, BANNER_COMPENSATION, BANNER_DELOAD, BANNER_PHASE } from '../store/ui'
+export const BANNER_DELOAD = 'deload'
+export const BANNER_BACKUP = 'backup'
+export const BANNER_PHASE = 'phase'
+export const BANNER_COMPENSATION = 'compensation'
 
 /**
  * 홈 배너의 우선순위·상호 배제를 한 곳으로 (BB4).

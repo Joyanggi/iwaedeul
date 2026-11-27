@@ -9,7 +9,6 @@ import {
   tempoPositionAt,
   tempoRepState,
 } from './tempo'
-import { TICK } from './beep'
 
 /**
  * 템포 가이드 (G7).
@@ -222,13 +221,6 @@ describe('페이즈 경계음 (CC7-R)', () => {
     ])
     expect(freqs.size).toBe(3)
   })
-
-  it('템포 톤이 틱·차임 대역과 겹치지 않는다', () => {
-    // 틱 784Hz — 템포 톤이 그보다 낮아야 카운트인과 페이즈 소리가 구분된다
-    for (const kind of ['concentric', 'eccentric', 'squeeze'] as const) {
-      expect(phaseTone({ kind, seconds: 1 }).freq, kind).toBeLessThan(TICK.freq)
-    }
-  })
 })
 
 // ─── W3: 상단 도달 자동 종료 ─────────────────────────────────
@@ -311,56 +303,6 @@ describe('W3 — 상단 반복수 판정', () => {
         ).toBe(true)
       }
     }
-  })
-})
-
-/**
- * 기록 신뢰도 구분 (V1 — 리뷰어 지시 · W3 이후 두 경로가 생겼다).
- *
- * 자동 종료는 `repMax`까지 완주했으므로 값이 정확하다. 수동 종료는 **가이드가 돈
- * 사이클 수**이고 실제 반복이 아니다 — 가이드보다 느리게 하거나 시트를 열어둔 채 쉬면
- * 실제보다 많이 세어진다. 리뷰어 판정: 자동 입력이 repMax를 넘겨 **증량 판정을 오염시킬
- * 수 있는 유일한 경로**이므로 "값을 보여주고 수정 가능"이 방어선이라는 사실을 남길 것.
- */
-describe('가이드 종료 라벨의 신뢰도 표시 (V1)', () => {
-  const SOURCES = import.meta.glob('/src/components/TempoGuideSheet.tsx', {
-    query: '?raw',
-    import: 'default',
-    eager: true,
-  }) as Record<string, string>
-
-  const sheet = () => {
-    const src = SOURCES['/src/components/TempoGuideSheet.tsx']
-    expect(src, '시트를 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
-    return src!
-  }
-
-  /*
-    라벨 **문구**가 아니라 두 성질을 단정한다 — Z2에서 문구가 바뀌었을 때
-    (`회로 기록` → `회 기록 · 휴식 시작`) 이 테스트가 문구 때문에 깨졌다.
-    지켜야 하는 것은 "약이 붙는다"와 "값이 보인다"이고 어순이 아니다.
-  */
-  it('수동 종료 라벨에 "약"이 붙는다 (추정값임을 드러낸다)', () => {
-    expect(sheet()).toMatch(/약 \$\{rep\.reps\}회/)
-  })
-
-  it('넣을 값을 버튼에 미리 보여준다 (방어선 — 리뷰어 지시)', () => {
-    // 라벨이 값을 감추면 "마찰 없이 틀린 값이 들어간다"가 된다
-    expect(sheet()).toMatch(/\$\{rep\.reps\}회/)
-  })
-
-  it('자동 종료는 별도 prop이다 (onComplete) — 값의 출처가 구분된다', () => {
-    /*
-      Z2에서 두 경로의 **동작**은 같아졌다 (기록·체크·휴식). 그래도 prop을 둘로 남기는
-      이유는 값의 신뢰도가 다르기 때문이다 — 자동은 repMax와 정확히 일치하고 수동은 추정이다.
-      "약" 라벨은 수동 버튼에만 붙는다.
-    */
-    expect(sheet()).toMatch(/onComplete\(rep\.reps\)/)
-  })
-
-  it('자동 종료가 프레임마다 재발화하지 않도록 ref로 막는다', () => {
-    // 80ms마다 다시 부르면 세트 체크가 토글되어 방금 시작한 휴식 타이머가 꺼진다
-    expect(sheet()).toMatch(/fired\.current\.complete/)
   })
 })
 

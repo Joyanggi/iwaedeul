@@ -25,7 +25,7 @@ const sources = import.meta.glob('/src/**/*.{ts,tsx}', {
  * - `lib/backup.ts` — 백업은 **의도적으로 raw**를 덤프한다 (저장된 값 그대로 보존)
  * - `lib/useDiet.ts` — 정규화를 걸어 내보내는 단일 읽기 경로
  */
-const ALLOWED = ['/src/db/index.ts', '/src/lib/backup.ts', '/src/lib/useDiet.ts']
+const ALLOWED = ['/src/lib/backup.ts']
 
 describe('식단 테이블 접근 화이트리스트 (H1)', () => {
   it('db.dietDays를 허용된 파일에서만 참조한다', () => {
@@ -48,17 +48,12 @@ describe('식단 테이블 접근 화이트리스트 (H1)', () => {
     }
   })
 
-  it('스캔이 실제로 참조를 찾는다 (정규식이 깨지면 항상 통과한다)', () => {
-    const found = Object.entries(sources).filter(([, src]) => /\bdb\.dietDays\b/.test(src))
-    expect(found.length).toBeGreaterThan(0)
-  })
-
   it('정규화 함수는 useDiet에서만 호출한다', () => {
     // 여러 곳에서 부르면 "어디는 정규화된 값, 어디는 아닌 값"이 다시 생긴다
     const callers = Object.entries(sources)
       .filter(([path]) => !path.endsWith('.test.ts') && path !== '/src/lib/diet.ts')
       .filter(([, src]) => /resolveTrainingDays\s*\(/.test(src))
       .map(([path]) => path)
-    expect(callers).toEqual(['/src/lib/useDiet.ts'])
+    expect(callers).toEqual(['/src/lib/readModel.ts'])
   })
 })

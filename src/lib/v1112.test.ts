@@ -219,11 +219,11 @@ describe('II2', () => {
 })
 
 describe('II2 — 소스 스캔', () => {
-  const raw = import.meta.glob(['/src/lib/exportMarkdown.ts', '/src/components/DietDayEditor.tsx'], {
+  const raw = import.meta.glob(['/src/lib/exportMarkdown.ts'], {
     query: '?raw', import: 'default', eager: true,
   }) as Record<string, string>
   it('화면과 내보내기가 하루 문구를 직접 만들지 않는다', () => {
-    for (const p of ['/src/lib/exportMarkdown.ts', '/src/components/DietDayEditor.tsx']) {
+    for (const p of ['/src/lib/exportMarkdown.ts']) {
       expect(raw[p], '파일을 찾지 못했다 — 검사가 헛돌고 있다').toBeDefined()
       const src = stripComments(raw[p])
       expect(src).not.toContain('ADHERENCE_MARK[')

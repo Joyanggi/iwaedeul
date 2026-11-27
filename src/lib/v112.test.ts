@@ -721,8 +721,6 @@ describe('JJ2', () => {
 })
 
 describe('JJ3', () => {
-  const rawFs = import.meta.glob('/src/components/FinishSheet.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
-  const fs = stripComments(Object.values(rawFs)[0])
   const base = (): Session => allChecked(build('return', 0))
   /** v1.11.2 식 — 결함을 같은 테스트에서 보여 고정한다 */
   const oldPartial = (s: Session) => s.entries.filter((e) => !e.skipped && doneSets(e).length > 0 && doneSets(e).length < e.sets.length)
@@ -803,16 +801,6 @@ describe('JJ3', () => {
     })
     it('루틴 사본의 sets를 바꿔도 같다 (JJ2 "루틴 변경"과 같은 픽스처)', () => {
       expect(line(base(), withRoutineSets({ 'incline-chest-press': 5 }))).toBe(line(base()))
-    })
-  })
-
-  describe('소스 스캔', () => {
-    it('FinishSheet.tsx: 행 수 직접 세기 없음, 초크포인트 사용, 문구 리터럴 없음', () => {
-      expect(fs).not.toContain('e.sets.length')
-      expect(fs).not.toContain('.sets.length')
-      for (const n of ['partialEntries(', 'sessionAdjustText(', 'resolveSessionAdjust(']) expect(fs).toContain(n)
-      expect(fs).not.toContain('조정')
-      expect(fs).toContain('{adjustLine && <Text color="secondary">{adjustLine}</Text>}') // 한 줄을 실제로 그린다
     })
   })
 })

@@ -1,6 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["scripts/*.mjs"],
-  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.mjs"],
-  "ignoreDependencies": ["@argos-ci/cli"]
+  "entry": ["scripts/*.mjs", "src/lib/*.ts", "src/db/*.ts"],
+  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.mjs"]
 }

@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GIST_FILENAME, GistError, createGist, readGist, updateGist, verifyToken } from './gist'
-import { backupReminder, BACKUP_REMINDER_DAYS } from './gistSync'
 
 /**
  * 테스트에는 실제 토큰이 없다. 전부 더미 문자열이고 fetch는 모킹한다.
@@ -173,36 +172,5 @@ describe('토큰 확인', () => {
   it('fine-grained PAT은 스코프 헤더가 없어 판단 불가(null)', async () => {
     mockFetch(() => json({ login: 'someone' }))
     await expect(verifyToken(TOKEN)).resolves.toEqual({ login: 'someone', hasGistScope: null })
-  })
-})
-
-describe('백업 리마인드 (§11)', () => {
-  const today = '2026-08-20'
-
-  it('기록이 없으면 띄우지 않는다 (잃을 것이 없다)', () => {
-    expect(backupReminder({ sessionCount: 0, lastBackupAt: null, configured: false, today }).show).toBe(false)
-  })
-
-  it('설정하지 않았고 기록이 있으면 띄운다', () => {
-    const r = backupReminder({ sessionCount: 3, lastBackupAt: null, configured: false, today })
-    expect(r).toMatchObject({ show: true, configured: false, daysSince: null })
-  })
-
-  it('7일 이상 지나면 띄운다', () => {
-    const before = backupReminder({
-      sessionCount: 3,
-      lastBackupAt: '2026-08-14T10:00:00Z',
-      configured: true,
-      today,
-    })
-    expect(before).toMatchObject({ show: false, daysSince: 6 })
-
-    const after = backupReminder({
-      sessionCount: 3,
-      lastBackupAt: '2026-08-13T10:00:00Z',
-      configured: true,
-      today,
-    })
-    expect(after).toMatchObject({ show: true, daysSince: BACKUP_REMINDER_DAYS })
   })
 })

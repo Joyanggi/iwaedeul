@@ -16,7 +16,6 @@ import {
   emptyDietDay,
   seedVariantChoices,
 } from './dietOps'
-import { stripComments } from './sourceScan'
 import { dietSectionMarkdown } from './exportMarkdown'
 import { BUNDLED_DIET_PLANS } from '../db/seed'
 import { validateDietPlan } from '../db/validateDietPlan'
@@ -137,16 +136,6 @@ describe('EE2 — 단백질원 짝 연동 (표시 기본값)', () => {
   const THIGH = 2
   const lunchOf = (plan: DietPlan) => slotOf(plan, 'lunch')
   const dinnerOf = (plan: DietPlan) => slotOf(plan, 'dinner')
-  const sources = import.meta.glob('/src/**/*.{ts,tsx}', {
-    query: '?raw',
-    import: 'default',
-    eager: true,
-  }) as Record<string, string>
-  const file = (path: string) => {
-    const src = sources[path]
-    expect(src, `${path}가 없습니다 — 이 검사가 헛돌고 있다`).toBeDefined()
-    return stripComments(src!)
-  }
   /** 점심을 기록하고(전부 체크) 그 선택을 새긴 날 */
   const lunchRecorded = (plan: DietPlan, choice: number): DietDay =>
     applyVariantChoice(
@@ -287,20 +276,6 @@ describe('EE2 — 단백질원 짝 연동 (표시 기본값)', () => {
       expect(seeded.slots.dinner.variantChoices).toEqual({ 'chicken-3': THIGH })
     })
 
-    it('편집기는 표시와 변형 시트 모두 같은 날 기록을 짝 규칙에 넘긴다', () => {
-      const src = file('/src/components/DietDayEditor.tsx')
-      const calls = src.match(/variantChoicesFor\([^;]*?todayVariantChoices\(day\),?\s*\)/g) ?? []
-      expect(calls.length).toBe((src.match(/variantChoicesFor\(/g) ?? []).length)
-      expect(calls.length).toBe(2)
-    })
-
-    it('화면 코드는 pairedVariant를 직접 부르지 않는다 (짝 파생은 lib의 표시·새기기 경로에만 있다)', () => {
-      const offenders = Object.entries(sources)
-        .filter(([p]) => p.startsWith('/src/components/') || p.startsWith('/src/screens/'))
-        .filter(([, src]) => /pairedVariant\(/.test(stripComments(src)))
-        .map(([p]) => p)
-      expect(offenders).toEqual([])
-    })
   })
 
   it('저녁 다리살이 초기값이 되는 날에도 점심 오일·오후 아몬드 슬롯은 건드리지 않는다 (강제 금지)', () => {

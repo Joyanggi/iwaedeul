@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { setRowClass, zeroWeightHint } from './setRowState'
-import { stripComments } from './sourceScan'
 import type { SetRecord } from '../types'
 
 const set = (over: Partial<SetRecord> = {}): SetRecord => ({
@@ -57,48 +56,5 @@ describe('무게 미입력 힌트 (BB6)', () => {
 
   it('세트가 없으면 뜨지 않는다', () => {
     expect(zeroWeightHint(undefined, false)).toBe(false)
-  })
-})
-
-describe('화면 배선 (2층 잠금)', () => {
-  const card = () => {
-    const sources = import.meta.glob('/src/components/*.tsx', {
-      query: '?raw',
-      import: 'default',
-      eager: true,
-    }) as Record<string, string>
-    const src = sources['/src/components/ExerciseCard.tsx']
-    expect(src, 'ExerciseCard를 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
-    return stripComments(src!)
-  }
-
-  it('행 클래스를 화면이 직접 조립하지 않는다', () => {
-    const src = card()
-    expect(src).toMatch(/className=\{setRowClass\(set\)\}/)
-    // 예전 인라인 조립이 되살아나면 완료 상태가 빠진 채로 통과한다
-    expect(src).not.toMatch(/set-row\$\{/)
-  })
-
-  it('힌트를 화면이 직접 판정하지 않는다', () => {
-    const src = card()
-    expect(src).toMatch(/zeroWeightHint\(set, inverseWeight, allowZeroWeight\)/)
-    expect(src).not.toMatch(/set\.weight === 0/)
-  })
-
-  it('힌트가 제외 플래그 둘을 다 넘긴다 — 빼먹으면 오탐이 돌아온다', () => {
-    /*
-      inverse를 빼면 어시스티드(보조 0 = 최고 난도)에 경고가 뜨고,
-      allowZeroWeight를 빼면 맨몸 크런치에 뜬다 (CC10 — 실데이터에서 확인된 오탐).
-    */
-    const src = card()
-    expect(src).not.toMatch(/zeroWeightHint\(set\)/)
-    expect(src).not.toMatch(/zeroWeightHint\(set, inverseWeight\)/)
-  })
-
-  it('경고가 문구와 숫자 양쪽에 걸린다', () => {
-    const src = card()
-    // v1.20 RR7: 문구는 `ax-text-warning`, 숫자는 NumberStepper의 `status` 속성(옛 stepper-slot-warn 대신)
-    expect(src).toContain('className="ax-text-warning"')
-    expect(src).toMatch(/status=\{zeroHint \? 'warning' : undefined\}/)
   })
 })

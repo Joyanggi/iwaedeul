@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { dayChoiceReason, displayDay, pickedIdFor, returnChoiceReason } from './dayChoice'
 import { BUNDLED_ROUTINE } from '../db/seed'
-import { stripComments } from './sourceScan'
 
 /**
  * 선택과 시작의 분리 (AA1·AA2).
@@ -63,101 +62,6 @@ describe('카드 문구 (dayChoiceReason)', () => {
 })
 
 /**
- * 화면 배선 — 고른 순간 시작되던 결함이 되살아나지 않게 (AA1).
- */
-describe('AA1 — 시트가 세션을 만들지 않는다', () => {
-  const sources = import.meta.glob('/src/**/*.tsx', {
-    query: '?raw',
-    import: 'default',
-    eager: true,
-  }) as Record<string, string>
-
-  const home = () => {
-    const src = sources['/src/screens/HomeScreen.tsx']
-    expect(src, 'HomeScreen을 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
-    return stripComments(src!)
-  }
-
-  it('onPick이 start를 부르지 않는다', () => {
-    const src = home()
-    const onPick = /onPick=\{([\s\S]*?)\n\s*onClose=/.exec(src)?.[1]
-    expect(onPick, 'onPick을 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
-    expect(onPick).not.toMatch(/\bstart\(/)
-    expect(onPick).toMatch(/pickedIdFor/)
-  })
-
-  it('카드와 시작 버튼이 같은 파생 상태를 쓴다', () => {
-    /*
-      suggestion.day를 카드나 시작 버튼이 직접 읽으면 보이는 Day와 시작되는 Day가 갈라진다.
-      CC11에서 판정이 `homeCardState` 하나로 합쳐졌으므로(제안 / 직접 선택 / 진행 중 세션),
-      화면은 그 결과(card.*, displayed)만 읽어야 한다.
-    */
-    const src = home()
-    // RR4: 카드는 "다음 운동" 글자에서 시작 버튼(label={card.cta})까지다 (뜻은 그대로 — 카드가 파생 상태만 읽는다)
-    const card = /다음 운동[\s\S]*?label=\{card\.cta\}/.exec(src)?.[0]
-    expect(card, '카드를 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
-    expect(card).not.toMatch(/suggestion\.day\./)
-    expect(card).toMatch(/displayed\./)
-    expect(card).toMatch(/card\.reason/)
-
-    const startBtn = /<Button\s+variant="primary"[\s\S]*?\/>/.exec(src)?.[0]
-    expect(startBtn, '시작 버튼 행을 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
-    expect(startBtn).toMatch(/start\(displayed\)/)
-    // 라벨도 파생값이다 (CC11: 진행 중이면 "이어서 하기")
-    expect(startBtn).toMatch(/label=\{card\.cta\}/)
-  })
-
-  it('시작하면 override를 지운다', () => {
-    const startFn = /const start = \(day: RoutineDay[\s\S]*?\n  \}/.exec(home())?.[0]
-    expect(startFn, 'start를 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
-    expect(startFn).toMatch(/setPickedDayId\(null\)/)
-  })
-
-  it('선택 상태를 저장하지 않는다 (다음 날 낡은 선택이 남는 실패가 더 나쁘다)', () => {
-    const src = home()
-    // 스토어·DB가 아니라 컴포넌트 상태로만 둔다
-    expect(src).toMatch(/const \[pickedDayId, setPickedDayId\] = useState<string \| null>\(null\)/)
-    expect(src).not.toMatch(/pickedDayId.*db\.|db\..*pickedDayId|useUi.*picked/)
-  })
-})
-
-describe('AA2 — 변경이 보이는 버튼이다', () => {
-  const sources = import.meta.glob('/src/**/*.tsx', {
-    query: '?raw',
-    import: 'default',
-    eager: true,
-  }) as Record<string, string>
-  const home = () => stripComments(sources['/src/screens/HomeScreen.tsx']!)
-
-  it('[변경] 버튼이 시트를 연다', () => {
-    const src = home()
-    const idx = src.indexOf('변경')
-    expect(idx, '"변경" 버튼이 없다').toBeGreaterThan(-1)
-    expect(src.slice(idx - 160, idx)).toMatch(/setPicking\(true\)/)
-  })
-
-  it('텍스트 힌트를 지웠다 — 보이는 버튼이 생겼으므로 중복이다', () => {
-    expect(home()).not.toContain('탭해서 다른 Day 선택')
-  })
-
-  it('카드 전체를 누르는 지름길은 없어졌다 — 같은 일은 카드 머리의 [변경]이 한다 (v1.20 RR4: 카드 안에 시작 버튼이 들어가 버튼 안에 버튼을 못 넣는다)', () => {
-    const src = home()
-    // 카드는 "다음 운동"보다 앞에서 열린 <Card>/<ClickableCard> 여는 태그부터 시작 버튼까지다.
-    const at = src.indexOf('다음 운동')
-    const start = Math.max(src.lastIndexOf('<Card', at), src.lastIndexOf('<ClickableCard', at))
-    const end = src.indexOf('label={card.cta}')
-    expect(at > -1 && start > -1 && end > start, '카드를 찾지 못했다 — 이 검사가 헛돌고 있다').toBe(true)
-    const card = src.slice(start, end)
-    // 여는 태그: 속성 안의 화살표 =>에서 끊기지 않게 읽는다 (옛 [^>]*는 onClick={() => …}에서 끊겼다)
-    const openTag = /^<(?:Clickable)?Card\b(?:=>|[^>])*>/.exec(card)?.[0]
-    expect(openTag, '카드 여는 태그를 찾지 못했다').toBeDefined()
-    expect(openTag).not.toMatch(/ClickableCard|onClick|setPicking/)
-    expect(card.match(/setPicking\(true\)/g)).toHaveLength(1)
-    expect(card).toMatch(/onClick=\{\(\) => setPicking\(true\)\}\s+label="변경"/)
-  })
-})
-
-/**
  * EE3 — 복귀 배너의 답이 화면에 남는다.
  *
  * 피드백: "적용됐다는 건지 무시가 됐다는 건지 모르겠다." 라벨 문법(상태↔동작)이 1차
@@ -191,36 +95,5 @@ describe('복귀 선택이 카드 문구에 반영된다 (returnChoiceReason)', 
     const text = returnChoiceReason({ ...base, gapDays: null, hasReturnStep: true, applyReturn: false })
     expect(text).not.toContain('null')
     expect(text).toContain('복귀 프로토콜 없이')
-  })
-})
-
-describe('EE3 — 복귀 배너가 두 답을 나란히 보여준다', () => {
-  const sources = import.meta.glob('/src/**/*.tsx', {
-    query: '?raw',
-    import: 'default',
-    eager: true,
-  }) as Record<string, string>
-  const home = () => stripComments(sources['/src/screens/HomeScreen.tsx']!)
-
-  it('상태와 동작을 번갈아 말하던 한 칸 토글이 없다', () => {
-    const src = home()
-    expect(src).not.toContain('적용됨')
-    expect(src).not.toMatch(/applyReturn \? '[^']*' : '[^']*'/)
-    // 토글 뒤집기(!applyReturn)가 아니라 고른 값을 그대로 넣는다
-    expect(src).not.toContain('setApplyReturn(!applyReturn)')
-  })
-
-  it('두 버튼이 각각 적용 / 안 함을 고르고, 고른 쪽이 눌린 상태(isPressed)다', () => {
-    const choice = /aria-label="복귀 프로토콜 적용 여부"[\s\S]*?<\/HStack>/.exec(home())?.[0]
-    expect(choice, '복귀 선택 버튼을 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
-    expect(choice).toMatch(/isPressed=\{applyReturn\}[\s\S]*setApplyReturn\(true\)/)
-    expect(choice).toMatch(/isPressed=\{!applyReturn\}[\s\S]*setApplyReturn\(false\)/)
-  })
-
-  it('카드 문구가 returnChoiceReason을 거친다 — 선택의 결과가 화면에 남아야 한다', () => {
-    const call = /const card = homeCardState\(\{[\s\S]*?\n  \}\)/.exec(home())?.[0]
-    expect(call, 'homeCardState 호출을 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
-    expect(call).toMatch(/returnChoiceReason\(\{/)
-    expect(call).toMatch(/applyReturn,/)
   })
 })

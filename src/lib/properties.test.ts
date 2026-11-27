@@ -2,12 +2,12 @@
 // 판정·계산 함수에 새 규칙을 더할 때 여기에 속성을 한 줄 더한다(agents/IMPLEMENTER.md 2절).
 // 실패하면 fast-check가 가장 작은 반례를 찍어 준다. 그 반례를 이름 붙은 예시 테스트로 옮겨 고정한다.
 import fc from 'fast-check'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { clampStep } from '../ax/clampStep'
-import { sensoryDot } from '../screens/AnalyzeScreen'
-import { chartColor, type ChartColorKey } from './chartTheme'
+import { describe, expect, it } from 'vitest'
 import { addDays, daysBetween, parseDateStr, weekDates, weekStart } from './dates'
 import { STEP_PRESETS, snapDownToScale, stepBelow, stepDown, stepUp } from './weightScale'
+import { pickActiveRoutine, pickOpenSession } from './readModel'
+import { BUNDLED_ROUTINE } from '../db/seed'
+import type { Session } from '../types'
 
 /** 0.25kg 단위 무게 (부동소수로 정확히 표현되는 값만) */
 const weight = fc.integer({ min: 0, max: 1200 }).map((n) => n / 4)
@@ -90,16 +90,6 @@ describe('속성: 무게 단위 (weightScale)', () => {
       }),
     )
   })
-
-  it('clampStep(Astryx 스테퍼)은 어떤 값에서도 [min, max]를 벗어나지 않는다', () => {
-    fc.assert(
-      fc.property(fc.integer({ min: -50, max: 500 }), fc.constantFrom(-1 as const, 1 as const), fc.integer({ min: 1, max: 10 }), fc.integer({ min: 0, max: 50 }), fc.integer({ min: 0, max: 200 }), (v, dir, s, min, span) => {
-        const next = clampStep(v, dir, s, min, min + span)
-        expect(next).toBeGreaterThanOrEqual(min)
-        expect(next).toBeLessThanOrEqual(min + span)
-      }),
-    )
-  })
 })
 
 describe('속성: 날짜 (dates)', () => {
@@ -130,40 +120,64 @@ describe('속성: 날짜 (dates)', () => {
   })
 })
 
-const chartKey = fc.constantFrom<ChartColorKey>('accent', 'ok', 'warn', 'text', 'dim', 'faint', 'line', 'surface', 'surface2')
-
-describe('속성: 분석 차트 색·감각 점 (v1.21 SS5)', () => {
-  afterEach(() => vi.unstubAllGlobals())
-
-  it('chartColor는 어떤 열쇠에서도 빈 글자를 돌려주지 않는다 — 문서가 없을 때·토큰이 비었을 때는 폴백', () => {
-    fc.assert(
-      fc.property(chartKey, (k) => {
-        expect(chartColor(k)).not.toBe('')
-      }),
+describe('속성: 읽기 모델 (readModel — VV2)', () => {
+  const baseSession = (startedAt: string, ended: boolean): Session => ({
+    id: `s-${startedAt}`,
+    date: startedAt.slice(0, 10),
+    dayId: 'd1',
+    routineId: 'r',
+    mode: 'normal',
+    startedAt,
+    ...(ended ? { endedAt: startedAt } : {}),
+    entries: [],
+  })
+  /** startedAt이 서로 다른 세션들 (동점은 "정렬 동점의 순서 의존" — 이 속성의 대상이 아니다) */
+  const sessions = fc
+    .uniqueArray(fc.integer({ min: 0, max: 400 }), { minLength: 0, maxLength: 12 })
+    .chain((ts) =>
+      fc.tuple(
+        fc.constant(ts),
+        fc.array(fc.boolean(), { minLength: ts.length, maxLength: ts.length }),
+      ),
     )
+    .map(([ts, ended]) =>
+      ts.map((t, i) => baseSession(`2026-01-01T00:00:${String(t).padStart(3, '0')}.000Z`, ended[i])),
+    )
+  const shuffled = <T>(a: T[]) =>
+    fc.shuffledSubarray(a, { minLength: a.length, maxLength: a.length })
+  const routineOf = (id: string) => ({ ...BUNDLED_ROUTINE, id })
+  const routines = fc
+    .uniqueArray(fc.integer({ min: 0, max: 400 }), { minLength: 0, maxLength: 8 })
+    .map((ns) => ns.map((n) => routineOf(`r${String(n).padStart(3, '0')}`)))
+
+  it('pickOpenSession은 배열 순서를 바꿔도 같은 세션을 고른다 — 끝나지 않은 것 중 가장 늦게 시작한 것', () => {
     fc.assert(
-      fc.property(chartKey, fc.constantFrom('', ' ', '  \n'), (k, empty) => {
-        const fallback = chartColor(k) // 문서가 없는 node 환경 = 폴백
-        vi.stubGlobal('document', { documentElement: {} })
-        vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: () => empty }))
-        const got = chartColor(k)
-        vi.unstubAllGlobals()
-        expect(got).not.toBe('')
-        expect(got).toBe(fallback)
+      fc.property(sessions.chain((a) => fc.tuple(fc.constant(a), shuffled(a))), ([a, b]) => {
+        const picked = pickOpenSession(a)
+        expect(pickOpenSession(b)?.id).toBe(picked?.id)
+        const open = a.filter((s) => !s.endedAt)
+        expect(picked === undefined).toBe(open.length === 0)
+        if (picked) {
+          expect(picked.endedAt).toBeUndefined()
+          for (const s of open) expect(s.startedAt <= picked.startedAt).toBe(true)
+        }
       }),
     )
   })
 
-  it('sensoryDot의 level은 0~3의 정수이고 점수가 커지면 줄지 않는다(단조)', () => {
-    const score = fc.oneof(fc.constant(null), fc.double({ min: 0, max: 3, noNaN: true }))
+  it('pickActiveRoutine은 배열 순서를 바꿔도 같은 루틴을 고른다 — 저장된 id가 있으면 그것, 아니면 기본키 순 첫 루틴', () => {
     fc.assert(
-      fc.property(score, score, (a, b) => {
-        for (const s of [a, b]) {
-          const { level } = sensoryDot(s)
-          expect(Number.isInteger(level) && level >= 0 && level <= 3).toBe(true)
-        }
-        if (a !== null && b !== null && a <= b) expect(sensoryDot(a).level).toBeLessThanOrEqual(sensoryDot(b).level)
-      }),
+      fc.property(
+        routines.chain((a) => fc.tuple(fc.constant(a), shuffled(a), fc.oneof(fc.constant(null), fc.integer({ min: 0, max: 400 })))),
+        ([a, b, n]) => {
+          const activeId = n === null ? null : `r${String(n).padStart(3, '0')}`
+          const picked = pickActiveRoutine(a, activeId)
+          expect(pickActiveRoutine(b, activeId)?.id).toBe(picked?.id)
+          const exists = activeId !== null && a.some((r) => r.id === activeId)
+          if (exists) expect(picked?.id).toBe(activeId)
+          else expect(picked?.id).toBe([...a].map((r) => r.id).sort()[0])
+        },
+      ),
     )
   })
 })

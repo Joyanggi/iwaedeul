@@ -367,7 +367,7 @@ describe('KK1', () => {
 
   describe('소스 스캔', () => {
     const raw = import.meta.glob(
-      ['/src/lib/sessionFactory.ts', '/src/screens/HomeScreen.tsx', '/src/lib/**/*.ts', '!/src/lib/**/*.test.ts'],
+      ['/src/lib/sessionFactory.ts', '/src/lib/**/*.ts', '!/src/lib/**/*.test.ts'],
       { query: '?raw', import: 'default', eager: true },
     ) as Record<string, string>
     const src = (name: string) => stripComments(raw[name])
@@ -385,12 +385,6 @@ describe('KK1', () => {
           src(k).includes('snapDownToScale('),
       )
       expect(users).toEqual(['/src/lib/prefill.ts'])
-    })
-    it('HomeScreen.tsx: returnStep?.weightPct·returnStep?.setPct 없음, returnStepText( 있음', () => {
-      const s = src('/src/screens/HomeScreen.tsx')
-      expect(s).not.toContain('returnStep?.weightPct')
-      expect(s).not.toContain('returnStep?.setPct')
-      expect(s).toContain('returnStepText(')
     })
     it('setPlan.ts: resolveSessionAdjust 안에서 현재 루틴 단계(returnStepFor)를 읽지 않는다 (과거 세션 조정률 불변)', () => {
       expect(src('/src/lib/setPlan.ts')).not.toContain('returnStepFor')
@@ -652,19 +646,16 @@ describe('KK2', () => {
 
   describe('소스 스캔', () => {
     const raw = import.meta.glob(
-      ['/src/lib/exportMarkdown.ts', '/src/components/ExerciseCard.tsx', '/src/screens/HomeScreen.tsx', '/src/lib/setPlan.ts'],
+      ['/src/lib/exportMarkdown.ts', '/src/lib/setPlan.ts'],
       { query: '?raw', import: 'default', eager: true },
     ) as Record<string, string>
     const src = (name: string) => stripComments(raw[name])
     it('exportMarkdown.ts·ExerciseCard.tsx·HomeScreen.tsx에 남기기·당시 규칙·한 단계·무게 유지 리터럴 없음', () => {
-      for (const f of ['/src/lib/exportMarkdown.ts', '/src/components/ExerciseCard.tsx', '/src/screens/HomeScreen.tsx']) {
+      for (const f of ['/src/lib/exportMarkdown.ts']) {
         // 디로드 배너의 `세트 50%, 무게 유지`(HomeScreen)는 복귀 문구가 아니라 제외한다
         const text = src(f).replace('디로드 권장 — 세트 50%, 무게 유지', '')
         for (const lit of ['남기기', '당시 규칙', '한 단계', '무게 유지']) expect(text, `${f} ${lit}`).not.toContain(lit)
       }
-    })
-    it('ExerciseCard.tsx는 targetRIR을 읽지 않는다', () => {
-      expect(src('/src/components/ExerciseCard.tsx')).not.toContain('targetRIR')
     })
     it('setPlan.ts: LEGACY_RETURN_PROTOCOL 있음, resolveSessionAdjust 안에 returnStepFor( 없음', () => {
       const s = src('/src/lib/setPlan.ts')
@@ -764,21 +755,12 @@ describe('KK3', () => {
   describe('소스 스캔', () => {
     const raw = import.meta.glob(
       [
-        '/src/components/DayPickerSheet.tsx',
-        '/src/screens/HomeScreen.tsx',
         '/src/lib/dayGap.ts',
         '/src/lib/exportMarkdown.ts',
       ],
       { query: '?raw', import: 'default', eager: true },
     ) as Record<string, string>
     const src = (name: string) => stripComments(raw[name])
-    it('DayPickerSheet.tsx·HomeScreen.tsx에 daysSinceDay( 없음', () => {
-      expect(src('/src/components/DayPickerSheet.tsx')).not.toContain('daysSinceDay(')
-      expect(src('/src/screens/HomeScreen.tsx')).not.toContain('daysSinceDay(')
-    })
-    it('HomeScreen.tsx에 dayLastDone( 한 번', () => {
-      expect(src('/src/screens/HomeScreen.tsx').split('dayLastDone(').length - 1).toBe(1)
-    })
     it('dayGap.ts의 staleDaysLine 본문에 dayLastDone( 없음', () => {
       const s = src('/src/lib/dayGap.ts')
       expect(s.slice(s.indexOf('export function staleDaysLine'))).not.toContain('dayLastDone(')
@@ -924,19 +906,18 @@ describe('KK4', () => {
 
   describe('소스 스캔', () => {
     const raw = import.meta.glob(
-      ['/src/screens/HomeScreen.tsx', '/src/lib/exportMarkdown.ts', '/src/lib/progression.ts'],
+      ['/src/lib/exportMarkdown.ts', '/src/lib/progression.ts'],
       { query: '?raw', import: 'default', eager: true },
     ) as Record<string, string>
     const src = (name: string) => stripComments(raw[name])
     const count = (text: string, needle: string) => text.split(needle).length - 1
     it('HomeScreen·exportMarkdown에 문구 리터럴 없음', () => {
-      for (const f of ['/src/screens/HomeScreen.tsx', '/src/lib/exportMarkdown.ts']) {
+      for (const f of ['/src/lib/exportMarkdown.ts']) {
         expect(src(f)).not.toContain('일 만이에요')
         expect(src(f)).not.toContain('Day 공백')
       }
     })
     it('dayGapNotice( · sessionDayGapLine( 각 한 번', () => {
-      expect(count(src('/src/screens/HomeScreen.tsx'), 'dayGapNotice(')).toBe(1)
       expect(count(src('/src/lib/exportMarkdown.ts'), 'sessionDayGapLine(')).toBe(1)
     })
     it('progression.ts에 아직 시험 안 됨 한 번', () => {

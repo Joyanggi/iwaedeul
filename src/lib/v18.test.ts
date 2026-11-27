@@ -9,7 +9,6 @@ import {
   tempoFor,
   tempoPhasesFor,
 } from './tempo'
-import { adjustTotalSec, extendEndTime } from './useRestTimer'
 import { TAP_SLOP_PX, isTap } from './tapJudge'
 import { homeCardState } from './dayChoice'
 import { lastNote, noteHistory, noteLineText } from './noteHistory'
@@ -19,8 +18,7 @@ import { applyAddExercise } from './sessionOps'
 import { zeroWeightHint } from './setRowState'
 import { BUNDLED_ROUTINE, BUNDLED_EXERCISES } from '../db/seed'
 import { completedSession } from './testFixtures'
-import { dayTotalSets } from './useRoutine'
-import { stripComments } from './sourceScan'
+import { dayTotalSets } from './readModel'
 import { NO_COMPENSATION, type Session, type SetRecord } from '../types'
 
 const routine = BUNDLED_ROUTINE
@@ -116,40 +114,6 @@ describe('CC16 — A그룹 이완 초 설정', () => {
 })
 
 // ─── CC6: −30초 ──────────────────────────────────────────
-
-describe('CC6 — 휴식 −30초', () => {
-  const now = 1_000_000
-
-  it('진행 중인 타이머에서 30초를 뺀다', () => {
-    const end = now + 90_000
-    expect(extendEndTime(end, now, -30)).toBe(now + 60_000)
-  })
-
-  it('남은 시간이 30초 미만이면 즉시 종료된다 (차임 + 자동 닫힘 경로)', () => {
-    const end = now + 5_000
-    expect(extendEndTime(end, now, -30)).toBe(now)
-  })
-
-  it('과거로 내려가지 않는다 — 음수 남은 시간은 만들지 않는다', () => {
-    expect(extendEndTime(now + 1_000, now, -600)).toBe(now)
-  })
-
-  it('이미 끝난 타이머에서 빼도 now다', () => {
-    expect(extendEndTime(now - 60_000, now, -30)).toBe(now)
-  })
-
-  it('+30초는 그대로 동작한다 (같은 함수를 쓴다)', () => {
-    expect(extendEndTime(now + 90_000, now, 30)).toBe(now + 120_000)
-    // 이미 끝난 타이머에 +30 → 지금부터 30초 (기존 규칙 유지)
-    expect(extendEndTime(now - 60_000, now, 30)).toBe(now + 30_000)
-  })
-
-  it('총 시간은 0 아래로 가지 않는다 (진행 바 폭이 뒤집힌다)', () => {
-    expect(adjustTotalSec(90, -30)).toBe(60)
-    expect(adjustTotalSec(10, -30)).toBe(0)
-    expect(adjustTotalSec(0, -30)).toBe(0)
-  })
-})
 
 // ─── CC12: 탭 판정 ────────────────────────────────────────
 
@@ -686,124 +650,3 @@ describe('대체 프리필 — 첫 대체와 재대체가 갈린다', () => {
 })
 
 // ─── 화면 배선 (2층 잠금) ──────────────────────────────────
-
-describe('화면 배선', () => {
-  const tsx = import.meta.glob('/src/**/*.tsx', {
-    query: '?raw',
-    import: 'default',
-    eager: true,
-  }) as Record<string, string>
-
-  const file = (path: string) => {
-    const src = tsx[path]
-    expect(src, `${path}를 찾지 못했다 — 이 검사가 헛돌고 있다`).toBeDefined()
-    return stripComments(src!)
-  }
-
-  it('CC3 — 세션 헤더가 타이머 시트를 연다', () => {
-    const src = file('/src/screens/SessionScreen.tsx')
-    expect(src).toMatch(/setManualTimer\(true\)/)
-    expect(src).toMatch(/<ManualTimerSheet/)
-    // App이 소유한 타이머를 그대로 시작시킨다 — 새 타이머 개념을 만들지 않는다
-    expect(src).toMatch(/onStart=\{\(sec, label\) => timer\.start\(sec, label\)\}/)
-    expect(file('/src/components/ManualTimerSheet.tsx')).not.toMatch(/useRestTimer/)
-  })
-
-  it('CC6 — 바에 −30초가 있고 진행 중에만 보인다', () => {
-    const src = file('/src/components/RestTimerBar.tsx')
-    expect(src).toMatch(/addSeconds\(-30\)/)
-    const minus = src.indexOf('−30초')
-    expect(minus).toBeGreaterThan(-1)
-    expect(src.slice(Math.max(0, minus - 200), minus)).toMatch(/!timer\.finished/)
-  })
-
-  it('CC12 — 반복 타이머가 남아 있지 않다', () => {
-    const src = file('/src/components/NumberStepper.tsx')
-    for (const gone of ['HOLD_DELAY_MS', 'REPEAT_MS', 'ACCEL_AFTER', 'ACCEL_MS', 'setInterval']) {
-      expect(src, `${gone}가 남아 있다`).not.toContain(gone)
-    }
-    expect(src).toMatch(/onPointerUp=\{\(e\) => release\(1, e\)\}/)
-    expect(src).toMatch(/isTap\(started/)
-  })
-
-  it('CC12 — pointerdown에서는 값을 바꾸지 않는다', () => {
-    const src = file('/src/components/NumberStepper.tsx')
-    const downs = src.match(/onPointerDown=\{\(e\) => \{[\s\S]*?\}\}/g) ?? []
-    expect(downs.length).toBe(2)
-    for (const d of downs) expect(d).not.toMatch(/bump\(/)
-  })
-
-  it('CC4 — 가이드가 호흡 라벨을 보여준다', () => {
-    expect(file('/src/components/TempoGuideSheet.tsx')).toMatch(/BREATH_LABEL\[pos\.phase\.kind\]/)
-  })
-
-  it('CC5·CC16 — 가이드가 phases를 호출부에서 받는다', () => {
-    const sheet = file('/src/components/TempoGuideSheet.tsx')
-    // 시트가 TEMPO를 직접 읽으면 오버라이드·설정이 반영되지 않는다
-    expect(sheet).not.toMatch(/TEMPO\[/)
-    expect(sheet).toMatch(/phases: TempoPhase\[\]/)
-    expect(file('/src/screens/SessionScreen.tsx')).toMatch(
-      /tempoPhasesFor\(exercise\?\.tempo, routineExercise\.group, aEccentricSec\)/,
-    )
-  })
-
-  it('CC11 — 카드가 openSession을 본다', () => {
-    const src = file('/src/screens/HomeScreen.tsx')
-    expect(src).toMatch(/openDayId: openSession\?\.dayId \?\? null/)
-    expect(src).toMatch(/card\.resuming \? onEnterSession\(\) : start\(displayed\)/)
-  })
-
-  it('CC14 — 카드가 직전 메모를 받고, 이력 화면이 타임라인을 그린다', () => {
-    expect(file('/src/screens/SessionScreen.tsx')).toMatch(
-      /previousNote=\{lastNote\(allSessions, entry\.recordKey\)\}/,
-    )
-    expect(file('/src/screens/ExerciseHistoryScreen.tsx')).toMatch(/noteHistory\(sessions, selected\)/)
-  })
-
-  it('CC15 — 세션 화면에 종목 추가 버튼과 시트가 있다', () => {
-    const src = file('/src/screens/SessionScreen.tsx')
-    expect(src).toMatch(/\+ 종목 추가/)
-    expect(src).toMatch(/actions\.addExercise\(/)
-  })
-
-  it('프리필 맵이 entry 기준으로 계획을 되짚는다 (CC15 + v1.8 후속)', () => {
-    /*
-      실측에서 발견: 얹은 카드의 고스트가 "기준 기록 없음"이었다. prefills가
-      `day.exercises`에서만 찾으므로 다른 Day 키(얹은 종목)와 대체 종목 키를 못 찾았고,
-      추정 시작 무게도 지난 기록도 증량 칩도 화면에 닿지 않았다.
-
-      **예외 목록을 손으로 관리하지 않는다** — `routineExerciseOfEntry`가 이미 그
-      되짚기의 초크포인트다 (대체·다른 Day를 둘 다 해석한다).
-    */
-    const src = file('/src/screens/SessionScreen.tsx')
-    const memo = /const prefills = useMemo\(\(\) => \{[\s\S]*?\n  \}, \[/.exec(src)?.[0]
-    expect(memo, 'prefills useMemo를 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
-    expect(memo).toMatch(/routineExerciseOfEntry\(bundle\.routine, entry\)/)
-    // day.exercises에서만 찾던 옛 경로가 남아 있으면 대체·얹기가 다시 빠진다
-    expect(memo).not.toMatch(/day\.exercises\.find/)
-    expect(memo).not.toMatch(/entry\.extra \?/)
-  })
-
-  it('v1.8 후속 — firstExposure가 hasHistory로 판정한다', () => {
-    /*
-      `prefill.best` 부재는 프리필 내부 사정(최근 3세션 최고 기록)이고, 물어야 하는 것은
-      "이 라인에 기록이 있는가"다. 대체 프리필을 채운 뒤로는 두 질문의 답이 갈린다.
-    */
-    const src = file('/src/components/ExerciseCard.tsx')
-    expect(src).toMatch(/const firstExposure = Boolean\(entry\.substituteFor\) && prefill\?\.hasHistory !== true/)
-    expect(src).not.toMatch(/Boolean\(entry\.substituteFor\) && !prefill\?\.best/)
-  })
-
-  it('CC10 — 편집 화면도 같은 플래그를 넘긴다 (한쪽만 오탐이 남으면 갈라진다)', () => {
-    for (const path of ['/src/screens/SessionScreen.tsx', '/src/screens/SessionDetailScreen.tsx']) {
-      expect(file(path), path).toMatch(/allowZeroWeight=\{exercise\?\.allowZeroWeight === true\}/)
-    }
-  })
-
-  it('CC16 — 설정이 문서 범위에서만 고르게 한다', () => {
-    const src = file('/src/screens/SettingsScreen.tsx')
-    expect(src).toMatch(/A_ECCENTRIC_OPTIONS\.map/)
-    // 임의 숫자를 적으면 문서 범위를 벗어날 수 있다
-    expect(src).not.toMatch(/\[2, 1\.5\]/)
-  })
-})

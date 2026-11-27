@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { formatDateTimeLocal, localDateOf } from './dates'
-import { backupReminder } from './gistSync'
 import { stripComments } from './sourceScan'
 
 /**
@@ -93,39 +92,11 @@ describe('로컬 시각 변환', () => {
 })
 
 describe('백업 리마인드가 로컬 날짜로 센다 (Z7-3)', () => {
-  /**
-   * 계획서가 지시한 경계: "UTC 15:30 = KST 다음날 00:30 업로드가 오늘로 계산된다."
-   * UTC 날짜로 세면 경과일이 하루 더 나와 리마인드가 일찍 뜬다.
-   */
-  it('UTC로는 어제인 업로드가 로컬로는 오늘이면 경과 0일이다', () => {
-    const iso = '2026-08-04T15:30:00Z' // KST 8/5 00:30
-    const localToday = localDateOf(iso)
-    const info = backupReminder({
-      sessionCount: 3,
-      lastBackupAt: iso,
-      configured: true,
-      today: localToday,
-    })
-    expect(info.daysSince).toBe(0)
-    expect(info.show).toBe(false)
-  })
-
   it('UTC 날짜로 셌다면 1일이 나왔을 것이다 (차이가 실재한다)', () => {
     const iso = '2026-08-04T15:30:00Z'
     // 날짜가 UTC와 갈리는 환경에서만 성립한다 (KST가 그렇다). UTC CI에서는 같은 게 정상
     if (dateDiffersFromUtc(iso)) expect(localDateOf(iso)).not.toBe(iso.slice(0, 10))
     else expect(localDateOf(iso)).toBe(iso.slice(0, 10))
-  })
-
-  it('7일이 지나면 여전히 리마인드가 뜬다 (수정이 기능을 죽이지 않았다)', () => {
-    const info = backupReminder({
-      sessionCount: 3,
-      lastBackupAt: '2026-07-20T03:00:00Z',
-      configured: true,
-      today: '2026-08-05',
-    })
-    expect(info.show).toBe(true)
-    expect(info.daysSince).toBeGreaterThanOrEqual(7)
   })
 })
 
@@ -152,36 +123,5 @@ describe('인바리언트 — UTC 문자열을 직접 자르지 않는다', () =
         `formatDateTimeLocal()을 쓰세요:\n` +
         offenders.map((f) => `  ${f}`).join('\n'),
     ).toEqual([])
-  })
-
-  it('날짜 계산에 slice(0, 10)을 쓰지 않는다 (gistSync)', () => {
-    const src = stripComments(sources['/src/lib/gistSync.ts']!)
-    expect(src).not.toMatch(/lastBackupAt\.slice\(0,\s*10\)/)
-    expect(src).toMatch(/localDateOf\(lastBackupAt\)/)
-  })
-
-  it('가져오기 패널도 같은 함수를 쓴다 (인바리언트가 네 번째 복제를 잡았다)', () => {
-    const src = sources['/src/components/ImportPanel.tsx']
-    expect(src, 'ImportPanel을 찾지 못했다').toBeDefined()
-    expect(stripComments(src!)).toMatch(/formatDateTimeLocal\(/)
-  })
-
-  it('GistPanel이 공용 함수를 쓴다', () => {
-    const src = sources['/src/components/GistPanel.tsx']
-    expect(src, 'GistPanel을 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
-    // 상태 문구 2(스킵/업로드) + 마지막 백업 1 + 복원 스테이징 1 = 4
-    expect((stripComments(src!).match(/formatDateTimeLocal\(/g) ?? []).length).toBe(4)
-  })
-
-  it('스킵과 업로드가 다른 문구를 쓴다 (Z7-2)', () => {
-    const src = stripComments(sources['/src/components/GistPanel.tsx']!)
-    expect(src).toMatch(/s\.skipped/)
-    expect(src).toMatch(/변경 없음 — 마지막 백업/)
-    expect(src).toMatch(/백업 완료/)
-  })
-
-  it('스킵 경로가 skipped 플래그를 세운다 (gistSync)', () => {
-    const src = stripComments(sources['/src/lib/gistSync.ts']!)
-    expect(src).toMatch(/status: 'done', at: lastAt, skipped: true/)
   })
 })

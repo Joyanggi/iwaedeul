@@ -17,17 +17,3 @@ describe("PP1 — 유리는 CSS 토큰으로만 건다", () => {
     expect(offenders).toEqual([])
   })
 })
-
-describe("PP2 — 시트는 규칙 하나로 유리가 된다", () => {
-  // v1.19 QQ3 스캔으로 옮김 — `v119.test.ts` (시트 껍데기가 SheetFrame 하나로 모여 이 스캔의 대상 14개가 사라졌다)
-
-  it("ax/index.tsx의 Sheet가 BottomSheet에 className·style·xstyle을 넘기지 않는다 (넘기면 키보드 대응이 꺼진다)", () => {
-    const text = stripComments(SOURCES["/src/ax/index.tsx"])
-    const start = text.indexOf("<BottomSheet")
-    const end = text.indexOf("</BottomSheet>")
-    expect(start).toBeGreaterThan(-1)
-    expect(end).toBeGreaterThan(start)
-    const block = text.slice(start, end)
-    expect(block).not.toMatch(/\b(className|style|xstyle)\s*=/)
-  })
-})

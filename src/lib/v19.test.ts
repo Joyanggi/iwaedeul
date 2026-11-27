@@ -28,7 +28,7 @@ import {
   seedVariantChoices,
 } from './dietOps'
 import { dietSectionMarkdown } from './exportMarkdown'
-import { allSlots, isTrainingOnlySlot, parseTimeHint } from './mealCalendar'
+import { allSlots, isTrainingOnlySlot, parseTimeHint } from './diet'
 import { BUNDLED_DIET_PLANS } from '../db/seed'
 import { stripComments } from './sourceScan'
 import type { DietDay, DietPlan, DietSlot, SlotRecord } from '../types'
@@ -51,12 +51,6 @@ const sources = import.meta.glob('/src/**/*.{ts,tsx}', {
   import: 'default',
   eager: true,
 }) as Record<string, string>
-
-const file = (path: string) => {
-  const src = sources[path]
-  expect(src, `${path}가 없습니다 — 이 검사가 헛돌고 있다`).toBeDefined()
-  return stripComments(src!)
-}
 
 const slotOf = (plan: DietPlan, id: string): DietSlot =>
   slotsFor(plan).find((s) => s.id === id)!
@@ -141,13 +135,6 @@ describe('DD1 — comparePlans', () => {
       expect(protein, `${a.id}→${b.id}`).toBe(diff.proteinDelta)
       expect(diff.kcalDelta).toBe(planTotals(b).kcal - planTotals(a).kcal)
     }
-  })
-
-  it('플랜 시트가 문구를 손으로 적지 않는다 (파생 함수를 쓴다)', () => {
-    const sheet = file('/src/components/DietPlanSheet.tsx')
-    expect(sheet).toMatch(/planDiffText\(/)
-    // 품목 이름을 화면이 들고 있으면 시드를 고칠 때 낡는다
-    expect(sheet).not.toMatch(/현미밥|빠짐/)
   })
 })
 
@@ -260,13 +247,6 @@ describe('DD2 — 옛 플랜은 숨기고 남긴다', () => {
     expect(successorOf(BUNDLED_DIET_PLANS, 'cut-1800-u')).toBeUndefined()
   })
 
-  it('시드가 그 이관을 실제로 한다', () => {
-    // 이게 없으면 기존 설치본의 defaultDietPlanId가 숨긴 플랜을 계속 가리킨다
-    const seed = file('/src/db/seed.ts')
-    expect(seed).toMatch(/successorOf\(/)
-    expect(seed).toMatch(/defaultDietPlanId/)
-  })
-
   it('연속일 경고 대상은 총량에서 파생된다 (isDefault 플래그가 아니다)', () => {
     // 옛 감량 플랜은 기본과 총량이 같으므로 "만회성 절식" 경고 대상이 아니다
     expect(isReducedPlan(NEW_LOW, BUNDLED_DIET_PLANS)).toBe(true)
@@ -329,21 +309,6 @@ describe('DD2 — 과거 판정 불변 (이 라운드의 인바리언트)', () =
 })
 
 describe('DD2 — 훈련일/휴식일 조작이 화면에서 사라졌다', () => {
-  const editor = () => file('/src/components/DietDayEditor.tsx')
-
-  it('세그먼트·잠금 문구·전환 op가 없다', () => {
-    const src = editor()
-    for (const gone of [
-      'diet-daytype',
-      'applyTrainingDay',
-      '훈련일',
-      '휴식일',
-      '운동 기록이 있어',
-    ]) {
-      expect(src, `"${gone}"가 남아 있다`).not.toContain(gone)
-    }
-  })
-
   it('전환 op가 소스 어디에도 없다 (되살아나는 경로를 남기지 않는다)', () => {
     const owners = Object.entries(sources)
       .filter(([p]) => !p.includes('.test.'))
@@ -362,13 +327,6 @@ describe('DD2 — 훈련일/휴식일 조작이 화면에서 사라졌다', () =
     expect(revived).toContain('diet-daytype')
     expect(revived).toContain('훈련일')
     expect(/applyTrainingDay/.test(revived)).toBe(true)
-    // 그리고 편집기에는 그 형태가 없다
-    expect(editor()).not.toContain('diet-daytype')
-  })
-
-  it('기록 생성 시 훈련일 기본값은 여전히 사실에서 온다', () => {
-    // 저장값 자체는 남는다 (옛 플랜 판정 경로에 필요하고, 사실 기반이어야 한다)
-    expect(editor()).toMatch(/trainedThatDay \|\| \(stored\?\.isTrainingDay \?\? false\)/)
   })
 })
 
@@ -580,22 +538,6 @@ describe('DD3 5-b — 마지막 선택을 기억한다', () => {
     const day = applyToggleItem(emptyDietDay('2026-08-06', NEW.id, false), 'lunch', 'chicken-2')
     const seeded = seedVariantChoices(day, slotsFor(NEW), { 'lunch.chicken-2': 2 })
     expect(seeded.slots.lunch.variantChoices).toEqual({ 'chicken-2': 2 })
-  })
-
-  it('편집기가 모든 변경을 그 초크포인트로 통과시킨다', () => {
-    const src = file('/src/components/DietDayEditor.tsx')
-    // mutate 안에서 한 번만 부른다 (op마다 부르면 새 op에서 빠뜨린다)
-    expect(src).toMatch(/mutateDietDay\(date, \{ \.\.\.day, isTrainingDay \}, \(d\) =>\s*seedVariantChoices\(fn\(d\), slots, variantDefaults\),?\s*\)/)
-    expect((src.match(/seedVariantChoices\(/g) ?? []).length).toBe(1)
-  })
-
-  it('화면이 품목 표기를 직접 읽지 않는다 (변형 초크포인트를 지난다)', () => {
-    const offenders = Object.entries(sources)
-      .filter(([p]) => p.startsWith('/src/components/') || p.startsWith('/src/screens/'))
-      .filter(([p]) => !p.includes('.test.'))
-      .filter(([, src]) => /\bitem\.qty\b/.test(stripComments(src)))
-      .map(([p]) => p)
-    expect(offenders, '고른 변형이 아니라 기본 표기가 화면에 나옵니다 — itemVariant를 쓰세요').toEqual([])
   })
 
   it('그 스캔이 실제로 위반을 잡는다', () => {

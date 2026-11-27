@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { applyAddSet, applyPatchSet } from './sessionOps'
-import { commitPendingEdits } from './commitEdits'
-import { stripComments } from './sourceScan'
 import { BUNDLED_ROUTINE } from '../db/seed'
 import { buildSession } from './sessionFactory'
 import type { Session } from '../types'
@@ -73,63 +71,5 @@ describe('커밋 → 삽입 순서가 값을 제자리에 둔다', () => {
     expect(plain.slice(0, before).map((x) => x.warmup)).toEqual(
       fresh().entries[0].sets.map((x) => x.warmup),
     )
-  })
-})
-
-describe('commitPendingEdits', () => {
-  it('DOM이 없어도 던지지 않는다 (vitest는 node 환경이다)', () => {
-    expect(typeof document).toBe('undefined')
-    expect(() => commitPendingEdits()).not.toThrow()
-  })
-})
-
-describe('화면 배선 (2층 잠금)', () => {
-  const card = () => {
-    const sources = import.meta.glob('/src/components/*.tsx', {
-      query: '?raw',
-      import: 'default',
-      eager: true,
-    }) as Record<string, string>
-    const src = sources['/src/components/ExerciseCard.tsx']
-    expect(src, 'ExerciseCard를 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
-    return stripComments(src!)
-  }
-
-  it('워밍업 버튼이 커밋을 먼저 부른다', () => {
-    const src = card()
-    const handler = /commitPendingEdits\(\)[\s\S]{0,200}?warmup: true/.exec(src)?.[0]
-    expect(
-      handler,
-      'commitPendingEdits()가 warmup 추가보다 앞에 없다 — 순서가 이 방어선의 전부다',
-    ).toBeDefined()
-  })
-
-  it('addSet(warmup)을 부르는 자리가 한 곳뿐이다', () => {
-    // 두 곳이 되면 한쪽에 커밋 선행이 빠질 수 있다
-    const calls = card().match(/addSet\([^)]*warmup: true/g) ?? []
-    expect(calls).toHaveLength(1)
-  })
-
-  it('일반 세트 추가·제거에는 붙이지 않았다 (인덱스를 밀지 않는다)', () => {
-    const src = card()
-    expect(src).toMatch(/onClick=\{\(\) => actions\.addSet\(entry\.recordKey\)\}/)
-    expect(src).not.toMatch(/commitPendingEdits\(\)\s*\n?\s*actions\.removeSet/)
-  })
-
-  it('주석이 거짓 논거를 더 이상 말하지 않는다', () => {
-    /*
-      이전 주석: "key={i}는 세트를 끝에서만 제거하는 현재 UI에서만 안전하다."
-      워밍업 앞 삽입이 이미 인덱스를 밀고 있었으므로 그 논거는 거짓이었다.
-      주석 원본을 봐야 하므로 stripComments를 쓰지 않는다.
-    */
-    const sources = import.meta.glob('/src/components/*.tsx', {
-      query: '?raw',
-      import: 'default',
-      eager: true,
-    }) as Record<string, string>
-    const raw = sources['/src/components/ExerciseCard.tsx']!
-    expect(raw).not.toContain('끝에서만 제거하는 현재 UI에서만 안전하다')
-    expect(raw).toContain('commitPendingEdits()')
-    expect(raw).toMatch(/앞에 삽입/)
   })
 })

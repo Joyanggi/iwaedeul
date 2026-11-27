@@ -819,3 +819,51 @@ export function dietMonthStats(
   }
   return { byDate, logged, good, partialDates }
 }
+
+// ─── 식단 슬롯 계산 (옛 mealCalendar.ts에서 옮김 — 본문 그대로) ───
+
+/**
+ * `"07:30"` → `{ h: 7, m: 30 }`. 형식이 어긋나면 `null`.
+ *
+ * **범위 표기도 받는다** (`"15:00~16:00"` → 15:00). 보충 블록의 `timeHint`가 범위이고,
+ * 그게 바로 사용자가 "까먹는다"고 한 슬롯이다 — 첫 구현에서 이 형식을 놓쳐 **가장 필요한
+ * 알림이 안 만들어졌다** (시드를 읽어 보고 발견했다). 시작 시각에 울리는 것이 맞다:
+ * 범위의 끝에 울리면 이미 지난 알림이 된다.
+ *
+ * 시드 JSON이 바뀌어도(문서 교체) 앱이 죽지 않아야 하므로 파싱 실패를 값으로 다룬다.
+ */
+export function parseTimeHint(hint: string): { h: number; m: number } | null {
+  const m = /^(\d{1,2}):(\d{2})/.exec(hint.trim())
+  if (!m) return null
+  const h = Number(m[1])
+  const min = Number(m[2])
+  if (h > 23 || min > 59) return null
+  return { h, m: min }
+}
+
+/**
+ * 그 플랜의 알림 대상 슬롯.
+ *
+ * 새 플랜은 매일 같은 5끼라 `plan.slots` 그대로다 (DD2). **옛 플랜에서는 합집합이어야
+ * 한다**: `shake`(보충 블록)가 휴식일 목록에만 있어서 `plan.slots`만 보면 사용자가 가장
+ * 원한 슬롯("오후·보충 블록은 까먹는다")이 목록에서 빠졌다. 그 결함을 다시 만들지 않도록
+ * 옛 플랜 경로를 유지한다 — 백업에서 돌아온 플랜으로 알림을 만들 수 있다.
+ */
+export function allSlots(plan: DietPlan): DietSlot[] {
+  const byId = new Map<string, DietSlot>()
+  for (const slot of [...plan.slots, ...(restDaySlotsOf(plan) ?? [])]) {
+    if (!byId.has(slot.id)) byId.set(slot.id, slot)
+  }
+  return [...byId.values()]
+}
+
+/**
+ * 훈련일 전용 슬롯 — 매일 반복이므로 휴식일에도 울린다 (캡션으로 알린다).
+ *
+ * 새 플랜에는 그런 슬롯이 없다 (DD2 — 매일 같은 5끼). 옛 플랜에서만 참이 될 수 있다.
+ */
+export function isTrainingOnlySlot(plan: DietPlan, slotId: string): boolean {
+  const rest = restDaySlotsOf(plan)
+  if (!rest) return false
+  return plan.slots.some((s) => s.id === slotId) && !rest.some((s) => s.id === slotId)
+}

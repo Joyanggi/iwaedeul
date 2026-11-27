@@ -12,35 +12,9 @@
  *   2. db.setSetting이 비밀 키를 거부 (db/index.ts의 assertNotSecret)
  */
 
-const PREFIX = 'workout-tracker.'
-const GIST_TOKEN_KEY = `${PREFIX}gistToken`
-
 /** Dexie settings에 저장이 금지된 키 */
 export const SECRET_SETTING_KEYS: readonly string[] = ['gistToken']
 
 export function isSecretSettingKey(key: string): boolean {
   return SECRET_SETTING_KEYS.includes(key)
-}
-
-export function getGistToken(): string | null {
-  try {
-    return localStorage.getItem(GIST_TOKEN_KEY)
-  } catch {
-    return null
-  }
-}
-
-export function setGistToken(token: string | null): void {
-  try {
-    if (token && token.trim()) localStorage.setItem(GIST_TOKEN_KEY, token.trim())
-    else localStorage.removeItem(GIST_TOKEN_KEY)
-  } catch {
-    /* 프라이빗 모드 등 */
-  }
-}
-
-/** 화면에 보여줄 때 쓰는 마스킹 (앞 4자만) */
-export function maskToken(token: string): string {
-  if (token.length <= 8) return '••••'
-  return `${token.slice(0, 4)}${'•'.repeat(8)}${token.slice(-4)}`
 }

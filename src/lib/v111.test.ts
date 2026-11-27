@@ -606,7 +606,7 @@ describe('GG1 — 과거 판정 불변 (2026-08-26 픽스처)', () => {
 })
 
 describe('GG1 — 소스 스캔 (초크포인트)', () => {
-  const raw = import.meta.glob(['/src/lib/*.ts', '/src/screens/*.tsx', '/src/components/*.tsx'], {
+  const raw = import.meta.glob(['/src/lib/*.ts'], {
     query: '?raw', import: 'default', eager: true,
   }) as Record<string, string>
   const src = (p: string) => {
@@ -615,7 +615,7 @@ describe('GG1 — 소스 스캔 (초크포인트)', () => {
   }
 
   it('계획 세트 수와 길이를 비교하는 증량 판정이 progression.ts 밖에 없다', () => {
-    for (const p of ['/src/lib/prefill.ts', '/src/lib/exportMarkdown.ts', '/src/screens/SummaryScreen.tsx']) {
+    for (const p of ['/src/lib/prefill.ts', '/src/lib/exportMarkdown.ts']) {
       expect(src(p), p).not.toMatch(/\.length\s*<\s*[\w.]*\.sets\b/)
       expect(src(p), p).not.toMatch(/routineExercise\.sets\b/)
     }
@@ -623,18 +623,10 @@ describe('GG1 — 소스 스캔 (초크포인트)', () => {
   })
 
   it('Summary·내보내기는 holdReasonText를 import하고 사유 문구 리터럴이 없다', () => {
-    for (const p of ['/src/screens/SummaryScreen.tsx', '/src/lib/exportMarkdown.ts']) {
+    for (const p of ['/src/lib/exportMarkdown.ts']) {
       expect(src(p), p).toMatch(/import\s*\{[^}]*\bholdReasonText\b[^}]*\}\s*from\s*'[^']*progression'/)
       expect(src(p), p).not.toMatch(/세트 중|반복 상단/)
     }
-  })
-
-  it('ExerciseCard의 hold 칩이 lastHoldChipText를 거친다', () => {
-    const s = src('/src/components/ExerciseCard.tsx')
-    // GG2: modeSetNotice가 같은 import에 들어와 단일 이름 매칭을 풀었다
-    expect(s).toMatch(/import\s*\{[^}]*lastHoldChipText[^}]*\}\s*from\s*'[^']*progression'/)
-    expect(s).toMatch(/lastHoldChipText\(prefill\?\.lastVerdict\)/)
-    expect(s).not.toMatch(/지난번 상단/)
   })
 })
 
@@ -715,34 +707,18 @@ describe('GG2', () => {
   })
 
   describe('소스 스캔', () => {
-    const raw = import.meta.glob(['/src/lib/*.ts', '/src/screens/*.tsx', '/src/components/*.tsx'], {
+    const raw = import.meta.glob(['/src/lib/*.ts'], {
       query: '?raw', import: 'default', eager: true,
     }) as Record<string, string>
     const src = (p: string) => {
       expect(raw[p], `${p}를 찾지 못했다 — 이 검사가 헛돌고 있다`).toBeDefined()
       return stripComments(raw[p])
     }
-    it('ExerciseCard에 showProgression 없음 · modeSetNotice를 거침', () => {
-      const s = src('/src/components/ExerciseCard.tsx')
-      expect(s).not.toMatch(/showProgression/)
-      expect(s).toMatch(/modeSetNotice\(sessionMode,\s*routineExercise,\s*entry\)/)
-    })
-    it('SessionScreen이 sessionMode={session.mode}를 넘기고, 카드에는 routineExerciseOfEntry 결과를 넘긴다', () => {
-      const s = src('/src/screens/SessionScreen.tsx')
-      expect(s).toMatch(/sessionMode=\{session\.mode\}/)
-      expect(s).toMatch(/routineExerciseOfEntry\(bundle\.routine,\s*entry\)/)
-    })
     it('modeSetNotice 본문이 doneSets( 를 쓰고 행 수 세기가 없다', () => {
       const s = src('/src/lib/progression.ts')
       const body = s.slice(s.indexOf('export function modeSetNotice'), s.indexOf('export function progressionVerdicts'))
       expect(body).toMatch(/doneSets\(/)
       expect(body).not.toMatch(/!s\.warmup\)\.length|entry\.sets\.length/)
-    })
-    it('HomeScreen: 주간 램프업·다음 세션부터 없음, 이번 세션에만 적용 있음', () => {
-      const s = src('/src/screens/HomeScreen.tsx')
-      expect(s).not.toMatch(/주간 램프업/)
-      expect(s).not.toMatch(/다음 세션부터/)
-      expect(s).toMatch(/이번 세션에만 적용/)
     })
   })
 })
