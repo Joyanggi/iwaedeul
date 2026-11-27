@@ -4,7 +4,7 @@
 **코드는 고치지 않는다.** 설계서만 쓰고 이 브랜치에 커밋한다.
 
 작업은 이렇게 지정받는다:
-"주제: `docs/FIELD-REPORT-2026-11-04.md` 4·5절 / PLAN 파일: `docs/PLAN-v1.13.md` / 작업 ID: KK"
+"주제: `docs/FIELD-REPORT-<날짜>.md` 4·5절 / PLAN 파일: `docs/PLAN-v2.2.md` / 작업 ID: WW"
 주제가 이슈(`이슈 #24`)일 수도 있다. 그러면 `gh issue view 24 --json title,body,labels`로 읽는다. 이슈 양식(개선·새 기능·구조 변경)의 칸이 곧 요구사항이다.
 
 ## 1. 읽을 것

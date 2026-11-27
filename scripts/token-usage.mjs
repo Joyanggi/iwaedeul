@@ -7,7 +7,7 @@
 // 역할은 세션의 첫 지시문에 나오는 역할 파일(agents/DESIGNER.md 등)로 가린다. 프롬프트 내용은 출력하지 않는다.
 //
 // 사용:
-//   node scripts/token-usage.mjs --since 2026-11-10T13:02:00+09:00 [--until <시각>] [--match workout-tracker]
+//   node scripts/token-usage.mjs --since 2026-11-10T13:02:00+09:00 [--until <시각>] [--match iwaedeul,workout-tracker]
 //       → PR 본문에 붙일 "## 토큰 사용" 절 (표 + 기계가 읽는 JSON 주석)
 //   node scripts/token-usage.mjs --collect [--after-pr <번호>] [--limit 40]
 //       → 머지된 PR 본문의 토큰 절을 모아 역할별로 합친 보고서 (gh 필요)
@@ -260,14 +260,18 @@ function measure() {
   const sinceText = arg('--since');
   const since = Date.parse(sinceText ?? '');
   if (!Number.isFinite(since)) {
-    console.error('사용: node scripts/token-usage.mjs --since <ISO 시각> [--until <ISO 시각>] [--match workout-tracker]');
+    console.error('사용: node scripts/token-usage.mjs --since <ISO 시각> [--until <ISO 시각>] [--match iwaedeul,workout-tracker]');
     process.exit(2);
   }
   const untilText = arg('--until', new Date().toISOString());
   const until = Date.parse(untilText);
-  const match = arg('--match', 'workout-tracker').toLowerCase();
+  // 레포 이름이 workout-tracker → iwaedeul로 바뀌었다(2026-11-27). 옛 이름의 작업 폴더도 이 레포다. 쉼표로 여럿.
+  const matches = arg('--match', 'iwaedeul,workout-tracker').toLowerCase().split(',').filter(Boolean);
   const claudeDir = join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), 'projects');
-  const inRepo = (cwd) => String(cwd ?? '').replace(/\\/g, '/').toLowerCase().includes(match);
+  const inRepo = (cwd) => {
+    const path = String(cwd ?? '').replace(/\\/g, '/').toLowerCase();
+    return matches.some((m) => path.includes(m));
+  };
 
   const sessions = [];
   const parentRole = new Map();

@@ -14,8 +14,8 @@
 | 이슈 (흐름 미지정) | "이슈 #24 진행해" | `agents/coordinator/INTAKE.md` 2절만 → 아래 둘 중 하나로 |
 | 작은 수정 | "이슈 #23을 작은 수정으로 진행해" | `agents/coordinator/SMALL.md` |
 | 설계 | "설계 작업. 주제: 이슈 #24 (또는 `docs/FIELD-REPORT-….md` 2·5절)" (PLAN 파일·작업 ID는 적으면 따르고, 없으면 DESIGN.md가 정한다) | `agents/coordinator/DESIGN.md` |
-| 구현 | "`docs/PLAN-v1.13.md`의 KK1을 진행해" | 없음 |
-| 여러 작업 연속 구현 | "`docs/PLAN-v1.13.md`의 미구현 작업을 전부 진행해" | `agents/coordinator/BATCH.md` |
+| 구현 | "`docs/PLAN-v2.1.md`의 VV4을 진행해" | 없음 |
+| 여러 작업 연속 구현 | "`docs/PLAN-v2.1.md`의 미구현 작업을 전부 진행해" | `agents/coordinator/BATCH.md` |
 | 품질 정리 | (PLAN 구현 PR 머지 뒤 자동) 또는 "품질 정리해" | `agents/coordinator/QUALITY.md` |
 
 PR을 만드는 일이면 마무리 때 `agents/coordinator/PR.md`도 읽는다. 해당하는 파일만 읽고 나머지는 읽지 않는다.
