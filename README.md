@@ -6,6 +6,8 @@
 
 **[https://joyanggi.github.io/workout-tracker/](https://joyanggi.github.io/workout-tracker/)**
 
+1인용 운동 기록 앱. 웹앱(PWA, v1.21.0)은 마지막 배포본으로 위 주소에 남아 있고 레포에서는 지웠다(소스: 커밋 `d87ef6d`, `WEB_FINAL`). 레포는 iOS 네이티브 앱(Expo)으로 옮기는 중이다 — docs/PLAN-v2.0.md.
+
 헬스장에서 세트별 반복수, 감각 점수, 보상작용, 실제 수행 순서를 실시간으로 입력하고,
 그 기록을 Markdown으로 내보내 LLM에게 바로 분석시키는 것까지를 한 흐름으로 묶은 앱입니다.
 서버도 로그인도 없고, 데이터는 전부 기기 안(IndexedDB)에 있습니다.
@@ -420,9 +422,7 @@ npm run preview   # 서비스워커는 프로덕션 빌드에서만 동작합니
 
 ## 배포
 
-`main`에 push하면 GitHub Actions가 테스트 → 빌드 → Pages 순으로 올립니다
-([.github/workflows/deploy.yml](.github/workflows/deploy.yml)).
-Day 제안 알고리즘이 깨진 채로 배포되지 않도록 `npm test`가 빌드 앞에 있습니다.
+배포 워크플로는 없다(v2.1~). 웹은 마지막 배포본(`WEB_FINAL` = `d87ef6d`)이 Pages에 그대로 있고, 레포 변경은 그 웹에 닿지 않는다.
 
 **iOS에서 쓰는 방법:** Safari로 배포 주소를 열고 공유 → **홈 화면에 추가**.
 Safari 탭으로만 쓰면 iOS가 7일 미사용 시 IndexedDB를 지울 수 있습니다. 홈 화면 앱은 그 대상에서 제외됩니다.
