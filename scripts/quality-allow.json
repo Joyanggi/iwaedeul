@@ -1,7 +1,7 @@
 {
   "duplicates": {},
   "testSupport": [
-    "src/lib/sourceScan.ts",
-    "src/lib/testFixtures.ts"
+    "src/core/sourceScan.ts",
+    "src/core/testFixtures.ts"
   ]
 }

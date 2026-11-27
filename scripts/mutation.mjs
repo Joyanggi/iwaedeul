@@ -5,8 +5,8 @@
  * 구현자의 "결함 복원 확인"(IMPLEMENTER.md 3절)을 기계가 줄마다 대신 해 주는 것이다.
  *
  * 사용: node scripts/mutation.mjs [<파일>…] [--base origin/main]
- *   파일을 안 주면 <base>...HEAD에서 바뀐 src/lib/*.ts(테스트 제외)만 돌린다. 바뀐 게 없으면 아무것도 안 한다.
- *   전체(src/lib 57개)는 수십 분이 걸려서 기본으로 돌지 않는다. 전체는 `npx stryker run`.
+ *   파일을 안 주면 <base>...HEAD에서 바뀐 src/core/*.ts(테스트 제외)만 돌린다. 바뀐 게 없으면 아무것도 안 한다.
+ *   전체(src/core 45개)는 수십 분이 걸려서 기본으로 돌지 않는다. 전체는 `npx stryker run`.
  * 판정하지 않는다(살아남은 변이가 있어도 종료 코드 0). 결과 표는 구현자가 기록에 옮기고 리뷰어가 본다.
  * 화면(.tsx)은 대상이 아니다 — 화면은 ui-check와 화면 검증자가 본다. CI에서 돌지 않는다.
  */
@@ -17,9 +17,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-/** 변이 대상인가: src/lib의 .ts이고 테스트가 아니다 */
+/** 변이 대상인가: src/core의 .ts이고 테스트가 아니다 */
 export function isTarget(path) {
-  return /^src\/lib\/[^/]+\.ts$/.test(path) && !/\.test\.ts$/.test(path)
+  return /^src\/core\/[^/]+\.ts$/.test(path) && !/\.test\.ts$/.test(path)
 }
 
 /** Stryker JSON 보고서 → 파일별 { killed, survived, noCoverage, score, survivors: [{ line, mutator, replacement }] } */
@@ -60,12 +60,12 @@ function main() {
   const base = baseAt >= 0 ? args[baseAt + 1] : 'origin/main'
   let files = args.filter((a, i) => !a.startsWith('--') && (baseAt < 0 || i !== baseAt + 1))
   if (files.length === 0) {
-    const diff = execFileSync('git', ['diff', '--name-only', '--diff-filter=AM', `${base}...HEAD`, '--', 'src/lib'], { cwd: ROOT, encoding: 'utf8' })
+    const diff = execFileSync('git', ['diff', '--name-only', '--diff-filter=AM', `${base}...HEAD`, '--', 'src/core'], { cwd: ROOT, encoding: 'utf8' })
     files = diff.split('\n').filter(Boolean)
   }
   files = files.map((f) => f.replace(/\\/g, '/')).filter((f) => isTarget(f) && existsSync(join(ROOT, f)))
   if (files.length === 0) {
-    console.log(`변이 테스트: 대상 없음 (${base}...HEAD에서 바뀐 src/lib/*.ts가 없다)`)
+    console.log(`변이 테스트: 대상 없음 (${base}...HEAD에서 바뀐 src/core/*.ts가 없다)`)
     return
   }
   console.log(`변이 테스트 대상 ${files.length}개: ${files.join(', ')}`)

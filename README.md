@@ -2,9 +2,11 @@
 
 > 16개월간 기록이 없었던 것이 문제였다. 그래서 "기록하는 마찰"을 최소화하는 것만을 목표로 만든 1인용 운동 기록 PWA.
 
-`React 19` · `TypeScript` · `Vite` · `Dexie (IndexedDB)` · `zustand` · `recharts` · `vite-plugin-pwa` · `GitHub Pages`
+`TypeScript` · `Vitest (fast-check)` · `ESLint` · `Knip` · `StrykerJS` — 앱: 전환 중 (VV4)
 
 **[https://joyanggi.github.io/workout-tracker/](https://joyanggi.github.io/workout-tracker/)**
+
+1인용 운동 기록 앱. 웹앱(PWA, v1.21.0)은 마지막 배포본으로 위 주소에 남아 있고 레포에서는 지웠다(소스: 커밋 `d87ef6d`, `WEB_FINAL`). 레포는 iOS 네이티브 앱(Expo)으로 옮기는 중이다 — docs/PLAN-v2.0.md.
 
 헬스장에서 세트별 반복수, 감각 점수, 보상작용, 실제 수행 순서를 실시간으로 입력하고,
 그 기록을 Markdown으로 내보내 LLM에게 바로 분석시키는 것까지를 한 흐름으로 묶은 앱입니다.
@@ -29,6 +31,8 @@
 - 서버를 두지 않는다. Apple Developer 등록 없이 iOS 홈 화면 앱으로 쓸 수 있으면 충분하다.
 
 ## 기능
+
+웹앱 v1.21.0(마지막 배포본) 기준이다. 네이티브로 옮기는 순서는 PLAN v2.0 10절.
 
 | 탭 | 내용 |
 |---|---|
@@ -216,58 +220,13 @@
 
 ### iOS · PWA
 
-- **휴식 타이머는 남은 초를 세지 않고 종료 시각을 저장한다** (§5.2)
-  iOS PWA는 화면이 잠기면 JS 실행이 멈춥니다. 카운터를 깎는 방식이면 잠긴 60초 동안 시간이
-  흐르지 않아, 복귀했을 때 이미 끝났어야 하는 타이머가 "1:10 남음"을 보여줍니다.
-  `endTime = now + restSec`를 저장하고 매 틱마다 재계산하면 복귀 즉시 정확합니다.
-
-- **서비스워커 업데이트는 자동 적용하지 않는다**
-  `registerType: 'autoUpdate'`는 새 버전 감지 시 페이지를 리로드합니다. 세션 입력 중에
-  화면이 날아가면 안 되므로 배너로 알리고 사용자가 누를 때만 적용합니다.
-
-- **휴식 종료음의 AudioContext는 세트 체크 시점에 미리 열어둔다**
-  iOS는 사용자 제스처 없이 AudioContext를 시작할 수 없습니다. 비프음이 울려야 하는 시점은
-  90~150초 뒤로 제스처가 없으므로, 항상 타이머 시작 직전에 오는 제스처(세트 체크 ✓)에서
-  컨텍스트를 열어둡니다. `navigator.vibrate`는 iOS 미지원이라 소리가 주 수단입니다.
-
-- **모양은 테마 한 벌이 정한다**
-  색·글자 크기·간격·모서리·그림자·움직임은 Astryx 테마(`src/ax/theme.ts`)가 정하고, 앱이 따로 고정하는 색은 없습니다.
-  테마는 Astryx Neutral을 잇고 강조색만 파랑으로 바꾼 것입니다. 라이트/다크는 폰 설정을 따릅니다.
-  떠 있는 띠와 시트도 테마의 표면색입니다(v1.20에서 유리를 걷었습니다).
-  이 앱만의 부품(세트 행, 요일 점, 띠)의 CSS는 `src/ax/parts.css`에 있고 값은 테마 토큰에서만 가져옵니다.
-
-- **화면은 나눠 읽는다 — 처음 여는 순간에는 홈만**
-  앱을 처음 여는 순간 읽는 코드는 홈과 앱 틀(탭·띠·테마)뿐입니다. 세션·요약·식단·기록·설정은 `React.lazy`로 나눠,
-  홈이 뜬 1초 뒤 미리 읽어 둡니다(누르기 전에 준비된다). 시트 부품도 처음 열 때 읽습니다. 분석 탭은 미리 읽지 않습니다 —
-  recharts가 gzip 110KB가 넘어 **헬스장에서 쓰는 경로(홈 → 세션)가 차트 코드를 파싱하지 않게** 하려는 것이고
-  (설계 문서 §2가 지정한 스택이라 바꾸지 않는다), 분석 탭을 열 때 읽습니다. 서비스워커가 모든 청크를 precache하므로
-  오프라인에서도 전부 열립니다. 처음 여는 순간 읽는 크기는 `node scripts/first-load.mjs`가 재고 `npm run check`가
-  360KB(gzip)를 넘지 않게 지킵니다.
-
-  분석 탭 청크가 메인 번들과 비슷한 크기입니다 (recharts). 정확한 값은
-  `npm run build` 출력이 말해줍니다 — 여기 적어두면 코드가 커질 때마다 낡습니다.
-
-- **Astryx 테마는 앱 뿌리에 한 번 걸고, 앱 CSS는 `src/ax`의 두 파일뿐이다**
-  테마(`src/ax/theme.ts`)와 기본 크기는 `AppRoot`가 앱 전체에 한 번 겁니다. 화면은 `src/ax/`의 부품만 가져다 쓰고, Astryx 버전은 정확한 값으로 고정합니다(베타). 앱이 쓰는 CSS는 Astryx의 것과 `src/ax`의 `ax.css`(범위 한정 리셋 사본·문서 바탕)·`parts.css`(Astryx에 없는 이 앱만의 부품 — 세트 표, 요일 점, 달력 칸, 띠, 템포 무대)뿐이고, 레이어 순서는 `src/ax/layers.css` 한 줄이 정합니다. 손으로 짠 CSS(`src/styles/`)는 v1.21에서 없앴고, `node scripts/astryx-inventory.mjs --check`가 되살아나지 않게 지킵니다.
-  헬스장 경로(홈 → 세션)도 Astryx를 읽습니다. 서비스워커가 전부 precache하므로 오프라인에서 그대로 열리고,
-  처음 여는 순간 읽는 크기는 `node scripts/first-load.mjs`가 지킵니다(위 '화면은 나눠 읽는다').
-- **눌림과 움직임은 Astryx 테마의 값을 따르고, "동작 줄이기"를 존중한다**
-  버튼의 눌림, 시트가 올라오고 내려가는 움직임은 Astryx 부품의 것입니다.
-  iOS Safari는 `touchstart` 처리기가 없으면 눌림(`:active`)을 그리지 않아서 `main.tsx`가 빈 처리기를 답니다.
-  폰의 "동작 줄이기"가 켜지면 크기 변화와 올라오는 움직임을 끄고, 눌림 덮개와 휴식 타이머의 진행 표시는 남깁니다.
-  움직이는 것은 `transform`·`opacity`·`background-color`뿐이고, 시트 뒤 막은 `opacity`로 움직이지 않습니다.
-- **여백은 역할 토큰 한 벌이다**
-  간격 단위는 Astryx의 간격 단계(`--spacing-*`)이고, 묶음 사이·카드 사이·카드 안쪽은 `src/ax`의 `Groups`·`Group`·`Card`가 정합니다(화면은 숫자를 적지 않습니다). 화면 좌우는 `.ax-screen` 한 곳입니다. `.tsx`에 인라인 스타일을 적지 않습니다(`astryx-inventory`가 지킵니다). 검사는 값이 아니라 관계를 잽니다 — 안에 든 요소가 바깥 요소 안에서 대칭인가, 같은 역할의 간격이 화면 사이에서 같은가(`node scripts/ui-check.mjs`의 `안쪽 대칭`·`같은 역할`).
-- **한글은 단어 사이에서만 줄을 바꾼다**
-  한글은 기본이 음절 단위 줄바꿈이라 375 폭에서 `기/록`처럼 글자 중간에서 꺾입니다. 화면과 시트의 글은 `parts.css`의 한 규칙(`word-break: keep-all`, 한 단어가 줄보다 길 때만 `overflow-wrap: anywhere`)으로 단어 사이에서만 꺾고, `ui-check`의 흐름이 390·375 폭에서 글자 중간 꺾임을 셉니다.
+웹앱(PWA)의 결정 — 서비스워커·AudioContext·Astryx 테마·화면 나눠 읽기·여백·한글 줄바꿈 — 은 웹 소스와 함께 WEB_FINAL의 README에 있다.
+네이티브가 이어받는 것은 그 단계 PLAN이 이 문서에 다시 적는다(휴식 타이머는 종료 시각을 저장한다 — v2.2).
 
 ### 백업 · 비밀값
 
 - **Gist 토큰은 세 겹으로 백업에서 차단한다** (§11)
-  JSON 백업은 Dexie를 통째로 덤프하고, 그 파일은 공유 시트로 나가고 Gist에 올라갑니다.
-  `Settings` 타입에서 필드를 제거(localStorage 전용)하고, `db.setSetting`이 비밀 키를 예외로
-  거부하고, `createBackup`이 한 번 더 필터링합니다. 세 번째가 필요한 이유는 *이미 저장된 값*
-  때문입니다 — 토큰을 IndexedDB에 강제로 심고 백업을 뽑아 유출되지 않음을 확인했습니다.
+  웹(WEB_FINAL)은 세 겹으로 막았다. 레포에는 백업 형식이 거르는 겹(stripSecrets·isSecretSettingKey, src/core/backup.ts·secrets.ts)이 남고, 네이티브의 토큰 저장은 VV7.
 
 - **Gist API가 1MB에서 응답을 자르므로 `truncated`면 `raw_url`로 다시 받는다**
   잘린 `content`를 그대로 파싱하면, 운 나쁘게 배열 경계에서 잘렸을 때 **파싱은 성공하고
@@ -297,7 +256,7 @@ erDiagram
   SessionEntry }o--|| SessionEntry : "substituteFor (대체 수행)"
 ```
 
-Dexie 테이블은 `routines`, `exercises`, `sessions`, `settings(key-value)`, `exerciseNotes`,
+웹 IndexedDB(Dexie)의 테이블은 `routines`, `exercises`, `sessions`, `settings(key-value)`, `exerciseNotes`,
 `dietPlans`, `dietDays` 일곱 개입니다 (스키마 v3 — `exerciseNotes` 행이 머신 세팅 메모와
 무게 단위를 함께 담고, `dietDays`는 날짜가 PK라 "하루 하나"를 스키마가 강제합니다).
 직접 등록한 음식은 테이블을 늘리지 않고 settings의 userFoods 행 하나에 둡니다. 스키마 버전을 올리지 않아야 배포를 되돌릴 수 있기 때문입니다.
@@ -327,7 +286,7 @@ suggestNextDay(sessions, routine, today):
 "측면어깨 7/11의 남은 4세트"가 같은 무게로 취급됩니다. 그러면 D1 직후에 D2(광배 10세트)가
 아니라 D4(여러 부위를 조금씩)가 뽑히고, 주 2회 노출을 방어하려던 로직의 목적이 사라집니다.
 배수의 유효 구간은 (1.176, 1.892)로 좁게 결정되며 — 그 밖에서는 다른 케이스가 깨집니다 —
-경계에서 가장 먼 1.5를 씁니다. 이 부등식은 [테스트](src/lib/suggestNextDay.test.ts)로 고정돼 있습니다.
+경계에서 가장 먼 1.5를 씁니다. 이 부등식은 [테스트](src/core/suggestNextDay.test.ts)로 고정돼 있습니다.
 
 **"주요 부위"의 정의.** 회복 감쇠에 쓰이는 주요 부위는 *그 Day 총 세트의 25% 이상*을
 차지하는 부위입니다. 겹침을 느슨하게 잡으면 (예: 세트 수 3 이상) D1과 D2가 `팔`로 겹쳐서
@@ -344,95 +303,47 @@ suggestNextDay(sessions, routine, today):
 | 가슴(플랫) | 3 | 0.40 |
 | 코어 | 5 | 0.30 |
 
-## Architecture
-
-```mermaid
-flowchart TB
-  subgraph device["iOS 홈 화면 앱 (standalone)"]
-    UI["React 화면<br/>홈 · 세션 · 기록 · 설정"]
-    Lazy["세션·요약·식단·기록·설정·분석<br/>(React.lazy — 분석 말고는 미리 읽기)"]
-    Store["zustand<br/>설정 · 진행 중 세션"]
-    Dexie["Dexie / IndexedDB<br/>routines · exercises · sessions · settings"]
-    LS["localStorage<br/>Gist 토큰 · 휴식 타이머"]
-    SW["Service Worker<br/>Workbox precache"]
-    UI <--> Store
-    UI <--> Dexie
-    UI -.->|탭 진입 시| Lazy
-    Lazy --> Dexie
-    UI <--> LS
-    SW -->|오프라인 셸 + 모든 청크| UI
-  end
-
-  Seed["src/data/routine-v2.4.json<br/>+ exercises.json"] -->|최초 실행 시 주입| Dexie
-  Dexie -->|Markdown 내보내기| LLM["LLM 분석"]
-  Dexie -->|JSON 백업| Gist["secret Gist"]
-```
-
 ## Tech Stack
 
-- 빌드: Vite, TypeScript
-- UI: React 19 (라우터 없음 — 탭 4개라 상태로 충분)
-- 상태: zustand (설정 · 진행 중 세션 · 휘발성 UI 상태만. 나머지는 `dexie-react-hooks` live query로 직접 읽음)
-- 저장: Dexie (IndexedDB, 스키마 v3) + localStorage (비밀값·휴식 타이머·백업 대기 플래그)
-- UI 부품: Astryx 0.7.13 (@astryxdesign/core, 베타 — 버전 고정. 모든 화면)
-- 차트: recharts (분석 탭 청크 — 미리 읽지 않는다)
-- PWA: vite-plugin-pwa (manifest + Workbox SW), iOS 스플래시 8종
-- 테스트: Vitest (알고리즘·파생 계산 단위 테스트, CI에서 배포 전 실행). 개수는 `npm test`가 말해줍니다
-- 검사: `npm run check` 하나가 CI와 같은 목록을 돕니다 — 흔적 검사(자체 스크립트), ESLint(React 훅·접근성), Knip(안 쓰는 파일·의존성), Astryx 뒷걸음 검사, 테스트(fast-check 속성 테스트 포함), 빌드. 변이 테스트(StrykerJS, `npm run mutation`)와 화면 검사(Playwright + axe-core, `scripts/ui-check.mjs`)는 로컬에서 돌리고, CodeQL·OSV-Scanner는 별도 워크플로로 돕니다
-- 배포: GitHub Actions → GitHub Pages
+- 언어: TypeScript
+- 테스트: Vitest + fast-check(속성 테스트). 개수는 `npm test`가 말해줍니다
+- 검사: `npm run check` 하나가 CI와 같은 목록을 돕니다 — 흔적 검사(자체 스크립트), 경계 검사(`src/core`가 순수한지), ESLint, Knip(안 쓰는 파일·의존성), 타입, 테스트. 변이 테스트(StrykerJS, `npm run mutation`)는 로컬에서 돌리고, CodeQL·OSV-Scanner는 별도 워크플로로 돕니다
+- 앱: 전환 중 — VV4
 
 ## 프로젝트 구조
 
 ```
 src/
-  lib/          파생 계산과 순수 로직 — 테스트가 붙는 곳
+  core/         판정·계산·타입·백업 형식·시드 상수 — 순수 TS. react·expo·DB를 import하지 않는다(경계 검사)
                 suggestNextDay · prefill · sessionOps · dashboard · analysis
                 exportMarkdown · backup · gist · dayChange · dates
                 phaseReadiness · pr · weightScale · substitute
                 compensationWatch · bGroupGuide
-  db/           Dexie 스키마 · 시드 주입 · 루틴 정합성 검증
-  store/        zustand (settings · 진행 중 세션 · 배너 dismiss)
-  screens/      탭 화면 + 세션/상세/요약
-  components/   운동 카드 · 스테퍼 · 바텀시트 · 차트 위젯
-  ax/           Astryx를 쓰는 한 곳 — 테마(`theme.ts`), 앱 뿌리, 띠, 시트, 이 앱만의 부품 CSS(`parts.css`), 레이어 순서(`layers.css`)
-  data/         routine-v2.4.json · exercises.json (교체 가능한 시드)
+  data/         시드 JSON (routine-v2.4.json · exercises.json · diet-plans.json)
+scripts/        검사·하네스 도구
 ```
 
-로직을 `lib/`의 순수 함수로 몰아두고 화면은 그것을 호출만 합니다. Day 제안, 증량 판정,
-수행 순서 규칙처럼 **틀리면 조용히 잘못된 기록이 쌓이는 것들**을 IndexedDB 없이 테스트할 수
+로직을 `core/`의 순수 함수로 몰아두고 화면은 그것을 호출만 합니다. Day 제안, 증량 판정,
+수행 순서 규칙처럼 **틀리면 조용히 잘못된 기록이 쌓이는 것들**을 DB 없이 테스트할 수
 있어야 했기 때문입니다.
 
 ## Getting Started
 
 ```bash
 npm install
-npm run dev
-```
-
-`http://localhost:5173/workout-tracker/` 로 접속합니다.
-(Pages 하위 경로와 맞추기 위해 `base`가 `/workout-tracker/`입니다)
-
-```bash
 npm test          # 전체 스위트
-npm run build
-npm run preview   # 서비스워커는 프로덕션 빌드에서만 동작합니다
+npm run check     # CI와 같은 검사 전부
 ```
 
 ## 배포
 
-`main`에 push하면 GitHub Actions가 테스트 → 빌드 → Pages 순으로 올립니다
-([.github/workflows/deploy.yml](.github/workflows/deploy.yml)).
-Day 제안 알고리즘이 깨진 채로 배포되지 않도록 `npm test`가 빌드 앞에 있습니다.
+배포 워크플로는 없다(v2.1~). 웹은 마지막 배포본(`WEB_FINAL` = `d87ef6d`)이 Pages에 그대로 있고, 레포 변경은 그 웹에 닿지 않는다.
 
 **iOS에서 쓰는 방법:** Safari로 배포 주소를 열고 공유 → **홈 화면에 추가**.
 Safari 탭으로만 쓰면 iOS가 7일 미사용 시 IndexedDB를 지울 수 있습니다. 홈 화면 앱은 그 대상에서 제외됩니다.
 앱 첫 실행 온보딩이 이 안내를 강제로 보여주고, 홈 화면 앱이 아니면 상단에 경고를 계속 띄웁니다.
 
 ## 내보내기
-
-Markdown은 LLM 대화창에 붙여넣는 것이 목적이므로 `navigator.share({ text })`로,
-JSON 백업은 파일 앱에 보관하는 것이 목적이므로 `navigator.share({ files })`로 넘깁니다.
-공유가 불가능한 환경에서는 클립보드 복사 → 파일 다운로드로 내려갑니다.
 
 ```markdown
 # 운동 기록 2026-07-18 ~ 2026-07-31
@@ -503,6 +414,8 @@ JSON 백업은 파일 앱에 보관하는 것이 목적이므로 `navigator.shar
 서비스워커 업데이트도 오프라인에서 적용됩니다(새 SW가 미리 precache되므로).
 
 ## Limitations
+
+아래는 웹앱(v1.21.0)의 한계다. 네이티브에서 열리는 것은 PLAN v2.0 1절.
 
 - **1인용입니다.** 다중 사용자, 로그인, 서버 동기화가 없습니다. 기기를 바꾸면 JSON 내보내기/가져오기나 Gist 백업으로 옮겨야 합니다.
 - 특정 루틴(피지크형 상체 루틴 v2.4)의 기록 방식에 맞춰 설계됐습니다. 루틴은 앱에서 고치거나 JSON으로 교체할 수 있지만, 감각 점수·보상작용 같은 기록 항목 구조는 고정입니다. Day·종목 구성이 다른 루틴으로 바꾸면 새 루틴에 없는 Day·종목의 기록은 Day 이름·그룹 없이 보입니다(기록은 남고, 되돌리면 원래대로 보입니다. 그 루틴을 삭제하면 되돌릴 수 없습니다).

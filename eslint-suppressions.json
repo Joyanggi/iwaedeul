@@ -1,65 +1,20 @@
 {
-  "src/components/ExerciseCard.tsx": {
-    "react-hooks/immutability": {
-      "count": 1
-    }
-  },
-  "src/components/GistPanel.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "src/components/NumberStepper.tsx": {
-    "react-hooks/refs": {
-      "count": 1
-    }
-  },
-  "src/lib/backup.ts": {
+  "src/core/backup.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },
-  "src/lib/beep.test.ts": {
-    "@typescript-eslint/no-this-alias": {
-      "count": 1
-    }
-  },
-  "src/lib/dayChoice.test.ts": {
-    "no-regex-spaces": {
-      "count": 2
-    }
-  },
-  "src/lib/guideFinish.test.ts": {
-    "no-regex-spaces": {
-      "count": 3
-    }
-  },
-  "src/lib/polish.test.ts": {
+  "src/core/polish.test.ts": {
     "no-misleading-character-class": {
       "count": 1
     }
   },
-  "src/lib/seedRepair.test.ts": {
+  "src/core/seedRepair.test.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },
-  "src/lib/soundCancel.test.ts": {
-    "@typescript-eslint/no-this-alias": {
-      "count": 1
-    }
-  },
-  "src/lib/uiConsistency.test.ts": {
-    "no-regex-spaces": {
-      "count": 1
-    }
-  },
-  "src/lib/useSessionEditor.ts": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "src/lib/v113.test.ts": {
+  "src/core/v113.test.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 2
     },
@@ -67,23 +22,8 @@
       "count": 2
     }
   },
-  "src/lib/v116.test.ts": {
+  "src/core/v116.test.ts": {
     "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/lib/v18.test.ts": {
-    "no-regex-spaces": {
-      "count": 1
-    }
-  },
-  "src/screens/HomeScreen.tsx": {
-    "react-hooks/purity": {
-      "count": 1
-    }
-  },
-  "src/screens/SessionScreen.tsx": {
-    "react-hooks/set-state-in-effect": {
       "count": 1
     }
   }

@@ -4,7 +4,7 @@
  * 구현자는 이게 통과할 때까지 고치고 다시 돌린다(IMPLEMENTER.md 3절 "검사 루프"), 리뷰어는 한 번 돌려 확인한다.
  *
  * 사용: node scripts/check.mjs [--fast]   (npm run check)
- *   --fast  빌드와 첫 화면 크기(dist가 있어야 도는 단계)를 뺀다(작업 중간에). 마무리에는 빼지 않는다.
+ *   --fast  `slow`로 표시된 단계를 뺀다(작업 중간에). 지금은 그런 단계가 없다 — VV4가 번들 단계를 더한다.
  * 실패한 단계에서 멈추지 않고 끝까지 돌려, 무엇이 깨졌는지 한 표로 보인다. 하나라도 실패면 종료 코드 1.
  * 출력은 단계마다 끝 12줄만 보인다(토큰). 전체가 필요하면 그 명령을 따로 돌린다.
  */
@@ -17,12 +17,11 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** CI와 같은 목록. 여기를 고치면 ci.yml도 같이 고친다(scripts/check.test.mjs가 둘이 같은지 본다). */
 export const STEPS = [
   { name: '흔적 검사', cmd: 'node scripts/quality-scan.mjs --ci' },
-  { name: 'Astryx 뒷걸음', cmd: 'node scripts/astryx-inventory.mjs --check' },
+  { name: '경계', cmd: 'node scripts/boundary.mjs --check' },
   { name: '린트', cmd: 'npm run lint' },
   { name: '안 쓰는 파일·의존성', cmd: 'npm run knip' },
+  { name: '타입', cmd: 'npm run typecheck' },
   { name: '테스트', cmd: 'npm test' },
-  { name: '빌드', cmd: 'npm run build', slow: true },
-  { name: '첫 화면 크기', cmd: 'node scripts/first-load.mjs --check', slow: true },
 ]
 
 function main() {
