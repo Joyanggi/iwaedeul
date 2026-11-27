@@ -1,7 +1,19 @@
 # 개발·테스트 내역 (검토용) — v2.1 (VV)
 
 > PLAN-v2.1의 구현 기록. PR 1(VV1 → VV2 → VV3 → 기록)이 만들고 PR 2가 잇는다.
-> "이 환경에서 확인된 제약" 목록은 PR 1 마지막 "기록" 커밋에서 v1.21 목록(웹 전용 항목 뺌)을 이어받아 맨 위에 넣는다.
+> 맨 아래 "PR 1 기록"이 PR 1 몫의 모음(과거 판정 불변·변이·결함 복원·커밋 수·VV4 입력)이다. PR 2가 같은 문서에 이어 쓴다.
+
+## 이 환경에서 확인된 제약 (누적 — v1.21 목록에서 웹 전용 항목을 빼고 잇는다)
+
+1. `npx tsc --noEmit`을 직접 부르지 않는다 → **`npm run typecheck`**(`tsconfig.json` `include: ["src"]`, 웹 `build`는 없다). *(v1.21 제약 1을 VV2의 설정에 맞게 고침)*
+2. React 렌더 테스트(RTL)가 없다 → 규칙은 **순수 함수 + 소스 스캔** 2층으로 잠근다. (v1.21 제약 5)
+3. `git checkout <파일>`은 커밋되지 않은 작업을 버린다 → 되돌리기는 `cp` 백업으로 한다. (v1.21 제약 8)
+4. 작업 시작 전에 `git log`와 `grep`으로 이미 구현됐는지 먼저 본다(v1.21 제약 10).
+5. **환경이 바뀌었다(2026-11-26 Windows → macOS, Orca 작업 트리).** 옛 목록의 PowerShell·CP949·CRLF 항목(제약 11·12·17·21·30)은 해당하지 않는다.
+6. **새로 확인 (VV2):** git은 남긴 `it`이 적은 파일의 `git mv`를 이름 바꿈으로 못 본다(`mealCalendar.test.ts` → `dietSlots.test.ts`는 삭제 + 신규로 센다). 파일 수는 이름 바꿈을 같은 파일로 세어 맞춘다.
+7. **새로 확인 (VV3):** `import` 지정자를 찾는 정규식은 정규식 리터럴 안의 `from '\.\/derive'`도 import로 읽는다(`v113.test.ts:1043`). 지정자에 `\`가 들면 건너뛴다(`scripts/boundary.mjs`). 템플릿 리터럴 지정자(`` import(`react`) ``)는 못 본다 — VV4 입력 1.
+8. **빠진 것(웹 전용, v1.21 목록 1·2·3·4·6·7·9·13~16·18~20·22~29·31·32):** 브라우저 `visibilityState`·`.css ?raw`·`javascript_tool`·Playwright·axe·WebKit·유리 검사·`innerText` 선택자·`node:fs`→`npm run build` 등. 웹이 없으니 해당하지 않는다. 필요하면 `git show WEB_FINAL:docs/DEV-RECORD-v1.21.md`.
+9. **PR 2가 채운다(PLAN "완료 후 DEV-RECORD"의 나머지):** Expo SDK·RN·React 실제 버전 · 무료 계정 7일 만료일 · Hermes `crypto.randomUUID` 없음(확인한 방법) · `toLocaleString` 쉼표 · gist 100개 한 쪽 · `name` ASCII · 네이티브 빌드 시간 · `dist` 크기 · Astryx A/B 중 한 것. PR 1에는 앱·기기가 없어 확인할 것이 없다.
 
 ## 배포 영향
 
@@ -283,3 +295,78 @@ $ node scripts/boundary.mjs --check; echo $?
 ### 6) 하지 않은 것
 
 코어 파일 내용 수정 · `knip.json` `entry`에서 `src/core/*.ts` 걷기(v2.3 끝) · 버전 상향(1.21.0 그대로) · `scripts/*.test.mjs`의 `src/lib` 가짜 경로 예시 고치기(`quality-scan.test.mjs` 등은 파일 시스템을 안 읽는 입력 문자열이다).
+
+## PR 1 기록 (VV1 → VV2 → VV3 → 기록)
+
+### 배포 영향 (PR 본문 맨 위에 그대로)
+
+**웹(Pages)은 바뀌지 않는다. 이 PR부터 배포가 없다.** 레포에서 웹 코드를 지웠다(`WEB_FINAL`에 있다). 남은 것은 코어·시드·검사 도구.
+`WEB_FINAL` = `d87ef6d639ddfba433442f35b5e46823b5357c13` (2026-11-27T01:06:58Z, 위 `WEB_FINAL` 절). 버전은 `package.json` **1.21.0 그대로**.
+
+### 커밋 수 — `git log --oneline main..HEAD`
+
+```
+224afce refactor(VV3): 코어 이사 — src/lib·src/db·types를 src/core로, 경계 검사 더함
+2672b37 refactor(VV2): 웹 지우기 — 순수 조각 readModel로 떼고 화면·Dexie·PWA·웹 lib·웹 검사 삭제
+3575707 ci(VV1): 웹 배포 끄기 — deploy.yml 삭제, WEB_FINAL 기록
+```
+
+여기에 이 "기록" 커밋이 더해져 **PR 1 = 4**(VV1 · VV2 · VV3 · 기록 — PLAN과 같다). 커밋 직후 `git log --oneline main..HEAD`의 4줄로 확인했다(맨 위 줄이 이 커밋).
+
+### 과거 판정 불변 확인 (PLAN "구현 순서와 검증" ①~④·⑥. ⑤는 PR 2)
+
+| # | 확인 | 결과 |
+|---|---|---|
+| ① | VV2 이름 집합(후에만 있는 이름 0) | 후에만 있거나 늘어난 이름 27개, 전부 VV2가 더한 것. 지운 이름 표는 위 VV2 3). 합: 1921 − 630 + 27 = 1318, VV3에서 +31 = **1349** |
+| ② | VV2 남긴 본문 불변 명령 | 49줄 = 속성 45 · `toHaveLength(2)` · 기대 갱신 2 · `v114:515` 1 — 전부 VV2 4)·5)의 표에 있다. 빈 기대 `grep` → 빈 출력. 리뷰어가 같은 49줄로 재현 |
+| ③ | VV3 이름 그대로 | 전후 **61/1318 → 61/1318**(새 `boundary.test.mjs` 31 더해 62/1349). 명령 ①에 `v116.test.ts:902`(정렬만 바뀜)·`mutation.test.mjs:1` 머리 주석, ②에는 그 머리 주석 한 줄이 남는다(PLAN은 빈 출력을 말했으나 정규화 sed가 끝 `/` 없는 글을 못 본다 — 코드 변화 아님, VV3 2)) |
+| ④ | 골든 일곱 | 이 커밋에서 다시 잰 값: 일곱 제목으로 시작하는 `fullName` **15개 중 실패 0**(전 15 · 후 15). import 줄 말고 한 글자도 안 고쳤다(VV2·VV3) |
+| ⑥ | "과거 판정 불변" 표 | 판정·제안·내보내기·백업 형식 로직 불변. `src/core`의 코드 변경은 `bannerQueue.ts`(상수 4 이사) · `diet.ts`(끝에 함수 3) · `backup.ts`·`secrets.ts`(웹 쪽 지움, `export` 한 단어) · `readModel.ts`(새) · `seed.ts`(`ensureSeed` 지움) — 나머지는 import 경로뿐. 표의 "달라지는 것" 다섯 중 VV2·VV3 몫(웹 테스트 삭제 · 섞인 스캔 줄임 · 기대 두 곳의 `readModel.ts` 이사 · `src/core/`로)이 위 표·VV2 4)와 맞는다. `fingerprintPayload`(VV5)·백업 배너(VV8)는 PR 2 |
+
+헛도는 경로 막이 고정값: 템플릿 건너뜀 0 · glob 문자 건너뜀 4 · 허용 목록 0 — VV2·VV3 같다.
+
+### 변이 테스트 (PR 1: `src/core/readModel.ts`만 — VV2 7절)
+
+| 파일 | 점수 | 잡음 | 살아남음 |
+|---|---|---|---|
+| `src/core/readModel.ts`(VV2 당시 `src/lib/`) | **92%** | 69 | 6 — 전부 동치(`:70` `if (activeId)` 1 · `:74` 정렬 비교식 5: 최솟값만 쓴다) |
+
+나머지는 옮기기만 한 파일이라 돌리지 않았다(PLAN). VV3은 `src/core` 내용을 안 바꿔 대상 없음.
+
+### 결함 복원 결과 (전부 `cp` 백업 → 되살림 → 실패 확인 → 되돌림 → `cmp`·`git status`)
+
+| PLAN # | 작업 | 되살린 결함 | 잡은 것 |
+|---|---|---|---|
+| ① | VV3 | `derive.ts`에 `import '../db/schema'` | `boundary --check` 종료 1 |
+| ② | VV3 | `dates.ts`에 `localStorage.getItem('x')` | 금지된 전역, 종료 1 |
+| ③ | VV2 | 남긴 `it`에 `nn1Src("src/screens/HomeScreen.tsx")` | 막이(리터럴) 실패 |
+| ③ | VV3 | `v1111.test.ts` glob을 옛 `/src/lib/exportMarkdown.ts`로 | 막이(glob) 실패 |
+| ④ | VV2 | `pickOpenSession`이 첫 끝나지 않은 세션을 돌려줌 | 속성 "순서를 바꿔도 같다" + `VV2 pickOpenSession …` |
+| ⑤ | VV2 | 단언 한 줄 변경 · 한 줄 배열의 남는 원소 뺌 · `dietAccess:57`을 `toEqual([])` · glob 배열에 웹 원소 남김 | 남긴 본문 불변 명령이 그 줄 출력 ×2 · 빈 기대 `grep` · 막이(glob) |
+| — | VV3 | `mutation.mjs` `isTarget`을 `src/lib`로 되돌림 | `mutation.test.mjs` 1건 |
+
+PLAN ①~⑤ 중 PR 1 몫 **전부 확인**(⑥~⑲는 PR 2). 상세는 VV2 6)·VV3 3).
+
+### 검증 출력 (이 커밋 직전)
+
+- `npm run check`: 흔적 검사 · 경계 · 린트 · 안 쓰는 파일·의존성 · 타입 · 테스트 **6단계 전부 통과**, `검사 통과`.
+- `npm test`: `Test Files  62 passed (62)` · `Tests  1349 passed (1349)`.
+- 이 커밋은 `docs/`·`README.md`만 바꾼다(`src`·`package.json` 무변경).
+
+### VV4 입력 — 리뷰어 경미한 점 중 다음 PR이 볼 것 (`.reports/review-VV*.md`)
+
+| 출처 | 내용 | 맡길 곳 |
+|---|---|---|
+| VV3 리뷰 1 | `boundary.mjs`가 템플릿 리터럴 지정자(`` import(`react`) ``)를 못 본다 — `SPECIFIER_SITES`가 `'`·`"`만 본다 | VV4 `checkLayers`를 더할 때 백틱도 같이 |
+| VV3 리뷰 2 | `globalThis.window`·`self` 같은 우회는 금지 전역에 안 걸린다(PLAN 목록 밖) | VV4에서 넣을지 판단 |
+| VV2 리뷰 3 | `strengthWork` "훈련일 정규화 사본을 두지 않는다"를 지워 코어의 "정규화 사본 없음" 감시가 사라졌다(그 `it`은 웹 파일만 본 게 아니라 앱 전체를 스캔했다 — VV2 9)의 이유 문구는 부정확). `dietAccess` "db.dietDays를 허용된 파일에서만"은 이제 헛돌며 통과 | VV3/VV8에서 코어 전용 판으로 되살릴지 |
+| VV2 리뷰 4 | `ensureSeed`의 시드 주입 · `defaultDietPlanId` 후속 플랜 이관(DD2) · 기본 설정값 채우기가 지워졌는데 PLAN 6) "다음 단계가 가져올 것"에 없다. 지키던 `v19`·`v116` NN1 테스트도 같이 지움 | VV5 이후 PLAN이 `WEB_FINAL:src/db/seed.ts`에서 가져올 것 |
+| VV2 리뷰 1 | README "내보내기" 절: PLAN은 "절을 지운다"인데 `navigator.share` 문단만 지웠다(예시는 코어에 남는 형식) | 지휘자 판단(PLAN 문구대로 할지) |
+| VV2 리뷰 2 | `tsconfig.json`이 `types: ["vite/client"]`를 남김(PLAN: `types`를 뺀다). 해 없음 | VV4 tsconfig 손볼 때 |
+| VV2 리뷰 5 | `secrets.ts` 머리 주석이 지운 `db.setSetting`·`assertNotSecret`을 가리킴 | 다음에 `secrets.ts`를 만질 때 |
+| VV1 리뷰 | "레포에서 웹 코드를 지웠다"는 문장이 VV1 시점엔 앞섰다 | PR 1이 끝나 해소 |
+| VV1 리뷰 | `agents/README.md:159`가 아직 `deploy.yml`을 가리킨다 | VV9(규칙 정비자) |
+
+### 하지 않은 것
+
+`src`·`package.json`(버전 1.21.0 그대로) · `WEB_FINAL` 태그(지휘자가 PR 1 머지 직전에 같은 `gh run list` 첫 줄을 확인하고 만든다) · 위 "PR 2가 채운다" 목록 · ⑤·⑥~⑲ 확인 · 실기기 확인(PR 1에 앱이 없다).
