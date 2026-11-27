@@ -12,7 +12,7 @@
 
 | # | 방아쇠 (diff에 이게 보이면) | 점검 | 근거 |
 |---|---|---|---|
-| R1 | `db/index.ts`의 `.stores(` 또는 `version(` | 새 인덱스에 **boolean·undefined가 들어갈 수 있는 필드**를 넣지 않았는가. IndexedDB는 그런 키를 조용히 빠뜨린다 | `isActive`·`endedAt`을 인덱스에서 뺀 이유 (`src/db/index.ts` 주석) |
+| R1 | DB 스키마·인덱스(`src/db/**`, PR 2에서 생김. 웹 Dexie는 `WEB_FINAL`) | 새 인덱스에 **boolean·undefined(NULL)가 들어갈 수 있는 필드**를 넣지 않았는가. 웹 IndexedDB는 그런 키를 조용히 빠뜨렸다 — SQLite에서 같은 일이 없는지 확인한다 | `isActive`·`endedAt`을 인덱스에서 뺀 이유 (`WEB_FINAL`의 `src/db/index.ts` 주석) |
 | R2 | `db/index.ts`에 `version(` 추가 | 이전 `version()` 블록을 **지우지 않았는가**. 옛 기기는 순서대로 밟아 올라온다 | 같은 주석의 마이그레이션 규칙 |
 | R3 | `settings` 테이블 쓰기(`setSetting`·`setSettings`), 백업 생성, 내보내기 | **비밀값이 섞이지 않는가.** 타입에서 제거 + `setSetting` 거부 + `createBackup` 필터 — 세 겹이 다 살아 있는가 | README "Gist 토큰은 세 겹으로 차단" |
 | R4 | `lib/gist*.ts`, 백업 복원 | 1MB에서 잘린 응답(`truncated`)을 **그대로 파싱하지 않는가**. 잘린 JSON이 운 나쁘게 파싱되면 최근 세션만 조용히 사라진다 | README "백업·비밀값" |
@@ -23,10 +23,10 @@
 | R9 | 홈 카드·시작 버튼·배너의 Day 선택 | **보이는 Day와 시작되는 Day가 같은가.** 판정은 `homeCardState` 한 곳이다 | AA1 |
 | R10 | 프리필·`recordKey` 조합 | 다른 Day에서 **얹은 종목**은 recordKey가 달라 프리필 맵에서 빠진다("기준 기록 없음") | CC15 실측 결함 |
 | R11 | 토글·선택 UI의 라벨 | 라벨이 **상태와 동작을 번갈아 말하지 않는가**(`적용됨`↔`무시`). 누른 결과가 **화면 어딘가에 남는가** | EE3 |
-| R12 | 색·대비·테마 토큰(`src/ax/theme.ts`, `parts.css`) | **다크에서도** 면·경계가 읽히는가. 라이트만 보고 끝내지 않는다. 토큰 사본에 hex를 적지 않는다(가독성 패스를 안 따라간다) | BB7, PLAN v2.0 §7 |
+| R12 | 색·대비·테마 토큰(`scripts/theme-tokens.mjs`, `src/ui/palette.generated.ts` — PR 2에서 생김) | **다크에서도** 면·경계가 읽히는가. 라이트만 보고 끝내지 않는다. 토큰 사본에 hex를 적지 않는다(가독성 패스를 안 따라간다) | BB7, PLAN v2.0 §7 |
 | R13 | SVG·차트 텍스트 색 | SVG `text`는 `fill`로 칠해진다. `stroke`로 적으면 **한 번도 적용되지 않고** 기본색이 그려진다 | BB7 ② |
-| R14 | `beep.ts`·오디오 예약·`AudioContext` | ① 예약된 톤은 React 정리로 취소되지 않는다(태그로 취소한다) ② iOS는 `interrupted` 상태가 있고 복구 배선이 **앱 수명 내내** 걸려 있어야 한다 | CC2, CC1→FF3 |
-| R15 | 서비스워커·업데이트 적용 | 세션 입력 중에 **자동 리로드하지 않는가**(`registerType: 'prompt'`) | README iOS·PWA |
+| R14 | 소리·오디오 예약(v2.2의 `src/platform` 소리. 웹 `beep.ts`는 `WEB_FINAL`) | ① 예약된 소리는 화면 정리로 취소되지 않는다(태그로 취소한다) ② 오디오 세션이 끊겼다 돌아오는 복구 배선이 **앱 수명 내내** 걸려 있어야 한다 | CC2, CC1→FF3 |
+| R15 | 앱 업데이트 적용(v2.5 OTA를 넣을 때. 웹 서비스워커는 지웠다) | 세션 입력 중에 **자동 리로드하지 않는가** | README iOS·PWA |
 | R16 | 루틴 저장·시드 | 번들 루틴과 **같은 id로 저장하지 않는가**. 다음 부팅에 시드가 덮는다 | README "앱에서 고친 루틴은 다른 id로" |
-| R17 | 세션 목록 조회 추가(`db.sessions.toArray()`) | 전체 조회를 **또** 늘리지 않는가. 기간이 정해진 화면은 범위로 좁힌다 | README Limitations |
+| R17 | 세션 목록 조회 추가(SQLite 세션 전체 조회) | 전체 조회를 **또** 늘리지 않는가. 기간이 정해진 화면은 범위로 좁힌다 | README Limitations |
 | R18 | 판정 규칙 변경(볼륨·e1RM·디로드·Phase) | **과거 기록의 판정이 바뀌지 않는가.** 바뀐다면 그 사실과 범위를 PLAN·PR에 적었는가 | 이 레포의 "과거 판정 불변" 절 관례 |

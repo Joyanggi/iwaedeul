@@ -16,13 +16,13 @@
 | 키 | 분류 | 상태 | 막은 방법 | 막은 PR | 나온 곳 (키 없던 옛 메모 포함) |
 |---|---|---|---|---|---|
 | `npm-lock-ci-version` | 환경 | 막음(장치) | CI·배포의 Node를 24로(잠금 파일이 npm 11). `scripts/check.test.mjs`가 로컬 검사와 CI 목록이 같은지 본다 | #39 | #39 — CI의 npm ci가 잠금 파일을 거부 |
-| `rejection-text-truncated` | 명령 | 막음(글) | 리뷰어가 판정 전문을 `.reports/review-<작업 ID>.md`에 쓰고 지휘자는 그 파일에서 "고칠 것"을 읽는다(REVIEWER.md 3절, COORDINATOR.md 4절) | 이번 정비 | #35 #39 #43 #46 — 반려 "고칠 것"이 worker_done 알림에서 잘림 |
-| `antigravity-limit-release` | 일꾼 | 막음(글) | 한도로 끝난 일꾼은 release가 거부되면 `worker-stop`(COORDINATOR.md "release 확인") | 이번 정비 | #34 #35 #38 #42 — 한도로 끝난 검토자를 release하면 `dispatch_inactive` |
-| `worker-setup-timeout` | 일꾼 | 막음(글) | 새 작업 트리는 시작 대기 5분, `agent_readiness` 시간 초과면 `--retry-of`로 한 번 자동 재시도(COORDINATOR.md "작업 트리 지정") | 이번 정비 | #32 #43 — 새 작업 트리의 `npm ci`가 대기 시간을 넘김 |
-| `worktree-remove-permission` | 환경 | 막음(글) | 다시 시도하지 않고 브랜치만 지운 뒤 남은 폴더를 `정리:` 줄에 적는다(PR.md 5절). 원인(Windows에서 폴더를 연 프로세스)은 못 없앴다 | 이번 정비 | #39 #43 #46 — 작업 트리 삭제가 Permission denied |
-| `incident-key-renamed` | 규칙 | 막음(장치) | `node scripts/incidents.mjs --keys`로 있는 키를 먼저 보고, 그래도 다른 이름을 쓰면 아래 "다른 이름" 표가 합쳐 센다 | 이번 정비 | #45 #46 — 대장에 있는 원인에 새 키를 지어 씀(4건), 작업 ID를 넣은 키(3건) |
-| `review-range-start-commit` | 규칙 | 막음(글) | 설계에서 넘어온 첫 작업도 구현자 띄우기 직전에 시작 커밋을 새로 잰다(BATCH.md) | 이번 정비 | #35 — 리뷰 범위 시작 커밋을 PLAN 머지 전 SHA로 줌 |
-| `px-gate-flaky` | 검사 | 막음(장치) | 스크린샷 검사에서 크기 칸(탭 영역·버튼 높이)은 참고만, 숫자 기준 없앰 | #40 | #39 — 시트 탭 영역 44px 기준이 실행마다 흔들려 사람 결정 두 번 |
+| `rejection-text-truncated` | 명령 | 막음(글) | 리뷰어가 판정 전문을 `.reports/review-<작업 ID>.md`에 쓰고 지휘자는 그 파일에서 "고칠 것"을 읽는다(REVIEWER.md 3절, COORDINATOR.md 4절) | #47 | #35 #39 #43 #46 — 반려 "고칠 것"이 worker_done 알림에서 잘림 |
+| `antigravity-limit-release` | 일꾼 | 막음(글) | 한도로 끝난 일꾼은 release가 거부되면 `worker-stop`(COORDINATOR.md "release 확인") | #47 | #34 #35 #38 #42 — 한도로 끝난 검토자를 release하면 `dispatch_inactive` |
+| `worker-setup-timeout` | 일꾼 | 막음(글) | 새 작업 트리는 시작 대기 5분, `agent_readiness` 시간 초과면 `--retry-of`로 한 번 자동 재시도(COORDINATOR.md "작업 트리 지정") | #47 | #32 #43 — 새 작업 트리의 `npm ci`가 대기 시간을 넘김 |
+| `worktree-remove-permission` | 환경 | 막음(글) | 다시 시도하지 않고 브랜치만 지운 뒤 남은 폴더를 `정리:` 줄에 적는다(PR.md 5절). 원인(Windows에서 폴더를 연 프로세스)은 못 없앴다 | #47 | #39 #43 #46 — 작업 트리 삭제가 Permission denied |
+| `incident-key-renamed` | 규칙 | 막음(장치) | `node scripts/incidents.mjs --keys`로 있는 키를 먼저 보고, 그래도 다른 이름을 쓰면 아래 "다른 이름" 표가 합쳐 센다 | #47 | #45 #46 — 대장에 있는 원인에 새 키를 지어 씀(4건), 작업 ID를 넣은 키(3건) |
+| `review-range-start-commit` | 규칙 | 막음(글) | 설계에서 넘어온 첫 작업도 구현자 띄우기 직전에 시작 커밋을 새로 잰다(BATCH.md) | #47 | #35 — 리뷰 범위 시작 커밋을 PLAN 머지 전 SHA로 줌 |
+| `px-gate-flaky` | 검사 | 막음(글) | 화면 검증에서 크기(탭 영역·버튼 높이)는 참고만, 숫자 기준 없음(SCREEN-CHECKER.md 1절). 장치였던 웹 `ui-check`는 웹과 함께 지웠다(`WEB_FINAL`) | #40 | #39 — 시트 탭 영역 44px 기준이 실행마다 흔들려 사람 결정 두 번 |
 | `review-missed-check-coverage` | 반려 | 열림 | | | #46 — 검사 도구·기록이 PLAN의 검사 항목 일부를 빠뜨림(QQ0 유리 판정 3항목, QQ2 실측 1건). 한 PR 안에서 두 번 |
 | `css-scope-regression` | 반려 | 열림 | | | #46 — 공용 클래스(`.row-sub`) 여백을 토큰으로 바꾸며 요소별 차이가 사라짐 |
 | `plan-amend-after-merge` | 규칙 | 열림 | | | #46 — PLAN 머지 뒤 사람이 새 요구를 줘 구현 브랜치에서 PLAN 보정. 규칙에 길이 없다 |

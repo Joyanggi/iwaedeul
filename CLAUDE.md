@@ -13,11 +13,13 @@
 
 ## 이 앱
 
-1인용 운동·식단 기록 PWA. 서버·로그인이 없고, 데이터는 IndexedDB(Dexie)에 있으며 Gist로 백업한다.
+1인용 운동·식단 기록 앱. 서버·로그인이 없고, 데이터는 기기 안에 있으며 Gist로 백업한다(웹 시절 IndexedDB, 앱은 SQLite).
 `README.md`의 "핵심 설계 결정"을 뒤집는 변경은 하지 않는다.
 
-**v2.0부터 Expo 네이티브 앱(iOS 먼저, 안드로이드 같은 코드베이스)으로 옮긴다** — `docs/PLAN-v2.0.md`.
-전환이 끝날 때까지 위 설명이 현행이고, 뒤집는 것은 PLAN v2.0이 "뒤집는 README 결정"에 적은 항목뿐이다.
+**v2.0부터 Expo 네이티브 앱(iOS 먼저, 안드로이드 같은 코드베이스)으로 옮긴다** — `docs/PLAN-v2.0.md`·`docs/PLAN-v2.1.md`.
+웹은 Pages의 마지막 배포본(`WEB_FINAL` 커밋)이고 레포에서 지웠다(웹 배포·웹 화면·Dexie·PWA 없음). 지금 레포는 순수 TS 코어(`src/core`, 경계 검사가 지킨다)와
+앱 뿌리(`native/` 아님)다. 위 설명 중 웹·IndexedDB 얘기는 `WEB_FINAL`의 것이고, README의 설계 결정 중 뒤집는 것은
+PLAN v2.0 "뒤집는 README 결정"과 PLAN v2.1이 더 뒤집은 것(웹 배포·웹 코드)뿐이다.
 
 ## 검증 — "됐다" 대신 돌린 결과
 
@@ -36,13 +38,12 @@
 
 ## 명령
 
-- **검사 전부 한 번에: `npm run check`** (CI와 같은 목록 — 흔적 검사, Astryx 뒷걸음, 린트, 안 쓰는 파일·의존성, 테스트, 빌드). 작업 중간에는 `npm run check -- --fast`(빌드 제외)
-- 하나씩: 테스트 `npm test`, 타입 확인과 빌드 `npm run build`, 린트 `npm run lint`, 변이 테스트 `npm run mutation`(바뀐 `src/lib`만, CI에서는 안 돈다)
-- `tsc`를 직접 호출하지 않는다. `npx tsc --noEmit`은 `src`를 검사하지 않는다.
+- **검사 전부 한 번에: `npm run check`** (CI와 같은 목록 — 흔적·경계·린트·knip·타입·테스트). 작업 중간에는 `npm run check -- --fast`
+- 하나씩: 테스트 `npm test`, 타입 `npm run typecheck`, 린트 `npm run lint`, 변이 테스트 `npm run mutation`(바뀐 `src/core`만, CI에서는 안 돈다)
 
 ## 토큰 절약 (모든 역할 공통)
 
-- **긴 출력은 끝부분만 본다.** `npm test 2>&1 | tail -15`, `npm run build 2>&1 | tail -8`
+- **긴 출력은 끝부분만 본다.** `npm test 2>&1 | tail -15`, `npm run typecheck 2>&1 | tail -8`
 - **작업 중에는 관련 테스트 파일만 돌린다** (`npx vitest run <파일>`). 전체 테스트는 마무리에 한 번.
 - **큰 문서는 통째로 읽지 않는다.** README, PLAN, DEV-RECORD는 `grep -n`으로 필요한 절을 찾아 그 부분만 읽는다.
 - **한 번 읽은 파일은** 바뀌지 않았으면 다시 읽지 않는다.
@@ -53,7 +54,7 @@
 
 ## 브랜치와 배포
 
-- `main`에 push하면 GitHub Pages로 바로 배포되고 실제로 쓰는 폰 앱이 바뀐다.
+- `main`은 배포 브랜치가 아니지만 모든 작업의 기준선이고 필수 검사·리뷰 흐름이 PR에 걸려 있다.
   그래서 `main`에는 PR로만 반영하고, 머지는 사람이 한다. 에이전트는 `main`에 직접 push하거나 로컬에서 머지하지 않고, PR도 머지하지 않는다.
 - 새 작업을 시작하기 전에 `main`에서 `git pull --ff-only`를 먼저 한다. 작업은 그렇게 최신으로 맞춘 `main`에서 시작한 별도 브랜치에서 한다.
   브랜치 이름은 Orca가 정한다(예: `Joyanggi/v1.13`). 추측하지 말고 `git branch --show-current`로 확인한다.
@@ -63,8 +64,8 @@
 
 ## 문서
 
-- `README.md` "핵심 설계 결정": 지금 동작의 명세. `docs/DESIGN.md`는 v1.0 당시 설계라 지금과 다를 수 있다 (4·7절 판정 근거와 9절 UI 방향은 지금 기준).
-- 화면은 **Astryx 우선**이다(`docs/DESIGN.md` 9절). 새 화면·부품은 `src/ax/`의 Astryx 부품으로 짓고, 손으로 짠 클래스·인라인 스타일을 늘리지 않는다(CI가 막는다).
+- `README.md` "핵심 설계 결정": 지금 동작의 명세. `docs/DESIGN.md`는 v1.0 당시 설계라 지금과 다를 수 있다 (4·7절 판정 근거만 지금 기준, 9절 UI 방향은 웹 시절).
+- 화면(네이티브)은 `src/ui` 부품과 `theme` 값으로 짓는다(PLAN v2.1 VV6). 웹 화면·Astryx는 `WEB_FINAL`에만 있다.
 - `docs/INCIDENTS.md`: 문제 대장. 규칙 메모의 키와 막은 방법. 규칙 정비자만 고친다.
 - 요청: GitHub 이슈(개선·새 기능·구조 변경 양식)나 `docs/FIELD-REPORT-*.md`. 지휘자가 기획을 받으면 이슈로 만든다(`agents/coordinator/INTAKE.md`).
 - `docs/PLAN-*.md`: 설계서. 설계자만 쓴다.
@@ -76,7 +77,7 @@
 
 - **macOS**, Orca 작업 트리(작업마다 별도 폴더). 일꾼은 전부 Claude이고 셸은 zsh/bash다.
   (2026-11-26에 Windows에서 옮겼다. 옛 기록에 나오는 PowerShell·CP949 주의는 이제 해당하지 않는다.)
-- **이 맥북은 사양이 넉넉하지 않다.** 일꾼은 한 번에 하나만 띄우고, 전체 테스트·빌드처럼 무거운 것은
+- **이 맥북은 사양이 넉넉하지 않다.** 일꾼은 한 번에 하나만 띄우고, 전체 테스트·타입 검사처럼 무거운 것은
   한 번에 하나만 돌린다. iOS 시뮬레이터는 쓰지 않는다(`docs/PLAN-v2.0.md` 11절 — 실기기 + mobile MCP).
 - 커밋 메시지는 `git commit -F - <<'MSG'`로 쓴다.
 - 줄바꿈은 LF로 고정돼 있다(`.gitattributes`).
