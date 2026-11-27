@@ -26,37 +26,38 @@ mobile MCP(`.mcp.json`의 `mobile`)는 안에 든 **`mobilecli`** 로 기기를 
 1. Xcode + Command Line Tools, Node 20+.
 2. 아이폰을 USB로 연결 → 맥 **신뢰(Trust)**, 아이폰 설정 → 개인정보 보호 및 보안 → **개발자 모드 켜기**.
    확인: `xcrun devicectl list devices`에 `connected`로 보여야 한다. **여기서 안 보이면 MCP 문제가 아니라 페어링·개발자 모드 문제다.**
-3. DeviceKit 에이전트를 본인 Personal Team으로 서명해 올린다(무료 계정 가능).
+3. DeviceKit 소스를 **고정된 자리 `~/orca/tools/`**에 둔다(재서명 스크립트가 이 자리를 본다. 다른 곳이면 `DEVICEKIT_DIR`).
    ```bash
-   git clone https://github.com/mobile-next/devicekit-ios.git
-   # devicekit-ios.xcodeproj의 PRODUCT_BUNDLE_IDENTIFIER 두 개를 고유값으로 바꾼다
+   git clone https://github.com/mobile-next/devicekit-ios.git ~/orca/tools/devicekit-ios
+   # devicekit-ios.xcodeproj의 PRODUCT_BUNDLE_IDENTIFIER 두 개를 고유값으로 바꾼다(로컬 수정, 커밋 안 함)
    #   <접두사>.mobilenext.devicekit-ios, <접두사>.mobilenext.devicekit-iosUITests
-   xcodebuild -project devicekit-ios/devicekit-ios.xcodeproj -scheme devicekit-ios \
-     -configuration Debug -destination id=<UDID> -derivedDataPath devicekit-derived \
-     -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
-     DEVELOPMENT_TEAM=<TEAM_ID> build-for-testing
-   ```
-   이 빌드가 `~/Library/Developer/Xcode/UserData/Provisioning Profiles/`에 러너용 프로필
-   (`…devicekit-iosUITests.xctrunner`)을 만든다. 그 프로필로 설치:
-   ```bash
-   MCLI=$(find ~/.npm/_npx -path '*mobilecli-darwin-arm64/mobilecli-darwin-arm64' -type f | head -1)
-   "$MCLI" agent install --device <UDID> --provisioning-profile <러너 프로필.mobileprovision>
+   APPLE_TEAM_ID=<Personal Team ID> node scripts/device-agent.mjs --force   # 첫 서명·설치. 팀은 이후 프로필에서 읽는다
    ```
    폰: 설정 → 일반 → VPN 및 기기 관리 → 개발자 앱 **신뢰**.
-   (`npx @mobilenext/mobilecli`로 받는 단독 패키지는 버전이 낡았다. MCP가 쓰는 바이너리를 그대로 쓴다.)
 4. MCP 등록: 레포의 `.mcp.json`에 이미 있다(`mobile`). 세션 시작 때 Claude가 집는다.
 
-### 7일마다 (무료 계정 서명 만료)
+### 7일마다 — `scripts/device-agent.mjs`가 알아서 한다
 
-에이전트도 앱 하나라서 무료 프로필이 **7일이면 만료**된다. 만료일 확인:
-```bash
-for f in ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision; do
-  security cms -D -i "$f" | plutil -extract ExpirationDate raw - -o -; echo "  $f"; done
-```
-갱신은 3번의 `xcodebuild … build-for-testing`을 다시 돌리고 `agent install --force …`. 우리 앱 재설치와 같은 날 묶는다.
+무료 프로필은 **7일이면 만료**된다. 매 검증마다 재서명하지 않는다(맥북 빌드 1분 안팎 + 실패할 기회만 는다).
+아래 "세션 시작 점검" 0번이 만료일을 보고, **2일 이하로 남았을 때만** 재서명한다 — 대략 주 1회.
+
+| 명령 | 하는 일 |
+|---|---|
+| `node scripts/device-agent.mjs` | 넉넉하면 `에이전트 OK — 서명 만료 …` 한 줄. 임박·러너 프로필 없음이면 재서명·설치, 프로필은 살아 있는데 기기에 없으면 설치만 |
+| `… --check` | 보고만. 임박·미설치면 종료 코드 1 |
+| `… --force` | 남은 날과 상관없이 재서명 |
+
+재서명이 하는 일(스크립트 안): ① devicekit 프로필을 `ProvisioningProfiles-backup-<시각>/`으로 **옮긴다** —
+Xcode는 아직 유효한 프로필을 다시 써서, 치우지 않으면 빌드가 성공해도 만료일이 안 는다(2026-11-27 확인)
+② `xcodebuild … -allowProvisioningUpdates build-for-testing`(로그 `~/orca/tools/devicekit-build.log`)
+③ 새 **러너** 프로필(`…devicekit-iosUITests.xctrunner`)로 `mobilecli agent install --force`.
+빌드가 새 프로필 없이 실패하면 옛 프로필을 제자리로 되돌리고 종료 코드 1.
+**Xcode의 Apple 계정 로그인이 풀려 실패하면** 사람이 Xcode → Settings → Accounts에서 다시 로그인한다(명령줄로는 못 한다).
+우리 앱(이왜들)도 같은 7일 만료다 — 앱을 다시 설치하는 날이 재서명 날과 겹치게 둔다.
 
 ### 세션 시작 점검 (Claude가 매번)
 
+0. `node scripts/device-agent.mjs` → `에이전트 OK` 또는 `재서명·설치 완료`. 실패면 그 메시지를 그대로 사람에게 넘기고 멈춘다.
 1. `mobile_list_available_devices` → 기기 `online`.
 2. `mobile_list_elements_on_screen` → 요소 목록이 나오면 끝.
 3. **스크린샷은 되는데 2번이 `localhost:8100/rpc … context deadline exceeded`로 실패하면** 에이전트가
@@ -66,7 +67,7 @@ for f in ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovi
      xcrun devicectl device process terminate --device $D --pid $p; done
    ```
    에이전트를 `devicectl device process launch`로 직접 띄우지 않는다. 일반 앱으로 뜨면 화면만 까맣고 서버는 안 열린다.
-4. 그래도 안 되면 `"$MCLI" agent status --device <UDID>`. 설치돼 있지 않거나 서명이 만료됐으면 위 3번·7일 절차.
+4. 그래도 안 되면 `node scripts/device-agent.mjs --force`로 다시 서명·설치한다.
 
 실패하면 **우회하지 말고 멈춘다.** 기기 검증을 건너뛴 채 "통과"라고 적는 것이 가장 나쁜 실패다.
 
