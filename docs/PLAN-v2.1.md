@@ -102,6 +102,7 @@
 - 순수한 것이 웹 파일에 섞여 있다: `bannerQueue`가 `store/ui.ts:23-26`의 상수 4개를 읽고, `mealCalendar`의 `parseTimeHint`(`:35`)·`allSlots`(`:52`)·`isTrainingOnlySlot`(`:157`)은 식단 슬롯 계산이다(v2.0 9절 "`diet.ts`로"). `useRoutine`의 `dayTotalSets`·`exerciseLabel`(`:27,31`)과 `useDiet`의 `findPlan`·`dietDayFor`(`:121,132`)는 순수 함수다.
 - 테스트: `src/lib` 64개 + `src/components/NumberStepper.test.ts`, `it`·`test` 줄 1,668개(grep 근사). 웹을 전혀 읽지 않는 파일은 20개(364개). **나머지 45개는 웹 소스(`import.meta.glob`·`?raw`·`sourceScan`)나 웹 lib를 읽는 `it`이 섞여 있다**(`v120` 118개 중 96줄, `v121` 56개 중 40줄 등). 골든(`v111` GG1 · `v112` JJ1·JJ2 · `v113` KK · `v114` LL0 · `v115` MM0 · `v116` NN0)은 섞인 파일 안에 있다.
 - **웹 경로와 코어 경로를 한 배열에 섞은 스캔이 19곳**(설계자 grep — 9개 파일: `audioIndependence` `dietAccess` `strengthWork` `v111` `v1112` `v113` `v114` `v115` `v116`). glob 인자 배열(`v113.test.ts:370` `sessionFactory.ts` + `HomeScreen.tsx` + `/src/lib/**`, `v114.test.ts:357` `ll3Sources`)과 `for … of [...]` 루프 배열(`v111.test.ts:618` 증량 판정이 `progression.ts` 밖에 없다 — `prefill`·`exportMarkdown`·`SummaryScreen`)이다. `it`을 통째로 지우면 남는 코어 파일(`exportMarkdown.ts`·`prefill.ts` 등)의 "판정·문구가 한 곳" 감시(REVIEW.md 2절 A부류)가 같이 사라진다. 배열 결과의 개수를 고정한 단언도 있다(`v114.test.ts:454` `toHaveLength(3)`).
+- **스캔 결과의 경로 목록을 고정한 기대가 18곳이다**(`toEqual([...경로])` — 설계자 grep, 아래 3) 기대 표). 19곳 셈에 든 `dietAccess`·`strengthWork:346`·`v116:928`·`audioIndependence:47`은 입력 배열이 아니라 이 기대다. 입력 배열과 달리 원소 빼기로 맞출 수 없는 것이 있다: `dietAccess.test.ts:62` `toEqual(['/src/lib/useDiet.ts'])`는 1)이 `resolveTrainingDays` 호출을 `readModel.ts`로 옮기므로(`useDiet.ts:64`) VV2 뒤 결과가 `['/src/lib/readModel.ts']`다. 원소를 빼서 `[]`로 만들거나 `it`을 지우면 `readModel`이 맡을 "정규화는 한 곳" 감시가 사라진다.
 - `backup.ts`의 `stripSecrets`(`:88`, export 안 됨)를 쓰는 곳은 지우는 `createBackup`(`:138`) 하나다. `secrets.ts:15-16` `PREFIX`·`GIST_TOKEN_KEY`도 지우는 토큰 함수만 쓴다. 그대로 두면 `noUnusedLocals`(`tsconfig.app.json:18`)가 타입 검사를 깨뜨린다.
 - 테스트가 경로 문자열로 파일을 읽는다(`v116.test.ts:653` `nn1Src`는 `?? ""` — 없는 파일을 빈 글로 읽고 `.not.toMatch`가 **헛돌며 통과한다**, `:906`). 웹을 지우면 이런 자리가 대량으로 생긴다.
 - `scripts/check.test.mjs:15-17`의 두 번째 단언은 느린 단계가 `npm run build`·`first-load`라고 고정한다 — 그 단계가 없어진다.
@@ -140,6 +141,7 @@
 | 그 `it`이 | 처리 |
 |---|---|
 | **경로 배열**(`import.meta.glob` 첫 인자 배열, `for … of [...]`의 경로 문자열 배열)에 2)에서 지우는 경로(파일, 또는 지우는 폴더 아래를 가리키는 glob — `'/src/screens/*.tsx'`)와 남는 경로가 섞여 있다 — `describe`·모듈 단위의 배열도 같다 | **지우는 원소만 뺀다.** 같은 줄의 나머지는 한 글자도 고치지 않는다. 그 배열 결과의 개수를 고정한 단언(`toHaveLength(n)` — `v114.test.ts:454`)은 `n`만 뺀 원소 수만큼 줄인다(헛돌기 막이라 남긴다). 배열이 비면 첫 줄 규칙. 원소를 뺀 뒤 아래 줄들을 다시 본다 |
+| **결과 경로를 고정한 기대**(`toEqual`·`toContain`의 경로 리터럴 — 스캔이 찾은 파일 목록)가 VV2 뒤 실제 결과와 달라진다(지우는 경로가 들었거나, 1)이 옮긴 식이 `readModel.ts`에서 잡힌다) | 그 `it`이 **남는 코어 파일을 감시하면 기대를 VV2 뒤의 실제 결과로 바꾼다** — 지운 원소(와 그 원소에 붙은 주석 줄)는 빼고, `readModel.ts`처럼 옮긴 자리는 더한다. 결과가 비거나 **감시 대상이 웹뿐이면 첫 줄 규칙으로 지운다.** 18곳의 처리는 아래 기대 표로 정해 두었다. 실제 결과가 표와 다르면 멈추고 보고한다 |
 | 단언 문장 하나(`expect(…)` 한 문장)가 지우는 경로**만** 읽는다(배열 밖 경로 리터럴 — `v113.test.ts:939` `count(src('/src/screens/HomeScreen.tsx'), 'dayGapNotice(')`)이고 같은 `it`에 남는 경로를 읽는 단언이 있다 | **그 문장만 지운다.** 남는 단언이 없으면 첫 줄 규칙 |
 | 2)에서 지우는 파일의 소스·CSS를 읽는다(glob·`?raw`·`fs`·`sourceScan` 맵의 키나 경로 리터럴이 지우는 경로) | **지운다** — 주제가 없어졌다 |
 | 2)에서 지우는 모듈의 함수·상수를 부른다 | **지운다** |
@@ -147,8 +149,17 @@
 | 위에 안 걸린다 | **남긴다. 본문을 한 글자도 고치지 않는다.** 1)에서 옮긴 이름은 지운 것이 아니다 — import 줄만 새 자리로 고친다(`'./useRoutine'` → `'./readModel'`, `'../store/ui'` → `'./bannerQueue'`, `'./mealCalendar'` → `'./diet'`) |
 
 - `describe`의 `it`이 전부 지워지면 `describe`를, 그 `describe`만 쓰던 픽스처·도우미·상수를 지운다(남은 것은 `noUnusedLocals`·린트가 알린다). 파일의 `it`이 전부 지워지면 파일째 지운다. `mealCalendar.test.ts`는 남는 `it`(시각 파싱·슬롯 합집합)만 두고 `git mv`로 `dietSlots.test.ts`가 된다.
-- 위 두 줄(원소 빼기·문장 지우기)로 바꾼 자리는 DEV-RECORD에 **파일:줄 · 뺀 원소나 지운 문장 · 남은 경로** 표로 적는다. `it`·`describe` 제목은 고치지 않는다(제목에 웹 파일 이름이 남아도 — 이름 집합 확인이 제목으로 본다).
-- **넓은 glob 스캔은 남긴다**: `/src/**/*.{ts,tsx}` 같은 패턴으로 "어디서도 X를 쓰지 않는다"를 보는 `it`(예 `v116.test.ts:901`)은 범위가 남은 파일로 줄 뿐 단언은 여전히 참이다. 특정 웹 파일을 키로 읽는 `it`(`nn1Src("src/screens/…")`)은 첫 줄 규칙으로 지운다.
+- **기대 표**(설계자가 `src/**/*.test.ts`에서 `toEqual`·`toContain` 등의 인자에 `/src/`·`src/` 경로 리터럴이 든 것을 센 18곳. 다른 매처에는 없다). "그대로"는 VV2 뒤 결과가 지금 기대와 같은 것이다 — 찾는 글자가 지우는 파일에도 1)이 옮기는 식(`useRoutine`·`useDiet`·`db/index.ts:74-133`·`store/ui.ts`·`mealCalendar`)에도 없다(grep 확인).
+
+  | 자리 | 지금 기대 | 처리 |
+  |---|---|---|
+  | `dietAccess.test.ts:62` | `['/src/lib/useDiet.ts']` | **기대 갱신** → `['/src/lib/readModel.ts']` (`useDiet.ts:64` `resolveTrainingDays(`가 `buildDietData`로) |
+  | `strengthWork.test.ts:346` | `derive` · `useDiet` · 화면 셋(주석 줄 하나) | **기대 갱신** → `['/src/lib/derive.ts', '/src/lib/readModel.ts']` (`useDiet.ts:61` `strengthDates(`가 `buildDietData`로. 화면 셋과 `// X1 …` 주석 줄을 뺀다) |
+  | `uiConsistency:207` `v112:520·524` `v113:387` `v114:512` `v116:902·921` | 코어 파일만 | **그대로.** `v116:902`의 경로는 VV3에서 "이름 그대로"가 본다. `v116:921`과 같은 `it`의 `routineStore.ts`를 읽는 두 문장(과 그것만 쓰는 `const store`)은 둘째 줄(문장 지우기) |
+  | `audioIndependence:47` `audioRecovery:235` `timerOwnership:39` `dietBackup:92` `strengthWork:395` `v116:928·1157` `v120:188·414` | 웹 파일만, 또는 VV2 뒤 결과가 빈다(`v116:928` — `ensureSeed`가 지워져 `db.routines.put`이 없다) | **지운다**(첫 줄 규칙 — 감시 대상이 웹: 소리·타이머·Gist 예약·Dexie 쓰기·Astryx. 받는 규칙은 6) 표) |
+
+- 위 세 줄(원소 빼기·기대 갱신·문장 지우기)로 바꾼 자리는 DEV-RECORD에 **파일:줄 · 뺀 원소나 지운 문장(기대 갱신은 전·후 기대) · 남은 경로** 표로 적는다. 여러 줄 배열에서 원소 **줄**을 지운 것은 아래 "남긴 본문 불변" 명령에 보이지 않는다(`+`줄만 본다) — 그런 자리는 이 표가 유일한 막이다. `it`·`describe` 제목은 고치지 않는다(제목에 웹 파일 이름이 남아도 — 이름 집합 확인이 제목으로 본다).
+- **넓은 glob 스캔은 남긴다**: `/src/**/*.{ts,tsx}` 같은 패턴으로 "어디서도 X를 쓰지 않는다"를 보는 `it`(예 `v116.test.ts:901`)은 범위가 남은 파일로 줄 뿐 단언은 여전히 참이다. 결과 목록을 고정한 단언은 예외다 — 위 기대 갱신 줄을 따른다. 특정 웹 파일을 키로 읽는 `it`(`nn1Src("src/screens/…")`)은 첫 줄 규칙으로 지운다.
 - `properties.test.ts`: `../ax/clampStep`·`../screens/AnalyzeScreen`·`./chartTheme`을 쓰는 속성만 지운다(6) 표 — 그 단계가 함수와 같이 가져온다).
 - `scripts/check.test.mjs:15-17`(느린 단계가 빌드·첫 화면 크기다)은 첫 줄 규칙으로 지운다. VV4가 번들 단계의 단언을 새로 더한다.
 - **골든은 전부 남는다.** 골든은 아래 일곱 `describe`(제목 그대로)이고 그 밖은 골든이 아니다: `'GG1 골든 (리팩터링 전 기준)'`(`v111:350`) · `'JJ1 — 생성 불변 (골든)'`(`v112:157`) · `'JJ2 — normal 불변 (골든)'`(`v112:172`) · `'KK 골든'`(`v113:488`) · `'LL0 골든 — v1.13 출력'`(`v114:81`) · `'MM0 골든 — v1.14 출력 고정'`(`v115:149`) · `'NN0 골든 — v1.15 출력 고정'`(`v116:620`). 이 일곱의 `it`이 하나라도 규칙에 걸리면 **멈추고 보고한다** — 골든은 내보내기·판정 글자를 고정한 것이라 웹을 읽을 리 없다. 걸리면 규칙이나 판단이 틀린 것이다. 이름이 `GG1`·`JJ1`·`JJ2`·`KK`로 시작하는 나머지 `describe`(`'GG1 — 소스 스캔 (초크포인트)'` 등)는 골든이 아니라 위 규칙을 그대로 따른다.
@@ -189,7 +200,7 @@
 
 ### 검증 (`src/lib/v21.test.ts` describe `VV2`, `scripts/test-paths.test.mjs`)
 - **이름 집합**: VV2 전(`main`)과 후에 `npx vitest run --reporter=json --outputFile=<스크래치>/{before,after}.json`. 테스트 이름(`assertionResults[].fullName` — 파일 경로 없음)별 개수로 비교해 **후에만 있는 이름이 0개**(VV2가 더한 `VV2` describe와 새 속성, `test-paths` 제외). 지운 이름은 DEV-RECORD에 **파일 · 전 · 후 · 지운 이유(규칙 줄)** 표로(개수와 `describe` 묶음 단위. 이름 1천여 개를 늘어놓지 않는다).
-- **남긴 본문 불변**: 아래 출력에 남는 줄은 **`properties.test.ts`에 VV2가 더한 속성 줄**과 **3) 원소 빼기로 줄인 `toHaveLength(n)` 줄**뿐이다(복사). 그 밖의 줄이 있으면 줄마다 무엇인지 DEV-RECORD에. `-`줄에서 지우는 경로 원소를 뺀 것과 같은 `+`줄은 거른다 — 원소 빼기로 바뀐 줄은 나오지 않는다.
+- **남긴 본문 불변**: 아래 출력에 남는 줄은 **`properties.test.ts`에 VV2가 더한 속성 줄**과 **3) 원소 빼기로 줄인 `toHaveLength(n)` 줄**과 **3) 기대 표의 기대 갱신 줄**(`readModel.ts`를 더한 줄 — `dietAccess:62` 한 줄, `strengthWork:346`의 원소 줄 하나)뿐이다(복사). 그 밖의 줄이 있으면 줄마다 무엇인지 DEV-RECORD에. `-`줄에서 지우는 경로 원소를 뺀 것과 같은 `+`줄은 거른다 — 원소 빼기로 바뀐 줄은 나오지 않는다. 그래서 한 줄 기대를 비운 변경(`toEqual(['/src/lib/useDiet.ts'])` → `toEqual([])`)도 걸러지므로 따로 본다 — 비면 첫 줄 규칙이라 없어야 한다: `git diff -M --diff-filter=MR main..HEAD -- '*.test.ts' '*.test.mjs' | grep -E '^\+.*to(Equal|StrictEqual)\(\[\s*\]\)'` → 빈 출력(복사).
   ```sh
   W="beep|chartTheme|commitEdits|gistSync|inputProps|mealCalendar|pickFile|platform|routineStore|share|useDiet|useExerciseSettings|usePwaUpdate|useRestTimer|useRoutine|useRoutineEditContext|useSessionEditor"
   DEL="['\"](/?src/(screens|components|ax|store)/[^'\"]*|/?src/(App|main)\.tsx|/?src/db/index\.ts|/?src/lib/($W)\.ts)['\"]"
@@ -199,7 +210,7 @@
   ```
   (`--diff-filter=MR` — 새 파일 `v21.test.ts`·`test-paths.test.mjs`는 빠지고, `mealCalendar` → `dietSlots` 같은 이름 바꿈은 들어간다. 여러 줄 import 묶음 안의 이름 줄은 둘째 `grep`이 거른다. 원소 빼기로 바뀐 줄은 3)의 DEV-RECORD 표가 센다.)
 - 골든 `describe` 일곱(3)의 제목 그대로 — `GG1 골든 (리팩터링 전 기준)` · `JJ1 — 생성 불변 (골든)` · `JJ2 — normal 불변 (골든)` · `KK 골든` · `LL0 골든 — v1.13 출력` · `MM0 골든 — v1.14 출력 고정` · `NN0 골든 — v1.15 출력 고정`)의 `it` 이름이 후에도 전부 있다. 전후 JSON에서 `fullName`이 이 일곱 제목으로 시작하는 이름 목록을 뽑아 `diff` → 빈 출력(복사).
-- 원소 빼기·문장 지우기 표(3))의 자리마다 남은 `it`이 통과한다. 그 표의 "남은 경로"는 전부 코어에 남는 파일이다.
+- 원소 빼기·기대 갱신·문장 지우기 표(3))의 자리마다 남은 `it`이 통과한다. 그 표의 "남은 경로"는 전부 코어에 남는 파일이다. 기대 갱신 두 곳의 `it` 이름이 후에도 있다(이름 집합에서 지운 이름에 없다).
 - 헛도는 경로 막이: 지금 모든 glob·경로 리터럴이 파일과 맞는다(허용 목록 제외).
 - `readModel` 동등(1판 그대로): `pickActiveRoutine` — 활성 id가 있고 존재 / 없음 / 지워진 루틴 / 루틴 0개 → `undefined`. `pickOpenSession` — 끝나지 않은 둘 중 `startedAt`이 늦은 것 / 전부 끝남 → `undefined`. `buildDietData` — 옛 플랜을 쓰는 날의 `isTrainingDay`가 근력 세션 날짜로 고쳐진다, 유산소만 한 날은 휴식일. `settingValue` — 행 없음 → `fallback` / `{ key, value: 0 }` → `0`(거짓 값도 값이다) / `{key}`만 있는 행 → `undefined`(`getSetting`과 같다. 그런 행은 웹의 `deleteSettings`가 막아 실제로는 없다).
 - **속성**(`src/lib/properties.test.ts`): `pickOpenSession`·`pickActiveRoutine`은 배열 순서를 바꿔도 같은 것을 고른다. 생성기는 `startedAt`·루틴 `id`를 서로 다르게 만든다(동점은 아래 "정렬 동점" — 지금 동작이고 이 속성의 대상이 아니다).
@@ -774,6 +785,7 @@ function homeModel(input: HomeInput): HomeModel | { empty: true }
 |---|---|---|
 | 웹 화면·소스를 보던 테스트가 지워진다 | VV2 | 판정이 아니라 지운 화면·CSS·웹 lib를 본 테스트다. 목록은 DEV-RECORD |
 | 섞인 스캔이 웹 원소를 빼고 줄어든다 | VV2 | 감시 대상이 남는 코어 파일로 준다. 단언은 그대로. 자리 표는 DEV-RECORD |
+| 스캔 결과 기대 두 곳이 `useDiet.ts` 대신 `readModel.ts`를 가리킨다 | VV2 | `dietAccess:62`·`strengthWork:346`. 같은 식이 옮긴 자리를 감시한다("정규화는 한 곳"·"근력 날짜는 chokepoint"). VV3에서 `src/core/`로 |
 | `fingerprintPayload`가 `nativeImport` 키를 뺀다 | VV5 | 배포된 웹에는 닿지 않는다. 앱의 v2.2 업로드 판정의 입력 |
 | 앱 홈에 백업 배너가 없다 | VV8 | 판정은 같고 표시만 없다 |
 
@@ -801,14 +813,14 @@ VV6을 VV7보다 먼저: 가져오기 화면이 `ui` 부품을 쓴다. VV5를 VV
 - `npm run check`(마무리), 작업 중에는 `npm run check -- --fast`와 관련 테스트만(`npx vitest run <파일>`). 타입은 `npm run typecheck`.
 - 맥북 사양: Metro·Xcode 빌드가 떠 있을 때 `npm run check`를 같이 돌리지 않는다(v2.0 11.6).
 - 커밋 메시지는 `git commit -F - <<'MSG'`, 줄바꿈 LF(`grep -c $'\r' <파일>` 0).
-- **기존 테스트는 VV2 3)의 규칙(주제가 지워진 `it` 지우기, 옮긴 이름의 import)과 VV3의 경로 말고 고치지 않는다.** 더하는 것: `scripts/check.test.mjs`의 번들 단언(VV4), `scripts/mutation.test.mjs`에 `src/core/x.ts` → 대상 · `src/core/x.test.ts` → 대상 아님(VV3). 그 밖에서 깨지면 멈추고 보고한다.
+- **기존 테스트는 VV2 3)의 규칙(주제가 지워진 `it` 지우기, 원소 빼기·기대 갱신·문장 지우기, 옮긴 이름의 import)과 VV3의 경로 말고 고치지 않는다.** 더하는 것: `scripts/check.test.mjs`의 번들 단언(VV4), `scripts/mutation.test.mjs`에 `src/core/x.ts` → 대상 · `src/core/x.test.ts` → 대상 아님(VV3). 그 밖에서 깨지면 멈추고 보고한다.
 - 테스트에 실제 토큰·네트워크가 없다(fetch 모킹). 사람의 Gist는 실기기 확인에서만 쓰고 레포에 내용을 남기지 않는다.
 - **새 스캔 결함 복원 확인**(`cp` 백업 → 결함 되살림 → 실패 확인 → 되돌림 → `cmp`). 최소:
   ① (VV3) `src/core/derive.ts`에 `import '../db/schema'` → `boundary --check` 종료 코드 1
   ② (VV3) `src/core/dates.ts`에 `localStorage.getItem('x')` → 위반
   ③ (VV2) 남긴 테스트 하나에 `nn1Src("src/screens/HomeScreen.tsx")`를 읽는 줄 → 헛도는 경로 막이(리터럴) 실패 · (VV3) `v1111.test.ts` glob을 옛 `/src/lib/exportMarkdown.ts`로 → 막이(glob) 실패
   ④ (VV2) `pickOpenSession`이 첫 번째 끝나지 않은 세션을 돌려주게 → 속성 "순서를 바꿔도 같다" 실패
-  ⑤ (VV2) 남긴 테스트의 단언 한 줄을 바꾼다 → "남긴 본문 불변" 명령이 그 줄을 출력한다 · 원소 빼기에서 남는 원소(`'/src/lib/exportMarkdown.ts'`)까지 뺀다 → 같은 명령이 그 줄을 출력한다 · 웹 원소(`'/src/screens/HomeScreen.tsx'`)를 glob 배열에 남긴다 → 헛도는 경로 막이(glob) 실패
+  ⑤ (VV2) 남긴 테스트의 단언 한 줄을 바꾼다 → "남긴 본문 불변" 명령이 그 줄을 출력한다 · 원소 빼기에서 한 줄 배열(`v111.test.ts:618`)의 남는 원소(`'/src/lib/exportMarkdown.ts'`)까지 뺀다 → 같은 명령이 그 줄을 출력한다(여러 줄 배열의 원소 줄 지우기는 명령이 못 본다 — 3) 자리 표가 막이) · `dietAccess.test.ts:62`를 `toEqual([])`로 → 빈 기대 `grep`이 그 줄을 출력한다 · 웹 원소(`'/src/screens/HomeScreen.tsx'`)를 glob 배열에 남긴다 → 헛도는 경로 막이(glob) 실패
   ⑥ (VV4) `src/app/index.tsx`에 `import … from 'expo-sqlite'` → `checkLayers` 실패 · `src/home/`에 `Platform.OS` → 실패 · `src/core/dates.ts`에 안 쓰는 변수 → 린트 실패(`eslint.config.mjs`가 읽힌다)
   ⑦ (VV5) `sessionRow`가 `endedAt`을 `''`로 → 승격 열 단언 실패
   ⑧ (VV5) `settingsRow`가 `body`에 `{ ...row, value: row.value ?? null }` → `ok: false`(지문). 그 상태에서 `digestMatch` 조건까지 지우면 `ok: true`가 되고 `legacyEmpty` 단언만 실패 — **숫자가 못 보는 것을 지문이 본다**
@@ -943,5 +955,14 @@ PR 2 실기기 확인 전 한 번:
 | 경미 5 — 시각은 `formatDateTimeLocal`로(R5) | **반영** | `dates.ts:168` 확인. VV7 결과 표(문구 C·VV8 머리 포함), VV8 머리, `homeModel` 검증 한 줄 |
 
 화면에 보이는 문구는 이 라운드에서 바뀌지 않았다.
+
+### 개정 2라운드 (`.reports/v2.1-review.md` "2라운드", Claude Opus 5.5, 검토 커밋 `6dba8da`) — 개정 검토는 이 라운드로 끝났다
+
+| 지적 | 판단 | 근거·반영 자리 |
+|---|---|---|
+| 고칠 것 A — 결과 경로를 고정한 기대(`toEqual([...경로])`)에 규칙이 없다 | **반영** | `dietAccess.test.ts:56-63`(`resolveTrainingDays(` 호출자 — `useDiet.ts:64`), `strengthWork.test.ts:344-354`(`strengthDates(` 호출자 — `useDiet.ts:61`, 화면 셋), `audioIndependence:47`·`v120:188·414` 확인. 설계자 grep으로 경로 리터럴을 담은 기대를 **18곳** 셌다(다른 매처에는 없다). 검토자의 방향대로 3) 표에 "기대 갱신" 줄, 18곳의 처리를 정한 기대 표(갱신 2 · 그대로 7 · 지움 9), 넓은 glob 줄에 예외, DEV-RECORD 자리 표에 기대 갱신, "남긴 본문 불변" 허용 줄, 검증, 결함 복원 ⑤, "과거 판정 불변" 표. 가짜 diff로 확인: 명령 출력은 기대 갱신 두 줄뿐이다. **추가로 고친 것**: ① `v116:928`은 화면·`routineStore`와 함께 `seed.ts`의 `ensureSeed`도 지워져(VV2 1)) 결과가 빈다 — 원소 빼기가 아니라 지움. ② 한 줄 기대를 비운 변경은 명령의 `sed`가 거르므로 빈 기대 `grep`(`to(Equal\|StrictEqual)\(\[\s*\]\)`)을 따로 둔다 — 가짜 입력으로 `pickOpenSession([])` 같은 줄은 안 걸리는 것을 확인. ③ 진단의 "19곳" 셈에 기대 넷이 섞였다고 적었다(셈은 고치지 않았다 — 규칙이 정본) |
+| 경미 1 — 여러 줄 배열의 원소 줄 지우기는 명령에 안 보인다 | **반영** | 3) 자리 표가 유일한 막이라고 적고, 결함 복원 ⑤의 예를 한 줄 배열 `v111.test.ts:618`로 못 박았다(지금 예 `exportMarkdown.ts`가 든 배열이다) |
+| 1라운드 경미 1 수치 기각 | — | 검토자가 기각에 동의했다 |
+| 사람이 정할 것 | — | 없음. 그대로 |
 
 기각한 지적: 1라운드 "1-4 PR 2를 둘로", "경미 7" 둘 · 개정 1라운드 "경미 1의 수치"(위 표).
