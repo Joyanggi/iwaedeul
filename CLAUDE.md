@@ -13,7 +13,8 @@
 
 ## 이 앱
 
-1인용 운동·식단 기록 앱. 서버·로그인이 없고, 데이터는 기기 안에 있으며 Gist로 백업한다(웹 시절 IndexedDB, 앱은 SQLite).
+1인용 운동·식단 기록 앱 **이왜들**(레포 `iwaedeul`, 2026-11-27에 `workout-tracker`에서 이름을 바꿨다). 서버·로그인이 없고, 데이터는 기기 안에 있으며 Gist로 백업한다(웹 시절 IndexedDB, 앱은 SQLite).
+백업 형식의 `APP_ID`(`"workout-tracker"`)와 Gist 파일 이름 `workout-tracker-backup.json`은 **데이터 식별자라 바꾸지 않는다** — 바꾸면 기존 백업을 못 읽는다.
 `README.md`의 "핵심 설계 결정"을 뒤집는 변경은 하지 않는다.
 
 **v2.0부터 Expo 네이티브 앱(iOS 먼저, 안드로이드 같은 코드베이스)으로 옮긴다** — `docs/PLAN-v2.0.md`·`docs/PLAN-v2.1.md`.
@@ -72,6 +73,8 @@ PLAN v2.0 "뒤집는 README 결정"과 PLAN v2.1이 더 뒤집은 것(웹 배포
 - `docs/DEV-RECORD-*.md`: 구현 기록. 맨 위에 "이 환경에서 확인된 제약" 목록이 있다. 구현자가 쓴다.
 - `REVIEW.md`: 이 레포에서 무엇이 "실패"인가 — 리뷰어·설계 검토자가 읽는다. 지적은 Important / Nit / Pre-existing 셋으로만 나눈다.
 - `docs/RELIABILITY.md`: 과거 사고를 diff 방아쇠와 함께 적어 둔 표.
+- 웹 시절 문서(PLAN v1.x · DEV-RECORD v1.x · 실사용 보고 · 리뷰 문서 · 웹 스크린샷)는 지웠고 태그 **`archive/web-era`**에 있다.
+  코드 주석·RELIABILITY·INCIDENTS가 가리키는 옛 PLAN은 `git show archive/web-era:docs/PLAN-v1.13.md`처럼 꺼내 읽는다.
 
 ## 환경
 

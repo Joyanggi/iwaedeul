@@ -124,8 +124,8 @@ cd ~/orca/workout-tracker-Joyanggi && git pull --ff-only && claude --model sonne
 | 설계로 정해서 | `설계 작업. 주제: 이슈 #24` (PLAN 파일·작업 ID는 적으면 그대로 쓴다) |
 | 설계 검토자 모델 지정 | 위 문장 끝에 `검토자: sonnet` (한도가 빠듯할 때. 안 적으면 opus 하나) |
 | 모델 지정 (그 Run만) | 위 문장 끝에 `설계자 모델: sonnet`. 구현자와 리뷰어를 같은 모델로 만드는 지정은 거절된다. **Pro에서 못 쓰는 모델(Fable)은 지정할 수 없다** |
-| PLAN 작업 하나 | `docs/PLAN-v1.14.md의 LL1을 진행해` |
-| PLAN 남은 작업 전부 | `docs/PLAN-v1.14.md의 미구현 작업을 전부 진행해` |
+| PLAN 작업 하나 | `docs/PLAN-v2.1.md의 VV4를 진행해` |
+| PLAN 남은 작업 전부 | `docs/PLAN-v2.1.md의 미구현 작업을 전부 진행해` |
 | 멈춘 일 이어서 | 새 세션에서 `/coord 이어서 진행해` (진행 파일 `.reports/run-*.md`를 읽고 이어간다) |
 | 규칙 정비 | (지휘자 말고 그냥 Claude 세션에서) `agents/RULES-KEEPER.md를 읽고 규칙 정비해` |
 | 품질 정리 (따로) | `품질 정리해` (PLAN이 끝나면 지휘자가 알아서 하므로 보통은 필요 없다) |
